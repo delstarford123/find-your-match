@@ -7,6 +7,7 @@ import base64
 import qrcode
 import json
 import threading
+import requests
 from functools import wraps
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -31,20 +32,52 @@ from app.services.moderation import contains_phone_number, analyze_safety
 from app.payments import initiate_stk_push
 
 # ==========================================
-# AI INTEGRATION: LOAD THE FINE-TUNED BRAIN
+# AI INTEGRATION: HUGGING FACE INFERENCE API
 # ==========================================
-# ==========================================
-# AI INTEGRATION: TEMPORARILY DISABLED FOR RENDER
-# (Prevents Out-Of-Memory crashes on the free tier)
-# ==========================================
-# try:
-#     from loveai.src.predict import generate_response, load_model
-#     print("🚀 Initializing Local AI Brain (TinyLlama + MMUST LoRA)...")
-#     load_model() 
-# except Exception as e:
-#     print(f"⚠️ AI Model failed to load. Error: {e}")
+# We use the HF API instead of loading locally to prevent Render OOM crashes.
+HF_TOKEN = os.getenv("HF_TOKEN")
+API_URL = "https://api-inference.huggingface.co/models/Delstarford/mmust-ai-companion-v1"
 
-generate_response = None # Fallback is active
+def get_ai_companion_response(user_text):
+    """Connects the Flask app to the live fine-tuned AI brain on Hugging Face."""
+    if not HF_TOKEN:
+        print("⚠️ HF_TOKEN is missing!")
+        return "My AI brain is currently resting. (API Key missing!)"
+
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    
+    # We format the prompt exactly how TinyLlama expects it
+    prompt = f"<|system|>\nYou are a friendly, flirty, and supportive AI dating companion for university students. Keep it clean and encouraging.</s>\n<|user|>\n{user_text}</s>\n<|assistant|>\n"
+    
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 100,  # Keep responses concise
+            "temperature": 0.7,     # 0.7 gives a good mix of creativity and focus
+            "return_full_text": False # We only want the AI's reply, not the prompt echoed back
+        }
+    }
+
+    try:
+        # Send the message to Hugging Face
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+        response.raise_for_status() # Check for HTTP errors
+        
+        # Parse the response
+        data = response.json()
+        if isinstance(data, list) and len(data) > 0:
+            reply = data[0].get('generated_text', '').strip()
+            if reply:
+                return reply
+                
+        return "I'm thinking about that... what else is on your mind?"
+        
+    except requests.exceptions.Timeout:
+        return "Sorry, my network is a bit slow right now. Give me a second!"
+    except Exception as e:
+        print(f"⚠️ Hugging Face API Error: {e}")
+        return "I'm having a bit of a 'comrade' moment (my brain is lagging). Can you say that again?"
+
 
 # 3. Initialize App & WebSockets
 app = Flask(__name__)
@@ -101,19 +134,6 @@ def requires_subscription(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def get_ai_companion_response(user_text):
-    """Connects the Flask app to your local LoRA fine-tuned model."""
-    if generate_response is None:
-        return "My AI brain is currently resting. Please check the server logs!"
-
-    try:
-        reply = generate_response(user_text)
-        if not reply or len(reply.strip()) == 0:
-            return "I'm thinking about that... what else is on your mind?"
-        return reply
-    except Exception as e:
-        print(f"⚠️ AI Generation Error: {e}")
-        return "I'm having a bit of a 'comrade' moment (my brain is lagging). Can you say that again?"
 
 def trigger_match_notification(target_user_id, current_user_name):
     """Sends a Web Push Notification to the target user when a match occurs."""
@@ -142,7 +162,6 @@ def trigger_match_notification(target_user_id, current_user_name):
         if ex.response and ex.response.status_code == 410:
             db.reference(f'push_subscriptions/{target_user_id}').delete()
             print(f"🧹 Cleaned up expired push token for {target_user_id}")
-
 # ==========================================
 # CORE B2C PAGES (STUDENTS)
 # ==========================================
@@ -745,22 +764,68 @@ def pay_subscription():
     
     return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
 
-@app.route('/api/mpesa/callback', methods=['POST'])
+
+
+@app.route('/mpesa/callback', methods=['POST'])
 def mpesa_callback():
-    callback_data = request.json
+    """
+    WEBHOOK: Safaricom hits this URL when a payment completes.
+    """
+    data = request.get_json()
+    if not data:
+        return "No data", 400
+
     try:
-        result_code = callback_data['Body']['stkCallback']['ResultCode']
+        result_code = data['Body']['stkCallback']['ResultCode']
+        
+        # ResultCode 0 means SUCCESS (Customer entered PIN and paid)
         if result_code == 0:
-            restaurant_id = "FETCHED_RESTAURANT_ID" # You'll need to fetch this from a pending_payments table similar to students
-            ref = db.reference(f'restaurants/{restaurant_id}')
-            ref.update({
-                'subscription_active': True,
-                'subscription_expiry': (datetime.now() + timedelta(days=30)).isoformat()
+            callback_metadata = data['Body']['stkCallback']['CallbackMetadata']['Item']
+            
+            # Extract the exact details from Safaricom
+            amount = next((item['Value'] for item in callback_metadata if item['Name'] == 'Amount'), None)
+            receipt = next((item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'), None)
+            phone = next((item['Value'] for item in callback_metadata if item['Name'] == 'PhoneNumber'), None)
+            
+            # 1. Save to Financial Ledger
+            db.reference('ledger').push({
+                'amount': amount,
+                'receipt': receipt,
+                'phone': phone,
+                'timestamp': datetime.now().isoformat(),
+                'status': 'Completed'
             })
-            print(f"💰 SUCCESS: Subscription activated for {restaurant_id}")
+            print(f"💰 M-Pesa Payment Received: {amount} KSH (Receipt: {receipt})")
+
+            # 2. THE UNLOCK LOGIC: Find the user with this phone number and unlock them
+            if phone:
+                # Convert the integer phone from Safaricom to string just in case
+                phone_str = str(phone) 
+                
+                # Search the database for the user who owns this phone number
+                profiles_ref = db.reference('profiles')
+                matching_users = profiles_ref.order_by_child('phone').equal_to(phone_str).get()
+                
+                if matching_users:
+                    for uid in matching_users.keys():
+                        # Change their payment status to True!
+                        db.reference(f'profiles/{uid}').update({'is_paid': True})
+                        print(f"✅ Successfully unlocked account for user ID: {uid}")
+                else:
+                    print(f"⚠️ Payment received, but could not find a user with phone: {phone_str}")
+
+        else:
+            # ResultCode is not 0 (User cancelled, insufficient funds, etc.)
+            fail_reason = data['Body']['stkCallback'].get('ResultDesc', 'Unknown Error')
+            print(f"❌ M-Pesa Payment Failed: {fail_reason}")
+
+        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
     except Exception as e:
-        print(f"❌ Webhook parsing error: {e}")
-    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+        print(f"Error processing M-Pesa Callback: {e}")
+        return jsonify({"ResultCode": 1, "ResultDesc": "Internal Error"}), 500
+
+
 
 
 # ==========================================

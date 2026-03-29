@@ -54,3 +54,6 @@ Desktop.ini
 # ==========================================
 *.log
 logs/
+
+# Ignore Heavy AI Models
+loveai/models/
