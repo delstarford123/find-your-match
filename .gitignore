@@ -57,3 +57,4 @@ logs/
 
 # Ignore Heavy AI Models
 loveai/models/
+merge_and_push.py
