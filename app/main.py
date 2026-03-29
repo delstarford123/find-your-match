@@ -36,7 +36,7 @@ from app.payments import initiate_stk_push
 # ==========================================
 # We use the HF API instead of loading locally to prevent Render OOM crashes.
 HF_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://api-inference.huggingface.co/models/Delstarford/mmust-ai-companion-v1"
+API_URL = "https://router.huggingface.co/hf-inference/models/Delstarford/mmust-ai-companion-v1"
 
 def get_ai_companion_response(user_text):
     """Connects the Flask app to the live fine-tuned AI brain on Hugging Face."""
