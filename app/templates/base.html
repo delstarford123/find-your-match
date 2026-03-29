@@ -17,13 +17,7 @@
     
     <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
     <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:title" content="FIND YOUR MATCH | MMUST's Exclusive AI Powered Dating Club">
-    <meta property="og:description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your hot takes. Join the beta!">
-    <meta property="og:image" content="{{ url_for('static', filename='img/og-banner.jpg', _external=True) }}">
-    <meta property="twitter:card" content="summary_large_image">
-
+    
     <style>
         /* === GLOBAL CSS VARIABLES === */
         :root {
@@ -32,6 +26,7 @@
             --secondary: #800000;
             --text-dark: #1f2937;
             --bg-color: #fafafa;
+            --nav-height: 70px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,10 +45,11 @@
         /* === PREMIUM GLASSMORPHISM NAVBAR === */
         .navbar {
             position: fixed; top: 0; left: 0; right: 0;
-            background: linear-gradient(135deg, rgba(128, 0, 0, 0.92) 0%, rgba(255, 42, 75, 0.88) 100%);
+            height: var(--nav-height);
+            background: linear-gradient(135deg, rgba(128, 0, 0, 0.95) 0%, rgba(255, 42, 75, 0.95) 100%);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             display: flex; justify-content: space-between; align-items: center;
-            padding: 16px 5%; z-index: 2000;
+            padding: 0 5%; z-index: 2000;
             box-shadow: 0 4px 25px rgba(128, 0, 0, 0.25);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -65,30 +61,32 @@
             text-decoration: none; letter-spacing: -0.5px;
             display: flex; align-items: center; gap: 8px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2002;
+            white-space: nowrap;
         }
         
         .nav-links { display: flex; align-items: center; gap: 25px; }
         .nav-links a {
-            text-decoration: none; color: rgba(255, 255, 255, 0.85);
+            text-decoration: none; color: rgba(255, 255, 255, 0.9);
             font-weight: 600; font-size: 15px; transition: all 0.2s;
         }
         .nav-links a:hover { color: white; transform: translateY(-1px); }
         
-        /* === DROPDOWN MENUS === */
+        /* === DROPDOWN MENUS (DESKTOP) === */
         .dropdown { position: relative; display: inline-block; }
         .dropbtn {
             background: none; border: none; cursor: pointer;
-            color: rgba(255, 255, 255, 0.85); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
+            color: rgba(255, 255, 255, 0.9); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
             display: flex; align-items: center; gap: 5px; transition: 0.2s;
         }
         .dropbtn:hover { color: white; }
         
         .dropdown-content {
-            display: none; position: absolute; top: 150%; left: 0;
+            display: none; position: absolute; top: 100%; left: 0;
             background-color: white; min-width: 220px;
             box-shadow: 0 20px 40px rgba(128, 0, 0, 0.15);
-            border-radius: 16px; z-index: 1; overflow: hidden;
+            border-radius: 16px; z-index: 10; overflow: hidden;
             border: 1px solid var(--primary-light); animation: fadeIn 0.2s ease-out;
+            margin-top: 15px;
         }
         .dropdown-content a {
             color: var(--text-dark) !important; padding: 14px 20px;
@@ -121,45 +119,59 @@
 
         /* === MOBILE MENU TOGGLE === */
         .mobile-menu-btn {
-            display: none; font-size: 28px; background: none; border: none; 
-            color: white; cursor: pointer; z-index: 2002; transition: 0.3s;
+            display: none; font-size: 26px; background: none; border: none; 
+            color: white; cursor: pointer; z-index: 2003; 
+            transition: transform 0.3s; width: 40px; height: 40px;
+            align-items: center; justify-content: center;
         }
 
-        /* Mobile Adjustments */
-        @media (max-width: 850px) {
-            .mobile-menu-btn { display: block; }
-            .nav-left-group { gap: 10px; width: 100%; justify-content: space-between; }
+        /* === MOBILE MENU STYLES === */
+        @media (max-width: 900px) {
+            .mobile-menu-btn { display: flex; }
+            .nav-left-group { width: 100%; justify-content: space-between; }
             .nav-right-actions { display: none; }
             
             .nav-links {
-                position: fixed; top: 0; left: 0; right: 0; height: 100vh;
-                background: white; flex-direction: column; padding: 100px 30px 30px;
+                position: fixed; top: var(--nav-height); left: 0; right: 0;
+                background: white;
+                flex-direction: column; 
+                padding: 20px 25px 40px; 
                 box-shadow: 0 10px 25px rgba(128,0,0,0.15);
-                transform: translateY(-100%);
+                transform: translateY(-150%);
                 transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                z-index: 2001; align-items: flex-start; 
+                z-index: 1999; align-items: flex-start; 
+                overflow-y: auto; max-height: calc(100vh - var(--nav-height));
+                opacity: 0; visibility: hidden;
             }
-            .nav-links.active { transform: translateY(0); }
+            .nav-links.active { 
+                transform: translateY(0); 
+                opacity: 1; visibility: visible;
+            }
             
             .nav-links a, .dropbtn { 
                 color: var(--text-dark) !important; width: 100%; text-align: left; 
-                padding: 16px 0; border-bottom: 1px solid #f0f0f0; font-size: 18px;
-                display: flex; justify-content: space-between;
+                padding: 16px 0; 
+                border-bottom: 1px solid #f0f0f0; 
+                font-size: 17px; display: flex; justify-content: space-between;
             }
             
             .dropdown { width: 100%; }
+            .dropdown:hover .dropdown-content { display: none; /* Disable hover on mobile */ }
             .dropdown-content {
                 position: static; box-shadow: none; border: none; padding-left: 20px;
                 display: none; border-bottom: 1px solid #eee; border-radius: 0;
-                background: #fafafa; margin-top: 10px;
+                background: #fafafa; margin-top: 5px; width: 100%; animation: none;
             }
+            .dropdown-content a { padding: 12px 20px; font-size: 15px; border-bottom: 1px solid #eee; }
             .dropdown.active .dropdown-content { display: block; }
             
             .mobile-auth-btn { 
-                background: var(--primary); color: white !important; 
+                background: var(--primary) !important; color: white !important; 
                 text-align: center !important; border-radius: 12px; margin-top: 20px; 
                 border: none !important; justify-content: center !important;
+                padding: 15px !important; font-weight: 800; font-size: 16px;
             }
+            .mobile-only-link { border-bottom: none !important; color: var(--primary) !important; font-weight: 800 !important; }
         }
 
         /* === FLOATING TOAST NOTIFICATIONS === */
@@ -169,8 +181,7 @@
         .alert {
             padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            display: flex; align-items: center; justify-content: space-between;
-            pointer-events: auto;
+            display: flex; align-items: center; justify-content: space-between; pointer-events: auto;
         }
         .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
         .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid #dc3545; }
@@ -182,7 +193,7 @@
         @keyframes slideOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-20px); opacity: 0; } }
 
         /* === MAIN CONTENT === */
-        .container { flex: 1; width: 100%; max-width: 1200px; margin: 90px auto 0; padding: 20px; position: relative; z-index: 10; }
+        .container { flex: 1; width: 100%; max-width: 1200px; margin: var(--nav-height) auto 0; padding: 20px; position: relative; z-index: 10; }
 
         /* === FOOTER === */
         footer { background: var(--secondary); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
@@ -198,7 +209,7 @@
 <body>
     
     <header>
-        <nav class="navbar">
+        <nav class="navbar" id="main-navbar">
             <div class="nav-left-group">
                 <a href="{{ url_for('home') }}" class="logo">
                     <span style="font-size: 26px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">✨</span> FIND YOUR MATCH
@@ -211,7 +222,7 @@
                 
                 {% if session.get('is_super_admin') %}
                     <div class="dropdown">
-                        <button class="dropbtn" style="color: #ffccd5;" onclick="toggleDropdown(this)">Admin ▾</button>
+                        <button class="dropbtn" onclick="toggleDropdown(this)">Admin ▾</button>
                         <div class="dropdown-content">
                             <a href="{{ url_for('admin_ledger') }}">Financial Ledger</a>
                             <a href="{{ url_for('super_admin') }}">Safety Controls</a>
@@ -236,16 +247,16 @@
                     <div class="dropdown">
                         <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
                         <div class="dropdown-content">
-                            <a href="{{ url_for('matches') }}"> Messages</a>
+                            <a href="{{ url_for('matches') }}">Messages</a>
                             <a href="{{ url_for('profile') }}">Edit Profile</a>
-                            <a href="{{ url_for('settings') }}"> Settings</a>
-                            <a href="{{ url_for('safety') }}"> Safety Center</a>
+                            <a href="{{ url_for('settings') }}">Settings</a>
+                            <a href="{{ url_for('safety') }}">Safety Center</a>
                         </div>
                     </div>
                     
                     <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn" style="display: none;">Log Out</a>
                 {% else %}
-                    <a href="{{ url_for('auth.login') }}" style="display: none; color: var(--primary) !important; font-weight: 800;" class="mobile-only-link">Log In</a>
+                    <a href="{{ url_for('auth.login') }}" style="display: none;" class="mobile-only-link">Log In</a>
                     <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn" style="display: none;">Sign Up</a>
                 {% endif %}
             </div>
@@ -320,14 +331,15 @@
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'block'; });
             } else {
                 btn.innerHTML = '☰';
-          <      document.body.style.overflow = 'auto'; 
+                document.body.style.overflow = 'auto'; 
                 document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'none'; });
             }
         }
 
         function toggleDropdown(button) {
-            if (window.innerWidth <= 850) {
+            // Only trigger click logic on mobile views
+            if (window.innerWidth <= 900) {
                 const parentDropdown = button.parentElement;
                 parentDropdown.classList.toggle('active');
             }
@@ -356,28 +368,25 @@
             });
         } 
 
-        // Intercept browser's native install prompt
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault(); // Stop Chrome from automatically showing the banner
-            deferredPrompt = e; // Save the event so we can trigger it later
-            installBanner.style.display = 'flex'; // Show our custom UI
+            e.preventDefault(); 
+            deferredPrompt = e; 
+            installBanner.style.display = 'flex'; 
         });
 
-        // Trigger installation when the user clicks our button
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
-                installBanner.style.display = 'none'; // Hide our banner
-                deferredPrompt.prompt(); // Show the browser's native install modal
+                installBanner.style.display = 'none'; 
+                deferredPrompt.prompt(); 
                 
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
                     console.log('User accepted the install prompt');
                 }
-                deferredPrompt = null; // Clear the saved prompt since it can't be used again
+                deferredPrompt = null; 
             }
         });
 
-        // Hide banner permanently if the app is already installed
         window.addEventListener('appinstalled', () => {
             installBanner.style.display = 'none';
             console.log('App was successfully installed!');
