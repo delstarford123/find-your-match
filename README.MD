@@ -23,4 +23,8 @@ The Safest, Smartest, and Most Purpose-Driven AI Dating Ecosystem in Africa.
 🛠️ Technical ArchitectureFrontend: HTML5, CSS3 (Glassmorphism UI), Vanilla JS, Progressive Web App (PWA) manifest for native-app installation.Backend: Python / Flask, Gunicorn, Eventlet (for real-time WebSocket chatting).Database: Firebase Realtime Database (ultra-low latency data syncing).Artificial Intelligence: * Custom Fine-tuned LLM (TinyLlama + MMUST LoRA) for the AI Companion.Real-time NLP sentiment analysis for moderation.Payments: Safaricom Daraja API (M-Pesa Express / STK Push).Deployment: Render (Cloud Hosting) / Ngrok (Local Testing).
 🔒 Privacy & Data ControlWe believe in user sovereignty. While the AI relies on data to predict successful marriages, users retain full control in their dashboard to limit AI access to specific data points. All terminated connections result in a hard, unrecoverable deletion of shared data to protect user privacy.
 
-🤝 Partner With UsFIND YOUR MATCH is more than code; it is a movement to protect students, foster genuine love, and grow local businesses.If you are a restaurant owner in Kakamega looking to increase your weekend traffic, or an investor passionate about AI for social good and mental health, we want to hear from you.Contact: [Insert Your Email/Contact Info Here]Organization: Delstarford WorksLocation: Kakamega, Kenya 🇰🇪
+🤝 Partner With UsFIND YOUR MATCH is more than code; it is a movement to protect students, foster genuine love, and grow local businesses.If you are a restaurant owner in Kakamega looking to increase your weekend traffic, or an investor passionate about AI for social good and mental health, we want to hear from you
+
+Contact: delstarfordisaiah@gmail.com
+Organization: Delstarford Works
+Location: Kakamega, Kenya 🇰🇪
