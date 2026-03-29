@@ -33,14 +33,18 @@ from app.payments import initiate_stk_push
 # ==========================================
 # AI INTEGRATION: LOAD THE FINE-TUNED BRAIN
 # ==========================================
-try:
-    from loveai.src.predict import generate_response, load_model
-    print("🚀 Initializing Local AI Brain (TinyLlama + MMUST LoRA)...")
-    load_model() 
-except Exception as e:
-    print(f"⚠️ AI Model failed to load. Error: {e}")
-    generate_response = None # Fallback
+# ==========================================
+# AI INTEGRATION: TEMPORARILY DISABLED FOR RENDER
+# (Prevents Out-Of-Memory crashes on the free tier)
+# ==========================================
+# try:
+#     from loveai.src.predict import generate_response, load_model
+#     print("🚀 Initializing Local AI Brain (TinyLlama + MMUST LoRA)...")
+#     load_model() 
+# except Exception as e:
+#     print(f"⚠️ AI Model failed to load. Error: {e}")
 
+generate_response = None # Fallback is active
 
 # 3. Initialize App & WebSockets
 app = Flask(__name__)

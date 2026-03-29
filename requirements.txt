@@ -1,12 +1,27 @@
+# Web Framework & Server
 Flask
+Flask-SocketIO
+gunicorn
+eventlet
+
+# Database & Environment
+firebase-admin
 psycopg2-binary
-torch
-transformers
-sentence-transformers
+python-dotenv
+
+# Utilities (Push Notifications & QR Codes)
+pywebpush
+qrcode
+Pillow
+
+# Data Science & Machine Learning
 pandas
 numpy
 scikit-learn
+
+# AI / Deep Learning (TinyLlama & LoRA)
+torch
 torchvision
+transformers
+sentence-transformers
 huggingface_hub
-Pillow
-firebase-admin
