@@ -1,0 +1,26 @@
+[
+  {
+    "id": "MMUST_001",
+    "name": "Ochieng, 21",
+    "bio": "Computer Science. I practically live in the SPD building. Java and coffee keep me alive.",
+    "img": "https://i.pravatar.cc/400?img=11"
+  },
+  {
+    "id": "MMUST_002",
+    "name": "Wanjiku, 20",
+    "bio": "Nursing student. I love late night walks around Kakamega and vibing to Afrobeats.",
+    "img": "https://i.pravatar.cc/400?img=5"
+  },
+  {
+    "id": "MMUST_003",
+    "name": "Kipchoge, 23",
+    "bio": "Engineering. Always at the gym or eating chapati at the local vibandas.",
+    "img": "https://i.pravatar.cc/400?img=12"
+  },
+  {
+    "id": "MMUST_004",
+    "name": "Akinyi, 22",
+    "bio": "Business Admin. Looking for a study buddy and someone to explore the forest with.",
+    "img": "https://i.pravatar.cc/400?img=9"
+  }
+]

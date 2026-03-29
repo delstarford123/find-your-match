@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .profile-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 40px;
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 0 20px;
+    }
+
+    /* Left Column: Edit Form */
+    .edit-section {
+        flex: 1.2;
+        min-width: 300px;
+        background: white;
+        padding: 30px;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.05);
+        border: 1px solid #ffccd5;
+    }
+    
+    .edit-section h2 { color: #800000; margin-bottom: 25px; font-size: 24px; }
+    .section-title { color: #800000; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #fff0f3; padding-bottom: 5px; }
+
+    .input-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: #4a0404;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .input-group input, .input-group select, .input-group textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid #ffccd5;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 15px;
+        background: #fafafa;
+        transition: 0.3s;
+    }
+
+    .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+        border-color: #ff2a4b;
+        background: white;
+        outline: none;
+    }
+
+    /* Right Column: Live Preview Card */
+    .preview-section {
+        flex: 0.8;
+        min-width: 300px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .preview-title {
+        color: #ff4d6d;
+        font-size: 14px;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 1px;
+        margin-bottom: 15px;
+    }
+
+    .preview-card {
+        width: 100%;
+        max-width: 350px;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 15px 35px rgba(128, 0, 0, 0.15);
+        border: 1px solid #ffccd5;
+    }
+
+    .preview-card img { width: 100%; height: 350px; object-fit: cover; }
+    .preview-info { padding: 20px; }
+    .preview-info h3 { color: #800000; font-size: 24px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; }
+    .preview-info p { color: #4a0404; font-size: 14px; line-height: 1.5; }
+    .age-badge { background: #fff0f3; color: #ff2a4b; font-size: 12px; padding: 4px 10px; border-radius: 15px; font-weight: bold; }
+
+    /* Dynamic Schedule Styles */
+    .schedule-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .btn-remove-row { background: none; border: none; color: #ff2a4b; font-size: 24px; cursor: pointer; display: none; padding: 0 5px; }
+</style>
+
+<div class="profile-container">
+    
+    <div class="edit-section">
+        <h2>Edit Profile</h2>
+        <form action="{{ url_for('profile') }}" method="POST" enctype="multipart/form-data">
+            
+            <h4 class="section-title">Basic Info</h4>
+            
+            <div class="input-group" style="margin-bottom: 20px;">
+                <label for="bio">Your Bio</label>
+                <textarea id="bio" name="bio" rows="4" required placeholder="Tell MMUST about yourself...">{{ user.bio }}</textarea>
+                <small style="color: #888; font-size: 12px; margin-top: 5px; display: block;">Include your major and hobbies to get better AI matches!</small>
+            </div>
+
+            <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+                <div class="input-group" style="flex: 1;">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" name="age" value="{{ user.age }}" min="18" max="40" required>
+                </div>
+                
+                <div class="input-group" style="flex: 1;">
+                    <label for="religion">Religion</label>
+                    <select id="religion" name="religion" required>
+                        <option value="Christian" {% if user.religion == 'Christian' %}selected{% endif %}>Christian</option>
+                        <option value="Muslim" {% if user.religion == 'Muslim' %}selected{% endif %}>Muslim</option>
+                        <option value="Hindu" {% if user.religion == 'Hindu' %}selected{% endif %}>Hindu</option>
+                        <option value="Other" {% if user.religion == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <h4 class="section-title">Class Schedule</h4>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
+            
+            <div id="schedule-container">
+                <div class="schedule-row">
+                    <select name="day_of_week[]" style="padding: 10px; border-radius: 8px; border: 2px solid #ffccd5; flex: 2; font-family: inherit;">
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                    </select>
+                    <input type="time" name="start_time[]" style="padding: 10px; border-radius: 8px; border: 1px solid #ffccd5; flex: 1.5;">
+                    <span style="color: #4a0404; font-weight: bold;">to</span>
+                    <input type="time" name="end_time[]" style="padding: 10px; border-radius: 8px; border: 1px solid #ffccd5; flex: 1.5;">
+                    
+                    <button type="button" class="btn-remove-row" title="Remove">&times;</button>
+                </div>
+            </div>
+
+            <button type="button" id="btn-add-schedule" style="width: 100%; border: 2px dashed #ff2a4b; background: #fff0f3; color: #ff2a4b; font-weight: bold; margin: 20px 0 30px; padding: 12px; border-radius: 10px; cursor: pointer; transition: 0.2s;">
+                + Add Another Free Block
+            </button>
+
+            <button type="submit" class="btn-primary w-100" style="padding: 15px; font-size: 16px;">Save All Changes</button>
+        </form>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="font-size: 13px; color: #666; font-weight: bold; margin-bottom: 10px;">Uneditable Details</p>
+            <p style="font-size: 13px; color: #888; margin-bottom: 5px;"><strong>Name:</strong> {{ user.name }}</p>
+            <p style="font-size: 13px; color: #888; margin-bottom: 5px;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
+            <p style="font-size: 13px; color: #888;"><strong>Gender:</strong> {{ user.gender }}</p>
+            <small style="color: #ff4d6d; font-size: 11px; display: block; margin-top: 10px;">* Name, Registration Number, and Gender cannot be changed after signup.</small>
+        </div>
+    </div>
+
+    <div class="preview-section">
+        <div class="preview-title">👁️ How others see you</div>
+        
+        <div class="preview-card">
+            <img src="{{ user.img }}" alt="Your Profile Picture">
+            
+            <div class="preview-info">
+                <h3>
+                    {{ user.name.split(',')[0] }} 
+                    <span class="age-badge">{{ user.age }}</span>
+                </h3>
+                
+                {% if '🕒' in user.bio or '✨' in user.bio %}
+                <span style="background: #ff2a4b; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-block; margin-bottom: 8px;">
+                    ✨ AI Optimized
+                </span>
+                {% endif %}
+                
+                <p>{{ user.bio }}</p>
+            </div>
+        </div>
+
+        <button onclick="alert('Image upload coming next!')" style="margin-top: 20px; background: white; border: 2px dashed #ff2a4b; color: #ff2a4b; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; max-width: 350px;">
+            📷 Update Profile Picture
+        </button>
+    </div>
+
+</div>
+
+<script>
+    // Live Text Preview
+    document.getElementById('bio').addEventListener('input', function() {
+        document.querySelector('.preview-info p').innerText = this.value || "Tell MMUST about yourself...";
+    });
+    document.getElementById('age').addEventListener('input', function() {
+        document.querySelector('.age-badge').innerText = this.value || "18";
+    });
+
+    // Dynamic Schedule Rows
+    document.getElementById('btn-add-schedule').addEventListener('click', function() {
+        const container = document.getElementById('schedule-container');
+        const rows = container.getElementsByClassName('schedule-row');
+        
+        // Clone the first row
+        const newRow = rows[0].cloneNode(true);
+        
+        // Clear out the time inputs
+        const timeInputs = newRow.querySelectorAll('input[type="time"]');
+        timeInputs.forEach(input => input.value = '');
+        
+        // Reveal the "X" button so they can delete this cloned row
+        const removeBtn = newRow.querySelector('.btn-remove-row');
+        removeBtn.style.display = 'block';
+        
+        removeBtn.addEventListener('click', function() {
+            newRow.remove();
+        });
+        
+        container.appendChild(newRow);
+    });
+</script>
+{% endblock %}

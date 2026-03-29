@@ -1,0 +1,56 @@
+# ==========================================
+# 1. SECURITY & SECRETS (NEVER COMMIT THESE)
+# ==========================================
+.env
+.env.*
+firebase_key.json
+*secret*.json
+*.pem
+
+# ==========================================
+# 2. PYTHON & FLASK VIRTUAL ENVIRONMENTS
+# ==========================================
+.venv/
+venv/
+env/
+ENV/
+
+# ==========================================
+# 3. PYTHON CACHE & COMPILED FILES
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ==========================================
+# 4. FLASK & LOCAL DATABASES
+# ==========================================
+instance/
+.webassets-cache
+*.sqlite3
+*.db
+
+# ==========================================
+# 5. OS & IDE GENERATED FILES
+# ==========================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# VS Code / PyCharm
+.vscode/
+.idea/
+*.swp
+
+# ==========================================
+# 6. LOGS
+# ==========================================
+*.log
+logs/

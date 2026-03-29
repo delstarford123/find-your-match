@@ -1,0 +1,137 @@
+{
+  "admin_alerts": {
+    "alert_999": {
+      "flag": "contact_sharing",
+      "message": "Hey give me your phone number 0712345678",
+      "receiver": "SAB_B_01-04774_2023",
+      "sender": "HNS_B_05-01234_2024",
+      "timestamp": "2026-03-25T20:00:00"
+    }
+  },
+  "profiles": {
+    "HNS_B_05-01234_2024": {
+      "age": 20,
+      "bio": "Nursing student. I love late night walks around Kakamega and vibing to Afrobeats.",
+      "email": "wanjiku@example.com",
+      "gender": "Female",
+      "id": "HNS_B_05-01234_2024",
+      "img": "https://i.pravatar.cc/400?img=5",
+      "is_paid": true,
+      "is_verified": true,
+      "reg_number": "HNS/B/05-01234/2024",
+      "religion": "Christian",
+      "settings": {
+        "ai_companion_mode": false,
+        "looking_for": "Male"
+      },
+      "subscription_expiry": "2026-04-20T14:30:00",
+      "vibe_vector": [0.15, -0.4, 0.82, 0.05]
+    },
+    "SAB_B_01-04774_2023": {
+      "age": 21,
+      "bio": "Computer Science. I practically live in the SPD building. Java and coffee keep me alive.",
+      "email": "ochieng@example.com",
+      "father_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gender": "Male",
+      "id": "SAB_B_01-04774_2023",
+      "img": "https://i.pravatar.cc/400?img=11",
+      "is_paid": true,
+      "is_verified": true,
+      "mother_hash": "af23101298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "name": "Ochieng",
+      "reg_number": "SAB/B/01-04774/2023",
+      "religion": "Christian",
+      "settings": {
+        "ai_companion_mode": false,
+        "looking_for": "Female",
+        "strict_schedule": true
+      },
+      "subscription_expiry": "2026-04-25T10:00:00",
+      "vibe_vector": [0.12, -0.45, 0.88, 0.01]
+    }
+  },
+  "restaurants": {
+    "venue_golf_hotel": {
+      "business_name": "Golf Hotel Kakamega",
+      "conditions": "Exclusive 10% student discount on shared platters. Best for quiet dinner dates.",
+      "email": "info@golfhotel.co.ke",
+      "join_date": "2026-01-10T09:00:00",
+      "location": "Near State Lodge, Kakamega",
+      "owner_name": "Manager John",
+      "profile_views": 142,
+      "subscription_active": true,
+      "subscription_expiry": "2026-05-01T00:00:00"
+    },
+    "venue_javahouse": {
+      "business_name": "Java House Kakamega",
+      "conditions": "The ultimate classic. Flash your 'Verified' badge for a free upgrade to a large milkshake.",
+      "email": "kakamega@javahouseafrica.com",
+      "images": ["https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1000"],
+      "join_date": "2026-03-01T09:00:00",
+      "location": "Muliro Gardens Mall",
+      "owner_name": "Branch Manager",
+      "profile_views": 560,
+      "subscription_active": true,
+      "subscription_expiry": "2026-06-01T08:00:00"
+    },
+    "venue_mamma_mia": {
+      "business_name": "Mamma Mia Italian",
+      "conditions": "Candlelight dinner setup available on request. 15% discount for MMUST Staff & Students.",
+      "email": "ciao@mammamia.ke",
+      "images": ["https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=1000"],
+      "join_date": "2026-01-20T14:00:00",
+      "location": "Milimani Estate",
+      "owner_name": "Giovanni K.",
+      "profile_views": 312,
+      "subscription_active": true,
+      "subscription_expiry": "2026-04-30T22:00:00"
+    },
+    "venue_rangers": {
+      "business_name": "Rangers Park Hotel",
+      "conditions": "Free swimming for couples who order lunch. Perfect for a sunny afternoon date.",
+      "email": "info@rangerspark.co.ke",
+      "images": ["https://images.unsplash.com/photo-1544148103-0773bf10d330?q=80&w=1000"],
+      "join_date": "2026-02-01T10:00:00",
+      "location": "Along Kakamega-Webuye Road",
+      "owner_name": "Samuel Okumu",
+      "profile_views": 215,
+      "subscription_active": true,
+      "subscription_expiry": "2026-05-15T18:00:00"
+    },
+    "venue_savoury": {
+      "business_name": "Savoury Classic",
+      "conditions": "Show MMUST Dating profile for 1 free coffee when you buy two.",
+      "email": "hello@savoury.com",
+      "join_date": "2026-02-05T11:00:00",
+      "location": "Kakamega CBD",
+      "owner_name": "Alice Savoury",
+      "profile_views": 89,
+      "subscription_active": true,
+      "subscription_expiry": "2026-04-15T12:00:00"
+    },
+    "venue_the_pantry": {
+      "business_name": "The Pantry Bakery",
+      "conditions": "Best budget date! Buy 2 cupcakes, get the 3rd one free for your partner.",
+      "email": "orders@thepantry.ke",
+      "images": ["https://images.unsplash.com/photo-1559925393-8be0ec41b50d?q=80&w=1000"],
+      "join_date": "2026-03-05T07:00:00",
+      "location": "Opposite MMUST Gate B",
+      "owner_name": "Sarah M.",
+      "profile_views": 442,
+      "subscription_active": true,
+      "subscription_expiry": "2026-05-20T17:00:00"
+    },
+    "venue_western_star": {
+      "business_name": "Western Star Hotel",
+      "conditions": "Quiet rooftop lounge. Great for deep conversations and evening sunset views.",
+      "email": "contact@westernstar.co.ke",
+      "images": ["https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=1000"],
+      "join_date": "2026-02-28T16:00:00",
+      "location": "Town Centre",
+      "owner_name": "David W.",
+      "profile_views": 128,
+      "subscription_active": true,
+      "subscription_expiry": "2026-04-10T11:00:00"
+    }
+  }
+}

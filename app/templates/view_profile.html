@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .profile-view-container {
+        max-width: 500px;
+        margin: 30px auto;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 15px 35px rgba(128, 0, 0, 0.1);
+        border: 1px solid #ffccd5;
+    }
+
+    .profile-view-img {
+        width: 100%;
+        height: 500px;
+        object-fit: cover;
+        border-bottom: 3px solid #ff2a4b;
+    }
+
+    .profile-view-details {
+        padding: 30px 25px;
+        position: relative;
+    }
+
+    .profile-view-name {
+        font-size: 28px;
+        color: #800000;
+        font-weight: 800;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .profile-view-bio-box {
+        background: #fff0f3;
+        padding: 20px;
+        border-radius: 15px;
+        margin-top: 20px;
+        color: #4a0404;
+        font-size: 15px;
+        line-height: 1.6;
+        border: 1px dashed #ffccd5;
+    }
+
+    .action-bar {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .btn-back {
+        background: white;
+        color: #800000;
+        border: 2px solid #800000;
+        padding: 15px;
+        border-radius: 12px;
+        flex: 1;
+        text-align: center;
+        font-weight: bold;
+        text-decoration: none;
+        transition: 0.2s;
+    }
+    
+    .btn-back:hover {
+        background: #ffe6ea;
+    }
+
+    .btn-chat-primary {
+        background: linear-gradient(90deg, #800000 0%, #ff2a4b 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 12px;
+        flex: 2;
+        text-align: center;
+        font-weight: bold;
+        text-decoration: none;
+        box-shadow: 0 4px 15px rgba(128, 0, 0, 0.3);
+        transition: 0.2s;
+    }
+
+    .btn-chat-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(128, 0, 0, 0.4);
+    }
+</style>
+
+<div class="profile-view-container">
+    <img src="{{ student.img }}" alt="{{ student.name }}" class="profile-view-img">
+    
+    <div class="profile-view-details">
+        <h1 class="profile-view-name">
+            {{ student.name }}
+            <span style="font-size: 20px;" title="Verified MMUST Student">🎓</span>
+        </h1>
+        
+        <div class="profile-view-bio-box">
+            <strong style="color: #ff2a4b; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">About Me</strong><br>
+            {{ student.bio }}
+        </div>
+
+        <div class="action-bar">
+            <a href="{{ url_for('dashboard') }}" class="btn-back">Go Back</a>
+            <a href="{{ url_for('matches', partner_id=student.id) }}" class="btn-chat-primary">💬 Start Chatting</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

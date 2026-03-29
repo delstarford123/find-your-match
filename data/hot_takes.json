@@ -1,0 +1,14 @@
+[
+  {
+    "user_id": "MMUST_001",
+    "prompt": "Is taking an 8 AM class at the main campus ever worth it?",
+    "response": "Absolutely not. I'd rather sleep in.",
+    "sentiment_score": -0.85
+  },
+  {
+    "user_id": "MMUST_002",
+    "prompt": "Is taking an 8 AM class at the main campus ever worth it?",
+    "response": "Never. Walking from the hostels at 7:30 AM is the worst.",
+    "sentiment_score": -0.92
+  }
+]

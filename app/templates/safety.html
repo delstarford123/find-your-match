@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .safety-header { text-align: center; margin: 40px 0; padding: 0 20px; }
+    .safety-header h1 { color: #800000; font-size: 36px; font-weight: 800; margin-bottom: 15px; }
+    .safety-header p { color: #666; font-size: 16px; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+    
+    .safety-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 30px; max-width: 1000px; margin: 0 auto 60px; padding: 0 20px;
+    }
+    
+    .safety-card {
+        background: white; border-radius: 20px; padding: 30px;
+        box-shadow: 0 10px 30px rgba(128, 0, 0, 0.05); border: 1px solid #ffccd5;
+        transition: transform 0.3s;
+    }
+    .safety-card:hover { transform: translateY(-5px); border-color: #ff2a4b; }
+    
+    .icon-wrapper {
+        width: 60px; height: 60px; border-radius: 15px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 28px; margin-bottom: 20px; background: #fff0f3; color: #ff2a4b;
+    }
+    
+    .safety-card h3 { color: #800000; margin-bottom: 15px; font-size: 20px; }
+    .safety-card p { color: #555; line-height: 1.6; font-size: 14px; }
+    
+    .emergency-banner {
+        background: linear-gradient(135deg, #800000 0%, #ff2a4b 100%);
+        color: white; border-radius: 20px; padding: 40px; text-align: center;
+        max-width: 800px; margin: 0 auto 60px; box-shadow: 0 15px 30px rgba(255, 42, 75, 0.2);
+    }
+    .emergency-banner h2 { margin-bottom: 15px; font-size: 28px; }
+</style>
+
+<div class="safety-header">
+    <h1>Your Safety is Our Priority</h1>
+    <p>FIND YOUR MATCH is an exclusive community for MMUST students. We combine cutting-edge AI with strict community guidelines to ensure you can date with confidence.</p>
+</div>
+
+<div class="safety-grid">
+    <div class="safety-card">
+        <div class="icon-wrapper">🤖</div>
+        <h3>AI Moderation Engine</h3>
+        <p>Our proprietary AI model reads chat messages in real-time. It instantly flags and blocks toxic language, harassment, and hidden phone numbers before they even reach your inbox.</p>
+    </div>
+    
+    <div class="safety-card">
+        <div class="icon-wrapper">🛡️</div>
+        <h3>Safe-Mate Check-In</h3>
+        <p>When you propose a date, our platform generates a one-click "Safe-Mate" message containing your date's name, venue, and time. Instantly forward it to your best friend via WhatsApp before you leave.</p>
+    </div>
+    
+    <div class="safety-card">
+        <div class="icon-wrapper">🎓</div>
+        <h3>Verified MMUST Network</h3>
+        <p>By requiring a small subscription fee and monitoring location data, we actively keep out bots, fake profiles, and non-students. You are always talking to a real peer.</p>
+    </div>
+</div>
+
+<div class="emergency-banner">
+    <h2>Meeting in Real Life?</h2>
+    <p style="font-size: 16px; opacity: 0.9; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
+        Always meet in public, well-lit areas for your first date. We highly recommend our approved Partner Venues or on-campus locations like the Student Center or MCU.
+    </p>
+    <div style="background: rgba(255,255,255,0.2); display: inline-block; padding: 10px 25px; border-radius: 30px; font-weight: bold;">
+         MMUST Security Desk: 07XX XXX XXX
+    </div>
+</div>
+{% endblock %}

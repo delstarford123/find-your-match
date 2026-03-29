@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .verify-wrapper { max-width: 450px; margin: 80px auto; text-align: center; }
+    .verify-card {
+        background: white; border-radius: 24px; padding: 40px 30px;
+        box-shadow: 0 20px 40px rgba(128, 0, 0, 0.1); border: 1px solid #ffccd5;
+    }
+    
+    /* Added the missing keyframes for your float animation! */
+    @keyframes float { 
+        0%, 100% { transform: translateY(0); } 
+        50% { transform: translateY(-10px); } 
+    }
+    .verify-icon { font-size: 60px; margin-bottom: 20px; animation: float 3s infinite ease-in-out; }
+    
+    .verify-title { color: #800000; font-size: 28px; font-weight: 900; margin-bottom: 10px; }
+    .verify-subtitle { color: #666; font-size: 15px; margin-bottom: 30px; line-height: 1.5; }
+    
+    .otp-input {
+        width: 100%; text-align: center; font-size: 32px; letter-spacing: 15px;
+        padding: 15px; border: 2px dashed #ffccd5; border-radius: 12px;
+        background: #fff0f3; color: #800000; font-weight: 900; outline: none;
+        margin-bottom: 25px; transition: 0.3s;
+    }
+    .otp-input:focus { border-color: #ff2a4b; background: white; }
+</style>
+
+<div class="verify-wrapper">
+    <div class="verify-card">
+        <div class="verify-icon">✉️</div>
+        <h1 class="verify-title">Check Your Email</h1>
+        <p class="verify-subtitle">We just sent a 6-digit verification code to <strong>{{ email }}</strong>. Enter it below to activate your account.</p>
+
+        <form method="POST" action="{{ url_for('auth.verify_email') }}">
+            <input type="text" name="otp_code" class="otp-input" maxlength="6" placeholder="------" required autocomplete="off" autofocus>
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 18px; border-radius: 15px; font-size: 16px; background: linear-gradient(135deg, #ff2a4b 0%, #800000 100%); color: white; border: none; font-weight: 800; cursor: pointer;">Verify Account</button>
+        </form>
+        
+        <p style="margin-top: 25px; font-size: 13px; color: #888;">
+            Didn't receive the email? Check your spam folder.
+        </p>
+    </div>
+</div>
+{% endblock %}

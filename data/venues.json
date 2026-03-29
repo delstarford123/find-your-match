@@ -1,0 +1,44 @@
+{
+  "venues": {
+    "venue_001": {
+      "name": "Main Campus MCU",
+      "category": "Casual Meetup",
+      "vibe_tags": ["chill", "budget-friendly", "indoor"],
+      "min_time_minutes": 30,
+      "cost_level": 1,
+      "description": "Perfect for a quick, low-pressure 30-minute meetup between classes."
+    },
+    "venue_002": {
+      "name": "Savoury Classic",
+      "category": "Coffee Date",
+      "vibe_tags": ["aesthetic", "conversational", "indoor"],
+      "min_time_minutes": 60,
+      "cost_level": 2,
+      "description": "Great coffee and a quiet atmosphere for getting to know each other."
+    },
+    "venue_003": {
+      "name": "Kakamega Forest (Main Gate)",
+      "category": "Outdoor Adventure",
+      "vibe_tags": ["outdoorsy", "active", "nature"],
+      "min_time_minutes": 120,
+      "cost_level": 2,
+      "description": "A beautiful, scenic walk. Highly recommended since you both love the outdoors."
+    },
+    "venue_004": {
+      "name": "Golf Hotel Kakamega",
+      "category": "Dinner & Drinks",
+      "vibe_tags": ["fancy", "romantic", "evening"],
+      "min_time_minutes": 120,
+      "cost_level": 3,
+      "description": "A premium spot for a proper evening date."
+    },
+    "venue_005": {
+      "name": "Bukhungu Stadium Perimeter",
+      "category": "Active Walk",
+      "vibe_tags": ["sporty", "active", "budget-friendly"],
+      "min_time_minutes": 45,
+      "cost_level": 1,
+      "description": "Grab a snack and take a casual evening walk."
+    }
+  }
+}

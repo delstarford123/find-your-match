@@ -1,0 +1,613 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === MAIN LAYOUT === */
+    .inbox-container {
+        display: flex;
+        width: 100%;
+        max-width: 1000px;
+        height: 75vh;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.1);
+        overflow: hidden;
+        margin: 20px auto;
+        border: 1px solid #ffccd5;
+    }
+    
+    /* === SIDEBAR (MATCHES LIST) === */
+    .matches-sidebar {
+        width: 35%;
+        border-right: 1px solid #ffccd5;
+        background: #fff0f3;
+        overflow-y: auto;
+    }
+    .match-item {
+        padding: 15px;
+        border-bottom: 1px solid #ffccd5;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: background 0.2s;
+    }
+    .match-item:hover { background: #ffe6ea; }
+    .match-item.active { background: white; border-left: 4px solid #ff2a4b; }
+    
+    .avatar-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    .match-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .online-dot {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 14px;
+        height: 14px;
+        background-color: #ccc; 
+        border-radius: 50%;
+        border: 2px solid #fff;
+    }
+    .online-dot.active { background-color: #28a745; }
+
+    /* === CHAT AREA === */
+    .chat-area {
+        width: 65%;
+        display: flex;
+        flex-direction: column;
+        background: #fafafa;
+    }
+    .chat-header {
+        padding: 15px 20px;
+        background: linear-gradient(90deg, #800000 0%, #ff2a4b 100%);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+    .chat-history {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    /* === CHAT BUBBLES === */
+    .chat-bubble {
+        max-width: 75%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        font-size: 14px;
+        line-height: 1.4;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .bubble-them {
+        background: white;
+        color: #4a0404;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid #eee;
+    }
+    .bubble-me {
+        background: #ff2a4b;
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .bubble-system {
+        background: #fff3cd;
+        color: #856404;
+        align-self: center;
+        border-radius: 8px;
+        border: 1px solid #ffeeba;
+        font-size: 12px;
+        text-align: center;
+        width: 90%;
+    }
+
+    /* === TYPING INDICATOR (HUMAN) === */
+    .typing-indicator {
+        font-size: 12px;
+        color: #ff4d6d;
+        font-style: italic;
+        padding: 0 20px 10px;
+        display: none; 
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.5; }
+        50% { opacity: 1; }
+        100% { opacity: 0.5; }
+    }
+
+    /* === TYPING INDICATOR (AI ANIMATED) === */
+    .typing-bubble-container {
+        display: none; /* Hidden by default */
+        align-self: flex-start;
+        margin-top: 5px;
+    }
+    .typing-bubble {
+        background: white;
+        border: 1px solid #eee;
+        border-radius: 18px;
+        padding: 12px 16px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        border-bottom-left-radius: 4px;
+        width: fit-content;
+    }
+    .typing-dot {
+        width: 8px;
+        height: 8px;
+        background: #ffccd5;
+        border-radius: 50%;
+        animation: typingBounce 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes typingBounce {
+        0%, 80%, 100% { transform: scale(0.6); background: #ffccd5; }
+        40% { transform: scale(1.1); background: #ff2a4b; }
+    }
+
+    /* === THE DATE CARD === */
+    .date-card {
+        background: white;
+        border: 2px solid #ff2a4b;
+        border-radius: 15px;
+        padding: 15px;
+        width: 85%;
+        max-width: 300px;
+        align-self: center;
+        box-shadow: 0 5px 15px rgba(128, 0, 0, 0.1);
+        text-align: center;
+        margin: 10px 0;
+    }
+    .date-card-title { color: #800000; font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+    .date-card-details { background: #fff0f3; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; color: #4a0404; }
+
+    /* === CHAT INPUT === */
+    .chat-input-area {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #ffccd5;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .chat-input-area input {
+        flex: 1;
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 25px;
+        outline: none;
+        font-family: inherit;
+        background: #f9f9f9;
+        transition: 0.2s;
+    }
+    .chat-input-area input:focus { border-color: #ff2a4b; background: white; }
+    .btn-propose {
+        background: #fff0f3;
+        color: #ff2a4b;
+        border: 2px solid #ffccd5;
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        font-size: 20px;
+        transition: 0.2s;
+    }
+    .btn-propose:hover { transform: scale(1.05); background: #ffe6ea; }
+    .btn-end-date {
+        background: white;
+        color: #dc3545;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-end-date:hover { background: #ffe6ea; }
+</style>
+
+<div class="inbox-container">
+    
+    <div class="matches-sidebar">
+        {% if my_matches %}
+            {% for match in my_matches %}
+            <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" 
+                 onclick="window.location.href='/matches/{{ match.id }}'">
+                
+                <div class="avatar-wrapper">
+                    <img src="{{ match.img }}" class="match-avatar">
+                    <div class="online-dot {% if match.is_online %}active{% endif %}"></div>
+                </div>
+                
+                <div style="flex: 1;">
+                    <h4 style="color: #800000; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; font-size: 15px;">
+                        {{ match.name }}
+                        {% if match.id == 'AI_COMPANION' %}
+                            <span title="AI Bot" style="font-size: 14px;">🤖</span>
+                        {% elif match.is_perfect_match %}
+                            <span title="Perfect Match!" style="font-size: 14px;">❤️</span>
+                        {% endif %}
+                    </h4>
+                    <p style="font-size: 12px; color: #ff4d6d; margin: 0;">Tap to chat</p>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 30px 20px; text-align: center; color: #888; font-size: 14px;">
+                No matches yet.<br>Head over to the swipe deck to find students!
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="chat-area">
+        {% if active_partner %}
+        <div class="chat-header">
+            <div>
+                <span style="font-size: 18px; font-weight: bold;">{{ active_partner.name }}</span>
+                <span style="font-size: 11px; background: rgba(255,255,255,0.25); padding: 4px 10px; border-radius: 12px; margin-left: 10px; text-transform: uppercase;">
+                    {% if active_partner.id == 'AI_COMPANION' %}Your AI Buddy
+                    {% elif active_partner.is_perfect_match %}🔥 High Compatibility
+                    {% else %}Connected{% endif %}
+                </span>
+            </div>
+            
+            {% if active_partner.id != 'AI_COMPANION' %}
+            <button class="btn-end-date" onclick="terminateDate()">🚫 End Date</button>
+            {% endif %}
+        </div>
+        
+        <div class="chat-history" id="chat-history">
+            {% if chat_history %}
+                {% for msg in chat_history %}
+                    {% if msg.type == 'text' %}
+                        {% if msg.sender == 'SYSTEM_AI' %}
+                            <div class="chat-bubble bubble-system">{{ msg.text }}</div>
+                        {% else %}
+                            <div class="chat-bubble {{ 'bubble-me' if msg.sender == session.get('user_id') else 'bubble-them' }}">
+                                {{ msg.text }}
+                            </div>
+                        {% endif %}
+                    {% elif msg.type == 'date_card' %}
+                        <div class="date-card">
+                            <div class="date-card-title">💌 Date Invitation</div>
+                            <div class="date-card-details">
+                                <strong>📍 Venue:</strong> {{ msg.venue }}<br>
+                                <strong>📅 When:</strong> {{ msg.day }} at {{ msg.time }}
+                            </div>
+                            <button onclick="triggerSafeMate('{{ active_partner.name }}', '{{ msg.venue }}', '{{ msg.day }}', '{{ msg.time }}')" 
+                                style="background: #4a0404; color: white; border: none; padding: 10px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                🛡️ Share Safety Details
+                            </button>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; margin-top: auto; margin-bottom: auto;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
+                    <p style="color: #888; font-size: 14px;">You connected with {{ active_partner.name }}.<br>Send a message to break the ice!</p>
+                </div>
+            {% endif %}
+            
+            <div id="ai-typing-indicator" class="typing-bubble-container">
+                <div class="typing-bubble">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <div id="typing-status" class="typing-indicator"></div>
+        
+        <div class="chat-input-area">
+            {% if active_partner.id != 'AI_COMPANION' %}
+            <button class="btn-propose" id="btn-open-proposal" title="Propose a Date">📅</button>
+            {% endif %}
+            
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button class="btn-primary" id="btn-send" style="padding: 10px 25px; width: auto; border-radius: 25px;">Send</button>
+        </div>
+        
+        {% else %}
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: white;">
+            <div style="font-size: 50px; color: #ffccd5; margin-bottom: 15px;">💬</div>
+            <h3>Your Messages</h3>
+            <p style="font-size: 14px;">Select a match from the sidebar to start chatting.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if active_partner and active_partner.id != 'AI_COMPANION' %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div id="proposal-modal" class="modal hidden">
+    <div class="modal-content" style="text-align: left; max-width: 600px; width: 90%;">
+        <h2 style="color: #800000; margin-bottom: 15px;">Plan a Date</h2>
+        
+        <p style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">1. Choose an approved partner venue</p>
+        <div id="kakamega-map" style="height: 250px; border-radius: 12px; border: 2px solid #ffccd5; margin-bottom: 15px;"></div>
+        
+        <input type="hidden" id="selected-venue-id">
+        <input type="text" id="selected-venue-name" readonly placeholder="Click a pin on the map..." 
+               style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ffccd5; background: #fff0f3; font-weight: bold; color: #800000; margin-bottom: 15px;">
+
+        <p style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">2. Set the Time</p>
+        <div class="input-group" style="display: flex; gap: 10px; margin-top: 5px;">
+            <input type="date" id="date-day" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ffccd5; font-family: inherit;">
+            <input type="time" id="date-time" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ffccd5; font-family: inherit;">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 25px;">
+            <button type="button" class="btn-primary" style="background: white; color: #800000; border: 1px solid #800000;" onclick="document.getElementById('proposal-modal').classList.add('hidden')">Cancel</button>
+            <button id="btn-send-proposal" class="btn-primary">Send Invitation</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- INITIALIZE KAKAMEGA MAP ---
+    const map = L.map('kakamega-map').setView([0.2827, 34.7519], 14); 
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const subscribedRestaurants = [
+        { id: "R_001", name: "Savoury Classic", lat: 0.2840, lng: 34.7525 },
+        { id: "R_002", name: "Golf Hotel", lat: 0.2790, lng: 34.7500 }
+    ];
+
+    subscribedRestaurants.forEach(venue => {
+        const marker = L.marker([venue.lat, venue.lng]).addTo(map);
+        marker.bindPopup(`<b>${venue.name}</b><br>Approved Partner`);
+        
+        marker.on('click', function() {
+            document.getElementById('selected-venue-name').value = venue.name;
+            document.getElementById('selected-venue-id').value = venue.id;
+        });
+    });
+
+    document.getElementById('btn-open-proposal').addEventListener('click', () => {
+        document.getElementById('proposal-modal').classList.remove('hidden');
+        setTimeout(() => map.invalidateSize(), 100); 
+    });
+
+    // --- END DATE LOGIC ---
+    function terminateDate() {
+        if(confirm("Are you sure? This will instantly delete your chat history and block this user permanently. This cannot be undone.")) {
+            fetch('/api/end_date', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ partner_id: activePartnerId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.href = '/dashboard'; 
+                }
+            });
+        }
+    }
+</script>
+{% endif %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    const myName = "{{ current_user }}";
+    const myId = "{{ session.get('user_id') }}";
+    
+    const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
+    const activePartnerName = "{% if active_partner %}{{ active_partner.name }}{% else %}none{% endif %}";
+
+    const chatHistory = document.getElementById('chat-history');
+    const chatInput = document.getElementById('chat-input');
+    const typingStatus = document.getElementById('typing-status');
+    const aiTypingBubble = document.getElementById('ai-typing-indicator'); // Hook into new bubble
+    const btnSend = document.getElementById('btn-send');
+    const btnSendProposal = document.getElementById('btn-send-proposal');
+    const proposalModal = document.getElementById('proposal-modal');
+
+    let typingTimer;
+
+    // Scroll to bottom on load
+    if (chatHistory) {
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // Safety Sharing feature
+    window.triggerSafeMate = function(matchName, venue, day, time) {
+        const safetyMessage = `🛡️ MMUST Safe-Mate Check-In:\nHey! I'm going on a date via MMUST Dating AI.\n👤 Who: ${matchName}\n📍 Where: ${venue}\n📅 When: ${day} at ${time}\nCheck in with me later to make sure I'm safe!`;
+        if (navigator.share) {
+            navigator.share({ title: 'My Date Details', text: safetyMessage }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(safetyMessage);
+            alert("Safety message copied! Paste it to your friend in WhatsApp.");
+        }
+    }
+
+    if (activePartnerId !== 'none') {
+        
+        // Human typing event
+        chatInput.addEventListener('input', () => {
+            socket.emit('typing', { sender: myName, is_typing: true });
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => {
+                socket.emit('typing', { sender: myName, is_typing: false });
+            }, 2000);
+        });
+
+        // The Smart Typing Listener
+        socket.on('user_typing', function(data) {
+            if (data.is_typing) {
+                if (data.sender === 'AI_COMPANION') {
+                    // Show bouncy bubble and ensure it sits at the bottom
+                    aiTypingBubble.style.display = 'flex';
+                    chatHistory.appendChild(aiTypingBubble);
+                } else {
+                    // Standard text indicator for humans
+                    typingStatus.innerText = `${data.sender} is typing...`;
+                    typingStatus.style.display = 'block';
+                }
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } else {
+                aiTypingBubble.style.display = 'none';
+                typingStatus.style.display = 'none';
+            }
+        });
+
+        // Send Message Logic
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') btnSend.click(); });
+
+        btnSend.onclick = () => {
+            if (!chatInput.value.trim()) return;
+            socket.emit('send_message', { 
+                type: 'text', 
+                sender: myId, 
+                sender_name: myName, 
+                receiver_id: activePartnerId,
+                text: chatInput.value 
+            });
+            chatInput.value = '';
+            socket.emit('typing', { sender: myName, is_typing: false });
+        };
+
+        // Propose Date Logic
+        if (btnSendProposal && proposalModal) {
+            btnSendProposal.onclick = () => {
+                socket.emit('send_message', {
+                    type: 'date_card',
+                    sender: myId,
+                    sender_name: myName,
+                    receiver_id: activePartnerId,
+                    venue: document.getElementById('selected-venue-name').value || 'TBD',
+                    day: document.getElementById('date-day').value,
+                    time: document.getElementById('date-time').value
+                });
+                proposalModal.classList.add('hidden');
+            };
+        }
+
+        // Receive Message Render Logic
+        socket.on('receive_message', function(data) {
+            if (data.sender === myId || data.sender === activePartnerId || data.sender === 'SYSTEM_AI' || data.sender === 'AI_COMPANION') {
+                const isMe = data.sender === myId;
+                const isSystem = data.sender === 'SYSTEM_AI';
+                let html = '';
+                
+                if (data.type === 'text') {
+                    if (isSystem) {
+                        html = `<div class="chat-bubble bubble-system">${data.text}</div>`;
+                    } else {
+                        html = `<div class="chat-bubble ${isMe ? 'bubble-me' : 'bubble-them'}">${data.text}</div>`;
+                    }
+                } else if (data.type === 'date_card') {
+                    html = `
+                        <div class="date-card">
+                            <div class="date-card-title">💌 Date Invitation</div>
+                            <div class="date-card-details">
+                                <strong>📍 Venue:</strong> ${data.venue}<br>
+                                <strong>📅 When:</strong> ${data.day} at ${data.time}
+                            </div>
+                            <button onclick="triggerSafeMate('${activePartnerName}', '${data.venue}', '${data.day}', '${data.time}')" 
+                                style="background: #4a0404; color: white; border: none; padding: 10px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                🛡️ Share Safety Details
+                            </button>
+                        </div>`;
+                }
+                
+                // Add message, but keep AI bubble below it if it's still generating
+                if (aiTypingBubble && aiTypingBubble.parentNode === chatHistory) {
+                    chatHistory.insertBefore(document.createRange().createContextualFragment(html), aiTypingBubble);
+                } else {
+                    chatHistory.insertAdjacentHTML('beforeend', html);
+                }
+                
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+        });
+    }
+</script>
+
+{% if session.get('user_religion') == 'Christian' %}
+<style>
+    .floating-quote {
+        position: fixed;
+        bottom: -50px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        border-left: 4px solid #800000;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        color: #4a0404;
+        font-size: 13px;
+        font-style: italic;
+        width: 250px;
+        z-index: 3000;
+        transition: transform 1s ease-in-out, opacity 1s;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .floating-quote.show {
+        transform: translateY(-80px);
+        opacity: 1;
+    }
+</style>
+
+<div id="christian-quote" class="floating-quote"></div>
+
+<script>
+    const quotes = [
+        "Let love and faithfulness never leave you. - Proverbs 3:3",
+        "Be completely humble and gentle; be patient, bearing with one another in love. - Ephesians 4:2",
+        "Above all, love each other deeply, because love covers over a multitude of sins. - 1 Peter 4:8",
+        "Guard your heart, for everything you do flows from it. - Proverbs 4:23"
+    ];
+    
+    function showQuote() {
+        const quoteBox = document.getElementById('christian-quote');
+        if (!quoteBox) return;
+        
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        quoteBox.innerText = randomQuote;
+        
+        quoteBox.classList.add('show');
+        
+        setTimeout(() => { quoteBox.classList.remove('show'); }, 8000);
+    }
+
+    setInterval(showQuote, 45000);
+    setTimeout(showQuote, 3000);
+</script>
+{% endif %}
+
+{% endblock %}

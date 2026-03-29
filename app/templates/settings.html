@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .settings-container { 
+        max-width: 600px; 
+        margin: 40px auto; 
+        padding: 30px; 
+        background: white; 
+        border-radius: 20px; 
+        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.05); 
+        border: 1px solid #ffccd5; 
+    }
+    .settings-container h2 { 
+        color: #800000; 
+        margin-bottom: 25px; 
+        font-size: 24px; 
+        text-align: center; 
+    }
+    .settings-group { 
+        margin-bottom: 25px; 
+        padding-bottom: 20px; 
+        border-bottom: 1px solid #eee; 
+    }
+    .settings-group:last-child { 
+        border-bottom: none; 
+    }
+    .settings-group label { 
+        display: block; 
+        font-weight: bold; 
+        color: #4a0404; 
+        margin-bottom: 10px; 
+        font-size: 14px; 
+        text-transform: uppercase; 
+    }
+    .settings-group select, .settings-group input[type="text"] { 
+        width: 100%; 
+        padding: 12px; 
+        border: 2px solid #ffccd5; 
+        border-radius: 10px; 
+        font-family: inherit; 
+        font-size: 15px; 
+    }
+    
+    /* Toggle Switch Styles */
+    .toggle-wrapper { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        background: #fff0f3; 
+        padding: 15px; 
+        border-radius: 12px; 
+        border: 1px dashed #ff2a4b; 
+    }
+    .toggle-text h4 { 
+        margin: 0 0 5px 0; 
+        color: #800000; 
+        font-size: 16px; 
+    }
+    .toggle-text p { 
+        margin: 0; 
+        font-size: 12px; 
+        color: #666; 
+    }
+    
+    /* Custom Checkbox as a switch */
+    .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #ff2a4b; }
+    input:checked + .slider:before { transform: translateX(26px); }
+</style>
+
+<div class="settings-container">
+    <h2>Discovery Settings</h2>
+    
+    <form action="{{ url_for('settings') }}" method="POST">
+        
+        <div class="settings-group">
+            <label>I am looking for</label>
+            <select name="gender_pref">
+                <option value="Everyone">Everyone</option>
+                <option value="Female">Women</option>
+                <option value="Male">Men</option>
+            </select>
+        </div>
+
+        <div class="settings-group">
+            <label>Major / Study Field Filter</label>
+            <select name="major_filter">
+                <option value="All">Anyone in MMUST</option>
+                <option value="CS_IT">Computer Science & IT</option>
+                <option value="Health">Health Sciences (Nursing, Med)</option>
+                <option value="Engineering">Engineering</option>
+                <option value="Business">Business & Economics</option>
+                <option value="Education">Education & Arts</option>
+            </select>
+        </div>
+
+        <div class="settings-group">
+            <div class="toggle-wrapper" style="background: #fafafa; border-color: #ccc; margin-bottom: 15px;">
+                <div class="toggle-text">
+                    <h4 style="color: #333;">Strict Schedule Mode</h4>
+                    <p>Only show me people who share at least 30 minutes of free time with me.</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" name="strict_mode">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <div class="toggle-wrapper">
+                <div class="toggle-text">
+                    <h4>🤖 AI Companion Mode</h4>
+                    <p>Hide my profile from real people and chat with a supportive AI partner instead.</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" name="ai_mode">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary w-100" style="padding: 15px; font-size: 16px; border-radius: 10px; width: 100%; border: none; background-color: #ff2a4b; color: white; font-weight: bold; cursor: pointer;">
+            Save Settings
+        </button>
+    </form>
+    
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
+    
+    <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
+        <button type="submit" style="width: 100%; background: white; color: #dc3545; border: 2px solid #dc3545; padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s;">
+            Delete Account Permanently
+        </button>
+    </form>
+</div>
+{% endblock %}

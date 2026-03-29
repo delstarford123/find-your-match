@@ -1,0 +1,26 @@
+[
+  {
+    "user_id": "MMUST_001",
+    "day_of_week": "Monday",
+    "start_time": "14:00",
+    "end_time": "16:00"
+  },
+  {
+    "user_id": "MMUST_002",
+    "day_of_week": "Monday",
+    "start_time": "14:30",
+    "end_time": "17:00"
+  },
+  {
+    "user_id": "MMUST_003",
+    "day_of_week": "Tuesday",
+    "start_time": "10:00",
+    "end_time": "12:00"
+  },
+  {
+    "user_id": "MMUST_004",
+    "day_of_week": "Monday",
+    "start_time": "15:00",
+    "end_time": "18:00"
+  }
+]

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Premium Pulse Animation for successful verification */
+    @keyframes pulse-bg {
+        0% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
+        50% { transform: scale(1.05); box-shadow: 0 15px 45px rgba(16, 185, 129, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
+    }
+    .status-card-verified { 
+        animation: pulse-bg 2s infinite ease-in-out; 
+    }
+
+    .status-card {
+        max-width: 420px;
+        margin: 80px auto;
+        text-align: center;
+        padding: 40px;
+        border-radius: 35px;
+        background: white;
+        transition: all 0.5s ease;
+    }
+</style>
+
+<div class="status-card {% if status == 'VERIFIED' %}status-card-verified{% endif %}" 
+     style="border: 8px solid {{ color }};">
+    
+    <div id="status-icon" style="font-size: 100px; margin-bottom: 20px;">
+        {% if status == 'VERIFIED' %} ✅ {% else %} ❌ {% endif %}
+    </div>
+
+    <h1 style="color: {{ color }}; font-size: 48px; font-weight: 900; margin-bottom: 10px; letter-spacing: -1px;">
+        {{ status }}
+    </h1>
+    
+    <p style="color: #333; font-size: 18px; font-weight: 600; line-height: 1.5; margin-bottom: 30px; padding: 0 10px;">
+        {{ message }}
+    </p>
+    
+    <div style="background: #f8fafc; padding: 20px; border-radius: 20px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
+        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; margin-bottom: 8px;">Redeeming At</p>
+        <p style="font-size: 20px; color: #800000; font-weight: 900; margin: 0;">{{ restaurant_name }}</p>
+    </div>
+
+    <a href="{{ url_for('dashboard') }}" class="btn-primary" 
+       style="display: block; padding: 20px; border-radius: 20px; font-weight: 800; text-decoration: none; font-size: 18px; background: {{ color }}; border: none;">
+       Return to Dashboard
+    </a>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const status = "{{ status }}";
+        
+        // Chime URLs (Mixkit UI SFX)
+        const successSound = "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3"; 
+        const failureSound = "https://assets.mixkit.co/active_storage/sfx/2955/2955-preview.mp3";
+
+        // Initialize and play audio
+        const audio = new Audio(status === "VERIFIED" ? successSound : failureSound);
+        audio.volume = 0.5;
+
+        // Small delay to allow the visual page to render first
+        setTimeout(() => {
+            audio.play().catch(err => {
+                // Browsers usually block auto-play unless there is user interaction
+                console.log("Audio play deferred until user interaction.");
+            });
+        }, 400);
+    });
+</script>
+{% endblock %}

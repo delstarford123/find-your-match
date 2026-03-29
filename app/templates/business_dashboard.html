@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === B2B Dashboard Typography & Layout === */
+    .b2b-container { 
+        max-width: 1000px; 
+        margin: 30px auto; 
+        padding: 0 20px; 
+    }
+    
+    /* Header */
+    .b2b-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 30px; 
+    }
+    .b2b-header h1 { color: #800000; margin: 0; font-size: 28px; }
+    
+    /* Subscription Banners */
+    .sub-banner { 
+        padding: 15px 20px; 
+        border-radius: 12px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between; 
+        margin-bottom: 30px; 
+        font-weight: bold; 
+    }
+    .sub-inactive { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .sub-active { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    
+    /* Stat Cards */
+    .stats-grid { 
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 20px; 
+        margin-bottom: 40px; 
+    }
+    .stat-card { 
+        background: white; 
+        padding: 25px; 
+        border-radius: 15px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+        border: 1px solid #eee; 
+        text-align: center; 
+    }
+    .stat-value { font-size: 36px; font-weight: 800; color: #ff2a4b; margin: 10px 0; }
+    .stat-label { color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Bookings Table */
+    .bookings-section { 
+        background: white; 
+        padding: 25px; 
+        border-radius: 15px; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
+        border: 1px solid #eee; 
+    }
+    .bookings-section h2 { color: #800000; margin-bottom: 20px; font-size: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { color: #888; font-size: 13px; text-transform: uppercase; }
+    td { color: #333; font-size: 15px; }
+    
+    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-approved { background: #d4edda; color: #155724; }
+    .status-declined { background: #f8d7da; color: #721c24; }
+
+    /* Action Buttons */
+    .action-flex { display: flex; gap: 10px; }
+    .btn-approve { background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-approve:hover { background: #218838; }
+    .btn-decline { background: white; color: #dc3545; border: 1px solid #dc3545; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .btn-decline:hover { background: #f8d7da; }
+</style>
+
+<div class="b2b-container">
+    
+    <div class="b2b-header">
+        <h1>{{ restaurant.business_name }} Dashboard</h1>
+        <form action="{{ url_for('auth.logout') }}" method="GET">
+            <button type="submit" style="background: white; border: 1px solid #ccc; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">Log Out</button>
+        </form>
+    </div>
+
+    {% if not restaurant.subscription_active %}
+    <div class="sub-banner sub-inactive" style="flex-direction: column; align-items: flex-start;">
+        <div style="margin-bottom: 15px;">
+            <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
+            Your venue is currently HIDDEN from MMUST students. Activate your account to start receiving dates.
+        </div>
+        
+        <div style="display: flex; gap: 10px; width: 100%; max-width: 500px; background: white; padding: 15px; border-radius: 10px; border: 1px solid #ccc;">
+            <input type="text" id="mpesa-phone" placeholder="2547XXXXXXXX" value="254" 
+                   style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-weight: bold; outline: none;">
+            <button id="btn-pay" onclick="triggerMpesa()" 
+                    style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;">
+                Pay 2,000 KSH
+            </button>
+        </div>
+        <div id="mpesa-status" style="margin-top: 10px; font-size: 14px; font-weight: bold; color: #800000; display: none;">
+            Loading...
+        </div>
+    </div>
+    {% else %}
+    <div class="sub-banner sub-active">
+        <div>
+            <span style="font-size: 20px; margin-right: 10px;">✅</span>
+            Your venue is ACTIVE and being recommended to students by the AI.
+        </div>
+        <span>Renews in 28 Days</span>
+    </div>
+    {% endif %}
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="stat-card">
+            <div class="stat-label">Profile Views</div>
+            <div class="stat-value">{{ restaurant.profile_views | default(0) }}</div>
+            <div style="font-size: 12px; color: #28a745;">👁️ Discovery Interest</div>
+        </div>
+        
+        <div class="stat-card" style="border: 1px solid #ffccd5; background: #fff0f3;">
+            <div class="stat-label">QR Redemptions</div>
+            <div class="stat-value" style="color: #800000;">{{ restaurant.qr_scans | default(0) }}</div>
+            <div style="font-size: 12px; color: #800000; font-weight: bold;">🔥 Real Foot Traffic</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Pending Dates</div>
+            <div class="stat-value" style="color: #f39c12;">{{ pending_count }}</div>
+            <div style="font-size: 12px; color: #888;">Require approval</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Approved Dates</div>
+            <div class="stat-value" style="color: #28a745;">{{ approved_count }}</div>
+            <div style="font-size: 12px; color: #888;">Confirmed tables</div>
+        </div>
+        <div class="bookings-section" style="margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">🕒 Student Traffic Heatmap</h2>
+        <span style="font-size: 12px; color: #666; background: #eee; padding: 4px 10px; border-radius: 10px;">Last 24 Hours</span>
+    </div>
+
+    <div class="heatmap-container" style="display: flex; align-items: flex-end; gap: 8px; height: 150px; padding-top: 20px; border-bottom: 2px solid #eee;">
+        {% for hour in range(7, 22) %} {# Shows 7 AM to 9 PM #}
+            {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
+            {% set height = (count * 10) if count < 15 else 150 %} {# Scalable height #}
+            
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <div style="width: 100%; height: {{ height }}px; background: {% if count > 5 %}#800000{% else %}#ffccd5{% endif %}; border-radius: 4px 4px 0 0; transition: 0.3s;" 
+                     title="{{ count }} scans at {{ hour }}:00">
+                </div>
+                <span style="font-size: 10px; color: #888; font-weight: bold;">{{ hour }}h</span>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <div style="margin-top: 15px; display: flex; gap: 20px;">
+        <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
+            <div style="width: 12px; height: 12px; background: #800000; border-radius: 2px;"></div> Peak Hours
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
+            <div style="width: 12px; height: 12px; background: #ffccd5; border-radius: 2px;"></div> Off-Peak
+        </div>
+    </div>
+</div>
+    </div>
+    <div style="background: white; padding: 25px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h3 style="color: #800000; margin-bottom: 5px;">In-Store Marketing</h3>
+            <p style="color: #666; font-size: 14px;">Print your unique QR code to verify student discounts at your tables.</p>
+        </div>
+        <a href="{{ url_for('merchant_qr') }}" class="btn-approve" style="text-decoration: none; display: flex; align-items: center; gap: 8px; background: #800000;">
+            <span>📱</span> Generate My QR Code
+        </a>
+    </div>
+    <div class="bookings-section">
+        <h2>Live Table Reservations</h2>
+        {% if bookings %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Couple</th>
+                    <th>Date Day</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for booking in bookings %}
+                <tr>
+                    <td><strong>{{ booking.user_a_name }}</strong> & <strong>{{ booking.user_b_name }}</strong></td>
+                    <td>{{ booking.day }}</td>
+                    <td>{{ booking.time }}</td>
+                    <td>
+                        <span class="status-badge status-{{ booking.status | lower }}">{{ booking.status }}</span>
+                    </td>
+                    <td>
+                        {% if booking.status == 'Pending' %}
+                        <div class="action-flex">
+                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST">
+                                <button type="submit" class="btn-approve">Approve</button>
+                            </form>
+                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='decline') }}" method="POST">
+                                <button type="submit" class="btn-decline">Decline</button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <span style="color: #aaa; font-size: 12px;">No actions available</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #888; padding: 30px;">No date reservations yet. Ensure your subscription is active to receive bookings!</p>
+        {% endif %}
+    </div>
+
+</div>
+<div id="live-alert-toast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #800000; color: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 9999; min-width: 300px; animation: slideUp 0.5s ease-out;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div style="font-size: 30px;">⚡</div>
+        <div>
+            <div style="font-weight: 800; font-size: 14px; text-transform: uppercase; opacity: 0.8;">New Discount Scan!</div>
+            <div id="alert-student-name" style="font-size: 18px; font-weight: 900;">Student Name</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+</style>
+
+<audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/1008/1008-preview.mp3"></audio>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+    // Initialize Firebase in JS (Use your actual config from Firebase Console)
+    const firebaseConfig = {
+        databaseURL: "{{ config['FIREBASE_DB_URL'] }}"
+    };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+
+    const restaurantId = "{{ session.get('business_id') }}";
+    const alertRef = firebase.database().ref('merchant_alerts/' + restaurantId);
+
+    // Listen for changes
+    alertRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.status === 'new') {
+            // 1. Update UI
+            document.getElementById('alert-student-name').innerText = data.student_name;
+            const toast = document.getElementById('live-alert-toast');
+            toast.style.display = 'block';
+
+            // 2. Play 'Cha-Ching' Sound
+            document.getElementById('alert-sound').play();
+
+            // 3. Auto-hide and reset status to 'read' after 8 seconds
+            setTimeout(() => {
+                toast.style.display = 'none';
+                alertRef.update({ status: 'read' });
+                // Optional: Reload stats to update the counter
+                window.location.reload(); 
+            }, 8000);
+        }
+    });
+</script>
+{% if not restaurant.subscription_active %}
+<script>
+    function triggerMpesa() {
+        const phone = document.getElementById('mpesa-phone').value.trim();
+        const statusDiv = document.getElementById('mpesa-status');
+        const btn = document.getElementById('btn-pay');
+        
+        if(phone.length < 12) {
+            alert("Please enter a valid Safaricom number starting with 254 (e.g., 254712345678)");
+            return;
+        }
+
+        // UI Loading State
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+        statusDiv.style.display = "block";
+        statusDiv.innerText = "Initiating M-Pesa STK Push. Please check your phone...";
+
+        // Send request to Flask Backend
+        fetch('/api/pay_subscription', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone_number: phone })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                statusDiv.style.color = "#28a745";
+                statusDiv.innerText = "Success! Enter your PIN on your phone. This page will update automatically upon completion.";
+                
+                // Poll for success or reload after 15 seconds
+                setTimeout(() => window.location.reload(), 15000); 
+            } else {
+                statusDiv.style.color = "#dc3545";
+                statusDiv.innerText = data.message || "Failed to trigger M-Pesa.";
+                btn.innerText = "Try Again";
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            statusDiv.style.color = "#dc3545";
+            statusDiv.innerText = "Network Error. Check your connection.";
+            btn.innerText = "Pay 2,000 KSH";
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endif %}
+{% endblock %}

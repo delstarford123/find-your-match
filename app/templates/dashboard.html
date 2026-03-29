@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === DASHBOARD HEADER === */
+    .dashboard-header {
+        text-align: center;
+        margin: 40px 0 30px;
+    }
+    .dashboard-header h1 {
+        color: #800000;
+        font-size: 36px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+    }
+    .dashboard-header p {
+        color: #ff4d6d;
+        font-size: 16px;
+        font-weight: bold;
+        background: #fff0f3;
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 20px;
+        border: 1px solid #ffccd5;
+    }
+
+    /* === GRID LAYOUT === */
+    .matches-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 30px;
+        max-width: 1100px;
+        margin: 0 auto 60px auto;
+        padding: 0 20px;
+    }
+
+    /* === MATCH CARD === */
+    .match-card {
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.08);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        border: 1px solid #ffccd5;
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Ensures all cards stretch evenly */
+    }
+    .match-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 35px rgba(128, 0, 0, 0.15);
+    }
+
+    .match-img-wrapper {
+        position: relative;
+        height: 250px;
+        width: 100%;
+        background: #eee;
+    }
+    .match-img-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* Compatibility Badge */
+    .compat-badge {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        background: rgba(255, 255, 255, 0.95);
+        color: #800000;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 900;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        border: 1px solid #ffccd5;
+        backdrop-filter: blur(5px);
+    }
+
+    /* Card Details */
+    .match-info {
+        padding: 20px;
+        flex: 1; /* Pushes the chat button to the bottom */
+        display: flex;
+        flex-direction: column;
+    }
+    .match-info h3 {
+        color: #800000;
+        margin: 0 0 8px 0;
+        font-size: 20px;
+        font-weight: 800;
+    }
+    .match-info p {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+        flex: 1; /* Fills empty space if bio is short */
+        
+        /* Truncate long bios beautifully */
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Buttons */
+    .btn-chat {
+        background: #fff0f3;
+        color: #ff2a4b;
+        border: 2px solid #ffccd5;
+        padding: 12px;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: bold;
+        text-decoration: none;
+        transition: 0.2s;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .btn-chat:hover {
+        background: #ff2a4b;
+        color: white;
+        border-color: #ff2a4b;
+    }
+
+    /* === EMPTY STATE === */
+    .empty-state {
+        grid-column: 1 / -1; /* Spans the whole grid */
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 20px;
+        border: 2px dashed #ffccd5;
+        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.05);
+    }
+    .empty-state-icon { font-size: 60px; margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));}
+
+    /* === MODAL BUTTONS === */
+    .btn-milestone {
+        width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 12px;
+        font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; color: white;
+    }
+    .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+</style>
+
+<div class="dashboard-header">
+    <h1>Welcome back, {{ current_user }}!</h1>
+    <p>You have {{ matches|length }} connection{% if matches|length != 1 %}s{% endif %}</p>
+</div>
+
+<div class="matches-grid">
+    {% if matches %}
+        {% for match in matches %}
+        <div class="match-card">
+            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
+                <div class="match-img-wrapper">
+                    <img src="{{ match.img }}" alt="{{ match.name }}">
+                    <div class="compat-badge">🔥 {{ match.compatibility }}% Match</div>
+                </div>
+            </a>
+            
+            <div class="match-info">
+                <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
+                    <h3>{{ match.name }}</h3>
+                </a>
+                <p>{{ match.bio }}</p>
+                <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Chat Now</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">👀</div>
+            <h2 style="color: #800000; margin-bottom: 10px;">It's quiet here...</h2>
+            <p style="color: #666; margin-bottom: 25px;">You don't have any matches yet. Head over to the Swipe Deck to discover other MMUST students!</p>
+            <button onclick="window.location.href='/swipe'" class="btn-primary" style="padding: 12px 30px; font-size: 16px; border-radius: 25px;">
+                Go to Swipe Deck
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<div id="milestone-modal" class="modal hidden">
+    <div class="modal-content" style="text-align: center; border-top: 6px solid #ff2a4b; border-radius: 20px; padding: 30px;">
+        <h2 style="color: #800000; margin-bottom: 10px; font-size: 24px;">Happy Anniversary! 🎉</h2>
+        <p style="color: #666; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
+            It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#ff2a4b;">Them</strong>. Our AI wants to know how your connection is going!
+        </p>
+        
+        <div style="display: flex; flex-direction: column;">
+            <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(90deg, #800000 0%, #ff2a4b 100%);">
+                💍 We are Married / Engaged!
+            </button>
+            <button onclick="submitMilestone('serious')" class="btn-milestone" style="background: #28a745;">
+                ❤️ We are in a serious relationship
+            </button>
+            <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
+                ☕ Still casually dating
+            </button>
+            <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #666; border: 2px solid #ccc;">
+                💔 It didn't work out
+            </button>
+        </div>
+    </div>
+</div>
+<div id="install-container" style="display: none; margin: 20px 0;">
+    <button id="btn-install" class="btn-primary" style="width: 100%; background: #800000;">
+        📲 Download Match AI App
+    </button>
+</div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Check for milestones when the dashboard loads
+        fetch('/api/check_milestone')
+            .then(res => res.json())
+            .then(data => {
+                if(data.show_modal) {
+                    document.getElementById('milestone-partner').innerText = data.partner_name;
+                    document.getElementById('milestone-modal').classList.remove('hidden');
+                }
+            })
+            .catch(err => console.error("Milestone Check Error:", err));
+    });
+
+    function submitMilestone(status) {
+        fetch('/api/submit_milestone', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status: status })
+        }).then(() => {
+            document.getElementById('milestone-modal').classList.add('hidden');
+            if (status === 'ended') {
+                alert("Thanks for the feedback. The AI will learn from this to find you better matches.");
+            } else {
+                alert("Congratulations! We are so happy for you both. 🥳");
+            }
+        });
+    }
+    let deferredPrompt;
+const installContainer = document.getElementById('install-container');
+const btnInstall = document.getElementById('btn-install');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Prevent the default browser mini-infobar from appearing
+    e.preventDefault();
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can install the PWA
+    installContainer.style.display = 'block';
+});
+
+btnInstall.addEventListener('click', (e) => {
+    // Hide the app provided install promotion
+    installContainer.style.display = 'none';
+    // Show the install prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+        } else {
+            console.log('User dismissed the install prompt');
+        }
+        deferredPrompt = null;
+    });
+});
+</script>
+{% endblock %}

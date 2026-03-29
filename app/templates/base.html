@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FIND YOUR MATCH - MMUST AI Dating</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#800000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Match AI">
+    <link rel="apple-touch-icon" href="/static/img/icon-192.png">
+    
+    <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
+    <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:title" content="FIND YOUR MATCH | MMUST's Exclusive AI Powered Dating Club">
+    <meta property="og:description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your hot takes. Join the beta!">
+    <meta property="og:image" content="{{ url_for('static', filename='img/og-banner.jpg', _external=True) }}">
+    <meta property="twitter:card" content="summary_large_image">
+
+    <style>
+        /* === GLOBAL CSS VARIABLES === */
+        :root {
+            --primary: #ff2a4b;
+            --primary-light: #fff0f3;
+            --secondary: #800000;
+            --text-dark: #1f2937;
+            --bg-color: #fafafa;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden; 
+        }
+
+        /* === PREMIUM GLASSMORPHISM NAVBAR === */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: linear-gradient(135deg, rgba(128, 0, 0, 0.92) 0%, rgba(255, 42, 75, 0.88) 100%);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 5%; z-index: 2000;
+            box-shadow: 0 4px 25px rgba(128, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-left-group { display: flex; align-items: center; gap: 40px; }
+        
+        .logo {
+            font-weight: 900; font-size: 22px; color: white; 
+            text-decoration: none; letter-spacing: -0.5px;
+            display: flex; align-items: center; gap: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2002;
+        }
+        
+        .nav-links { display: flex; align-items: center; gap: 25px; }
+        .nav-links a {
+            text-decoration: none; color: rgba(255, 255, 255, 0.85);
+            font-weight: 600; font-size: 15px; transition: all 0.2s;
+        }
+        .nav-links a:hover { color: white; transform: translateY(-1px); }
+        
+        /* === DROPDOWN MENUS === */
+        .dropdown { position: relative; display: inline-block; }
+        .dropbtn {
+            background: none; border: none; cursor: pointer;
+            color: rgba(255, 255, 255, 0.85); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
+            display: flex; align-items: center; gap: 5px; transition: 0.2s;
+        }
+        .dropbtn:hover { color: white; }
+        
+        .dropdown-content {
+            display: none; position: absolute; top: 150%; left: 0;
+            background-color: white; min-width: 220px;
+            box-shadow: 0 20px 40px rgba(128, 0, 0, 0.15);
+            border-radius: 16px; z-index: 1; overflow: hidden;
+            border: 1px solid var(--primary-light); animation: fadeIn 0.2s ease-out;
+        }
+        .dropdown-content a {
+            color: var(--text-dark) !important; padding: 14px 20px;
+            text-decoration: none; display: block; border-bottom: 1px solid #f0f0f0;
+            font-size: 14px; font-weight: 600;
+        }
+        .dropdown-content a:hover {
+            background-color: var(--primary-light); color: var(--primary) !important;
+            padding-left: 25px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dropdown:hover .dropdown-content { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* === CTA BUTTONS === */
+        .nav-right-actions { display: flex; align-items: center; gap: 20px; }
+        .btn-nav {
+            background: white; color: var(--secondary) !important;
+            padding: 10px 24px; border-radius: 30px; font-weight: 800 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); white-space: nowrap;
+        }
+        .btn-nav:hover {
+            transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            color: var(--primary) !important;
+        }
+
+        /* === MOBILE MENU TOGGLE === */
+        .mobile-menu-btn {
+            display: none; font-size: 28px; background: none; border: none; 
+            color: white; cursor: pointer; z-index: 2002; transition: 0.3s;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 850px) {
+            .mobile-menu-btn { display: block; }
+            .nav-left-group { gap: 10px; width: 100%; justify-content: space-between; }
+            .nav-right-actions { display: none; }
+            
+            .nav-links {
+                position: fixed; top: 0; left: 0; right: 0; height: 100vh;
+                background: white; flex-direction: column; padding: 100px 30px 30px;
+                box-shadow: 0 10px 25px rgba(128,0,0,0.15);
+                transform: translateY(-100%);
+                transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                z-index: 2001; align-items: flex-start; 
+            }
+            .nav-links.active { transform: translateY(0); }
+            
+            .nav-links a, .dropbtn { 
+                color: var(--text-dark) !important; width: 100%; text-align: left; 
+                padding: 16px 0; border-bottom: 1px solid #f0f0f0; font-size: 18px;
+                display: flex; justify-content: space-between;
+            }
+            
+            .dropdown { width: 100%; }
+            .dropdown-content {
+                position: static; box-shadow: none; border: none; padding-left: 20px;
+                display: none; border-bottom: 1px solid #eee; border-radius: 0;
+                background: #fafafa; margin-top: 10px;
+            }
+            .dropdown.active .dropdown-content { display: block; }
+            
+            .mobile-auth-btn { 
+                background: var(--primary); color: white !important; 
+                text-align: center !important; border-radius: 12px; margin-top: 20px; 
+                border: none !important; justify-content: center !important;
+            }
+        }
+
+        /* === FLOATING TOAST NOTIFICATIONS === */
+        .toast-container { position: fixed; top: 90px; right: 20px; left: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+        @media (min-width: 850px) { .toast-container { left: auto; max-width: 400px; } }
+        
+        .alert {
+            padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            display: flex; align-items: center; justify-content: space-between;
+            pointer-events: auto;
+        }
+        .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
+        .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid #dc3545; }
+        .alert-warning { background: white; color: #856404; border-left: 6px solid #ffc107; }
+        .close-toast { background: none; border: none; font-size: 20px; cursor: pointer; color: inherit; opacity: 0.4; margin-left: 15px;}
+        .close-toast:hover { opacity: 1; }
+
+        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-20px); opacity: 0; } }
+
+        /* === MAIN CONTENT === */
+        .container { flex: 1; width: 100%; max-width: 1200px; margin: 90px auto 0; padding: 20px; position: relative; z-index: 10; }
+
+        /* === FOOTER === */
+        footer { background: var(--secondary); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
+        footer p { font-size: 14px; opacity: 0.9; margin: 0; }
+        .footer-partner-link {
+            display: inline-block; color: var(--primary-light); text-decoration: none;
+            font-weight: bold; font-size: 13px; border: 1.5px solid rgba(255, 204, 213, 0.4);
+            padding: 10px 24px; border-radius: 30px; margin-top: 20px; transition: all 0.3s;
+        }
+        .footer-partner-link:hover { background: white; border-color: white; color: var(--secondary); transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    
+    <header>
+        <nav class="navbar">
+            <div class="nav-left-group">
+                <a href="{{ url_for('home') }}" class="logo">
+                    <span style="font-size: 26px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">✨</span> FIND YOUR MATCH
+                </a>
+                <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn">☰</button>
+            </div>
+
+            <div class="nav-links" id="nav-links">
+                <a href="{{ url_for('home') }}">Home</a>
+                
+                {% if session.get('is_super_admin') %}
+                    <div class="dropdown">
+                        <button class="dropbtn" style="color: #ffccd5;" onclick="toggleDropdown(this)">Admin ▾</button>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('admin_ledger') }}">Financial Ledger</a>
+                            <a href="{{ url_for('super_admin') }}">Safety Controls</a>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if session.get('account_type') == 'business' %}
+                    <a href="{{ url_for('business_dashboard') }}">Merchant Portal</a>
+                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn" style="display: none;">Log Out</a>
+                
+                {% elif session.get('user_email') %}
+                    <div class="dropdown">
+                        <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('swipe') }}">Swipe Deck</a>
+                            <a href="{{ url_for('dashboard') }}">AI Dashboard</a>
+                            <a href="{{ url_for('venues') }}">Date Venues</a>
+                        </div>
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('matches') }}"> Messages</a>
+                            <a href="{{ url_for('profile') }}">Edit Profile</a>
+                            <a href="{{ url_for('settings') }}"> Settings</a>
+                            <a href="{{ url_for('safety') }}"> Safety Center</a>
+                        </div>
+                    </div>
+                    
+                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn" style="display: none;">Log Out</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" style="display: none; color: var(--primary) !important; font-weight: 800;" class="mobile-only-link">Log In</a>
+                    <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn" style="display: none;">Sign Up</a>
+                {% endif %}
+            </div>
+
+            <div class="nav-right-actions">
+                {% if session.get('user_email') or session.get('account_type') == 'business' or session.get('is_super_admin') %}
+                    <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 700;">Log In</a>
+                    <a href="{{ url_for('auth.signup') }}" class="btn-nav">Sign Up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <div class="toast-container" id="toast-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                  {{ message }}
+                  <button class="close-toast" onclick="this.parentElement.style.animation = 'slideOut 0.4s forwards'; setTimeout(() => this.parentElement.remove(), 400);">&times;</button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <main class="container">
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    <div id="install-banner" style="display: none; position: fixed; bottom: 80px; left: 20px; right: 20px; background: white; padding: 15px; border-radius: 16px; box-shadow: 0 10px 30px rgba(128,0,0,0.2); z-index: 9999; border-left: 6px solid var(--primary); align-items: center; justify-content: space-between;">
+        <div>
+            <h4 style="margin: 0 0 5px; color: var(--secondary);">Get the FIND YOUR MATCH App!</h4>
+            <p style="margin: 0; font-size: 13px; color: #666;">Install on your home screen for a faster, full-screen experience.</p>
+        </div>
+        <button id="install-btn" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer;">Install</button>
+    </div>
+
+    <footer>
+        <p>&copy; <span id="current-year"></span> FIND YOUR MATCH.</p>
+        <p style="font-size: 12px; margin-top: 5px; opacity: 0.7;">Powered by DELSTARFORD WORKS</p>
+        
+        <div style="margin-top: 15px; display: flex; justify-content: center; gap: 20px; font-size: 13px; font-weight: 600;">
+            <a href="{{ url_for('privacy') }}" style="color: #ffccd5; text-decoration: none; opacity: 0.9;">Privacy Policy</a>
+            <a href="{{ url_for('terms') }}" style="color: #ffccd5; text-decoration: none; opacity: 0.9;">Terms of Service</a>
+        </div>
+        
+        {% if session.get('account_type') != 'business' and not session.get('is_super_admin') %}
+        <a href="{{ url_for('auth.business_register') }}" class="footer-partner-link">
+            Are you a Restaurant Owner? Partner with us.
+        </a>
+        {% endif %}
+    </footer>
+
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        function toggleMenu() {
+            const nav = document.getElementById('nav-links');
+            const btn = document.getElementById('menu-btn');
+            
+            nav.classList.toggle('active');
+            
+            if (nav.classList.contains('active')) {
+                btn.innerHTML = '✕'; 
+                document.body.style.overflow = 'hidden'; 
+                document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'block'; });
+            } else {
+                btn.innerHTML = '☰';
+                document.body.style.overflow = 'auto'; 
+                document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
+                document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'none'; });
+            }
+        }
+
+        function toggleDropdown(button) {
+            if (window.innerWidth <= 850) {
+                const parentDropdown = button.parentElement;
+                parentDropdown.classList.toggle('active');
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const toasts = document.querySelectorAll('.alert');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.4s forwards';
+                    setTimeout(() => toast.remove(), 400);
+                }, 5000);
+            });
+        });
+
+        // === PWA REGISTRATION & INSTALL LOGIC ===
+        let deferredPrompt;
+        const installBanner = document.getElementById('install-banner');
+        const installBtn = document.getElementById('install-btn');
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => { console.log('PWA ServiceWorker Ready'); })
+                    .catch(err => { console.log('PWA Error: ', err); });
+            });
+        } 
+
+        // Intercept browser's native install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); // Stop Chrome from automatically showing the banner
+            deferredPrompt = e; // Save the event so we can trigger it later
+            installBanner.style.display = 'flex'; // Show our custom UI
+        });
+
+        // Trigger installation when the user clicks our button
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                installBanner.style.display = 'none'; // Hide our banner
+                deferredPrompt.prompt(); // Show the browser's native install modal
+                
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                }
+                deferredPrompt = null; // Clear the saved prompt since it can't be used again
+            }
+        });
+
+        // Hide banner permanently if the app is already installed
+        window.addEventListener('appinstalled', () => {
+            installBanner.style.display = 'none';
+            console.log('App was successfully installed!');
+        });
+    </script>
+</body>
+</html>

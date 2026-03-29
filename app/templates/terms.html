@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Reuses the same CSS as Privacy Policy for consistency */
+    .legal-container { max-width: 800px; margin: 40px auto 80px; background: white; padding: 50px; border-radius: 24px; box-shadow: 0 10px 30px rgba(128, 0, 0, 0.05); border: 1px solid #ffccd5; }
+    .legal-header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #fff0f3; padding-bottom: 30px; }
+    .legal-header h1 { color: #800000; font-size: 36px; font-weight: 900; margin-bottom: 10px; }
+    .legal-header p { color: #888; font-size: 14px; }
+    .legal-content h2 { color: #800000; font-size: 22px; margin: 30px 0 15px; }
+    .legal-content p { color: #555; line-height: 1.7; font-size: 15px; margin-bottom: 15px; }
+    .legal-content ul { margin-bottom: 20px; padding-left: 20px; color: #555; line-height: 1.7; font-size: 15px; }
+</style>
+
+<div class="legal-container">
+    <div class="legal-header">
+        <h1>Terms of Service</h1>
+        <p>Effective Date: March 2026 | Delstarford Works</p>
+    </div>
+    
+    <div class="legal-content">
+        <p>Welcome to FIND YOUR MATCH. By accessing or using our platform, you agree to be bound by these Terms of Service.</p>
+        
+        <h2>1. Eligibility</h2>
+        <p>You must be at least 18 years old to use this service. This platform is intended primarily for students of Masinde Muliro University of Science and Technology (MMUST) and residents of Kakamega.</p>
+
+        <h2>2. Subscriptions and Payments (M-Pesa)</h2>
+        <ul>
+            <li><strong>Student Access:</strong> Access to the Swipe Deck and Inbox requires a monthly subscription fee of 20 KSH, payable via Safaricom M-Pesa.</li>
+            <li><strong>Business Partners:</strong> Restaurant and venue listings require a monthly subscription of 2000 KSH.</li>
+            <li><strong>Refunds:</strong> All subscription payments are final and non-refundable unless required by Kenyan law.</li>
+        </ul>
+
+        <h2>3. Community Rules & AI Moderation</h2>
+        <p>We maintain a strict zero-tolerance policy for harassment, hate speech, explicit content, and spam. Our AI Moderation system actively monitors the platform. Delstarford Works reserves the right to instantly and permanently ban any user found violating these rules without a refund.</p>
+
+        <h2>4. Disclaimer of Liability</h2>
+        <p>FIND YOUR MATCH facilitates online connections and suggests offline partner venues. However, you are solely responsible for your interactions with other users. We strongly advise using our "Safe-Mate Check-In" feature and meeting in public spaces. Delstarford Works is not liable for any offline conduct or incidents.</p>
+
+        <h2>5. Changes to Terms</h2>
+        <p>We may modify these Terms at any time. Continued use of the platform after changes constitutes your acceptance of the new terms.</p>
+    </div>
+</div>
+{% endblock %}

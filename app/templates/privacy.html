@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .legal-container {
+        max-width: 800px;
+        margin: 40px auto 80px;
+        background: white;
+        padding: 50px;
+        border-radius: 24px;
+        box-shadow: 0 10px 30px rgba(128, 0, 0, 0.05);
+        border: 1px solid #ffccd5;
+    }
+    .legal-header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #fff0f3; padding-bottom: 30px; }
+    .legal-header h1 { color: #800000; font-size: 36px; font-weight: 900; margin-bottom: 10px; }
+    .legal-header p { color: #888; font-size: 14px; }
+    
+    .legal-content h2 { color: #800000; font-size: 22px; margin: 30px 0 15px; }
+    .legal-content p { color: #555; line-height: 1.7; font-size: 15px; margin-bottom: 15px; }
+    .legal-content ul { margin-bottom: 20px; padding-left: 20px; color: #555; line-height: 1.7; font-size: 15px; }
+    .legal-content li { margin-bottom: 8px; }
+</style>
+
+<div class="legal-container">
+    <div class="legal-header">
+        <h1>Privacy Policy</h1>
+        <p>Effective Date: March 2026 | Delstarford Works</p>
+    </div>
+    
+    <div class="legal-content">
+        <p>At FIND YOUR MATCH, your privacy is our top priority. This policy outlines how we collect, use, and protect your data while you use our platform.</p>
+        
+        <h2>1. Information We Collect</h2>
+        <ul>
+            <li><strong>Account Data:</strong> When you sign up, we collect your basic profile information (name, email, university details).</li>
+            <li><strong>Payment Data:</strong> We collect your M-Pesa phone number solely to process the 20 KSH subscription via Safaricom Daraja API. We do not store your M-Pesa PIN.</li>
+            <li><strong>Matching Data:</strong> We securely store your uploaded class schedules and preferences to power our AI recommendation engine.</li>
+            <li><strong>Communications:</strong> Chat messages are processed by our automated Safety Engine to prevent harassment and are securely stored to allow you to view your chat history.</li>
+        </ul>
+
+        <h2>2. How We Use Your Information</h2>
+        <p>Your data is strictly used to provide and improve the MMUST AI Dating service. We use your schedule to find compatible free time, your photos for aesthetic matching, and your text for sentiment alignment. <strong>We will never sell your personal data to third parties.</strong></p>
+
+        <h2>3. Data Security & AI Moderation</h2>
+        <p>We implement industry-standard security measures to protect your data. Furthermore, our AI Moderation Engine proactively scans messages for toxic behavior and hidden phone numbers to keep the community safe. Flagged messages may be reviewed by human moderators at Delstarford Works.</p>
+
+        <h2>4. Account Deletion</h2>
+        <p>You have the right to be forgotten. You can permanently delete your account, chats, schedules, and matches at any time via the Settings page. This action is irreversible.</p>
+
+        <h2>5. Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us at: <strong>delstarfordisaiah@gmail.com</strong>.</p>
+    </div>
+</div>
+{% endblock %}

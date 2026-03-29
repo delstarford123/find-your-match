@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .paywall-wrapper {
+        max-width: 450px;
+        margin: 50px auto;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .pay-card {
+        background: white;
+        border-radius: 24px;
+        padding: 40px 30px;
+        box-shadow: 0 20px 40px rgba(128, 0, 0, 0.1);
+        border: 1px solid #ffccd5;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Premium Glow Effect */
+    .pay-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,42,75,0.05) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .price-badge {
+        background: #fff0f3;
+        color: #ff2a4b;
+        display: inline-block;
+        padding: 8px 20px;
+        border-radius: 50px;
+        font-weight: 800;
+        font-size: 14px;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .pay-title {
+        color: #800000;
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 10px;
+    }
+
+    .pay-subtitle {
+        color: #666;
+        font-size: 15px;
+        margin-bottom: 30px;
+        line-height: 1.5;
+    }
+
+    .benefits-list {
+        text-align: left;
+        margin-bottom: 35px;
+        padding: 0;
+        list-style: none;
+    }
+
+    .benefits-list li {
+        margin-bottom: 12px;
+        color: #4a0404;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .check-icon {
+        color: #28a745;
+        font-weight: bold;
+    }
+
+    .mpesa-input-group {
+        background: #fafafa;
+        padding: 20px;
+        border-radius: 16px;
+        border: 1px solid #eee;
+        margin-bottom: 20px;
+        transition: 0.3s opacity;
+    }
+
+    .mpesa-input-group label {
+        display: block;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 700;
+        color: #888;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .mpesa-input-group input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        font-size: 18px;
+        font-weight: 700;
+        color: #333;
+        outline: none;
+        letter-spacing: 1px;
+    }
+
+    .btn-unlock {
+        width: 100%;
+        background: linear-gradient(135deg, #ff2a4b 0%, #800000 100%);
+        color: white;
+        border: none;
+        padding: 18px;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
+        box-shadow: 0 10px 20px rgba(255, 42, 75, 0.2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .btn-unlock:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 30px rgba(255, 42, 75, 0.3);
+    }
+    
+    .btn-unlock:disabled {
+        transform: none;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+
+    .security-note {
+        margin-top: 20px;
+        font-size: 11px;
+        color: #999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    /* Loading Spinner Animation */
+    .spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .waiting-text {
+        font-size: 13px;
+        color: #ff2a4b;
+        font-weight: bold;
+        margin-top: 15px;
+        display: none;
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
+</style>
+
+<div class="paywall-wrapper">
+    <div class="pay-card">
+        <div class="price-badge">Monthly Access</div>
+        <h1 class="pay-title">Unlock Your Match</h1>
+        <p class="pay-subtitle">Join hundreds of MMUST students finding connections today.</p>
+
+        <ul class="benefits-list">
+            <li><span class="check-icon">✓</span> Unlimited Swiping in the Deck</li>
+            <li><span class="check-icon">✓</span> AI Schedule Compatibility Matching</li>
+            <li><span class="check-icon">✓</span> Secure Real-time Chatting</li>
+            <li><span class="check-icon">✓</span> Access to Partner Date Venues</li>
+        </ul>
+
+        <div class="mpesa-input-group" id="input-container">
+            <label for="student-phone">M-Pesa Number</label>
+            <input type="text" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12">
+        </div>
+
+        <button id="btn-pay-student" onclick="payStudentFee()" class="btn-unlock">
+            <span id="btn-text">Pay KSH 20 to Unlock</span>
+            <div class="spinner" id="btn-spinner"></div>
+        </button>
+        
+        <div id="waiting-msg" class="waiting-text">
+            Please enter your M-Pesa PIN on your phone.<br>Do not close this page...
+        </div>
+
+        <div class="security-note">
+            🔒 Secured by Safaricom Daraja API
+        </div>
+    </div>
+</div>
+
+<script>
+    function payStudentFee() {
+        const phoneInput = document.getElementById('student-phone');
+        const phone = phoneInput.value.trim();
+        const btn = document.getElementById('btn-pay-student');
+        const btnText = document.getElementById('btn-text');
+        const spinner = document.getElementById('btn-spinner');
+        const waitingMsg = document.getElementById('waiting-msg');
+        const inputContainer = document.getElementById('input-container');
+        
+        if (phone.length !== 12 || !phone.startsWith("254")) {
+            alert("Please enter a valid Safaricom number starting with 254 (e.g., 254712345678)");
+            return;
+        }
+
+        // 1. Update UI to "Processing" state
+        btnText.innerText = "Requesting M-Pesa...";
+        spinner.style.display = "block";
+        btn.disabled = true;
+        phoneInput.disabled = true;
+        inputContainer.style.opacity = "0.6";
+
+        fetch('/api/pay_student_fee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone_number: phone })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // 2. Update UI to "Waiting for PIN" state
+                btnText.innerText = "Waiting for Payment...";
+                btn.style.background = "#4a0404"; // Darken button to show it's waiting
+                waitingMsg.style.display = "block";
+
+                // 3. Start Smart Polling
+                pollForPaymentSuccess();
+                
+            } else {
+                // Reset UI on failure
+                alert(data.message || "Failed to initiate payment.");
+                resetUI();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Network error. Please try again.");
+            resetUI();
+        });
+    }
+
+    function pollForPaymentSuccess() {
+        const btn = document.getElementById('btn-pay-student');
+        const btnText = document.getElementById('btn-text');
+        const spinner = document.getElementById('btn-spinner');
+        const waitingMsg = document.getElementById('waiting-msg');
+
+        // Check the server every 4 seconds
+        const checkInterval = setInterval(async () => {
+            try {
+                // We fetch the /swipe page. If the user is paid, the backend returns the Swipe Deck HTML.
+                // If they are not paid, it returns this Paywall HTML.
+                const response = await fetch('/swipe');
+                const text = await response.text();
+                
+                // Check if the returned HTML contains the Swipe Deck UI elements
+                if (text.includes('deck-wrapper') || text.includes('profile-card')) {
+                    clearInterval(checkInterval);
+                    
+                    // 4. Update UI to "Success" state
+                    waitingMsg.style.display = "none";
+                    spinner.style.display = "none";
+                    btn.style.background = "#28a745"; // Success Green
+                    btnText.innerText = "Payment Received! ✅";
+                    
+                    // Smoothly redirect to the swipe deck
+                    setTimeout(() => {
+                        window.location.href = '/swipe';
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error("Polling error:", error);
+            }
+        }, 4000);
+        
+        // Timeout after 2 minutes (Safaricom STK push expires in about 60-90 seconds)
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            if (btnText.innerText !== "Payment Received! ✅") {
+                alert("Payment request timed out. Please try again.");
+                resetUI();
+            }
+        }, 120000);
+    }
+    
+    function resetUI() {
+        const btn = document.getElementById('btn-pay-student');
+        const btnText = document.getElementById('btn-text');
+        const spinner = document.getElementById('btn-spinner');
+        const waitingMsg = document.getElementById('waiting-msg');
+        const phoneInput = document.getElementById('student-phone');
+        const inputContainer = document.getElementById('input-container');
+        
+        btnText.innerText = "Pay KSH 20 to Unlock";
+        spinner.style.display = "none";
+        btn.style.background = "linear-gradient(135deg, #ff2a4b 0%, #800000 100%)";
+        btn.disabled = false;
+        phoneInput.disabled = false;
+        inputContainer.style.opacity = "1";
+        waitingMsg.style.display = "none";
+    }
+</script>
+{% endblock %}
