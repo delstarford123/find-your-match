@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room  # Added join_room here
 from pywebpush import webpush, WebPushException
 
 # 1. Path Setup & Environment
@@ -27,82 +27,92 @@ from app.database import (
     get_restaurant, get_restaurant_bookings, update_booking_status, terminate_connection,
     get_all_restaurants, delete_user_account, increment_restaurant_view
 )
+
 from app.services.recommendation_engine import generate_ranked_deck
 from app.services.moderation import contains_phone_number, analyze_safety
 from app.payments import initiate_stk_push
+from groq import Groq
+from api_key import GROQ_API_KEY
 
 # ==========================================
-# AI INTEGRATION: HUGGING FACE INFERENCE API
+# 3. AI COMPANION SERVICE (GROQ)
 # ==========================================
-# We use the HF API instead of loading locally to prevent Render OOM crashes.
-HF_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://router.huggingface.co/hf-inference/models/Delstarford/mmust-ai-companion-v1"
+client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-def get_ai_companion_response(user_text):
-    """Connects the Flask app to the live fine-tuned AI brain on Hugging Face."""
-    if not HF_TOKEN:
-        print("⚠️ HF_TOKEN is missing!")
+def get_ai_companion_response(user_text, user_gender="unknown"):
+    """Connects to Groq and dynamically adjusts persona based on user gender."""
+    if not client:
+        print("⚠️ GROQ_API_KEY is missing from api_key.py!")
         return "My AI brain is currently resting. (API Key missing!)"
 
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    model_id = "llama-3.1-8b-instant" 
     
-    # We format the prompt exactly how TinyLlama expects it
-    prompt = f"<|system|>\nYou are a friendly, flirty, and supportive AI dating companion for university students. Keep it clean and encouraging.</s>\n<|user|>\n{user_text}</s>\n<|assistant|>\n"
+    # Determine the AI's persona based on the user's gender
+    user_g = str(user_gender).strip().lower()
     
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 100,  # Keep responses concise
-            "temperature": 0.7,     # 0.7 gives a good mix of creativity and focus
-            "return_full_text": False # We only want the AI's reply, not the prompt echoed back
-        }
-    }
+    if user_g in ["male", "m"]:
+        ai_persona = "female"
+        target_user = "male"
+    elif user_g in ["female", "f"]:
+        ai_persona = "male"
+        target_user = "female"
+    else:
+        # Fallback if gender isn't set properly
+        ai_persona = "friendly"
+        target_user = "university"
 
+    # Build the dynamic system prompt
+    system_prompt = (
+        f"You are a friendly, flirty, and supportive {ai_persona} AI dating companion "
+        f"chatting with a {target_user} university student at Masinde Muliro University of Science and Technology (MMUST). "
+        "Keep your responses short, clean, and encouraging. Occasionally use Kenyan campus slang."
+    )
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_text}
+    ]
+    
     try:
-        # Send the message to Hugging Face
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
-        response.raise_for_status() # Check for HTTP errors
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model=model_id,
+            max_tokens=150,
+            temperature=0.7,
+            top_p=0.9
+        )
         
-        # Parse the response
-        data = response.json()
-        if isinstance(data, list) and len(data) > 0:
-            reply = data[0].get('generated_text', '').strip()
-            if reply:
-                return reply
-                
-        return "I'm thinking about that... what else is on your mind?"
+        reply = chat_completion.choices[0].message.content.strip()
+        return reply if reply else "I'm listening, tell me more!"
         
-    except requests.exceptions.Timeout:
-        return "Sorry, my network is a bit slow right now. Give me a second!"
     except Exception as e:
-        print(f"⚠️ Hugging Face API Error: {e}")
-        return "I'm having a bit of a 'comrade' moment (my brain is lagging). Can you say that again?"
-
-
-# 3. Initialize App & WebSockets
+        print(f"⚠️ Groq API Error: {e}")
+        return "The campus Wi-Fi is acting up! Try sending that again?"
+    
+# ==========================================
+# 4. INITIALIZE FLASK APP & WEBSOCKETS
+# ==========================================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "delstarford_works_secret_2026")
 
 # VAPID Keys for Push Notifications
+# Using os.getenv so your personal email isn't hardcoded if you share the code
+mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
 app.config['VAPID_PRIVATE_KEY'] = "private_key.pem" 
-app.config['VAPID_CLAIMS'] = {"sub": "mailto:delstarfordisaiah@gmail.com"}
+app.config['VAPID_CLAIMS'] = {"sub": f"mailto:{mail_username}"}
 
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# 4. Register Blueprints
+# Register Blueprints
 from app.routes.auth import auth_bp
 app.register_blueprint(auth_bp)
 
 
 # ==========================================
-# SECURITY DECORATORS & HELPERS
+# 5. SECURITY DECORATORS & HELPERS
 # ==========================================
-
 def login_required(f):
-    """
-    Decorator: Ensures a user is logged in before accessing a route.
-    Use this for basic pages like /profile and /settings.
-    """
+    """Decorator: Ensures a user is logged in before accessing a route."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -112,18 +122,13 @@ def login_required(f):
     return decorated_function
 
 def requires_subscription(f):
-    """
-    Decorator: Checks if a logged-in student has paid the 20 KSH.
-    If not, redirects them to the paywall.
-    """
+    """Decorator: Checks if a logged-in student has paid the subscription."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # First check if they are logged in at all
         if 'user_id' not in session:
             flash("Please log in to access this page.", "warning")
             return redirect(url_for('auth.login'))
             
-        # Then check payment status
         user_id = session.get('user_id')
         user_data = db.reference(f'profiles/{user_id}').get()
         
@@ -133,7 +138,6 @@ def requires_subscription(f):
             
         return f(*args, **kwargs)
     return decorated_function
-
 
 def trigger_match_notification(target_user_id, current_user_name):
     """Sends a Web Push Notification to the target user when a match occurs."""
@@ -162,6 +166,104 @@ def trigger_match_notification(target_user_id, current_user_name):
         if ex.response and ex.response.status_code == 410:
             db.reference(f'push_subscriptions/{target_user_id}').delete()
             print(f"🧹 Cleaned up expired push token for {target_user_id}")
+
+
+# ==========================================
+# 6. WEBSOCKET EVENTS (CHAT & AI MODERATION)
+# ==========================================
+@socketio.on('connect')
+def handle_connect():
+    """Security Step: Automatically join a private room based on user_id when connecting."""
+    user_id = session.get('user_id')
+    if user_id:
+        join_room(user_id)
+
+@socketio.on('typing')
+def handle_typing(data):
+    """Routes the typing indicator only to the person they are chatting with."""
+    receiver_id = data.get('receiver_id')
+    if receiver_id:
+        emit('user_typing', data, to=receiver_id)
+
+@socketio.on('send_message')
+def handle_message(data):
+    # Security Check: Ensure the user is actually logged in
+    sender_id = session.get('user_id')
+    if not sender_id:
+        return
+
+    receiver_id = data.get('receiver_id')
+    msg_text = data.get('text')
+    msg_type = data.get('type', 'text')
+
+    # ROUTE A: AI COMPANION LOGIC
+    if receiver_id == 'AI_COMPANION':
+        # Echo the user's message back to their own screen
+        emit('receive_message', data, to=request.sid)
+        
+        # Show AI typing indicator
+        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
+        
+        # Fetch the user's gender from Firebase for dynamic AI persona
+        current_user_gender = "unknown"
+        user_profile = db.reference(f'profiles/{sender_id}').get()
+        if user_profile and 'gender' in user_profile:
+            current_user_gender = user_profile['gender']
+        
+        # Worker function for the background thread
+        def ai_worker(query, sid, gender):
+            ai_reply = get_ai_companion_response(query, user_gender=gender)
+            
+            socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=sid)
+            socketio.emit('receive_message', {
+                'sender': 'AI_COMPANION',
+                'type': 'text',
+                'text': ai_reply
+            }, to=sid)
+
+        # Start the AI in a separate thread
+        threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
+        return
+
+    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
+    if msg_type == 'text':
+        safety_check = analyze_safety(msg_text)
+        
+        if not safety_check['is_safe']:
+            # Log serious violations to the admin panel
+            if safety_check['flag'] in ['self_harm', 'violence']:
+                db.reference('admin_alerts').push({
+                    'sender': sender_id,
+                    'receiver': receiver_id,
+                    'message': msg_text,
+                    'flag': safety_check['flag'],
+                    'timestamp': datetime.now().isoformat()
+                })
+            
+            # Warn the sender privately
+            warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
+            emit('receive_message', warning_msg, to=request.sid) 
+            return
+
+        if contains_phone_number(msg_text):
+            warning_msg = {
+                'sender': 'SYSTEM_AI',
+                'type': 'text',
+                'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
+            }
+            emit('receive_message', warning_msg, to=request.sid) 
+            return
+
+    # ROUTE C: SAFE MESSAGE DELIVERY
+    # Save to Firebase
+    save_chat_message(sender_id, receiver_id, msg_text, msg_type)
+    
+    # Send to the specific receiver's private room
+    emit('receive_message', data, to=receiver_id)
+    # Also echo it back to the sender
+    emit('receive_message', data, to=request.sid)
+
+# Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
 # ==========================================
 # CORE B2C PAGES (STUDENTS)
 # ==========================================
@@ -827,28 +929,62 @@ def mpesa_callback():
 
 
 
-
 # ==========================================
 # WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
 # ==========================================
+import threading
+from datetime import datetime
+from flask import session, request
+from flask_socketio import emit, join_room
+# Make sure db and get_ai_companion_response are imported at the top of your file!
+
+@socketio.on('connect')
+def handle_connect():
+    """Security Step: Automatically join a private room based on user_id when connecting."""
+    user_id = session.get('user_id')
+    if user_id:
+        join_room(user_id) # Now we can send messages directly to this user's private room
 
 @socketio.on('typing')
 def handle_typing(data):
-    emit('user_typing', data, broadcast=True, include_self=False)
+    """Routes the typing indicator only to the person they are chatting with."""
+    receiver_id = data.get('receiver_id')
+    if receiver_id:
+        emit('user_typing', data, to=receiver_id)
 
 @socketio.on('send_message')
 def handle_message(data):
+    # 1. Security Check: Ensure the user is actually logged in
     sender_id = session.get('user_id')
+    if not sender_id:
+        return # Ignore the event if they aren't logged in
+
     receiver_id = data.get('receiver_id')
     msg_text = data.get('text')
     msg_type = data.get('type', 'text')
 
+    # ==========================================
+    # ROUTE A: AI COMPANION LOGIC
+    # ==========================================
     if receiver_id == 'AI_COMPANION':
+        # Echo the user's message back to their own screen
         emit('receive_message', data, to=request.sid)
+        
+        # Show AI typing indicator
         emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
         
-        def ai_worker(query, sid):
-            ai_reply = get_ai_companion_response(query)
+        # Fetch the user's gender from Firebase for dynamic AI persona
+        current_user_gender = "unknown"
+        user_profile = db.reference(f'profiles/{sender_id}').get()
+        if user_profile and 'gender' in user_profile:
+            current_user_gender = user_profile['gender']
+        
+        # Worker function for the background thread
+        def ai_worker(query, sid, gender):
+            # Now we pass the gender to make the AI smart!
+            ai_reply = get_ai_companion_response(query, user_gender=gender)
+            
+            # Stop typing indicator and send reply
             socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=sid)
             socketio.emit('receive_message', {
                 'sender': 'AI_COMPANION',
@@ -856,12 +992,18 @@ def handle_message(data):
                 'text': ai_reply
             }, to=sid)
 
-        threading.Thread(target=ai_worker, args=(msg_text, request.sid)).start()
+        # Start the AI in a separate thread so the server doesn't freeze
+        threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
         return
 
+    # ==========================================
+    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
+    # ==========================================
     if msg_type == 'text':
         safety_check = analyze_safety(msg_text)
+        
         if not safety_check['is_safe']:
+            # Log serious violations to the admin panel
             if safety_check['flag'] in ['self_harm', 'violence']:
                 db.reference('admin_alerts').push({
                     'sender': sender_id,
@@ -870,10 +1012,13 @@ def handle_message(data):
                     'flag': safety_check['flag'],
                     'timestamp': datetime.now().isoformat()
                 })
+            
+            # Warn the sender privately (don't send to receiver)
             warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
             emit('receive_message', warning_msg, to=request.sid) 
             return
 
+        # Prevent sharing phone numbers
         if contains_phone_number(msg_text):
             warning_msg = {
                 'sender': 'SYSTEM_AI',
@@ -883,9 +1028,16 @@ def handle_message(data):
             emit('receive_message', warning_msg, to=request.sid) 
             return
 
+    # ==========================================
+    # ROUTE C: SAFE MESSAGE DELIVERY
+    # ==========================================
+    # Save to Firebase
     save_chat_message(sender_id, receiver_id, msg_text, msg_type)
-    emit('receive_message', data, broadcast=True)
-
+    
+    # Send to the specific receiver's private room (NOT broadcast=True!)
+    emit('receive_message', data, to=receiver_id)
+    # Also echo it back to the sender so it shows up in their chat UI
+    emit('receive_message', data, to=request.sid)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, use_reloader=False)
