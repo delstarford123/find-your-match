@@ -1,65 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Performance Report</title>
     <style>
-        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
-        .wrapper { width: 100%; table-layout: fixed; background-color: #f4f4f4; padding-bottom: 40px; }
-        .main { background-color: #ffffff; width: 100%; max-width: 600px; margin: 0 auto; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0; }
-        .header { background: linear-gradient(135deg, #800000 0%, #ff2a4b 100%); padding: 30px; text-align: center; color: #ffffff; }
-        .content { padding: 30px; }
-        .stat-box { display: inline-block; width: 45%; margin: 2%; background-color: #fff0f3; padding: 20px; border-radius: 12px; text-align: center; vertical-align: top; border: 1px solid #ffccd5; }
-        .stat-number { font-size: 32px; font-weight: 900; color: #800000; margin-bottom: 5px; }
-        .stat-label { font-size: 12px; color: #ff2a4b; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
-        .booking-row { padding: 15px; border-bottom: 1px solid #eee; font-size: 14px; color: #333; }
-        .footer { padding: 20px; text-align: center; font-size: 12px; color: #888; }
-        .btn { display: inline-block; padding: 15px 25px; background-color: #800000; color: #ffffff !important; text-decoration: none; border-radius: 30px; font-weight: bold; margin-top: 20px; }
+        body { margin: 0; padding: 0; background-color: #f4f4f4; -webkit-font-smoothing: antialiased; }
+        table { border-spacing: 0; border-collapse: collapse; }
+        td { padding: 0; }
+        img { border: 0; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 0; }
+        .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(114, 0, 0, 0.1); border: 1px solid #FFD6DD; }
+        .btn-hover:hover { background-color: #720000 !important; }
     </style>
 </head>
-<body>
-    <div class="wrapper">
-        <div class="main">
-            <div class="header">
-                <h1 style="margin:0; font-size: 24px;">Weekly Performance Report</h1>
-                <p style="margin:5px 0 0; opacity: 0.8;">{{ restaurant_name }}</p>
-            </div>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;">
+
+    <center class="wrapper" style="width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 10px;">
+        
+        <table class="main" width="100%" max-width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; overflow: hidden; border: 1px solid #FFD6DD;">
             
-            <div class="content">
-                <p style="font-size: 16px; color: #444; line-height: 1.5;">Hello {{ owner_name }},</p>
-                <p style="font-size: 14px; color: #666;">Here is how <strong>FIND YOUR MATCH AI</strong> performed for your venue this past week (Mar 19 - Mar 25):</p>
-                
-                <div style="text-align: center; margin-top: 20px;">
-                    <div class="stat-box">
-                        <div class="stat-number">{{ profile_views }}</div>
-                        <div class="stat-label">Discovery Views</div>
-                    </div>
-                    <div class="stat-box">
-                        <div class="stat-number">{{ qr_scans }}</div>
-                        <div class="stat-label">QR Redemptions</div>
-                    </div>
-                </div>
+            <tr>
+                <td style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 35px 20px; text-align: center;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Weekly Venue Report</h1>
+                    <p style="margin: 8px 0 0 0; color: #FFD6DD; font-size: 15px; font-weight: 500;">{{ restaurant_name }}</p>
+                </td>
+            </tr>
 
-                <div style="margin-top: 30px;">
-                    <h3 style="color: #800000; border-bottom: 2px solid #fff0f3; padding-bottom: 10px;">Recent Bookings</h3>
-                    {% for booking in recent_bookings %}
-                    <div class="booking-row">
-                        <strong>{{ booking.couple }}</strong> — {{ booking.day }} at {{ booking.time }}
-                    </div>
-                    {% else %}
-                    <p style="font-size: 13px; color: #999;">No bookings this week. Try updating your 'Student Perk' to attract more couples!</p>
-                    {% endfor %}
-                </div>
+            <tr>
+                <td style="padding: 35px 30px; color: #4A0008;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">Hello {{ owner_name }},</p>
+                    <p style="margin: 0 0 25px 0; font-size: 15px; line-height: 1.6; color: #555555;">
+                        Here is how the <strong>FIND YOUR MATCH AI</strong> drove foot traffic to your venue this past week ({{ report_start_date }} - {{ report_end_date }}):
+                    </p>
 
-                <div style="text-align: center; margin-top: 30px;">
-                    <p style="font-size: 13px; color: #666;">Want to see more detailed analytics?</p>
-                    <a href="https://delstarford-works.vercel.app/login" class="btn">Access Merchant Dashboard</a>
-                </div>
-            </div>
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td width="48%" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                                <div style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ profile_views }}</div>
+                                <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Discovery Views</div>
+                            </td>
+                            
+                            <td width="4%"></td>
+                            
+                            <td width="48%" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                                <div style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ qr_scans }}</div>
+                                <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">QR Redemptions</div>
+                            </td>
+                        </tr>
+                    </table>
 
-            <div class="footer">
-                <p>&copy; 2026 Delstarford Works AI Solutions - MMUST Branch</p>
-                <p>Kakamega, Kenya | <a href="#" style="color: #888;">Unsubscribe</a></p>
-            </div>
-        </div>
-    </div>
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 35px;">
+                        <tr>
+                            <td style="border-bottom: 2px solid #FEF2F4; padding-bottom: 10px; margin-bottom: 15px;">
+                                <h3 style="margin: 0; color: #720000; font-size: 18px;">Recent Campus Matches Hosted</h3>
+                            </td>
+                        </tr>
+                        
+                        {% for booking in recent_bookings %}
+                        <tr>
+                            <td style="padding: 14px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #4A0008;">
+                                <span style="font-weight: bold; color: #E60026;">{{ booking.couple }}</span> scheduled a date on <strong>{{ booking.day }}</strong> at <strong>{{ booking.time }}</strong>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td style="padding: 20px 0; text-align: center; color: #888888; font-size: 14px; font-style: italic;">
+                                No bookings this week. <br><strong>AI Tip:</strong> Add a free drink offer to your 'Student Perk' to attract more MMUST couples!
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 35px; text-align: center;">
+                        <tr>
+                            <td align="center">
+                                <p style="margin: 0 0 15px 0; font-size: 14px; color: #666666;">Want to update your venue profile or see deeper analytics?</p>
+                                <a href="https://delstarford-works.vercel.app/login" class="btn-hover" style="display: inline-block; background-color: #E60026; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 30px; border-radius: 30px; transition: background-color 0.3s;">Open Merchant Dashboard</a>
+                            </td>
+                        </tr>
+                    </table>
+
+                </td>
+            </tr>
+
+            <tr>
+                <td style="background-color: #4A0008; padding: 25px; text-align: center;">
+                    <p style="margin: 0; color: #FFD6DD; font-size: 12px; font-weight: 500;">&copy; 2026 Delstarford Works AI Solutions</p>
+                    <p style="margin: 5px 0 0 0; color: rgba(255, 214, 221, 0.6); font-size: 11px;">Kakamega, Kenya | <a href="#" style="color: rgba(255, 214, 221, 0.8); text-decoration: underline;">Unsubscribe</a></p>
+                </td>
+            </tr>
+
+        </table>
+    </center>
+
 </body>
 </html>
