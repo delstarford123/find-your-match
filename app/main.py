@@ -32,7 +32,9 @@ from app.services.recommendation_engine import generate_ranked_deck
 from app.services.moderation import contains_phone_number, analyze_safety
 from app.payments import initiate_stk_push
 from groq import Groq
-from api_key import GROQ_API_KEY
+
+# Pull the key securely from the system environment
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ==========================================
 # 3. AI COMPANION SERVICE (GROQ)
