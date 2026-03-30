@@ -17,15 +17,15 @@
     
     <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
     <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
-    
-    <style>
-        /* === GLOBAL CSS VARIABLES === */
+   <style>
+        /* === GLOBAL CSS VARIABLES (THE ROMANTIC PALETTE) === */
         :root {
-            --primary: #ff2a4b;
-            --primary-light: #fff0f3;
-            --secondary: #800000;
-            --text-dark: #1f2937;
-            --bg-color: #fafafa;
+            --primary: #E60026; /* The striking 'Color of Love' red */
+            --primary-light: #FFD6DD; /* Soft romantic pink for hovers */
+            --secondary: #720000; /* Deep Maroon */
+            --secondary-dark: #4A0008; /* Very deep maroon for text/footer */
+            --text-dark: var(--secondary-dark); /* Replaced dark gray with deep maroon */
+            --bg-color: #FEF2F4; /* Soft, warm romantic blush background */
             --nav-height: 70px;
         }
 
@@ -46,11 +46,12 @@
         .navbar {
             position: fixed; top: 0; left: 0; right: 0;
             height: var(--nav-height);
-            background: linear-gradient(135deg, rgba(128, 0, 0, 0.95) 0%, rgba(255, 42, 75, 0.95) 100%);
+            /* Updated to use the new Maroon and Red in transparent RGBA for the glass effect */
+            background: linear-gradient(135deg, rgba(114, 0, 0, 0.95) 0%, rgba(230, 0, 38, 0.95) 100%);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 5%; z-index: 2000;
-            box-shadow: 0 4px 25px rgba(128, 0, 0, 0.25);
+            box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); /* Maroon tinted shadow */
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
@@ -60,7 +61,7 @@
             font-weight: 900; font-size: 22px; color: white; 
             text-decoration: none; letter-spacing: -0.5px;
             display: flex; align-items: center; gap: 8px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2002;
+            text-shadow: 0 2px 4px rgba(74, 0, 8, 0.4); z-index: 2002;
             white-space: nowrap;
         }
         
@@ -83,7 +84,7 @@
         .dropdown-content {
             display: none; position: absolute; top: 100%; left: 0;
             background-color: white; min-width: 220px;
-            box-shadow: 0 20px 40px rgba(128, 0, 0, 0.15);
+            box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15); /* Maroon shadow */
             border-radius: 16px; z-index: 10; overflow: hidden;
             border: 1px solid var(--primary-light); animation: fadeIn 0.2s ease-out;
             margin-top: 15px;
@@ -110,10 +111,10 @@
             background: white; color: var(--secondary) !important;
             padding: 10px 24px; border-radius: 30px; font-weight: 800 !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); white-space: nowrap;
+            box-shadow: 0 4px 10px rgba(114, 0, 0, 0.15); white-space: nowrap;
         }
         .btn-nav:hover {
-            transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            transform: translateY(-2px); box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25);
             color: var(--primary) !important;
         }
 
@@ -136,7 +137,7 @@
                 background: white;
                 flex-direction: column; 
                 padding: 20px 25px 40px; 
-                box-shadow: 0 10px 25px rgba(128,0,0,0.15);
+                box-shadow: 0 10px 25px rgba(114, 0, 0, 0.15);
                 transform: translateY(-150%);
                 transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 z-index: 1999; align-items: flex-start; 
@@ -160,7 +161,7 @@
             .dropdown-content {
                 position: static; box-shadow: none; border: none; padding-left: 20px;
                 display: none; border-bottom: 1px solid #eee; border-radius: 0;
-                background: #fafafa; margin-top: 5px; width: 100%; animation: none;
+                background: var(--bg-color); margin-top: 5px; width: 100%; animation: none;
             }
             .dropdown-content a { padding: 12px 20px; font-size: 15px; border-bottom: 1px solid #eee; }
             .dropdown.active .dropdown-content { display: block; }
@@ -170,6 +171,7 @@
                 text-align: center !important; border-radius: 12px; margin-top: 20px; 
                 border: none !important; justify-content: center !important;
                 padding: 15px !important; font-weight: 800; font-size: 16px;
+                box-shadow: 0 4px 15px rgba(230, 0, 38, 0.2);
             }
             .mobile-only-link { border-bottom: none !important; color: var(--primary) !important; font-weight: 800 !important; }
         }
@@ -180,11 +182,11 @@
         
         .alert {
             padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            box-shadow: 0 10px 30px rgba(74, 0, 8, 0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             display: flex; align-items: center; justify-content: space-between; pointer-events: auto;
         }
         .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
-        .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid #dc3545; }
+        .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid var(--primary); }
         .alert-warning { background: white; color: #856404; border-left: 6px solid #ffc107; }
         .close-toast { background: none; border: none; font-size: 20px; cursor: pointer; color: inherit; opacity: 0.4; margin-left: 15px;}
         .close-toast:hover { opacity: 1; }
@@ -196,11 +198,12 @@
         .container { flex: 1; width: 100%; max-width: 1200px; margin: var(--nav-height) auto 0; padding: 20px; position: relative; z-index: 10; }
 
         /* === FOOTER === */
-        footer { background: var(--secondary); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
+        /* Updated to use the new extremely deep maroon */
+        footer { background: var(--secondary-dark); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
         footer p { font-size: 14px; opacity: 0.9; margin: 0; }
         .footer-partner-link {
             display: inline-block; color: var(--primary-light); text-decoration: none;
-            font-weight: bold; font-size: 13px; border: 1.5px solid rgba(255, 204, 213, 0.4);
+            font-weight: bold; font-size: 13px; border: 1.5px solid rgba(255, 214, 221, 0.4);
             padding: 10px 24px; border-radius: 30px; margin-top: 20px; transition: all 0.3s;
         }
         .footer-partner-link:hover { background: white; border-color: white; color: var(--secondary); transform: translateY(-2px); }
@@ -239,7 +242,7 @@
                         <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
                         <div class="dropdown-content">
                             <a href="{{ url_for('swipe') }}">Swipe Deck</a>
-                            <a href="{{ url_for('dashboard') }}">AI Dashboard</a>
+                            <a href="{{ url_for('dashboard') }}">Dashboard</a>
                             <a href="{{ url_for('venues') }}">Date Venues</a>
                         </div>
                     </div>
