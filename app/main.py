@@ -1042,4 +1042,7 @@ def handle_message(data):
     emit('receive_message', data, to=request.sid)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, use_reloader=False)
+    # Grab the port from Render's environment, default to 5000 for local testing
+    port = int(os.environ.get('PORT', 5000))
+    # You must listen on '0.0.0.0' for external traffic on a server!
+    socketio.run(app, host='0.0.0.0', port=port, debug=False)
