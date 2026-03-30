@@ -2,21 +2,26 @@
 
 {% block content %}
 <style>
+    /* === LAYOUT === */
     .paywall-wrapper {
-        max-width: 450px;
-        margin: 50px auto;
-        padding: 20px;
-        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - var(--nav-height) - 40px);
+        padding: clamp(20px, 5vw, 40px) 15px;
     }
 
     .pay-card {
         background: white;
         border-radius: 24px;
-        padding: 40px 30px;
-        box-shadow: 0 20px 40px rgba(128, 0, 0, 0.1);
-        border: 1px solid #ffccd5;
+        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
+        border: 1px solid #FFD6DD;
         position: relative;
         overflow: hidden;
+        width: 100%;
+        max-width: 450px;
+        text-align: center;
     }
 
     /* Premium Glow Effect */
@@ -27,28 +32,32 @@
         left: -50%;
         width: 200%;
         height: 200%;
-        background: radial-gradient(circle, rgba(255,42,75,0.05) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(230,0,38,0.05) 0%, transparent 70%);
         pointer-events: none;
     }
 
+    /* === TYPOGRAPHY === */
     .price-badge {
-        background: #fff0f3;
-        color: #ff2a4b;
+        background: #FEF2F4;
+        color: #E60026;
         display: inline-block;
         padding: 8px 20px;
         border-radius: 50px;
-        font-weight: 800;
+        font-weight: 900;
         font-size: 14px;
         margin-bottom: 20px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        border: 1px solid #FFD6DD;
     }
 
     .pay-title {
-        color: #800000;
-        font-size: 28px;
-        font-weight: 800;
-        margin-bottom: 10px;
+        color: #720000;
+        font-size: clamp(26px, 6vw, 32px);
+        font-weight: 900;
+        margin: 0 0 10px 0;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
     }
 
     .pay-subtitle {
@@ -58,6 +67,7 @@
         line-height: 1.5;
     }
 
+    /* === BENEFITS LIST === */
     .benefits-list {
         text-align: left;
         margin-bottom: 35px;
@@ -66,9 +76,10 @@
     }
 
     .benefits-list li {
-        margin-bottom: 12px;
-        color: #4a0404;
-        font-size: 14px;
+        margin-bottom: 15px;
+        color: #4A0008;
+        font-size: 15px;
+        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 12px;
@@ -76,9 +87,18 @@
 
     .check-icon {
         color: #28a745;
-        font-weight: bold;
+        font-weight: 900;
+        background: #d4edda;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-size: 12px;
     }
 
+    /* === M-PESA FORM === */
     .mpesa-input-group {
         background: #fafafa;
         padding: 20px;
@@ -86,50 +106,54 @@
         border: 1px solid #eee;
         margin-bottom: 20px;
         transition: 0.3s opacity;
+        text-align: left;
     }
 
     .mpesa-input-group label {
         display: block;
-        text-align: left;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         color: #888;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .mpesa-input-group input {
         width: 100%;
         border: none;
         background: transparent;
-        font-size: 18px;
-        font-weight: 700;
+        font-size: 20px; /* Larger font for easy reading on mobile */
+        font-weight: 800;
         color: #333;
         outline: none;
         letter-spacing: 1px;
+        -webkit-appearance: none;
     }
 
     .btn-unlock {
         width: 100%;
-        background: linear-gradient(135deg, #ff2a4b 0%, #800000 100%);
+        background: linear-gradient(135deg, #E60026 0%, #720000 100%);
         color: white;
         border: none;
         padding: 18px;
         border-radius: 14px;
         font-size: 16px;
-        font-weight: 700;
+        font-weight: 800;
         cursor: pointer;
         transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
-        box-shadow: 0 10px 20px rgba(255, 42, 75, 0.2);
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
         display: flex;
         justify-content: center;
         align-items: center;
         gap: 10px;
     }
 
-    .btn-unlock:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 15px 30px rgba(255, 42, 75, 0.3);
+    @media (hover: hover) {
+        .btn-unlock:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3);
+        }
     }
     
     .btn-unlock:disabled {
@@ -139,16 +163,17 @@
     }
 
     .security-note {
-        margin-top: 20px;
-        font-size: 11px;
-        color: #999;
+        margin-top: 25px;
+        font-size: 12px;
+        color: #888;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 5px;
+        gap: 8px;
+        font-weight: 600;
     }
 
-    /* Loading Spinner Animation */
+    /* === ANIMATIONS & STATES === */
     .spinner {
         display: none;
         width: 20px;
@@ -156,24 +181,25 @@
         border: 3px solid rgba(255,255,255,0.3);
         border-radius: 50%;
         border-top-color: white;
-        animation: spin 1s ease-in-out infinite;
+        animation: spin 1s linear infinite;
     }
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
     
     .waiting-text {
-        font-size: 13px;
-        color: #ff2a4b;
-        font-weight: bold;
+        font-size: 14px;
+        color: #E60026;
+        font-weight: 800;
         margin-top: 15px;
         display: none;
         animation: pulse 1.5s infinite;
+        line-height: 1.4;
     }
     @keyframes pulse {
-        0% { opacity: 0.6; }
+        0% { opacity: 0.5; }
         50% { opacity: 1; }
-        100% { opacity: 0.6; }
+        100% { opacity: 0.5; }
     }
 </style>
 
@@ -192,7 +218,7 @@
 
         <div class="mpesa-input-group" id="input-container">
             <label for="student-phone">M-Pesa Number</label>
-            <input type="text" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12">
+            <input type="tel" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12" autocomplete="tel">
         </div>
 
         <button id="btn-pay-student" onclick="payStudentFee()" class="btn-unlock">
@@ -205,7 +231,7 @@
         </div>
 
         <div class="security-note">
-            🔒 Secured by Safaricom Daraja API
+            <span style="font-size: 16px;">🔒</span> Secured by Safaricom Daraja API
         </div>
     </div>
 </div>
@@ -213,7 +239,8 @@
 <script>
     function payStudentFee() {
         const phoneInput = document.getElementById('student-phone');
-        const phone = phoneInput.value.trim();
+        // Clean the input of any spaces or weird characters
+        const phone = phoneInput.value.replace(/[^0-9]/g, '').trim();
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
         const spinner = document.getElementById('btn-spinner');
@@ -230,7 +257,7 @@
         spinner.style.display = "block";
         btn.disabled = true;
         phoneInput.disabled = true;
-        inputContainer.style.opacity = "0.6";
+        inputContainer.style.opacity = "0.5";
 
         fetch('/api/pay_student_fee', {
             method: 'POST',
@@ -242,7 +269,7 @@
             if (data.success) {
                 // 2. Update UI to "Waiting for PIN" state
                 btnText.innerText = "Waiting for Payment...";
-                btn.style.background = "#4a0404"; // Darken button to show it's waiting
+                btn.style.background = "#720000"; // Darken button to show it's waiting
                 waitingMsg.style.display = "block";
 
                 // 3. Start Smart Polling
@@ -276,7 +303,7 @@
                 const text = await response.text();
                 
                 // Check if the returned HTML contains the Swipe Deck UI elements
-                if (text.includes('deck-wrapper') || text.includes('profile-card')) {
+                if (text.includes('deck-container') || text.includes('card')) {
                     clearInterval(checkInterval);
                     
                     // 4. Update UI to "Success" state
@@ -315,7 +342,7 @@
         
         btnText.innerText = "Pay KSH 20 to Unlock";
         spinner.style.display = "none";
-        btn.style.background = "linear-gradient(135deg, #ff2a4b 0%, #800000 100%)";
+        btn.style.background = "linear-gradient(135deg, #E60026 0%, #720000 100%)";
         btn.disabled = false;
         phoneInput.disabled = false;
         inputContainer.style.opacity = "1";

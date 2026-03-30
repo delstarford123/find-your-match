@@ -2,43 +2,141 @@
 
 {% block content %}
 <style>
-    /* Reuses the same CSS as Privacy Policy for consistency */
-    .legal-container { max-width: 800px; margin: 40px auto 80px; background: white; padding: 50px; border-radius: 24px; box-shadow: 0 10px 30px rgba(128, 0, 0, 0.05); border: 1px solid #ffccd5; }
-    .legal-header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #fff0f3; padding-bottom: 30px; }
-    .legal-header h1 { color: #800000; font-size: 36px; font-weight: 900; margin-bottom: 10px; }
-    .legal-header p { color: #888; font-size: 14px; }
-    .legal-content h2 { color: #800000; font-size: 22px; margin: 30px 0 15px; }
-    .legal-content p { color: #555; line-height: 1.7; font-size: 15px; margin-bottom: 15px; }
-    .legal-content ul { margin-bottom: 20px; padding-left: 20px; color: #555; line-height: 1.7; font-size: 15px; }
+    /* === LAYOUT === */
+    .legal-wrapper {
+        min-height: calc(100vh - var(--nav-height));
+        display: flex;
+        justify-content: center;
+        padding: clamp(20px, 5vw, 40px) 15px;
+        background-color: #FEF2F4;
+    }
+
+    .legal-container {
+        width: 100%;
+        max-width: 800px;
+        background: white;
+        padding: clamp(30px, 6vw, 60px) clamp(20px, 5vw, 50px);
+        border-radius: 24px;
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.05);
+        border: 1px solid #FFD6DD;
+        margin: 0 auto;
+    }
+
+    /* === TYPOGRAPHY === */
+    .legal-header { 
+        text-align: center; 
+        margin-bottom: clamp(30px, 6vw, 50px); 
+        border-bottom: 2px solid #FEF2F4; 
+        padding-bottom: clamp(20px, 5vw, 30px); 
+        position: relative;
+    }
+    
+    .btn-back-legal {
+        position: absolute;
+        top: 0;
+        left: 0;
+        color: #720000;
+        text-decoration: none;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+        background: #FEF2F4;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: background 0.2s;
+    }
+    
+    @media (hover: hover) {
+        .btn-back-legal:hover { background: #FFD6DD; }
+    }
+
+    .legal-header h1 { 
+        color: #720000; 
+        font-size: clamp(28px, 6vw, 42px); 
+        font-weight: 900; 
+        margin: 40px 0 10px 0; /* Margin top to clear the back button on mobile */
+        letter-spacing: -0.5px;
+    }
+    .legal-header p { 
+        color: #888; 
+        font-size: clamp(13px, 3vw, 15px); 
+        font-weight: 500;
+        margin: 0;
+    }
+    
+    .legal-content h2 { 
+        color: #720000; 
+        font-size: clamp(20px, 4vw, 24px); 
+        margin: 40px 0 15px; 
+        font-weight: 800;
+    }
+    
+    /* Ensure the first H2 doesn't have massive top margin */
+    .legal-content h2:first-of-type { margin-top: 0; }
+    
+    .legal-content p { 
+        color: #4A0008; 
+        line-height: 1.8; 
+        font-size: clamp(15px, 3vw, 16px); 
+        margin-bottom: 20px; 
+    }
+    
+    .legal-content ul { 
+        margin-bottom: 30px; 
+        padding-left: 20px; 
+        color: #4A0008; 
+        line-height: 1.8; 
+        font-size: clamp(15px, 3vw, 16px); 
+    }
+    .legal-content li { 
+        margin-bottom: 12px; 
+    }
+    .legal-content li strong {
+        color: #720000;
+    }
+    
+    /* === RESPONSIVE TWEAKS === */
+    @media (max-width: 600px) {
+        .legal-header h1 { margin-top: 50px; } /* More space for the back button on tiny screens */
+    }
 </style>
 
-<div class="legal-container">
-    <div class="legal-header">
-        <h1>Terms of Service</h1>
-        <p>Effective Date: March 2026 | Delstarford Works</p>
-    </div>
-    
-    <div class="legal-content">
-        <p>Welcome to FIND YOUR MATCH. By accessing or using our platform, you agree to be bound by these Terms of Service.</p>
+<div class="legal-wrapper">
+    <div class="legal-container">
+        <div class="legal-header">
+            <a href="javascript:history.back()" class="btn-back-legal">← Back</a>
+            
+            <h1>Terms of Service</h1>
+            <p>Effective Date: March 2026 | Delstarford Works</p>
+        </div>
         
-        <h2>1. Eligibility</h2>
-        <p>You must be at least 18 years old to use this service. This platform is intended primarily for students of Masinde Muliro University of Science and Technology (MMUST) and residents of Kakamega.</p>
+        <div class="legal-content">
+            <p>Welcome to FIND YOUR MATCH. By accessing or using our platform, you agree to be bound by these Terms of Service.</p>
+            
+            <h2>1. Eligibility</h2>
+            <p>You must be at least 18 years old to use this service. This platform is intended primarily for students of Masinde Muliro University of Science and Technology (MMUST) and residents of Kakamega.</p>
 
-        <h2>2. Subscriptions and Payments (M-Pesa)</h2>
-        <ul>
-            <li><strong>Student Access:</strong> Access to the Swipe Deck and Inbox requires a monthly subscription fee of 20 KSH, payable via Safaricom M-Pesa.</li>
-            <li><strong>Business Partners:</strong> Restaurant and venue listings require a monthly subscription of 2000 KSH.</li>
-            <li><strong>Refunds:</strong> All subscription payments are final and non-refundable unless required by Kenyan law.</li>
-        </ul>
+            <h2>2. Subscriptions and Payments (M-Pesa)</h2>
+            <ul>
+                <li><strong>Student Access:</strong> Access to the Swipe Deck and Inbox requires a monthly subscription fee of 20 KSH, payable via Safaricom M-Pesa.</li>
+                <li><strong>Business Partners:</strong> Restaurant and venue listings require a monthly subscription of 2000 KSH.</li>
+                <li><strong>Refunds:</strong> All subscription payments are final and non-refundable unless required by Kenyan law.</li>
+            </ul>
 
-        <h2>3. Community Rules & AI Moderation</h2>
-        <p>We maintain a strict zero-tolerance policy for harassment, hate speech, explicit content, and spam. Our AI Moderation system actively monitors the platform. Delstarford Works reserves the right to instantly and permanently ban any user found violating these rules without a refund.</p>
+            <h2>3. Community Rules & AI Moderation</h2>
+            <p>We maintain a strict zero-tolerance policy for harassment, hate speech, explicit content, and spam. Our AI Moderation system actively monitors the platform. Delstarford Works reserves the right to instantly and permanently ban any user found violating these rules without a refund.</p>
 
-        <h2>4. Disclaimer of Liability</h2>
-        <p>FIND YOUR MATCH facilitates online connections and suggests offline partner venues. However, you are solely responsible for your interactions with other users. We strongly advise using our "Safe-Mate Check-In" feature and meeting in public spaces. Delstarford Works is not liable for any offline conduct or incidents.</p>
+            <h2>4. Disclaimer of Liability</h2>
+            <p>FIND YOUR MATCH facilitates online connections and suggests offline partner venues. However, you are solely responsible for your interactions with other users. We strongly advise using our "Safe-Mate Check-In" feature and meeting in public spaces. Delstarford Works is not liable for any offline conduct or incidents.</p>
 
-        <h2>5. Changes to Terms</h2>
-        <p>We may modify these Terms at any time. Continued use of the platform after changes constitutes your acceptance of the new terms.</p>
+            <h2>5. Changes to Terms</h2>
+            <p>We may modify these Terms at any time. Continued use of the platform after changes constitutes your acceptance of the new terms.</p>
+            
+            <h2>6. Governing Law</h2>
+            <p>These terms shall be governed by and construed in accordance with the laws of the Republic of Kenya.</p>
+        </div>
     </div>
 </div>
 {% endblock %}

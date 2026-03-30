@@ -1,138 +1,168 @@
 /* =========================================
-   BASE & RESET
+   GLOBAL VARIABLES & BASE RESET
    ========================================= */
-* {
+:root {
+    --primary-red: #E60026;
+    --maroon-deep: #720000;
+    --maroon-darker: #4A0008;
+    --blush-bg: #FEF2F4;
+    --pink-soft: #FFD6DD;
+    --white: #ffffff;
+    --nav-height: 70px;
+}
+
+*, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
+html, body {
+    overflow-x: hidden; /* Prevent horizontal scrolling on mobile */
+    width: 100%;
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #FEF2F4; /* Soft, warm romantic blush */
-    color: #4A0008; /* Very deep maroon text for readability */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--blush-bg);
+    color: var(--maroon-darker);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
 }
 
 /* =========================================
-   NAVIGATION & FOOTER
+   NAVIGATION (RESPONSIVE)
    ========================================= */
 .navbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 5%;
-    /* New Gradient: Deep Maroon to Passionate 'Color of Love' Red */
-    background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-    color: white;
+    padding: 0 clamp(1rem, 5vw, 5%); /* Fluid padding */
+    height: var(--nav-height);
+    background: linear-gradient(90deg, var(--maroon-deep) 0%, var(--primary-red) 100%);
+    color: var(--white);
     box-shadow: 0 4px 15px rgba(114, 0, 0, 0.4);
-}
-
-.navbar a {
-    color: white;
-    text-decoration: none;
-    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 9999; /* Boosted to guarantee it stays above modals/cards */
 }
 
 .navbar .logo {
-    font-size: 18px;
+    font-size: clamp(1.1rem, 4vw, 1.25rem); /* Fluid typography */
     font-weight: 800;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    color: var(--white);
+    white-space: nowrap;
 }
 
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: clamp(1rem, 3vw, 1.5rem);
+}
+
+.nav-links a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: color 0.2s ease;
+}
+
+.nav-links a:hover {
+    color: var(--white);
 }
 
 .btn-nav {
-    background: white;
-    color: #720000 !important; /* Maroon text for the white button */
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-weight: bold;
-    transition: background 0.2s;
+    background: var(--white);
+    color: var(--maroon-deep) !important;
+    padding: 0.5rem 1.2rem;
+    border-radius: 25px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.btn-nav:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--white);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem; /* Better touch target */
+}
+
+/* =========================================
+   MAIN LAYOUT & CONTAINERS
+   ========================================= */
 main.container {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
-}
-
-footer {
-    text-align: center;
-    padding: 20px;
-    background-color: #4A0008; /* Solid deep maroon */
-    color: #FFD6DD; /* Soft romantic pink for footer text */
-    font-size: 12px;
+    padding: clamp(1.5rem, 5vw, 2rem) 1rem; /* Fluid padding */
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 /* =========================================
-   MODAL SYSTEM (CRITICAL FIX)
-   ========================================= */
-.modal {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(74, 0, 8, 0.85); /* Dark maroon dimming effect */
-    z-index: 2000;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.3s ease;
-}
-
-.modal.hidden {
-    display: none !important;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.modal-content {
-    background: white;
-    width: 90%;
-    max-width: 380px;
-    border-radius: 20px;
-    padding: 25px;
-    text-align: center;
-    box-shadow: 0 15px 40px rgba(74, 0, 8, 0.3);
-    animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-    from { transform: translateY(30px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-/* =========================================
-   SWIPE DECK & SHIMMER
+   SWIPE DECK & CARDS (RESPONSIVE)
    ========================================= */
 .deck-container {
     position: relative;
     width: 100%;
     max-width: 400px;
-    margin-top: 20px;
+    margin: 1rem auto;
+    /* Prevents the deck from stretching too wide on tablets */
+    display: flex;
+    justify-content: center; 
 }
 
 .card {
-    background: white;
+    background: var(--white);
     border-radius: 20px;
     overflow: hidden;
-    box-shadow: 0 10px 25px rgba(114, 0, 0, 0.15); /* Tinted the shadow slightly maroon */
+    box-shadow: 0 10px 25px rgba(114, 0, 0, 0.15);
     transition: transform 0.4s ease;
+    width: 100%;
 }
 
 .image-container {
     position: relative;
-    height: 380px;
+    height: 60vh;
+    min-height: 300px; /* Reduced slightly for smaller screens */
+    max-height: 500px;
     background: #f0f0f0;
 }
 
+#profile-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.badge {
+    background: var(--primary-red);
+    color: var(--white);
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: inline-block;
+    margin-bottom: 0.8rem;
+}
+
+/* Shimmer Loading Effect */
 .shimmer {
     width: 100%;
     height: 100%;
@@ -146,31 +176,12 @@ footer {
     100% { background-position: -200% 0; }
 }
 
-#profile-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.badge {
-    background: #E60026; /* The striking 'Color of Love' red */
-    color: white;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 11px;
-    font-weight: bold;
-    display: inline-block;
-    margin-bottom: 10px;
-}
-
-.hidden { display: none; }
-
 /* =========================================
-   FORMS & BUTTONS
+   FORMS & BUTTONS (RESPONSIVE)
    ========================================= */
 .form-container {
-    background: white;
-    padding: 30px;
+    background: var(--white);
+    padding: clamp(1.5rem, 5vw, 2rem); /* Fluid internal padding */
     border-radius: 20px;
     width: 100%;
     max-width: 400px;
@@ -178,30 +189,141 @@ footer {
 }
 
 .btn-primary {
-    /* Matches the navbar gradient perfectly */
-    background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-    color: white;
+    background: linear-gradient(90deg, var(--maroon-deep) 0%, var(--primary-red) 100%);
+    color: var(--white);
     border: none;
-    padding: 14px;
+    padding: 1rem;
+    min-height: 48px; /* Minimum accessible touch target size */
     border-radius: 12px;
-    font-weight: bold;
+    font-weight: 700;
+    font-size: 1rem;
     cursor: pointer;
     width: 100%;
-    transition: 0.2s;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .btn-primary:hover {
     filter: brightness(1.15);
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(230, 0, 38, 0.3); /* Added a red glow on hover */
+    box-shadow: 0 6px 15px rgba(230, 0, 38, 0.3);
 }
 
 .alert {
-    padding: 12px;
+    padding: 0.8rem;
     border-radius: 10px;
-    margin-bottom: 15px;
-    font-size: 14px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
     text-align: center;
 }
-.alert-error { background: #ffebeb; color: #d90429; border: 1px solid #ffccd5; }
+.alert-error { background: #ffebeb; color: #d90429; border: 1px solid var(--pink-soft); }
 .alert-success { background: #ebffef; color: #28a745; border: 1px solid #c3e6cb; }
+
+/* =========================================
+   MODAL SYSTEM
+   ========================================= */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(74, 0, 8, 0.85);
+    z-index: 10000; /* Must be higher than navbar */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    transition: opacity 0.3s ease;
+}
+
+.modal.hidden {
+    display: none !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: var(--white);
+    width: 100%;
+    max-width: 380px;
+    border-radius: 20px;
+    padding: clamp(1.5rem, 5vw, 2rem);
+    text-align: center;
+    box-shadow: 0 15px 40px rgba(74, 0, 8, 0.3);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.hidden { display: none !important; }
+
+/* =========================================
+   FOOTER
+   ========================================= */
+footer {
+    text-align: center;
+    padding: 1.5rem;
+    background-color: var(--maroon-darker);
+    color: var(--pink-soft);
+    font-size: 0.8rem;
+    margin-top: auto;
+}
+
+/* =========================================
+   MEDIA QUERIES
+   ========================================= */
+
+/* Tablets & standard mobile */
+@media screen and (max-width: 768px) {
+    .nav-links {
+        display: none; 
+        position: absolute;
+        top: var(--nav-height);
+        left: 0;
+        width: 100%;
+        background: var(--white);
+        flex-direction: column;
+        padding: 0; /* Remove padding here, add to children for full width hover */
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        border-top: 1px solid #eee;
+    }
+
+    .nav-links.active {
+        display: flex;
+    }
+
+    .nav-links a, .btn-nav {
+        width: 100%;
+        text-align: center;
+        padding: 1.2rem; /* Taller touch targets */
+        color: var(--maroon-darker) !important;
+        background: none;
+        border-radius: 0;
+        box-shadow: none;
+        border-bottom: 1px solid #eee;
+    }
+
+    .btn-nav {
+        font-weight: 800;
+        color: var(--primary-red) !important;
+    }
+
+    .mobile-menu-btn {
+        display: block;
+    }
+}
+
+/* Landscape Mobile Fix (Prevents swipe deck from overflowing screen height) */
+@media screen and (max-height: 600px) and (orientation: landscape) {
+    .image-container {
+        height: 45vh;
+        min-height: 200px;
+    }
+    
+    .navbar {
+        position: relative; /* Un-stick navbar in landscape to maximize vertical space */
+    }
+}

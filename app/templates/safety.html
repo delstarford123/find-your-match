@@ -2,71 +2,188 @@
 
 {% block content %}
 <style>
-    .safety-header { text-align: center; margin: 40px 0; padding: 0 20px; }
-    .safety-header h1 { color: #800000; font-size: 36px; font-weight: 800; margin-bottom: 15px; }
-    .safety-header p { color: #666; font-size: 16px; max-width: 600px; margin: 0 auto; line-height: 1.6; }
+    /* === LAYOUT === */
+    .safety-wrapper {
+        padding: clamp(20px, 5vw, 40px) 15px;
+        max-width: 1100px;
+        margin: 0 auto;
+        min-height: calc(100vh - var(--nav-height) - 40px);
+    }
+
+    /* === HEADER === */
+    .safety-header { 
+        text-align: center; 
+        margin-bottom: clamp(40px, 8vw, 60px); 
+        position: relative;
+    }
     
+    .btn-back-safety {
+        position: absolute;
+        top: 0;
+        left: 0;
+        color: #720000;
+        text-decoration: none;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+        background: #FEF2F4;
+        padding: 8px 16px;
+        border-radius: 20px;
+        transition: background 0.2s;
+    }
+    
+    @media (hover: hover) {
+        .btn-back-safety:hover { background: #FFD6DD; }
+    }
+
+    .safety-header h1 { 
+        color: #720000; 
+        font-size: clamp(28px, 6vw, 42px); 
+        font-weight: 900; 
+        margin-bottom: 15px; 
+        letter-spacing: -0.5px;
+        margin-top: 40px; /* Space for the back button on mobile */
+    }
+    .safety-header p { 
+        color: #555; 
+        font-size: clamp(15px, 3vw, 18px); 
+        max-width: 650px; 
+        margin: 0 auto; 
+        line-height: 1.6; 
+    }
+    
+    /* === GRID & CARDS === */
     .safety-grid {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 30px; max-width: 1000px; margin: 0 auto 60px; padding: 0 20px;
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+        gap: clamp(20px, 4vw, 30px); 
+        margin-bottom: clamp(40px, 8vw, 80px);
     }
     
     .safety-card {
-        background: white; border-radius: 20px; padding: 30px;
-        box-shadow: 0 10px 30px rgba(128, 0, 0, 0.05); border: 1px solid #ffccd5;
-        transition: transform 0.3s;
+        background: white; 
+        border-radius: 24px; 
+        padding: clamp(25px, 5vw, 40px) 25px;
+        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.05); 
+        border: 1px solid #FFD6DD;
+        transition: transform 0.3s, border-color 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
     }
-    .safety-card:hover { transform: translateY(-5px); border-color: #ff2a4b; }
+    
+    @media (hover: hover) {
+        .safety-card:hover { 
+            transform: translateY(-8px); 
+            border-color: #E60026; 
+            box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
+        }
+    }
     
     .icon-wrapper {
-        width: 60px; height: 60px; border-radius: 15px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 28px; margin-bottom: 20px; background: #fff0f3; color: #ff2a4b;
+        width: 80px; 
+        height: 80px; 
+        border-radius: 50%;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-size: 36px; 
+        margin-bottom: 20px; 
+        background: #FEF2F4; 
+        color: #E60026;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.1);
     }
     
-    .safety-card h3 { color: #800000; margin-bottom: 15px; font-size: 20px; }
-    .safety-card p { color: #555; line-height: 1.6; font-size: 14px; }
+    .safety-card h3 { 
+        color: #720000; 
+        margin-bottom: 15px; 
+        font-size: 22px; 
+        font-weight: 900;
+    }
+    .safety-card p { 
+        color: #555; 
+        line-height: 1.6; 
+        font-size: 15px; 
+        margin: 0;
+    }
     
+    /* === EMERGENCY BANNER === */
     .emergency-banner {
-        background: linear-gradient(135deg, #800000 0%, #ff2a4b 100%);
-        color: white; border-radius: 20px; padding: 40px; text-align: center;
-        max-width: 800px; margin: 0 auto 60px; box-shadow: 0 15px 30px rgba(255, 42, 75, 0.2);
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; 
+        border-radius: 24px; 
+        padding: clamp(40px, 6vw, 60px) clamp(20px, 5vw, 40px); 
+        text-align: center;
+        max-width: 900px; 
+        margin: 0 auto; 
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.25);
     }
-    .emergency-banner h2 { margin-bottom: 15px; font-size: 28px; }
+    .emergency-banner h2 { 
+        margin-bottom: 15px; 
+        font-size: clamp(24px, 5vw, 36px); 
+        font-weight: 900;
+        letter-spacing: -0.5px;
+    }
+    .emergency-banner p { 
+        font-size: clamp(15px, 3vw, 18px); 
+        opacity: 0.95; 
+        margin-bottom: 30px; 
+        max-width: 600px; 
+        margin-left: auto; 
+        margin-right: auto;
+        line-height: 1.6;
+    }
+    .security-badge { 
+        background: white; 
+        color: #E60026; 
+        display: inline-block; 
+        padding: 15px 35px; 
+        border-radius: 30px; 
+        font-weight: 900; 
+        font-size: clamp(16px, 3vw, 20px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
 </style>
 
-<div class="safety-header">
-    <h1>Your Safety is Our Priority</h1>
-    <p>FIND YOUR MATCH is an exclusive community for MMUST students. We combine cutting-edge AI with strict community guidelines to ensure you can date with confidence.</p>
-</div>
+<div class="safety-wrapper">
+    <div class="safety-header">
+        <a href="javascript:history.back()" class="btn-back-safety">← Back</a>
+        
+        <h1>Your Safety is Our Priority</h1>
+        <p>FIND YOUR MATCH is an exclusive community for MMUST students. We combine cutting-edge AI with strict community guidelines to ensure you can date with confidence.</p>
+    </div>
 
-<div class="safety-grid">
-    <div class="safety-card">
-        <div class="icon-wrapper">🤖</div>
-        <h3>AI Moderation Engine</h3>
-        <p>Our proprietary AI model reads chat messages in real-time. It instantly flags and blocks toxic language, harassment, and hidden phone numbers before they even reach your inbox.</p>
+    <div class="safety-grid">
+        <div class="safety-card">
+            <div class="icon-wrapper">🤖</div>
+            <h3>AI Moderation Engine</h3>
+            <p>Our proprietary AI model reads chat messages in real-time. It instantly flags and blocks toxic language, harassment, and hidden phone numbers before they even reach your inbox.</p>
+        </div>
+        
+        <div class="safety-card">
+            <div class="icon-wrapper">🛡️</div>
+            <h3>Safe-Mate Check-In</h3>
+            <p>When you propose a date, our platform generates a one-click "Safe-Mate" message containing your date's name, venue, and time. Instantly forward it to your best friend via WhatsApp before you leave.</p>
+        </div>
+        
+        <div class="safety-card">
+            <div class="icon-wrapper">🎓</div>
+            <h3>Verified MMUST Network</h3>
+            <p>By requiring a small subscription fee and monitoring location data, we actively keep out bots, fake profiles, and non-students. You are always talking to a real peer.</p>
+        </div>
     </div>
-    
-    <div class="safety-card">
-        <div class="icon-wrapper">🛡️</div>
-        <h3>Safe-Mate Check-In</h3>
-        <p>When you propose a date, our platform generates a one-click "Safe-Mate" message containing your date's name, venue, and time. Instantly forward it to your best friend via WhatsApp before you leave.</p>
-    </div>
-    
-    <div class="safety-card">
-        <div class="icon-wrapper">🎓</div>
-        <h3>Verified MMUST Network</h3>
-        <p>By requiring a small subscription fee and monitoring location data, we actively keep out bots, fake profiles, and non-students. You are always talking to a real peer.</p>
-    </div>
-</div>
 
-<div class="emergency-banner">
-    <h2>Meeting in Real Life?</h2>
-    <p style="font-size: 16px; opacity: 0.9; margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto;">
-        Always meet in public, well-lit areas for your first date. We highly recommend our approved Partner Venues or on-campus locations like the Student Center or MCU.
-    </p>
-    <div style="background: rgba(255,255,255,0.2); display: inline-block; padding: 10px 25px; border-radius: 30px; font-weight: bold;">
-         MMUST Security Desk: 07XX XXX XXX
+    <div class="emergency-banner">
+        <h2>Meeting in Real Life?</h2>
+        <p>
+            Always meet in public, well-lit areas for your first date. We highly recommend our approved Partner Venues or on-campus locations like the Student Center or MCU.
+        </p>
+        <div class="security-badge">
+             MMUST Security Desk: 07XX XXX XXX
+        </div>
     </div>
 </div>
 {% endblock %}

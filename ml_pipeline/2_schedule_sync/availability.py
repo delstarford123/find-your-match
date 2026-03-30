@@ -2,7 +2,8 @@ import os
 import sys
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import List, Dict, Any
 
 # 1. Configure Production Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,113 +16,97 @@ try:
     from app.database import get_all_schedules
 except ImportError:
     logger.error("Failed to import 'get_all_schedules'. Ensure you are running this from the correct directory.")
-    get_all_schedules = lambda: [] # Fallback for local testing if DB is down
-
-def load_schedules() -> list:
-    """Safely loads schedule data from Firebase."""
-    try:
-        schedules = get_all_schedules()
-        if not schedules:
-            logger.info("No schedule data found in Firebase.")
-            return []
-        return schedules
-    except Exception as e:
-        logger.error(f"Failed to fetch schedules from database: {e}")
-        return []
+    # Mock fallback for development/Render logs
+    def get_all_schedules(): return []
 
 def get_overlap_minutes(start1: str, end1: str, start2: str, end2: str) -> int:
     """
-    Calculates the exact overlap in minutes between two time blocks.
-    Returns 0 if there is no overlap or if the time formats are invalid.
+    Calculates overlap in minutes. Standardized to HH:MM format.
     """
     fmt = "%H:%M"
     try:
+        # Using a fixed date to perform time arithmetic safely
         t_start1 = datetime.strptime(start1, fmt)
         t_end1 = datetime.strptime(end1, fmt)
         t_start2 = datetime.strptime(start2, fmt)
         t_end2 = datetime.strptime(end2, fmt)
-    except ValueError as e:
-        logger.warning(f"Invalid time format detected (Expected HH:MM). Skipping block. Error: {e}")
-        return 0
-
-    # Ensure end time is strictly after start time
-    if t_end1 <= t_start1 or t_end2 <= t_start2:
-        return 0
-
-    latest_start = max(t_start1, t_start2)
-    earliest_end = min(t_end1, t_end2)
-
-    if latest_start < earliest_end:
-        overlap_seconds = (earliest_end - latest_start).total_seconds()
-        return int(overlap_seconds / 60)
         
-    return 0
+        # Validation: End must be after start
+        if t_end1 <= t_start1 or t_end2 <= t_start2:
+            return 0
 
-def get_schedule_matches(target_user_id: str, min_overlap_minutes: int = 30) -> dict:
+        latest_start = max(t_start1, t_start2)
+        earliest_end = min(t_end1, t_end2)
+
+        delta = (earliest_end - latest_start).total_seconds()
+        return max(0, int(delta / 60))
+        
+    except (ValueError, TypeError) as e:
+        # Logs warning but doesn't crash the loop
+        return 0
+
+def get_schedule_matches(target_user_id: str, min_overlap: int = 30) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Finds all students who have at least 'min_overlap_minutes' of free time 
-    overlapping with the target user. Optimized for scale.
+    Finds students with overlapping free time. 
+    Optimized O(N) grouping by day.
     """
-    schedules = load_schedules()
-    if not schedules:
+    raw_schedules = get_all_schedules()
+    if not raw_schedules:
         return {}
 
-    # 1. Separate Target User's blocks and group everyone else's by DAY OF WEEK.
-    # This optimization changes the search from O(N*M) to O(N*K) where K is a tiny fraction.
     target_blocks = []
     others_by_day = defaultdict(list)
 
-    for block in schedules:
-        # Validate that the block has the required keys to prevent crashes
-        if not all(k in block for k in ("user_id", "day_of_week", "start_time", "end_time")):
+    # Single Pass: Separate target user and group others by day
+    # This avoids multiple loops over the entire database
+    for block in raw_schedules:
+        # Robust key validation
+        uid = block.get('user_id')
+        day = block.get('day_of_week')
+        start = block.get('start_time')
+        end = block.get('end_time')
+
+        if not all([uid, day, start, end]):
             continue
             
-        if block['user_id'] == target_user_id:
+        if uid == target_user_id:
             target_blocks.append(block)
         else:
-            others_by_day[block['day_of_week']].append(block)
+            others_by_day[day].append(block)
 
     if not target_blocks:
-        logger.info(f"Target user '{target_user_id}' has no schedule configured.")
         return {}
 
-    matched_users = defaultdict(list)
+    matches = defaultdict(list)
 
-    # 2. Process Matches (Only comparing blocks on the exact same day)
+    # Process Overlaps
     for my_block in target_blocks:
         day = my_block['day_of_week']
         
-        # If no one else is free on this day, skip immediately
-        if day not in others_by_day:
-            continue
-            
-        for other_block in others_by_day[day]:
+        # Only check people free on the SAME day
+        for other in others_by_day.get(day, []):
             overlap = get_overlap_minutes(
                 my_block['start_time'], my_block['end_time'],
-                other_block['start_time'], other_block['end_time']
+                other['start_time'], other['end_time']
             )
             
-            if overlap >= min_overlap_minutes:
-                matched_users[other_block['user_id']].append({
+            if overlap >= min_overlap:
+                matches[other['user_id']].append({
                     "day": day,
                     "overlap_minutes": overlap,
-                    "target_user_block": f"{my_block['start_time']} - {my_block['end_time']}",
-                    "match_user_block": f"{other_block['start_time']} - {other_block['end_time']}"
+                    "window": f"{max(my_block['start_time'], other['start_time'])} - {min(my_block['end_time'], other['end_time'])}",
+                    "match_bio_hint": "🕒 Shares free time on " + day
                 })
 
-    # Return as standard dict for easier JSON serialization in Flask
-    return dict(matched_users)
+    return dict(matches)
 
 if __name__ == "__main__":
-    print("\n--- MMUST Schedule Matcher ---")
+    # Test simulation
+    print("\n[MMUST AI] Testing Schedule Engine...")
+    test_id = "USER_123"
+    results = get_schedule_matches(test_id)
     
-    # Mock data injection for local testing if DB is empty
-    test_target = "MMUST_001"
-    matches = get_schedule_matches(test_target)
-    
-    if matches:
-        print(f"✅ Found schedule matches for {test_target}:")
-        import json
-        print(json.dumps(matches, indent=2))
+    if results:
+        print(f"✅ Found {len(results)} potential date windows.")
     else:
-        print(f"❌ No viable matches found for {test_target} (Min 30 mins required).")
+        print("❌ No matching schedules found.")

@@ -2,23 +2,177 @@
 
 {% block content %}
 <style>
-    .qr-container { max-width: 500px; margin: 60px auto; text-align: center; background: white; padding: 40px; border-radius: 24px; border: 2px solid #800000; }
-    .qr-img { width: 250px; height: 250px; margin: 20px 0; border: 10px solid #fff0f3; border-radius: 20px; }
-    .print-btn { background: #800000; color: white; padding: 12px 25px; border-radius: 30px; border: none; cursor: pointer; font-weight: bold; margin-top: 20px; }
-    @media print { .navbar, footer, .print-btn { display: none; } .qr-container { border: none; margin: 0; } }
+    /* === SCREEN LAYOUT === */
+    .qr-wrapper {
+        min-height: calc(100vh - var(--nav-height) - 100px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(20px, 5vw, 40px) 15px;
+        background-color: #FEF2F4;
+    }
+
+    .qr-container { 
+        width: 100%;
+        max-width: 450px; 
+        text-align: center; 
+        background: white; 
+        padding: clamp(30px, 8vw, 50px) 20px; 
+        border-radius: 24px; 
+        border: 2px solid #FFD6DD; 
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Decorative top bar to look like a premium card */
+    .qr-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 8px;
+        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+    }
+
+    .qr-title {
+        color: #720000;
+        font-size: clamp(24px, 6vw, 32px);
+        font-weight: 900;
+        margin: 0 0 5px 0;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
+    }
+    .qr-subtitle {
+        color: #666;
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 25px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .qr-img-wrapper {
+        background: white;
+        padding: 15px;
+        border-radius: 20px;
+        display: inline-block;
+        border: 4px solid #FEF2F4;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
+    }
+    .qr-img { 
+        width: clamp(180px, 50vw, 250px); 
+        height: clamp(180px, 50vw, 250px); 
+        display: block;
+    }
+
+    .staff-instructions {
+        background: #FEF2F4; 
+        padding: 20px; 
+        border-radius: 16px; 
+        border: 1px solid #FFD6DD;
+        text-align: left;
+    }
+    .staff-instructions h4 {
+        color: #720000;
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .staff-instructions p {
+        color: #4A0008;
+        font-size: 14px;
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .btn-print { 
+        background: #E60026; 
+        color: white; 
+        padding: 16px 30px; 
+        border-radius: 30px; 
+        border: none; 
+        cursor: pointer; 
+        font-weight: 800; 
+        font-size: 16px;
+        margin-top: 30px; 
+        width: 100%;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    @media (hover: hover) {
+        .btn-print:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(230,0,38,0.3);
+            background: #720000;
+        }
+    }
+
+    /* === PRINT LAYOUT === */
+    /* This CSS ONLY applies when the user clicks 'Print' or presses Ctrl+P */
+    @media print { 
+        /* Hide everything that isn't the card */
+        body { background: white; }
+        .navbar, footer, .btn-print, .b2b-header { display: none !important; } 
+        
+        .qr-wrapper {
+            padding: 0;
+            min-height: auto;
+            background: white;
+        }
+
+        .qr-container { 
+            border: 4px solid #720000; 
+            margin: 0; 
+            box-shadow: none;
+            padding: 50px;
+            max-width: 100%; /* Take up the full printed page width */
+            border-radius: 0; /* Remove curved edges for printing */
+        }
+        
+        /* Make the QR code massive for the printed page */
+        .qr-img-wrapper { border: none; padding: 0; box-shadow: none; }
+        .qr-img { width: 400px; height: 400px; }
+        
+        .qr-title { font-size: 48px; }
+        .qr-subtitle { font-size: 24px; margin-bottom: 50px; }
+        
+        .staff-instructions { 
+            border: 2px solid #ddd; 
+            background: white !important; 
+            -webkit-print-color-adjust: exact; /* Forces printers to render background colors if needed */
+        }
+        .staff-instructions h4 { font-size: 18px; }
+        .staff-instructions p { font-size: 16px; }
+    }
 </style>
 
-<div class="qr-container">
-    <h1 style="color: #800000;">{{ restaurant_name }}</h1>
-    <p style="color: #666;">Students: Scan to Verify Your Discount</p>
-    
-    <img src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="Merchant QR">
-    
-    <div style="background: #fff0f3; padding: 15px; border-radius: 12px; margin-top: 20px;">
-        <p style="font-size: 13px; color: #800000; font-weight: bold;">Instructions for Staff:</p>
-        <p style="font-size: 12px; color: #4a0404;">If the student's screen turns <strong style="color: #10b981;">GREEN</strong>, they are an active subscriber. Apply the agreed discount.</p>
-    </div>
+<div class="qr-wrapper">
+    <div class="qr-container">
+        <h1 class="qr-title">{{ restaurant_name }}</h1>
+        <p class="qr-subtitle">Student Discount Verification</p>
+        
+        <div class="qr-img-wrapper">
+            <img src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="Merchant QR">
+        </div>
+        
+        <div class="staff-instructions">
+            <h4>Instructions for Staff:</h4>
+            <p>Ask the student to scan this code with their phone. If their screen turns <strong style="color: #28a745; font-weight: 900;">GREEN</strong>, they are an active MMUST subscriber. Please apply the agreed discount.</p>
+        </div>
 
-    <button class="print-btn" onclick="window.print()">🖨️ Print Discount Card</button>
+        <button class="btn-print" onclick="window.print()">
+            <span style="font-size: 20px;">🖨️</span> Print Discount Card
+        </button>
+    </div>
 </div>
 {% endblock %}

@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 class ImageVibeExtractor:
     """
-    A lazy-loading wrapper for the CLIP Neural Network. 
-    Prevents the model from hogging RAM until it is explicitly needed.
+    Singleton wrapper for CLIP (Contrastive Language-Image Pre-training).
+    Uses lazy-loading to keep memory footprint low until first use.
     """
     def __init__(self, model_id: str = "openai/clip-vit-base-patch32"):
         self.model_id = model_id
@@ -23,89 +23,77 @@ class ImageVibeExtractor:
         if torch.cuda.is_available():
             return "cuda"
         elif torch.backends.mps.is_available():
-            return "mps"
+            return "mps" # Native Apple Silicon support
         return "cpu"
 
     def load_model(self):
-        """Loads the weights into memory only when called."""
+        """Loads weights only when needed. Essential for limited-RAM environments like Render."""
         if self.model is None:
-            logger.info(f"Loading Vision Model '{self.model_id}' on [{self.device.upper()}]... This might take a moment.")
+            logger.info(f"🚀 Initializing CLIP Model on [{self.device.upper()}]...")
             try:
+                # We use the 'base' model to balance accuracy and speed
                 self.model = CLIPModel.from_pretrained(self.model_id).to(self.device)
                 self.processor = CLIPProcessor.from_pretrained(self.model_id)
-                self.model.eval() # CRITICAL: Sets model to inference mode (disables dropout layers)
-                logger.info("✅ Vision Model loaded successfully!")
+                self.model.eval() 
+                logger.info("✅ CLIP loaded and ready for feature extraction.")
             except Exception as e:
-                logger.error(f"❌ Failed to load CLIP model: {e}")
+                logger.error(f"❌ CLIP Initialization Error: {e}")
                 raise
 
     def extract_vibe(self, image_path: str) -> list | None:
         """
-        Runs an image through CLIP and returns a 512-dimensional normalized vector.
+        Converts an image into a 512-dim normalized vector for aesthetic matchmaking.
         """
-        # Lazy load: Only boot up the AI if it hasn't been loaded yet
         if self.model is None:
             self.load_model()
 
         try:
-            # Using 'with' ensures the file is safely closed after reading, preventing file lock errors
+            # Normalize image to RGB to handle PNGs/JPEGs consistently
             with Image.open(image_path) as img:
                 image = img.convert("RGB")
-            
-            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
-            
-            with torch.no_grad(): 
-                image_features = self.model.get_image_features(**inputs)
                 
-            # Normalize the vector (essential for Cosine Similarity matchmaking later)
-            image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
-            
-            # Squeeze and convert to a standard Python list
-            vector = image_features.squeeze().cpu().tolist()
-            
-            # Memory Cleanup: Free up the GPU memory immediately after processing
-            if self.device == "cuda":
-                del inputs, image_features
-                torch.cuda.empty_cache()
+                # Processor handles resizing and color normalization automatically
+                inputs = self.processor(images=image, return_tensors="pt").to(self.device)
                 
-            return vector
+                with torch.no_grad(): 
+                    image_features = self.model.get_image_features(**inputs)
+                    
+                # IMPORTANT: L2 Normalization
+                # This makes Cosine Similarity (A·B) identical to simple Euclidean distance math
+                image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
+                
+                # Move to CPU and convert to standard Python list for database storage
+                vector = image_features.squeeze().cpu().tolist()
+                
+                # Cleanup GPU/RAM overhead immediately
+                if self.device == "cuda":
+                    del inputs, image_features
+                    torch.cuda.empty_cache()
+                    
+                return vector
 
-        except FileNotFoundError:
-            logger.error(f"Image not found at path: {image_path}")
-            return None
-        except UnidentifiedImageError:
-            logger.error(f"File at {image_path} is not a valid image format.")
+        except (FileNotFoundError, UnidentifiedImageError) as e:
+            logger.error(f"Image Error: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error processing image {image_path}: {e}")
+            logger.error(f"Aesthetic extraction failed: {e}")
             return None
 
-# ==========================================
-# EXPORTED INSTANCE & WRAPPER FUNCTION
-# ==========================================
-# We create a singleton instance so the model isn't duplicated across your app
+# Exported instance for use across the Flask app
 _vibe_extractor = ImageVibeExtractor()
 
 def extract_image_vibe(image_path: str) -> list | None:
-    """Wrapper function to maintain compatibility with your existing import statements."""
+    """Centralized function for profile photo analysis."""
     return _vibe_extractor.extract_vibe(image_path)
 
-
-# --- FOR TESTING PURPOSES ---
 if __name__ == "__main__":
-    print("\n--- MMUST Image Vibe Extractor ---")
-    test_image_dir = os.path.join(os.path.dirname(__file__), '../../data/raw_images')
-    os.makedirs(test_image_dir, exist_ok=True)
-    test_image_path = os.path.join(test_image_dir, 'test_profile.jpg')
+    print("\n--- MMUST Aesthetic Matcher Test ---")
+    # Simulation: Replace with actual path for local testing
+    mock_path = "test_pic.jpg"
+    if not os.path.exists(mock_path):
+        Image.new('RGB', (224, 224), color='maroon').save(mock_path)
     
-    # Create a dummy image if one doesn't exist
-    if not os.path.exists(test_image_path):
-        img = Image.new('RGB', (400, 400), color='red')
-        img.save(test_image_path)
-        logger.info(f"Created mock test image at {test_image_path}")
-
-    vibe_vector = extract_image_vibe(test_image_path)
-    
-    if vibe_vector:
-        print(f"\n✅ Success! Extracted a {len(vibe_vector)}-dimensional 'vibe' vector.")
-        print(f"First 5 numbers: {vibe_vector[:5]}")
+    result = extract_image_vibe(mock_path)
+    if result:
+        print(f"✅ Extracted vector of length {len(result)}")
+        print(f"Sample: {result[:3]}...")

@@ -1,34 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-apple-disable-message-reformatting" />
     <title>Weekly Performance Report</title>
-    <style>
-        body { margin: 0; padding: 0; background-color: #f4f4f4; -webkit-font-smoothing: antialiased; }
-        table { border-spacing: 0; border-collapse: collapse; }
-        td { padding: 0; }
-        img { border: 0; }
-        .wrapper { width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 0; }
+    <style type="text/css">
+        /* Client-specific resets */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-spacing: 0; border-collapse: collapse; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        
+        /* Global Styles */
+        body { margin: 0; padding: 0; background-color: #f4f4f4; -webkit-font-smoothing: antialiased; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 10px; }
         .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(114, 0, 0, 0.1); border: 1px solid #FFD6DD; }
-        .btn-hover:hover { background-color: #720000 !important; }
+        
+        /* Interactive styles */
+        .btn-primary:hover { background-color: #720000 !important; }
+        
+        /* Mobile overrides */
+        @media screen and (max-width: 600px) {
+            .wrapper { padding: 20px 5px !important; }
+            .content-padding { padding: 25px 20px !important; }
+            .metric-box { padding: 20px 10px !important; }
+            .metric-value { font-size: 32px !important; }
+            .h1-text { font-size: 24px !important; }
+        }
     </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;">
 
     <center class="wrapper" style="width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 10px;">
         
-        <table class="main" width="100%" max-width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; overflow: hidden; border: 1px solid #FFD6DD;">
+        <table class="main" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; overflow: hidden; border: 1px solid #FFD6DD;">
             
             <tr>
-                <td style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 35px 20px; text-align: center;">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Weekly Venue Report</h1>
+                <td style="background-color: #E60026; background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 35px 20px; text-align: center;">
+                    <h1 class="h1-text" style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Weekly Venue Report</h1>
                     <p style="margin: 8px 0 0 0; color: #FFD6DD; font-size: 15px; font-weight: 500;">{{ restaurant_name }}</p>
                 </td>
             </tr>
 
             <tr>
-                <td style="padding: 35px 30px; color: #4A0008;">
+                <td class="content-padding" style="padding: 35px 30px; color: #4A0008;">
+                    
                     <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">Hello {{ owner_name }},</p>
                     <p style="margin: 0 0 25px 0; font-size: 15px; line-height: 1.6; color: #555555;">
                         Here is how the <strong>FIND YOUR MATCH AI</strong> drove foot traffic to your venue this past week ({{ report_start_date }} - {{ report_end_date }}):
@@ -36,15 +52,15 @@
 
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
-                            <td width="48%" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
-                                <div style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ profile_views }}</div>
+                            <td width="48%" align="center" class="metric-box" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                                <div class="metric-value" style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ profile_views }}</div>
                                 <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Discovery Views</div>
                             </td>
                             
                             <td width="4%"></td>
                             
-                            <td width="48%" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
-                                <div style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ qr_scans }}</div>
+                            <td width="48%" align="center" class="metric-box" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                                <div class="metric-value" style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ qr_scans }}</div>
                                 <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">QR Redemptions</div>
                             </td>
                         </tr>
@@ -66,7 +82,7 @@
                         {% else %}
                         <tr>
                             <td style="padding: 20px 0; text-align: center; color: #888888; font-size: 14px; font-style: italic;">
-                                No bookings this week. <br><strong>AI Tip:</strong> Add a free drink offer to your 'Student Perk' to attract more MMUST couples!
+                                No bookings this week. <br><strong style="color: #4A0008; font-style: normal;">AI Tip:</strong> Add a free drink offer to your 'Student Perk' to attract more MMUST couples!
                             </td>
                         </tr>
                         {% endfor %}
@@ -76,8 +92,11 @@
                         <tr>
                             <td align="center">
                                 <p style="margin: 0 0 15px 0; font-size: 14px; color: #666666;">Want to update your venue profile or see deeper analytics?</p>
-                                <a href="https://delstarford-works.vercel.app/login" class="btn-hover" style="display: inline-block; background-color: #E60026; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 30px; border-radius: 30px; transition: background-color 0.3s;">Open Merchant Dashboard</a>
-                            </td>
+                                
+                                <a href="https://delstarford-works.vercel.app/login" class="btn-primary" style="display: inline-block; background-color: #E60026; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 30px; border-radius: 30px; transition: background-color 0.3s; mso-padding-alt: 0;">
+                                        Open Merchant Dashboard
+                                    </a>
+                                </td>
                         </tr>
                     </table>
 
@@ -87,7 +106,9 @@
             <tr>
                 <td style="background-color: #4A0008; padding: 25px; text-align: center;">
                     <p style="margin: 0; color: #FFD6DD; font-size: 12px; font-weight: 500;">&copy; 2026 Delstarford Works AI Solutions</p>
-                    <p style="margin: 5px 0 0 0; color: rgba(255, 214, 221, 0.6); font-size: 11px;">Kakamega, Kenya | <a href="#" style="color: rgba(255, 214, 221, 0.8); text-decoration: underline;">Unsubscribe</a></p>
+                    <p style="margin: 5px 0 0 0; color: rgba(255, 214, 221, 0.6); font-size: 11px;">
+                        Kakamega, Kenya | <a href="#" style="color: rgba(255, 214, 221, 0.8); text-decoration: underline;">Unsubscribe</a>
+                    </p>
                 </td>
             </tr>
 

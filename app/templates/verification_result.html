@@ -2,51 +2,162 @@
 
 {% block content %}
 <style>
-    /* Premium Pulse Animation for successful verification */
-    @keyframes pulse-bg {
-        0% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
-        50% { transform: scale(1.05); box-shadow: 0 15px 45px rgba(16, 185, 129, 0.4); }
-        100% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
-    }
-    .status-card-verified { 
-        animation: pulse-bg 2s infinite ease-in-out; 
+    /* === LAYOUT === */
+    .verification-wrapper {
+        min-height: calc(100vh - var(--nav-height) - 40px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(20px, 5vw, 40px) 15px;
+        /* Subtle background transition based on status */
+        background-color: {% if status == 'VERIFIED' %} rgba(16, 185, 129, 0.05) {% else %} rgba(239, 68, 68, 0.05) {% endif %};
     }
 
     .status-card {
-        max-width: 420px;
-        margin: 80px auto;
+        width: 100%;
+        max-width: 450px;
         text-align: center;
-        padding: 40px;
+        padding: clamp(30px, 8vw, 50px) 20px;
         border-radius: 35px;
         background: white;
         transition: all 0.5s ease;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        border: 8px solid {{ color }};
+        /* Starts slightly lower for the slide-up animation */
+        transform: translateY(20px);
+        opacity: 0;
+        animation: slideUpFade 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes slideUpFade {
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* === PREMIUM SUCCESS ANIMATION === */
+    @keyframes pulse-bg {
+        0% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
+        50% { transform: scale(1.02); box-shadow: 0 20px 50px rgba(16, 185, 129, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2); }
+    }
+    
+    @keyframes pulse-fail {
+        0% { transform: scale(1); box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2); }
+        50% { transform: scale(1.02); box-shadow: 0 20px 50px rgba(239, 68, 68, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 10px 30px rgba(239, 68, 68, 0.2); }
+    }
+
+    .status-card-verified { 
+        animation: slideUpFade 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, pulse-bg 2s 0.6s infinite ease-in-out; 
+    }
+    .status-card-failed {
+        animation: slideUpFade 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, pulse-fail 2s 0.6s infinite ease-in-out;
+    }
+
+    /* === TYPOGRAPHY & ELEMENTS === */
+    .status-icon {
+        font-size: clamp(80px, 20vw, 120px); 
+        margin-bottom: 15px;
+        line-height: 1;
+        /* Dropshadow on the emoji makes it pop */
+        filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+    }
+
+    .status-title {
+        color: {{ color }}; 
+        font-size: clamp(40px, 10vw, 56px); 
+        font-weight: 900; 
+        margin: 0 0 15px 0; 
+        letter-spacing: -1.5px;
+        line-height: 1.1;
+    }
+    
+    .status-message {
+        color: #4A0008; 
+        font-size: clamp(16px, 4vw, 20px); 
+        font-weight: 700; 
+        line-height: 1.5; 
+        margin: 0 0 35px 0; 
+        padding: 0 10px;
+    }
+    
+    /* === REDEMPTION BOX === */
+    .redemption-box {
+        background: #f8fafc; 
+        padding: 25px 20px; 
+        border-radius: 20px; 
+        margin-bottom: 35px; 
+        border: 2px dashed #e2e8f0;
+    }
+    
+    .redemption-label {
+        font-size: 13px; 
+        color: #64748b; 
+        text-transform: uppercase; 
+        letter-spacing: 1.5px; 
+        font-weight: 800; 
+        margin: 0 0 10px 0;
+    }
+    
+    .redemption-venue {
+        font-size: clamp(20px, 5vw, 26px); 
+        color: #720000; 
+        font-weight: 900; 
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    /* === BUTTON === */
+    .btn-return {
+        display: block; 
+        width: 100%;
+        padding: 20px; 
+        border-radius: 20px; 
+        font-weight: 900; 
+        text-decoration: none; 
+        font-size: 18px; 
+        background: {{ color }}; 
+        color: white;
+        border: none;
+        transition: transform 0.2s, filter 0.2s;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .btn-return:active {
+        transform: scale(0.96);
+    }
+    
+    @media (hover: hover) {
+        .btn-return:hover {
+            filter: brightness(0.9);
+            transform: translateY(-2px);
+        }
     }
 </style>
 
-<div class="status-card {% if status == 'VERIFIED' %}status-card-verified{% endif %}" 
-     style="border: 8px solid {{ color }};">
-    
-    <div id="status-icon" style="font-size: 100px; margin-bottom: 20px;">
-        {% if status == 'VERIFIED' %} ✅ {% else %} ❌ {% endif %}
-    </div>
+<div class="verification-wrapper">
+    <div class="status-card {% if status == 'VERIFIED' %}status-card-verified{% else %}status-card-failed{% endif %}">
+        
+        <div id="status-icon" class="status-icon">
+            {% if status == 'VERIFIED' %} ✅ {% else %} ❌ {% endif %}
+        </div>
 
-    <h1 style="color: {{ color }}; font-size: 48px; font-weight: 900; margin-bottom: 10px; letter-spacing: -1px;">
-        {{ status }}
-    </h1>
-    
-    <p style="color: #333; font-size: 18px; font-weight: 600; line-height: 1.5; margin-bottom: 30px; padding: 0 10px;">
-        {{ message }}
-    </p>
-    
-    <div style="background: #f8fafc; padding: 20px; border-radius: 20px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
-        <p style="font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; margin-bottom: 8px;">Redeeming At</p>
-        <p style="font-size: 20px; color: #800000; font-weight: 900; margin: 0;">{{ restaurant_name }}</p>
-    </div>
+        <h1 class="status-title">
+            {{ status }}
+        </h1>
+        
+        <p class="status-message">
+            {{ message }}
+        </p>
+        
+        <div class="redemption-box">
+            <p class="redemption-label">Redeeming At</p>
+            <p class="redemption-venue">{{ restaurant_name }}</p>
+        </div>
 
-    <a href="{{ url_for('dashboard') }}" class="btn-primary" 
-       style="display: block; padding: 20px; border-radius: 20px; font-weight: 800; text-decoration: none; font-size: 18px; background: {{ color }}; border: none;">
-       Return to Dashboard
-    </a>
+        <a href="{{ url_for('dashboard') }}" class="btn-return">
+            Return to Dashboard
+        </a>
+    </div>
 </div>
 
 <script>
@@ -61,10 +172,21 @@
         const audio = new Audio(status === "VERIFIED" ? successSound : failureSound);
         audio.volume = 0.5;
 
+        // Trigger Haptics on Mobile (if supported)
+        if (navigator.vibrate) {
+            if (status === "VERIFIED") {
+                // Success: Two quick happy buzzes
+                navigator.vibrate([100, 50, 100]);
+            } else {
+                // Failure: One long, heavy buzz
+                navigator.vibrate(400);
+            }
+        }
+
         // Small delay to allow the visual page to render first
         setTimeout(() => {
             audio.play().catch(err => {
-                // Browsers usually block auto-play unless there is user interaction
+                // Browsers block auto-play unless there is prior user interaction on the domain
                 console.log("Audio play deferred until user interaction.");
             });
         }, 400);

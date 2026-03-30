@@ -6,74 +6,203 @@
     .b2b-container { 
         max-width: 1000px; 
         margin: 30px auto; 
-        padding: 0 20px; 
+        padding: 0 15px; 
     }
     
     /* Header */
     .b2b-header { 
         display: flex; 
+        flex-wrap: wrap; /* Allows wrapping on very small screens */
         justify-content: space-between; 
         align-items: center; 
+        gap: 15px;
         margin-bottom: 30px; 
     }
-    .b2b-header h1 { color: #800000; margin: 0; font-size: 28px; }
+    .b2b-header h1 { 
+        color: #720000; 
+        margin: 0; 
+        font-size: clamp(22px, 4vw, 28px); 
+        font-weight: 800;
+    }
     
+    .btn-logout {
+        background: white; 
+        color: #4A0008;
+        border: 1px solid #FFD6DD; 
+        padding: 8px 20px; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        font-weight: bold; 
+        transition: 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .btn-logout:hover {
+        background: #FEF2F4;
+        border-color: #E60026;
+    }
+
     /* Subscription Banners */
     .sub-banner { 
-        padding: 15px 20px; 
+        padding: 20px; 
         border-radius: 12px; 
         display: flex; 
+        flex-wrap: wrap;
+        gap: 15px;
         align-items: center; 
         justify-content: space-between; 
         margin-bottom: 30px; 
-        font-weight: bold; 
+        font-weight: 600; 
+        line-height: 1.5;
     }
     .sub-inactive { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
     .sub-active { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     
-    /* Stat Cards */
+    /* M-Pesa Payment Box */
+    .payment-box {
+        display: flex; 
+        flex-wrap: wrap; /* Stacks on mobile */
+        gap: 10px; 
+        width: 100%; 
+        max-width: 500px; 
+        background: white; 
+        padding: 15px; 
+        border-radius: 10px; 
+        border: 1px solid #ffeeba;
+    }
+    
+    .mpesa-input {
+        flex: 1; 
+        min-width: 200px; /* Prevents input from getting too small before wrapping */
+        padding: 12px; 
+        border: 1px solid #ccc; 
+        border-radius: 8px; 
+        font-weight: bold; 
+        outline: none;
+        font-size: 16px; /* Prevents iOS auto-zoom */
+    }
+    
+    .btn-pay {
+        background: #28a745; 
+        color: white; 
+        border: none; 
+        padding: 12px 25px; 
+        border-radius: 8px; 
+        font-weight: bold; 
+        cursor: pointer; 
+        transition: 0.2s;
+        white-space: nowrap;
+        flex: 1; /* Allow button to grow on mobile */
+        min-width: 150px;
+    }
+    .btn-pay:hover:not(:disabled) { background: #218838; transform: translateY(-1px); }
+    .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    /* Stat Cards (Fluid Grid) */
     .stats-grid { 
         display: grid; 
-        grid-template-columns: repeat(3, 1fr); 
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
         gap: 20px; 
-        margin-bottom: 40px; 
+        margin-bottom: 30px; 
     }
     .stat-card { 
         background: white; 
         padding: 25px; 
         border-radius: 15px; 
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
-        border: 1px solid #eee; 
+        box-shadow: 0 5px 15px rgba(114,0,0,0.05); 
+        border: 1px solid #FFD6DD; 
         text-align: center; 
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
-    .stat-value { font-size: 36px; font-weight: 800; color: #ff2a4b; margin: 10px 0; }
-    .stat-label { color: #666; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 36px; font-weight: 900; color: #E60026; margin: 10px 0; line-height: 1; }
+    .stat-label { color: #666; font-size: 13px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
 
-    /* Bookings Table */
-    .bookings-section { 
+    /* Container for sections */
+    .b2b-section { 
+        background: white; 
+        padding: clamp(15px, 4vw, 25px); 
+        border-radius: 15px; 
+        box-shadow: 0 5px 15px rgba(114,0,0,0.05); 
+        border: 1px solid #FFD6DD; 
+        margin-bottom: 30px;
+    }
+    .b2b-section h2, .b2b-section h3 { color: #720000; margin-top: 0; margin-bottom: 20px; font-weight: 800; }
+    
+    /* Responsive Table Wrapper */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto; /* Allows horizontal scrolling on mobile */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 600px; /* Forces scroll if screen is too narrow */ }
+    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { color: #888; font-size: 12px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
+    td { color: #4A0008; font-size: 14px; font-weight: 500; }
+    
+    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .status-approved { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status-declined { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+    /* Action Buttons */
+    .action-flex { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-approve { background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 13px; }
+    .btn-approve:hover { background: #218838; }
+    .btn-decline { background: white; color: #dc3545; border: 1px solid #dc3545; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 13px; }
+    .btn-decline:hover { background: #f8d7da; }
+
+    /* Promo / Action Banner */
+    .action-banner {
         background: white; 
         padding: 25px; 
         border-radius: 15px; 
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05); 
-        border: 1px solid #eee; 
+        margin-bottom: 30px; 
+        border: 1px solid #FFD6DD; 
+        display: flex; 
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center; 
+        justify-content: space-between;
     }
-    .bookings-section h2 { color: #800000; margin-bottom: 20px; font-size: 20px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
-    th { color: #888; font-size: 13px; text-transform: uppercase; }
-    td { color: #333; font-size: 15px; }
     
-    .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-    .status-pending { background: #fff3cd; color: #856404; }
-    .status-approved { background: #d4edda; color: #155724; }
-    .status-declined { background: #f8d7da; color: #721c24; }
+    .btn-qr {
+        text-decoration: none; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        background: #E60026;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+    .btn-qr:hover { background: #720000; }
 
-    /* Action Buttons */
-    .action-flex { display: flex; gap: 10px; }
-    .btn-approve { background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-    .btn-approve:hover { background: #218838; }
-    .btn-decline { background: white; color: #dc3545; border: 1px solid #dc3545; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-    .btn-decline:hover { background: #f8d7da; }
+    /* Heatmap styling */
+    .heatmap-container {
+        display: flex; 
+        align-items: flex-end; 
+        gap: 4px; /* Tighter gap for mobile */
+        height: 150px; 
+        padding-top: 20px; 
+        border-bottom: 2px solid #eee;
+        overflow-x: auto; /* Allow scroll if too many bars */
+    }
+    .heat-bar-wrapper {
+        flex: 1; 
+        min-width: 15px; /* Ensures bars don't get completely crushed */
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        gap: 8px;
+    }
+    
+    /* Toast Animation */
+    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 
 <div class="b2b-container">
@@ -81,26 +210,22 @@
     <div class="b2b-header">
         <h1>{{ restaurant.business_name }} Dashboard</h1>
         <form action="{{ url_for('auth.logout') }}" method="GET">
-            <button type="submit" style="background: white; border: 1px solid #ccc; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">Log Out</button>
+            <button type="submit" class="btn-logout">Log Out</button>
         </form>
     </div>
 
     {% if not restaurant.subscription_active %}
     <div class="sub-banner sub-inactive" style="flex-direction: column; align-items: flex-start;">
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 10px;">
             <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
             Your venue is currently HIDDEN from MMUST students. Activate your account to start receiving dates.
         </div>
         
-        <div style="display: flex; gap: 10px; width: 100%; max-width: 500px; background: white; padding: 15px; border-radius: 10px; border: 1px solid #ccc;">
-            <input type="text" id="mpesa-phone" placeholder="2547XXXXXXXX" value="254" 
-                   style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-weight: bold; outline: none;">
-            <button id="btn-pay" onclick="triggerMpesa()" 
-                    style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;">
-                Pay 2,000 KSH
-            </button>
+        <div class="payment-box">
+            <input type="tel" id="mpesa-phone" class="mpesa-input" placeholder="2547XXXXXXXX" value="254">
+            <button id="btn-pay" class="btn-pay" onclick="triggerMpesa()">Pay 2,000 KSH</button>
         </div>
-        <div id="mpesa-status" style="margin-top: 10px; font-size: 14px; font-weight: bold; color: #800000; display: none;">
+        <div id="mpesa-status" style="margin-top: 10px; font-size: 14px; font-weight: bold; color: #720000; display: none;">
             Loading...
         </div>
     </div>
@@ -110,20 +235,21 @@
             <span style="font-size: 20px; margin-right: 10px;">✅</span>
             Your venue is ACTIVE and being recommended to students by the AI.
         </div>
-        <span>Renews in 28 Days</span>
+        <span style="background: white; padding: 5px 12px; border-radius: 15px; font-size: 12px;">Renews in 28 Days</span>
     </div>
     {% endif %}
-<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+
+    <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-label">Profile Views</div>
             <div class="stat-value">{{ restaurant.profile_views | default(0) }}</div>
-            <div style="font-size: 12px; color: #28a745;">👁️ Discovery Interest</div>
+            <div style="font-size: 12px; color: #28a745; font-weight: bold;">👁️ Discovery Interest</div>
         </div>
         
-        <div class="stat-card" style="border: 1px solid #ffccd5; background: #fff0f3;">
+        <div class="stat-card" style="border: 2px solid #E60026; background: #FEF2F4;">
             <div class="stat-label">QR Redemptions</div>
-            <div class="stat-value" style="color: #800000;">{{ restaurant.qr_scans | default(0) }}</div>
-            <div style="font-size: 12px; color: #800000; font-weight: bold;">🔥 Real Foot Traffic</div>
+            <div class="stat-value" style="color: #720000;">{{ restaurant.qr_scans | default(0) }}</div>
+            <div style="font-size: 12px; color: #720000; font-weight: bold;">🔥 Real Foot Traffic</div>
         </div>
 
         <div class="stat-card">
@@ -131,109 +257,112 @@
             <div class="stat-value" style="color: #f39c12;">{{ pending_count }}</div>
             <div style="font-size: 12px; color: #888;">Require approval</div>
         </div>
+        
         <div class="stat-card">
             <div class="stat-label">Approved Dates</div>
             <div class="stat-value" style="color: #28a745;">{{ approved_count }}</div>
             <div style="font-size: 12px; color: #888;">Confirmed tables</div>
         </div>
-        <div class="bookings-section" style="margin-bottom: 30px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0;">🕒 Student Traffic Heatmap</h2>
-        <span style="font-size: 12px; color: #666; background: #eee; padding: 4px 10px; border-radius: 10px;">Last 24 Hours</span>
     </div>
 
-    <div class="heatmap-container" style="display: flex; align-items: flex-end; gap: 8px; height: 150px; padding-top: 20px; border-bottom: 2px solid #eee;">
-        {% for hour in range(7, 22) %} {# Shows 7 AM to 9 PM #}
-            {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
-            {% set height = (count * 10) if count < 15 else 150 %} {# Scalable height #}
-            
-            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                <div style="width: 100%; height: {{ height }}px; background: {% if count > 5 %}#800000{% else %}#ffccd5{% endif %}; border-radius: 4px 4px 0 0; transition: 0.3s;" 
-                     title="{{ count }} scans at {{ hour }}:00">
+    <div class="b2b-section">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px;">
+            <h2 style="margin: 0; font-size: clamp(18px, 3vw, 20px);">🕒 Student Traffic Heatmap</h2>
+            <span style="font-size: 12px; color: #666; background: #eee; padding: 4px 10px; border-radius: 10px; white-space: nowrap;">Last 24 Hours</span>
+        </div>
+
+        <div class="heatmap-container">
+            {% for hour in range(7, 22) %} {# Shows 7 AM to 9 PM #}
+                {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
+                {% set height = (count * 10) if count < 15 else 150 %} {# Scalable height #}
+                
+                <div class="heat-bar-wrapper">
+                    <div style="width: 100%; height: {{ height }}px; background: {% if count > 5 %}#E60026{% else %}#FFD6DD{% endif %}; border-radius: 4px 4px 0 0; transition: 0.3s;" 
+                         title="{{ count }} scans at {{ hour }}:00">
+                    </div>
+                    <span style="font-size: 10px; color: #888; font-weight: bold;">{{ hour }}h</span>
                 </div>
-                <span style="font-size: 10px; color: #888; font-weight: bold;">{{ hour }}h</span>
+            {% endfor %}
+        </div>
+        
+        <div style="margin-top: 15px; display: flex; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; font-weight: bold;">
+                <div style="width: 12px; height: 12px; background: #E60026; border-radius: 2px;"></div> Peak Hours
             </div>
-        {% endfor %}
+            <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; font-weight: bold;">
+                <div style="width: 12px; height: 12px; background: #FFD6DD; border-radius: 2px;"></div> Off-Peak
+            </div>
+        </div>
     </div>
     
-    <div style="margin-top: 15px; display: flex; gap: 20px;">
-        <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
-            <div style="width: 12px; height: 12px; background: #800000; border-radius: 2px;"></div> Peak Hours
+    <div class="action-banner">
+        <div style="flex: 1; min-width: 250px;">
+            <h3 style="color: #720000; margin-top: 0; margin-bottom: 5px; font-size: 18px;">In-Store Marketing</h3>
+            <p style="color: #666; font-size: 14px; margin: 0; line-height: 1.4;">Print your unique QR code to verify student discounts at your tables.</p>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666;">
-            <div style="width: 12px; height: 12px; background: #ffccd5; border-radius: 2px;"></div> Off-Peak
-        </div>
-    </div>
-</div>
-    </div>
-    <div style="background: white; padding: 25px; border-radius: 15px; margin-bottom: 30px; border: 1px solid #eee; display: flex; align-items: center; justify-content: space-between;">
-        <div>
-            <h3 style="color: #800000; margin-bottom: 5px;">In-Store Marketing</h3>
-            <p style="color: #666; font-size: 14px;">Print your unique QR code to verify student discounts at your tables.</p>
-        </div>
-        <a href="{{ url_for('merchant_qr') }}" class="btn-approve" style="text-decoration: none; display: flex; align-items: center; gap: 8px; background: #800000;">
-            <span>📱</span> Generate My QR Code
+        <a href="{{ url_for('merchant_qr') }}" class="btn-qr">
+            <span style="font-size: 18px;">📱</span> Generate QR Code
         </a>
     </div>
-    <div class="bookings-section">
-        <h2>Live Table Reservations</h2>
+
+    <div class="b2b-section">
+        <h2 style="font-size: clamp(18px, 3vw, 20px);">Live Table Reservations</h2>
         {% if bookings %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Couple</th>
-                    <th>Date Day</th>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for booking in bookings %}
-                <tr>
-                    <td><strong>{{ booking.user_a_name }}</strong> & <strong>{{ booking.user_b_name }}</strong></td>
-                    <td>{{ booking.day }}</td>
-                    <td>{{ booking.time }}</td>
-                    <td>
-                        <span class="status-badge status-{{ booking.status | lower }}">{{ booking.status }}</span>
-                    </td>
-                    <td>
-                        {% if booking.status == 'Pending' %}
-                        <div class="action-flex">
-                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST">
-                                <button type="submit" class="btn-approve">Approve</button>
-                            </form>
-                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='decline') }}" method="POST">
-                                <button type="submit" class="btn-decline">Decline</button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <span style="color: #aaa; font-size: 12px;">No actions available</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Couple</th>
+                        <th>Date Day</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for booking in bookings %}
+                    <tr>
+                        <td style="white-space: nowrap;"><strong>{{ booking.user_a_name }}</strong> & <strong>{{ booking.user_b_name }}</strong></td>
+                        <td style="white-space: nowrap;">{{ booking.day }}</td>
+                        <td>{{ booking.time }}</td>
+                        <td>
+                            <span class="status-badge status-{{ booking.status | lower }}">{{ booking.status }}</span>
+                        </td>
+                        <td>
+                            {% if booking.status == 'Pending' %}
+                            <div class="action-flex">
+                                <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST" style="margin: 0;">
+                                    <button type="submit" class="btn-approve">Approve</button>
+                                </form>
+                                <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='decline') }}" method="POST" style="margin: 0;">
+                                    <button type="submit" class="btn-decline">Decline</button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span style="color: #aaa; font-size: 12px; font-style: italic;">No actions available</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-        <p style="text-align: center; color: #888; padding: 30px;">No date reservations yet. Ensure your subscription is active to receive bookings!</p>
+        <p style="text-align: center; color: #888; padding: 30px 10px; margin: 0; font-style: italic;">No date reservations yet. Ensure your subscription is active to receive bookings!</p>
         {% endif %}
     </div>
 
 </div>
-<div id="live-alert-toast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #800000; color: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 9999; min-width: 300px; animation: slideUp 0.5s ease-out;">
+
+<div id="live-alert-toast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #720000; color: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(114,0,0,0.3); z-index: 9999; width: 90%; max-width: 350px; animation: slideUp 0.5s ease-out;">
     <div style="display: flex; align-items: center; gap: 15px;">
-        <div style="font-size: 30px;">⚡</div>
+        <div style="font-size: 30px; background: #E60026; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">⚡</div>
         <div>
-            <div style="font-weight: 800; font-size: 14px; text-transform: uppercase; opacity: 0.8;">New Discount Scan!</div>
-            <div id="alert-student-name" style="font-size: 18px; font-weight: 900;">Student Name</div>
+            <div style="font-weight: 800; font-size: 12px; text-transform: uppercase; color: #FFD6DD; letter-spacing: 0.5px;">New Discount Scan!</div>
+            <div id="alert-student-name" style="font-size: 18px; font-weight: 900; line-height: 1.2;">Student Name</div>
         </div>
     </div>
 </div>
-
-<style>
-    @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-</style>
 
 <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/1008/1008-preview.mp3"></audio>
 
@@ -241,7 +370,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-    // Initialize Firebase in JS (Use your actual config from Firebase Console)
+    // Initialize Firebase in JS
     const firebaseConfig = {
         databaseURL: "{{ config['FIREBASE_DB_URL'] }}"
     };
@@ -250,28 +379,25 @@
     const restaurantId = "{{ session.get('business_id') }}";
     const alertRef = firebase.database().ref('merchant_alerts/' + restaurantId);
 
-    // Listen for changes
+    // Listen for real-time QR scans
     alertRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (data && data.status === 'new') {
-            // 1. Update UI
             document.getElementById('alert-student-name').innerText = data.student_name;
             const toast = document.getElementById('live-alert-toast');
             toast.style.display = 'block';
 
-            // 2. Play 'Cha-Ching' Sound
             document.getElementById('alert-sound').play();
 
-            // 3. Auto-hide and reset status to 'read' after 8 seconds
             setTimeout(() => {
                 toast.style.display = 'none';
                 alertRef.update({ status: 'read' });
-                // Optional: Reload stats to update the counter
-                window.location.reload(); 
+                // Optional: window.location.reload(); 
             }, 8000);
         }
     });
 </script>
+
 {% if not restaurant.subscription_active %}
 <script>
     function triggerMpesa() {
@@ -279,40 +405,39 @@
         const statusDiv = document.getElementById('mpesa-status');
         const btn = document.getElementById('btn-pay');
         
-        if(phone.length < 12) {
+        // Remove spaces or plus signs
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+        if(cleanPhone.length < 12 || !cleanPhone.startsWith('254')) {
             alert("Please enter a valid Safaricom number starting with 254 (e.g., 254712345678)");
             return;
         }
 
-        // UI Loading State
         btn.innerText = "Processing...";
         btn.disabled = true;
         statusDiv.style.display = "block";
         statusDiv.innerText = "Initiating M-Pesa STK Push. Please check your phone...";
 
-        // Send request to Flask Backend
         fetch('/api/pay_subscription', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ phone_number: phone })
+            body: JSON.stringify({ phone_number: cleanPhone })
         })
         .then(res => res.json())
         .then(data => {
             if(data.success) {
                 statusDiv.style.color = "#28a745";
                 statusDiv.innerText = "Success! Enter your PIN on your phone. This page will update automatically upon completion.";
-                
-                // Poll for success or reload after 15 seconds
                 setTimeout(() => window.location.reload(), 15000); 
             } else {
-                statusDiv.style.color = "#dc3545";
+                statusDiv.style.color = "#E60026";
                 statusDiv.innerText = data.message || "Failed to trigger M-Pesa.";
                 btn.innerText = "Try Again";
                 btn.disabled = false;
             }
         })
         .catch(err => {
-            statusDiv.style.color = "#dc3545";
+            statusDiv.style.color = "#E60026";
             statusDiv.innerText = "Network Error. Check your connection.";
             btn.innerText = "Pay 2,000 KSH";
             btn.disabled = false;

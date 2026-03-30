@@ -2,6 +2,7 @@ import os
 import logging
 import torch
 from transformers import pipeline
+from typing import List, Union
 
 # 1. Configure Production Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -9,106 +10,104 @@ logger = logging.getLogger(__name__)
 
 class SentimentAligner:
     """
-    Lazy-loading wrapper for the NLP Sentiment Pipeline.
-    Prevents memory hogging and provides mathematically sound alignment scoring.
+    NLP Sentiment Pipeline for vibe-matching.
+    Uses 'roberta-base-sentiment' which is highly accurate for social/dating text.
     """
     def __init__(self, model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest"):
         self.model_name = model_name
-        # PyTorch pipelines use 0 for the first GPU, and -1 for CPU
-        self.device_id = 0 if torch.cuda.is_available() else -1
+        # 0 = GPU, -1 = CPU. Most Render/PythonAnywhere instances will be -1.
+        self.device = 0 if torch.cuda.is_available() else -1
         self.pipeline = None
 
     def load_model(self):
-        """Loads the weights into RAM/VRAM only when actually needed."""
         if self.pipeline is None:
-            logger.info(f"Loading NLP Sentiment Model on {'GPU' if self.device_id == 0 else 'CPU'}...")
+            logger.info(f"🚀 Loading Sentiment Engine on {'GPU' if self.device == 0 else 'CPU'}...")
             try:
                 self.pipeline = pipeline(
                     "sentiment-analysis", 
                     model=self.model_name, 
                     tokenizer=self.model_name,
-                    device=self.device_id,
-                    truncation=True,    # Prevents app crash if text is too long
-                    max_length=512      # Caps input size to model limits
+                    device=self.device,
+                    truncation=True,
+                    max_length=512
                 )
-                logger.info("✅ NLP Sentiment Model loaded successfully!")
+                logger.info("✅ Sentiment Engine Ready.")
             except Exception as e:
-                logger.error(f"❌ Failed to load Sentiment model: {e}")
+                logger.error(f"❌ Sentiment model load failed: {e}")
                 raise
 
-    def get_sentiment_score(self, text: str) -> float:
+    def get_scores(self, texts: Union[str, List[str]]) -> Union[float, List[float]]:
         """
-        Analyzes text and returns a float score between -1.0 (Negative) and +1.0 (Positive).
+        Analyzes one or many strings. 
+        Returns score from -1.0 (Negative) to +1.0 (Positive).
         """
-        if not text or not isinstance(text, str):
-            return 0.0
+        if not texts:
+            return 0.0 if isinstance(texts, str) else []
             
         if self.pipeline is None:
             self.load_model()
             
+        input_list = [texts] if isinstance(texts, str) else texts
+        
         try:
-            result = self.pipeline(text)[0]
-            label = result['label'].lower()
-            confidence = result['score'] 
+            results = self.pipeline(input_list)
+            scores = []
+            
+            for res in results:
+                label = res['label'].lower()
+                conf = res['score']
+                
+                # Logic: Positive = 0 to 1, Negative = -1 to 0, Neutral = 0
+                if 'positive' in label:
+                    scores.append(round(conf, 4))
+                elif 'negative' in label:
+                    scores.append(round(-conf, 4))
+                else:
+                    scores.append(0.0)
 
-            if 'positive' in label:
-                return round(confidence, 4)
-            elif 'negative' in label:
-                return round(-confidence, 4)
-            else:
-                return 0.0 # Neutral
+            return scores[0] if isinstance(texts, str) else scores
 
         except Exception as e:
-            logger.error(f"Sentiment Analysis Error on text '{text[:20]}...': {e}")
-            return 0.0
+            logger.error(f"Sentiment Analysis Failure: {e}")
+            return 0.0 if isinstance(texts, str) else [0.0] * len(input_list)
 
     def calculate_alignment(self, score_a: float, score_b: float) -> float:
         """
-        Calculates true compatibility on a 0.0 to 1.0 scale (0% to 100%).
-        Using Absolute Difference instead of Multiplication fixes the math logic.
+        Linear Alignment Scoring.
+        1.0 = Perfectly Aligned Vibe
+        0.0 = Total Vibe Clash
         """
-        # Difference ranges from 0 (identical) to 2 (polar opposites: +1 and -1)
-        diff = abs(score_a - score_b)
+        # abs(1.0 - (-1.0)) = 2.0 (Max distance)
+        # abs(0.5 - 0.6) = 0.1 (Close distance)
+        distance = abs(score_a - score_b)
         
-        # Convert to a 0.0 - 1.0 scale where 0 difference = 1.0 (100% match)
-        alignment = 1.0 - (diff / 2.0)
+        # Scale to 0.0 - 1.0
+        alignment = 1.0 - (distance / 2.0)
         
+        # MMUST Bias: If both are neutral (0.0), they are technically aligned.
         return round(alignment, 2)
 
-
-# ==========================================
-# EXPORTED INSTANCE & WRAPPER FUNCTIONS
-# ==========================================
-# Singleton instance prevents loading the model twice
+# Singleton Export
 _aligner = SentimentAligner()
 
 def get_sentiment_score(text: str) -> float:
-    return _aligner.get_sentiment_score(text)
+    return _aligner.get_scores(text)
 
-def calculate_alignment(score_a: float, score_b: float) -> float:
-    return _aligner.calculate_alignment(score_a, score_b)
+def get_batch_scores(texts: List[str]) -> List[float]:
+    return _aligner.get_scores(texts)
 
+def calculate_compatibility(s1: float, s2: float) -> float:
+    return _aligner.calculate_alignment(s1, s2)
 
-# --- FOR TESTING PURPOSES ---
 if __name__ == "__main__":
-    print("\n--- MMUST Hot Takes Matcher ---")
+    print("\n--- MMUST Sentiment Engine Test ---")
     
-    # Text samples
-    wanjiku_txt = "Absolutely not. I'd rather sleep in."
-    ochieng_txt = "Never. Walking to class at 7:30 AM is the worst."
-    kipchoge_txt = "Yes! It gets my day started early."
+    # Example: A 'hot take' on MMUST food or classes
+    t1 = "I absolutely hate morning lectures, they ruin my vibe."
+    t2 = "Morning classes are the worst! I'm a night owl."
+    t3 = "I love getting up early and being productive at the MCU."
     
-    # Get Scores
-    w_score = get_sentiment_score(wanjiku_txt)
-    o_score = get_sentiment_score(ochieng_txt)
-    k_score = get_sentiment_score(kipchoge_txt)
+    s1, s2, s3 = get_batch_scores([t1, t2, t3])
     
-    print(f"\nScores (Range -1.0 to 1.0):")
-    print(f"Wanjiku  : {w_score}  ({wanjiku_txt})")
-    print(f"Ochieng  : {o_score}  ({ochieng_txt})")
-    print(f"Kipchoge : {k_score}  ({kipchoge_txt})")
-    
-    # Calculate True Alignments
-    print(f"\nMatch Results (0.0 to 1.0):")
-    print(f"Wanjiku + Ochieng  Compatibility: {calculate_alignment(w_score, o_score)} (Expect High)")
-    print(f"Wanjiku + Kipchoge Compatibility: {calculate_alignment(w_score, k_score)} (Expect Low)")
+    print(f"Alignment (1 & 2): {calculate_compatibility(s1, s2)} (Should be High)")
+    print(f"Alignment (1 & 3): {calculate_compatibility(s1, s3)} (Should be Low)")

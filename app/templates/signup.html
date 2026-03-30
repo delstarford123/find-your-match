@@ -2,86 +2,219 @@
 
 {% block content %}
 <style>
+    /* === LAYOUT === */
     .auth-wrapper {
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 80vh;
-        padding: 40px 20px;
+        min-height: calc(100vh - var(--nav-height) - 40px);
+        padding: clamp(20px, 5vw, 40px) 15px;
     }
     .auth-card {
         background: white;
-        padding: 40px;
+        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
         border-radius: 24px;
-        box-shadow: 0 20px 40px rgba(128, 0, 0, 0.08);
-        border: 1px solid #ffccd5;
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.08); /* Soft maroon shadow */
+        border: 1px solid #FFD6DD;
         width: 100%;
         max-width: 550px;
+        animation: slideUpFade 0.5s ease-out forwards;
     }
-    .auth-header { text-align: center; margin-bottom: 30px; }
-    .auth-title { color: #800000; font-size: 32px; font-weight: 900; margin-bottom: 5px; letter-spacing: -0.5px; }
-    .auth-subtitle { color: #666; font-size: 15px; }
 
-    .input-group { margin-bottom: 20px; }
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === TYPOGRAPHY === */
+    .auth-header { 
+        text-align: center; 
+        margin-bottom: clamp(25px, 6vw, 35px); 
+    }
+    .auth-title { 
+        color: #720000; 
+        font-size: clamp(26px, 6vw, 32px); 
+        font-weight: 900; 
+        margin-bottom: 8px; 
+        letter-spacing: -0.5px; 
+    }
+    .auth-subtitle { 
+        color: #666; 
+        font-size: 15px; 
+        margin: 0;
+    }
+
+    /* === FORM INPUTS === */
+    .input-group { margin-bottom: 20px; width: 100%; }
     .input-group label {
-        display: block; font-size: 13px; font-weight: 800; color: #4a0404;
-        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+        display: block; 
+        font-size: 12px; 
+        font-weight: 800; 
+        color: #4A0008;
+        margin-bottom: 8px; 
+        text-transform: uppercase; 
+        letter-spacing: 0.5px;
     }
     .input-group input[type="text"], 
     .input-group input[type="email"], 
     .input-group input[type="number"], 
     .input-group select {
-        width: 100%; padding: 15px; border: 2px solid #eee; border-radius: 12px;
-        font-size: 15px; background: #fafafa; transition: all 0.3s ease;
-        font-family: inherit; outline: none;
+        width: 100%; 
+        padding: 15px; 
+        border: 2px solid #f0f0f0; 
+        border-radius: 12px;
+        font-size: 16px; /* REQUIRED: prevents iOS auto-zoom */
+        background: #fafafa; 
+        transition: all 0.3s ease;
+        font-family: inherit; 
+        outline: none;
+        color: #333;
+        -webkit-appearance: none;
     }
+    .input-group input::placeholder { color: #aaa; }
+    
+    /* Custom drop arrow for selects */
+    .input-group select {
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 15px top 50%;
+        background-size: 12px auto;
+        padding-right: 40px;
+    }
+
     .input-group input:focus, .input-group select:focus {
-        border-color: #ff2a4b; background: white; box-shadow: 0 0 0 4px rgba(255, 42, 75, 0.1);
+        border-color: #E60026; 
+        background: white; 
+        box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
 
-    .flex-row { display: flex; gap: 15px; margin-bottom: 20px; }
-    .flex-row .input-group { flex: 1; margin-bottom: 0; }
+    .flex-row { display: flex; gap: 15px; }
+    
+    /* Responsive stacking for rows */
+    @media (max-width: 600px) {
+        .flex-row { flex-direction: column; gap: 0; }
+        .flex-row .input-group { margin-bottom: 20px; }
+        .flex-row.kinship-inputs .input-group { margin-bottom: 10px; }
+        .flex-row.kinship-inputs .input-group:last-child { margin-bottom: 0; }
+    }
 
+    /* === KINSHIP FILTER === */
     .kinship-box {
-        background: linear-gradient(to right, #fff0f3, #ffffff);
-        padding: 20px; border-radius: 16px; border: 1px dashed #ffccd5;
+        background: linear-gradient(135deg, #FEF2F4 0%, #ffffff 100%);
+        padding: 20px; 
+        border-radius: 16px; 
+        border: 1px dashed #FFD6DD;
         margin-bottom: 25px;
     }
     .kinship-header {
-        font-size: 14px; color: #800000; font-weight: 800;
-        margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+        font-size: 14px; 
+        color: #720000; 
+        font-weight: 800;
+        margin-bottom: 8px; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px;
     }
-    .kinship-desc { font-size: 12px; color: #666; margin-bottom: 15px; line-height: 1.5; }
-    
-    .checkbox-group {
-        display: flex; align-items: center; gap: 12px; margin-bottom: 25px;
-        background: #fafafa; padding: 15px; border-radius: 12px; border: 1px solid #eee;
+    .kinship-badge {
+        font-size: 10px; 
+        background: #E60026; 
+        color: white; 
+        padding: 3px 8px; 
+        border-radius: 12px; 
+        font-weight: 900; 
+        margin-left: 5px;
+        letter-spacing: 0.5px;
     }
-    .checkbox-group input { width: 20px; height: 20px; accent-color: #ff2a4b; cursor: pointer; }
-    .checkbox-group label { font-size: 14px; color: #555; cursor: pointer; margin: 0; font-weight: 600; }
+    .kinship-desc { 
+        font-size: 13px; 
+        color: #555; 
+        margin-bottom: 15px; 
+        line-height: 1.5; 
+    }
 
-    .btn-submit {
-        width: 100%; background: linear-gradient(135deg, #ff2a4b 0%, #800000 100%);
-        color: white; border: none; padding: 16px; border-radius: 12px;
-        font-size: 16px; font-weight: 800; cursor: pointer; transition: 0.3s;
-        box-shadow: 0 10px 20px rgba(255, 42, 75, 0.2);
+    /* === CHECKBOXES === */
+    .checkbox-group {
+        display: flex; 
+        align-items: center; 
+        gap: 12px; 
+        margin-bottom: 25px;
+        background: #fafafa; 
+        padding: 15px; 
+        border-radius: 12px; 
+        border: 1px solid #f0f0f0;
+        cursor: pointer;
     }
-    .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(255, 42, 75, 0.3); }
+    .checkbox-group input { 
+        width: 20px; 
+        height: 20px; 
+        accent-color: #E60026; 
+        cursor: pointer; 
+    }
+    .checkbox-group label { 
+        font-size: 14px; 
+        color: #4A0008; 
+        cursor: pointer; 
+        margin: 0; 
+        font-weight: 600; 
+        width: 100%;
+    }
+
+    /* === BUTTONS & LINKS === */
+    .btn-submit {
+        width: 100%; 
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; 
+        border: none; 
+        padding: 16px; 
+        border-radius: 12px;
+        font-size: 16px; 
+        font-weight: 900; 
+        cursor: pointer; 
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
+    }
+    .btn-submit:active { transform: scale(0.98); }
     
-    .auth-footer { text-align: center; margin-top: 25px; font-size: 14px; color: #666; }
-    .auth-footer a { color: #ff2a4b; font-weight: 800; text-decoration: none; }
-    .auth-footer a:hover { text-decoration: underline; }
+    @media (hover: hover) {
+        .btn-submit:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
+        }
+    }
+    
+    .auth-footer { 
+        text-align: center; 
+        margin-top: 25px; 
+        font-size: 14px; 
+        color: #666; 
+    }
+    .auth-footer a { 
+        color: #E60026; 
+        font-weight: 800; 
+        text-decoration: none; 
+        transition: color 0.2s;
+    }
+    .auth-footer a:hover { 
+        color: #720000; 
+        text-decoration: underline; 
+    }
 </style>
 
 <div class="auth-wrapper">
     <div class="auth-card">
+        
         <div class="auth-header">
-            <div style="font-size: 40px; margin-bottom: 10px;">✨</div>
-            <h1 class="auth-title">Join and FIND YOUR MATCH</h1>
-            <p class="auth-subtitle">Create your verified MMUST Dating  profile.</p>
+            <div style="font-size: 45px; margin-bottom: 10px; display: flex; justify-content: center;">
+                <div style="background: #FEF2F4; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(230,0,38,0.1);">
+                    ✨
+                </div>
+            </div>
+            <h1 class="auth-title">Join the Network</h1>
+            <p class="auth-subtitle">Create your verified MMUST Dating profile.</p>
         </div>
 
         <form action="{{ url_for('auth.signup') }}" method="POST">
+            
             <div class="flex-row">
                 <div class="input-group">
                     <label for="name">First Name</label>
@@ -94,7 +227,7 @@
             </div>
 
             <div class="input-group">
-                <label for="email">Email Address (Requires Verification)</label>
+                <label for="email">Email Address <span style="color:#E60026; font-weight:normal;">(Requires Verification)</span></label>
                 <input type="email" id="email" name="email" required placeholder="e.g. name@example.com">
             </div>
             
@@ -106,6 +239,7 @@
                 <div class="input-group">
                     <label for="gender">Gender</label>
                     <select id="gender" name="gender" required>
+                        <option value="" disabled selected>Select</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                     </select>
@@ -123,25 +257,25 @@
 
             <div class="kinship-box">
                 <div class="kinship-header">
-                    <span>🛡️</span> Kinship Safety Filter <span style="font-size: 11px; background: #ff2a4b; color: white; padding: 2px 6px; border-radius: 10px; font-weight: bold; margin-left: 5px;">OPTIONAL</span>
+                    <span>🛡️</span> Kinship Safety Filter <span class="kinship-badge">OPTIONAL</span>
                 </div>
                 <p class="kinship-desc">
                     Enter your parents' surnames to avoid matching with close relatives. <strong>Data is instantly encrypted.</strong> We never store the plain text.
                 </p>
-                <div class="flex-row" style="margin-bottom: 0;">
-                    <div class="input-group">
+                <div class="flex-row kinship-inputs" style="margin-bottom: 0;">
+                    <div class="input-group" style="margin-bottom: 0;">
                         <input type="text" id="father_surname" name="father_surname" placeholder="Father's Surname">
                     </div>
-                    <div class="input-group">
+                    <div class="input-group" style="margin-bottom: 0;">
                         <input type="text" id="mother_maiden" name="mother_maiden" placeholder="Mother's Maiden Name">
                     </div>
                 </div>
             </div>
 
-            <div class="checkbox-group">
+            <label class="checkbox-group">
                 <input type="checkbox" id="skip_pic" name="skip_pic">
-                <label for="skip_pic">Skip adding a profile picture for now</label>
-            </div>
+                <span>Skip adding a profile picture for now</span>
+            </label>
 
             <button type="submit" class="btn-submit">Create Account</button>
         </form>
@@ -149,6 +283,7 @@
         <div class="auth-footer">
             Already have an account? <a href="{{ url_for('auth.login') }}">Log in here</a>.
         </div>
+        
     </div>
 </div>
 {% endblock %}

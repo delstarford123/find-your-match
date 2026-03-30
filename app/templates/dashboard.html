@@ -2,37 +2,66 @@
 
 {% block content %}
 <style>
-    /* === DASHBOARD HEADER === */
+    /* === DASHBOARD HEADER (FLUID TYPOGRAPHY) === */
     .dashboard-header {
         text-align: center;
-        margin: 40px 0 30px;
+        padding: clamp(20px, 4vw, 40px) 15px clamp(15px, 3vw, 30px);
     }
     .dashboard-header h1 {
-        color: #800000;
-        font-size: 36px;
+        color: #720000;
+        font-size: clamp(26px, 5vw, 36px); /* Scales automatically */
         font-weight: 800;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         letter-spacing: -0.5px;
+        line-height: 1.2;
     }
     .dashboard-header p {
-        color: #ff4d6d;
-        font-size: 16px;
-        font-weight: bold;
-        background: #fff0f3;
+        color: #E60026;
+        font-size: clamp(14px, 3vw, 16px);
+        font-weight: 800;
+        background: #FFD6DD;
         display: inline-block;
-        padding: 5px 15px;
+        padding: 6px 18px;
         border-radius: 20px;
-        border: 1px solid #ffccd5;
+        border: 1px solid #FFD6DD;
+        margin: 0;
     }
+
+    /* === PWA INSTALL BANNER === */
+    #install-container {
+        display: none; /* Hidden until triggered by JS */
+        max-width: 600px;
+        margin: 0 auto 30px auto;
+        padding: 0 15px;
+    }
+    .btn-install {
+        width: 100%;
+        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 14px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.25);
+        transition: transform 0.2s;
+    }
+    .btn-install:active { transform: scale(0.98); }
 
     /* === GRID LAYOUT === */
     .matches-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 30px;
+        /* The magic formula: 1 card per row on mobile, multiple on desktop */
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+        gap: clamp(20px, 4vw, 30px);
         max-width: 1100px;
         margin: 0 auto 60px auto;
-        padding: 0 20px;
+        padding: 0 15px;
     }
 
     /* === MATCH CARD === */
@@ -40,23 +69,27 @@
         background: white;
         border-radius: 20px;
         overflow: hidden;
-        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.08);
+        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.08);
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: 1px solid #ffccd5;
+        border: 1px solid #FFD6DD;
         display: flex;
         flex-direction: column;
-        height: 100%; /* Ensures all cards stretch evenly */
+        height: 100%;
     }
-    .match-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 15px 35px rgba(128, 0, 0, 0.15);
+    
+    @media (hover: hover) {
+        .match-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15);
+            border-color: #E60026;
+        }
     }
 
     .match-img-wrapper {
         position: relative;
-        height: 250px;
+        height: 240px;
         width: 100%;
-        background: #eee;
+        background: #FEF2F4;
     }
     .match-img-wrapper img {
         width: 100%;
@@ -70,37 +103,39 @@
         bottom: 12px;
         left: 12px;
         background: rgba(255, 255, 255, 0.95);
-        color: #800000;
-        padding: 6px 12px;
+        color: #720000;
+        padding: 6px 14px;
         border-radius: 20px;
         font-size: 12px;
         font-weight: 900;
         box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        border: 1px solid #ffccd5;
+        border: 1px solid #FFD6DD;
         backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
     }
 
     /* Card Details */
     .match-info {
         padding: 20px;
-        flex: 1; /* Pushes the chat button to the bottom */
+        flex: 1;
         display: flex;
         flex-direction: column;
     }
     .match-info h3 {
-        color: #800000;
+        color: #720000;
         margin: 0 0 8px 0;
         font-size: 20px;
         font-weight: 800;
+        line-height: 1.2;
     }
     .match-info p {
-        color: #666;
+        color: #555;
         font-size: 14px;
         line-height: 1.5;
-        margin-bottom: 20px;
-        flex: 1; /* Fills empty space if bio is short */
+        margin: 0 0 20px 0;
+        flex: 1;
         
-        /* Truncate long bios beautifully */
+        /* Truncate long bios beautifully (Supported on all modern browsers) */
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
@@ -109,48 +144,75 @@
 
     /* Buttons */
     .btn-chat {
-        background: #fff0f3;
-        color: #ff2a4b;
-        border: 2px solid #ffccd5;
+        background: #FEF2F4;
+        color: #E60026;
+        border: 2px solid #FFD6DD;
         padding: 12px;
         border-radius: 12px;
         text-align: center;
-        font-weight: bold;
+        font-weight: 800;
         text-decoration: none;
-        transition: 0.2s;
+        transition: all 0.2s;
         display: block;
         width: 100%;
-        box-sizing: border-box;
     }
-    .btn-chat:hover {
-        background: #ff2a4b;
-        color: white;
-        border-color: #ff2a4b;
+    
+    @media (hover: hover) {
+        .btn-chat:hover {
+            background: #E60026;
+            color: white;
+            border-color: #E60026;
+        }
     }
 
     /* === EMPTY STATE === */
     .empty-state {
-        grid-column: 1 / -1; /* Spans the whole grid */
+        grid-column: 1 / -1; /* Spans the whole grid regardless of columns */
         text-align: center;
-        padding: 60px 20px;
+        padding: clamp(40px, 8vw, 60px) 20px;
         background: white;
         border-radius: 20px;
-        border: 2px dashed #ffccd5;
-        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.05);
+        border: 2px dashed #FFD6DD;
+        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05);
     }
-    .empty-state-icon { font-size: 60px; margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));}
+    .empty-state-icon { 
+        font-size: clamp(40px, 8vw, 60px); 
+        margin-bottom: 15px; 
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    }
+    .empty-state h2 { color: #720000; margin-bottom: 10px; font-size: clamp(20px, 4vw, 24px); }
+    .empty-state p { color: #666; margin-bottom: 25px; font-size: clamp(14px, 3vw, 16px); max-width: 400px; margin-left: auto; margin-right: auto; }
 
     /* === MODAL BUTTONS === */
     .btn-milestone {
-        width: 100%; padding: 15px; margin-bottom: 10px; border: none; border-radius: 12px;
-        font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; color: white;
+        width: 100%; 
+        padding: 14px; 
+        margin-bottom: 10px; 
+        border: none; 
+        border-radius: 12px;
+        font-weight: 800; 
+        font-size: 14px; 
+        cursor: pointer; 
+        transition: 0.2s; 
+        color: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-    .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .btn-milestone:active { transform: translateY(2px); box-shadow: none; }
+    
+    @media (hover: hover) {
+        .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+    }
 </style>
 
 <div class="dashboard-header">
     <h1>Welcome back, {{ current_user }}!</h1>
     <p>You have {{ matches|length }} connection{% if matches|length != 1 %}s{% endif %}</p>
+</div>
+
+<div id="install-container">
+    <button id="btn-install" class="btn-install">
+        <span style="font-size: 20px;">📲</span> Install MMUST Match App
+    </button>
 </div>
 
 <div class="matches-grid">
@@ -176,9 +238,9 @@
     {% else %}
         <div class="empty-state">
             <div class="empty-state-icon">👀</div>
-            <h2 style="color: #800000; margin-bottom: 10px;">It's quiet here...</h2>
-            <p style="color: #666; margin-bottom: 25px;">You don't have any matches yet. Head over to the Swipe Deck to discover other MMUST students!</p>
-            <button onclick="window.location.href='/swipe'" class="btn-primary" style="padding: 12px 30px; font-size: 16px; border-radius: 25px;">
+            <h2>It's quiet here...</h2>
+            <p>You don't have any matches yet. Head over to the Swipe Deck to discover other MMUST students!</p>
+            <button onclick="window.location.href='/swipe'" class="btn-chat" style="max-width: 250px; margin: 0 auto; background: #E60026; color: white;">
                 Go to Swipe Deck
             </button>
         </div>
@@ -186,14 +248,14 @@
 </div>
 
 <div id="milestone-modal" class="modal hidden">
-    <div class="modal-content" style="text-align: center; border-top: 6px solid #ff2a4b; border-radius: 20px; padding: 30px;">
-        <h2 style="color: #800000; margin-bottom: 10px; font-size: 24px;">Happy Anniversary! 🎉</h2>
-        <p style="color: #666; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
-            It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#ff2a4b;">Them</strong>. Our AI wants to know how your connection is going!
+    <div class="modal-content" style="text-align: center; border-top: 6px solid #E60026; border-radius: 20px; padding: 30px 20px; max-width: 350px;">
+        <h2 style="color: #720000; margin-bottom: 10px; font-size: 24px;">Happy Anniversary! 🎉</h2>
+        <p style="color: #555; font-size: 14px; margin-bottom: 25px; line-height: 1.5;">
+            It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#E60026;">Them</strong>. Our AI wants to know how your connection is going!
         </p>
         
         <div style="display: flex; flex-direction: column;">
-            <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(90deg, #800000 0%, #ff2a4b 100%);">
+            <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(90deg, #720000 0%, #E60026 100%);">
                 💍 We are Married / Engaged!
             </button>
             <button onclick="submitMilestone('serious')" class="btn-milestone" style="background: #28a745;">
@@ -202,17 +264,13 @@
             <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
                 ☕ Still casually dating
             </button>
-            <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #666; border: 2px solid #ccc;">
+            <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #4A0008; border: 2px solid #FFD6DD; box-shadow: none;">
                 💔 It didn't work out
             </button>
         </div>
     </div>
 </div>
-<div id="install-container" style="display: none; margin: 20px 0;">
-    <button id="btn-install" class="btn-primary" style="width: 100%; background: #800000;">
-        📲 Download Match AI App
-    </button>
-</div>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         // Check for milestones when the dashboard loads
@@ -241,33 +299,35 @@
             }
         });
     }
+    
+    // --- PWA INSTALLATION LOGIC ---
     let deferredPrompt;
-const installContainer = document.getElementById('install-container');
-const btnInstall = document.getElementById('btn-install');
+    const installContainer = document.getElementById('install-container');
+    const btnInstall = document.getElementById('btn-install');
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    // Prevent the default browser mini-infobar from appearing
-    e.preventDefault();
-    // Stash the event so it can be triggered later.
-    deferredPrompt = e;
-    // Update UI notify the user they can install the PWA
-    installContainer.style.display = 'block';
-});
-
-btnInstall.addEventListener('click', (e) => {
-    // Hide the app provided install promotion
-    installContainer.style.display = 'none';
-    // Show the install prompt
-    deferredPrompt.prompt();
-    // Wait for the user to respond to the prompt
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-        } else {
-            console.log('User dismissed the install prompt');
-        }
-        deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent the default browser mini-infobar from appearing
+        e.preventDefault();
+        // Stash the event so it can be triggered later.
+        deferredPrompt = e;
+        // Update UI notify the user they can install the PWA
+        installContainer.style.display = 'block';
     });
-});
+
+    btnInstall.addEventListener('click', (e) => {
+        // Hide the app provided install promotion
+        installContainer.style.display = 'none';
+        // Show the install prompt
+        deferredPrompt.prompt();
+        // Wait for the user to respond to the prompt
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            deferredPrompt = null;
+        });
+    });
 </script>
 {% endblock %}

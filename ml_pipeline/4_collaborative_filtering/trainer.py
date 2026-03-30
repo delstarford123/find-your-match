@@ -4,6 +4,7 @@ import logging
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from typing import List
 
 # 1. Configure Production Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,93 +16,90 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 try:
     from app.database import get_all_swipes
 except ImportError:
-    logger.error("Failed to import 'get_all_swipes'. Ensure you are running from the correct directory.")
-    get_all_swipes = lambda: []
+    logger.error("Failed to import database modules. Running in standalone/mock mode.")
+    def get_all_swipes(): return []
 
-def load_swipe_data() -> pd.DataFrame | None:
-    """Loads and sanitizes swipe data from Firebase into a Pandas DataFrame."""
-    swipes_list = get_all_swipes()
+def load_swipe_data() -> pd.DataFrame:
+    """Fetches and cleans swipe data for the matrix engine."""
+    swipes = get_all_swipes()
+    if not swipes:
+        return pd.DataFrame()
     
-    if not swipes_list:
-        logger.info("No swipe data found in Firebase yet.")
-        return None
+    df = pd.DataFrame(swipes)
     
-    df = pd.DataFrame(swipes_list)
-    
-    # Guard clause: ensure required columns actually exist before processing
-    required_cols = {'user_id', 'target_id', 'action'}
-    if not required_cols.issubset(df.columns):
-        logger.error("Swipe data from Firebase is missing required columns!")
-        return None
+    # Validation
+    required = {'user_id', 'target_id', 'action'}
+    if not required.issubset(df.columns):
+        return pd.DataFrame()
 
-    df = df.rename(columns={'user_id': 'user_a_id', 'target_id': 'user_b_id', 'action': 'interaction'})
-    
-    mapping = {'like': 1, 'pass': -1}
-    df['score'] = df['interaction'].map(mapping)
-    df = df.dropna(subset=['score'])
-    
+    # Map interactions to numerical weights
+    # 'Like' = 1.0, 'Pass' = -1.0
+    df['score'] = df['action'].map({'like': 1, 'pass': -1}).fillna(0)
     return df
 
-def get_recommendations(target_user_id: str, num_recommendations: int = 5) -> list:
+def get_recommendations(target_user_id: str, limit: int = 5) -> List[str]:
     """
-    Predicts profiles the target will like using Highly Optimized Matrix Math.
+    Highly optimized recommendation engine using Vectorized Cosine Similarity.
     """
     df = load_swipe_data()
-    if df is None or df.empty:
-        return [] 
-    
-    # 1. Create the User-Item Matrix
-    user_matrix = df.pivot_table(index='user_a_id', columns='user_b_id', values='score', fill_value=0)
-    
-    if target_user_id not in user_matrix.index:
-        logger.info(f"User {target_user_id} hasn't swiped on anyone yet. Skipping predictions.")
+    if df.empty:
         return []
-    
-    # 2. PERFORMANCE FIX: Calculate Cosine Similarity ONLY for the target user
-    # This turns an O(N^2) operation into an O(N) operation. Huge memory savings!
+
+    # 1. Pivot into a User-Item Matrix (Rows: Swipers, Cols: Profiles being swiped)
+    # Using 'score' as the value. fill_value=0 represents 'No interaction'
+    user_matrix = df.pivot_table(index='user_id', columns='target_id', values='score', fill_value=0)
+
+    if target_user_id not in user_matrix.index:
+        logger.info(f"New user {target_user_id} has no swipe history.")
+        return []
+
+    # 2. Compute Similarity
+    # We compare the target user's vector against ALL other users
     target_vector = user_matrix.loc[[target_user_id]]
     similarities = cosine_similarity(target_vector, user_matrix)[0]
     
-    # Map the resulting numpy array back to the user IDs
+    # Map similarity scores to user IDs
     sim_series = pd.Series(similarities, index=user_matrix.index)
     
-    # 3. Filter out the target user and anyone with opposite/zero tastes
+    # Filter: Only keep users with a positive correlation (>0) and exclude self
     sim_series = sim_series[(sim_series.index != target_user_id) & (sim_series > 0)]
     
     if sim_series.empty:
-        return [] # No similar users found
-        
-    # 4. PERFORMANCE FIX: Vectorized Matrix Multiplication (No slow loops!)
-    # Get the sub-matrix of ONLY the similar users
-    similar_users_matrix = user_matrix.loc[sim_series.index]
+        return []
+
+    # 3. Weighted Scoring (Collaborative Filtering)
+    # Find profiles liked by 'similar' users that the target hasn't seen
+    similar_users_interactions = user_matrix.loc[sim_series.index]
     
-    # Create a boolean matrix of profiles they actually liked (score > 0)
-    likes_matrix = (similar_users_matrix > 0).astype(float)
+    # Binary 'liked' matrix (only count positive interactions)
+    likes_only = (similar_users_interactions > 0).astype(float)
     
-    # Multiply their likes by their exact similarity score to our target user
-    weighted_likes = likes_matrix.multiply(sim_series, axis=0)
+    # Weight the likes by the similarity score of the person who gave the like
+    weighted_votes = likes_only.multiply(sim_series, axis=0)
     
-    # Sum the columns to get a final recommendation score for every profile at once
-    recommendation_scores = weighted_likes.sum(axis=0)
+    # Aggregate scores for each profile
+    recommendation_rank = weighted_votes.sum(axis=0)
+
+    # 4. Final Filtering
+    # Remove users the target has already interacted with
+    seen_ids = set(df[df['user_id'] == target_user_id]['target_id'])
+    seen_ids.add(target_user_id) # Don't recommend self
     
-    # 5. Remove profiles the target user has already seen
-    already_swiped = set(df[df['user_a_id'] == target_user_id]['user_b_id'].tolist())
-    already_swiped.add(target_user_id) # Prevent recommending themselves
+    # Clean up the results
+    valid_candidates = recommendation_rank.drop(labels=list(seen_ids), errors='ignore')
     
-    # Safely drop already swiped profiles if they exist in the scoring index
-    valid_recs = recommendation_scores.drop(index=list(already_swiped.intersection(recommendation_scores.index)))
+    # Sort and return IDs of top picks
+    top_matches = valid_candidates[valid_candidates > 0].sort_values(ascending=False).head(limit)
     
-    # Sort highest to lowest and drop profiles that scored a 0
-    top_recs = valid_recs[valid_recs > 0].sort_values(ascending=False).head(num_recommendations)
-    
-    return top_recs.index.tolist()
+    return top_matches.index.tolist()
 
 if __name__ == "__main__":
-    print("\n--- MMUST Collaborative Filtering Engine ---")
-    test_user = 'MMUST_001'
-    recs = get_recommendations(test_user)
+    print("\n🚀 [MMUST AI] Recommender Engine Active")
+    # Simulate a run
+    user_to_test = "MMUST_STUDENT_X"
+    suggestions = get_recommendations(user_to_test)
     
-    if recs:
-        print(f"✅ Algorithm recommends these profiles for {test_user}: {recs}")
+    if suggestions:
+        print(f"✨ Recommended for you: {suggestions}")
     else:
-        print(f"❌ Not enough overlap data to make a prediction for {test_user}. Go swipe!")
+        print("💡 Not enough data yet. Swipe more to train your personal AI!")

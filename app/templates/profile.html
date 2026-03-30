@@ -2,34 +2,51 @@
 
 {% block content %}
 <style>
+    /* === LAYOUT === */
     .profile-container {
         display: flex;
-        flex-wrap: wrap;
-        gap: 40px;
+        flex-wrap: wrap-reverse; /* Stacks preview on TOP of edit form on mobile */
+        gap: clamp(20px, 4vw, 40px);
         max-width: 1000px;
-        margin: 30px auto;
-        padding: 0 20px;
+        margin: clamp(20px, 4vw, 40px) auto;
+        padding: 0 15px;
     }
 
     /* Left Column: Edit Form */
     .edit-section {
-        flex: 1.2;
+        flex: 1 1 60%; /* Grow and shrink, base width 60% */
         min-width: 300px;
         background: white;
-        padding: 30px;
+        padding: clamp(20px, 5vw, 35px);
         border-radius: 20px;
-        box-shadow: 0 10px 25px rgba(128, 0, 0, 0.05);
-        border: 1px solid #ffccd5;
+        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05);
+        border: 1px solid #FFD6DD;
     }
     
-    .edit-section h2 { color: #800000; margin-bottom: 25px; font-size: 24px; }
-    .section-title { color: #800000; margin-bottom: 15px; font-size: 18px; border-bottom: 2px solid #fff0f3; padding-bottom: 5px; }
+    .edit-section h2 { 
+        color: #720000; 
+        margin: 0 0 25px 0; 
+        font-size: clamp(22px, 5vw, 28px); 
+        font-weight: 900;
+        letter-spacing: -0.5px;
+    }
+    .section-title { 
+        color: #720000; 
+        margin: 30px 0 15px 0; 
+        font-size: 18px; 
+        font-weight: 800;
+        border-bottom: 2px solid #FEF2F4; 
+        padding-bottom: 8px; 
+    }
+    .edit-section .section-title:first-of-type { margin-top: 0; }
 
+    /* === FORMS & INPUTS === */
+    .input-group { margin-bottom: 20px; }
     .input-group label {
         display: block;
-        font-size: 13px;
-        font-weight: 700;
-        color: #4a0404;
+        font-size: 12px;
+        font-weight: 800;
+        color: #4A0008;
         margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -37,24 +54,115 @@
 
     .input-group input, .input-group select, .input-group textarea {
         width: 100%;
-        padding: 12px 15px;
-        border: 2px solid #ffccd5;
-        border-radius: 10px;
+        padding: 14px 15px;
+        border: 2px solid #f0f0f0;
+        border-radius: 12px;
         font-family: inherit;
-        font-size: 15px;
+        font-size: 16px; /* MUST be 16px to prevent iOS auto-zoom */
         background: #fafafa;
-        transition: 0.3s;
+        transition: all 0.3s ease;
+        -webkit-appearance: none;
+    }
+    
+    /* Special fix for select arrows since we removed webkit-appearance */
+    .input-group select {
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 15px top 50%;
+        background-size: 12px auto;
+        padding-right: 40px;
     }
 
     .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
-        border-color: #ff2a4b;
+        border-color: #E60026;
         background: white;
         outline: none;
+        box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
 
-    /* Right Column: Live Preview Card */
+    .flex-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    /* === DYNAMIC SCHEDULE === */
+    .schedule-row { 
+        display: flex; 
+        flex-wrap: wrap; /* Allows wrapping on tiny screens */
+        gap: 10px; 
+        align-items: center; 
+        margin-bottom: 15px; 
+        background: #fafafa;
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid #eee;
+    }
+    
+    .schedule-input {
+        padding: 12px; 
+        border-radius: 8px; 
+        border: 2px solid #f0f0f0; 
+        font-family: inherit;
+        font-size: 15px;
+        flex: 1;
+        min-width: 100px;
+        background: white;
+    }
+    .schedule-input:focus { border-color: #E60026; outline: none; }
+    
+    .btn-remove-row { 
+        background: #FFD6DD; 
+        border: none; 
+        color: #720000; 
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        font-size: 20px; 
+        font-weight: bold;
+        cursor: pointer; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        transition: 0.2s;
+    }
+    .btn-remove-row:hover { background: #E60026; color: white; }
+
+    .btn-add {
+        width: 100%; 
+        border: 2px dashed #E60026; 
+        background: #FEF2F4; 
+        color: #E60026; 
+        font-weight: 800; 
+        font-size: 15px;
+        margin: 10px 0 30px; 
+        padding: 14px; 
+        border-radius: 12px; 
+        cursor: pointer; 
+        transition: all 0.2s;
+    }
+    .btn-add:hover { background: #FFD6DD; color: #720000; }
+
+    /* === BUTTONS === */
+    .btn-save {
+        width: 100%;
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
+    }
+    .btn-save:active { transform: scale(0.98); }
+    @media (hover: hover) { .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); } }
+
+    /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
-        flex: 0.8;
+        flex: 1 1 35%;
         min-width: 300px;
         display: flex;
         flex-direction: column;
@@ -62,12 +170,15 @@
     }
 
     .preview-title {
-        color: #ff4d6d;
-        font-size: 14px;
+        color: #E60026;
+        font-size: 13px;
         text-transform: uppercase;
-        font-weight: bold;
+        font-weight: 800;
         letter-spacing: 1px;
         margin-bottom: 15px;
+        background: #FEF2F4;
+        padding: 6px 16px;
+        border-radius: 20px;
     }
 
     .preview-card {
@@ -76,19 +187,80 @@
         background: white;
         border-radius: 20px;
         overflow: hidden;
-        box-shadow: 0 15px 35px rgba(128, 0, 0, 0.15);
-        border: 1px solid #ffccd5;
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15);
+        border: 1px solid #FFD6DD;
+        position: sticky;
+        top: calc(var(--nav-height) + 20px); /* Keeps it visible while scrolling on desktop */
     }
 
-    .preview-card img { width: 100%; height: 350px; object-fit: cover; }
+    .preview-card img { 
+        width: 100%; 
+        height: 350px; 
+        object-fit: cover; 
+        background: #eee;
+    }
     .preview-info { padding: 20px; }
-    .preview-info h3 { color: #800000; font-size: 24px; margin-bottom: 5px; display: flex; align-items: center; gap: 10px; }
-    .preview-info p { color: #4a0404; font-size: 14px; line-height: 1.5; }
-    .age-badge { background: #fff0f3; color: #ff2a4b; font-size: 12px; padding: 4px 10px; border-radius: 15px; font-weight: bold; }
+    .preview-info h3 { 
+        color: #720000; 
+        font-size: 24px; 
+        font-weight: 900;
+        margin: 0 0 8px 0; 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+    }
+    .preview-info p { 
+        color: #555; 
+        font-size: 15px; 
+        line-height: 1.5; 
+        margin: 0;
+        word-wrap: break-word;
+    }
+    .age-badge { 
+        background: #FEF2F4; 
+        color: #E60026; 
+        font-size: 13px; 
+        padding: 4px 10px; 
+        border-radius: 15px; 
+        font-weight: 900; 
+    }
 
-    /* Dynamic Schedule Styles */
-    .schedule-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
-    .btn-remove-row { background: none; border: none; color: #ff2a4b; font-size: 24px; cursor: pointer; display: none; padding: 0 5px; }
+    .btn-photo {
+        margin-top: 20px; 
+        background: white; 
+        border: 2px solid #FFD6DD; 
+        color: #E60026; 
+        padding: 14px 20px; 
+        border-radius: 12px; 
+        font-weight: 800; 
+        font-size: 15px;
+        cursor: pointer; 
+        transition: 0.2s; 
+        width: 100%; 
+        max-width: 350px;
+    }
+    @media (hover: hover) { .btn-photo:hover { border-color: #E60026; background: #FEF2F4; } }
+
+    /* === RESPONSIVE FIXES === */
+    @media (max-width: 768px) {
+        .flex-row { flex-direction: column; gap: 0; }
+        
+        .schedule-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .schedule-input { width: 100%; }
+        
+        .time-group { display: flex; gap: 10px; align-items: center; }
+        
+        .btn-remove-row {
+            align-self: flex-end;
+            margin-top: 5px;
+        }
+        
+        /* Stop the card from sticking on mobile since it sits on top */
+        .preview-card { position: relative; top: 0; }
+    }
 </style>
 
 <div class="profile-container">
@@ -99,13 +271,13 @@
             
             <h4 class="section-title">Basic Info</h4>
             
-            <div class="input-group" style="margin-bottom: 20px;">
+            <div class="input-group">
                 <label for="bio">Your Bio</label>
                 <textarea id="bio" name="bio" rows="4" required placeholder="Tell MMUST about yourself...">{{ user.bio }}</textarea>
-                <small style="color: #888; font-size: 12px; margin-top: 5px; display: block;">Include your major and hobbies to get better AI matches!</small>
+                <small style="color: #888; font-size: 12px; margin-top: 6px; display: block; font-weight: 500;">Include your major and hobbies to get better AI matches!</small>
             </div>
 
-            <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+            <div class="flex-row">
                 <div class="input-group" style="flex: 1;">
                     <label for="age">Age</label>
                     <input type="number" id="age" name="age" value="{{ user.age }}" min="18" max="40" required>
@@ -123,47 +295,57 @@
             </div>
 
             <h4 class="section-title">Class Schedule</h4>
-            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
             
             <div id="schedule-container">
-                <div class="schedule-row">
-                    <select name="day_of_week[]" style="padding: 10px; border-radius: 8px; border: 2px solid #ffccd5; flex: 2; font-family: inherit;">
-                        <option value="Monday">Monday</option>
-                        <option value="Tuesday">Tuesday</option>
-                        <option value="Wednesday">Wednesday</option>
-                        <option value="Thursday">Thursday</option>
-                        <option value="Friday">Friday</option>
-                        <option value="Saturday">Saturday</option>
-                    </select>
-                    <input type="time" name="start_time[]" style="padding: 10px; border-radius: 8px; border: 1px solid #ffccd5; flex: 1.5;">
-                    <span style="color: #4a0404; font-weight: bold;">to</span>
-                    <input type="time" name="end_time[]" style="padding: 10px; border-radius: 8px; border: 1px solid #ffccd5; flex: 1.5;">
-                    
-                    <button type="button" class="btn-remove-row" title="Remove">&times;</button>
+                <div class="schedule-wrapper">
+                    <div class="schedule-row">
+                        <select name="day_of_week[]" class="schedule-input" required>
+                            <option value="" disabled selected>Select Day</option>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                            <option value="Saturday">Saturday</option>
+                        </select>
+                        
+                        <div class="time-group">
+                            <input type="time" name="start_time[]" class="schedule-input" required>
+                            <span style="color: #720000; font-weight: 800; font-size: 14px;">TO</span>
+                            <input type="time" name="end_time[]" class="schedule-input" required>
+                            
+                            <button type="button" class="btn-remove-row" title="Remove" style="display: none;">&times;</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <button type="button" id="btn-add-schedule" style="width: 100%; border: 2px dashed #ff2a4b; background: #fff0f3; color: #ff2a4b; font-weight: bold; margin: 20px 0 30px; padding: 12px; border-radius: 10px; cursor: pointer; transition: 0.2s;">
+            <button type="button" id="btn-add-schedule" class="btn-add">
                 + Add Another Free Block
             </button>
 
-            <button type="submit" class="btn-primary w-100" style="padding: 15px; font-size: 16px;">Save All Changes</button>
+            <button type="submit" class="btn-save">Save All Changes</button>
         </form>
 
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-            <p style="font-size: 13px; color: #666; font-weight: bold; margin-bottom: 10px;">Uneditable Details</p>
-            <p style="font-size: 13px; color: #888; margin-bottom: 5px;"><strong>Name:</strong> {{ user.name }}</p>
-            <p style="font-size: 13px; color: #888; margin-bottom: 5px;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
-            <p style="font-size: 13px; color: #888;"><strong>Gender:</strong> {{ user.gender }}</p>
-            <small style="color: #ff4d6d; font-size: 11px; display: block; margin-top: 10px;">* Name, Registration Number, and Gender cannot be changed after signup.</small>
+        <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #FEF2F4;">
+            <p style="font-size: 13px; color: #4A0008; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">Uneditable Details</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Name:</strong> {{ user.name }}</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Gender:</strong> {{ user.gender }}</p>
+            <small style="color: #E60026; font-size: 12px; display: block; margin-top: 15px; font-weight: 500;">* Name, Registration Number, and Gender cannot be changed after signup.</small>
         </div>
     </div>
 
     <div class="preview-section">
-        <div class="preview-title">👁️ How others see you</div>
+        <div class="preview-title">👁️ Live Profile Preview</div>
         
         <div class="preview-card">
-            <img src="{{ user.img }}" alt="Your Profile Picture">
+            {% if user.img %}
+                <img src="{{ user.img }}" alt="Your Profile Picture">
+            {% else %}
+                <div style="width: 100%; height: 350px; background: linear-gradient(135deg, #FFD6DD, #E60026); display: flex; align-items: center; justify-content: center; font-size: 60px;">👩‍🎓</div>
+            {% endif %}
             
             <div class="preview-info">
                 <h3>
@@ -172,16 +354,16 @@
                 </h3>
                 
                 {% if '🕒' in user.bio or '✨' in user.bio %}
-                <span style="background: #ff2a4b; color: white; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; display: inline-block; margin-bottom: 8px;">
+                <span style="background: #E60026; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 900; display: inline-block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
                     ✨ AI Optimized
                 </span>
                 {% endif %}
                 
-                <p>{{ user.bio }}</p>
+                <p id="preview-bio">{{ user.bio or "Tell MMUST about yourself..." }}</p>
             </div>
         </div>
 
-        <button onclick="alert('Image upload coming next!')" style="margin-top: 20px; background: white; border: 2px dashed #ff2a4b; color: #ff2a4b; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; max-width: 350px;">
+        <button onclick="alert('Image upload coming next!')" class="btn-photo">
             📷 Update Profile Picture
         </button>
     </div>
@@ -189,35 +371,42 @@
 </div>
 
 <script>
-    // Live Text Preview
+    // Live Text Preview for Bio
     document.getElementById('bio').addEventListener('input', function() {
-        document.querySelector('.preview-info p').innerText = this.value || "Tell MMUST about yourself...";
+        document.getElementById('preview-bio').innerText = this.value || "Tell MMUST about yourself...";
     });
+    
+    // Live Preview for Age
     document.getElementById('age').addEventListener('input', function() {
-        document.querySelector('.age-badge').innerText = this.value || "18";
+        const badge = document.querySelector('.age-badge');
+        if(badge) badge.innerText = this.value || "18";
     });
 
     // Dynamic Schedule Rows
     document.getElementById('btn-add-schedule').addEventListener('click', function() {
         const container = document.getElementById('schedule-container');
-        const rows = container.getElementsByClassName('schedule-row');
+        // Grab the first wrapper element
+        const firstWrapper = container.querySelector('.schedule-wrapper');
         
-        // Clone the first row
-        const newRow = rows[0].cloneNode(true);
+        // Clone it entirely
+        const newWrapper = firstWrapper.cloneNode(true);
         
-        // Clear out the time inputs
-        const timeInputs = newRow.querySelectorAll('input[type="time"]');
+        // Clear out the cloned inputs
+        const selects = newWrapper.querySelectorAll('select');
+        selects.forEach(select => select.value = '');
+        
+        const timeInputs = newWrapper.querySelectorAll('input[type="time"]');
         timeInputs.forEach(input => input.value = '');
         
-        // Reveal the "X" button so they can delete this cloned row
-        const removeBtn = newRow.querySelector('.btn-remove-row');
-        removeBtn.style.display = 'block';
+        // Reveal the "X" button so they can delete this specific row
+        const removeBtn = newWrapper.querySelector('.btn-remove-row');
+        removeBtn.style.display = 'flex'; // Changed to flex for center alignment
         
         removeBtn.addEventListener('click', function() {
-            newRow.remove();
+            newWrapper.remove();
         });
         
-        container.appendChild(newRow);
+        container.appendChild(newWrapper);
     });
 </script>
 {% endblock %}

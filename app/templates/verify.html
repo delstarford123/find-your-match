@@ -2,43 +2,190 @@
 
 {% block content %}
 <style>
-    .verify-wrapper { max-width: 450px; margin: 80px auto; text-align: center; }
-    .verify-card {
-        background: white; border-radius: 24px; padding: 40px 30px;
-        box-shadow: 0 20px 40px rgba(128, 0, 0, 0.1); border: 1px solid #ffccd5;
+    /* === LAYOUT === */
+    .verify-wrapper { 
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - var(--nav-height) - 40px);
+        padding: clamp(20px, 5vw, 40px) 15px;
     }
     
-    /* Added the missing keyframes for your float animation! */
+    .verify-card {
+        background: white; 
+        border-radius: 24px; 
+        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.08); 
+        border: 1px solid #FFD6DD;
+        width: 100%;
+        max-width: 450px;
+        text-align: center;
+        animation: slideUpFade 0.5s ease-out forwards;
+    }
+
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* === ANIMATED ICON === */
     @keyframes float { 
         0%, 100% { transform: translateY(0); } 
         50% { transform: translateY(-10px); } 
     }
-    .verify-icon { font-size: 60px; margin-bottom: 20px; animation: float 3s infinite ease-in-out; }
+    .verify-icon-wrapper {
+        width: 80px;
+        height: 80px;
+        background: #FEF2F4;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 25px auto;
+        box-shadow: 0 10px 20px rgba(230,0,38,0.1);
+        animation: float 4s infinite ease-in-out;
+    }
+    .verify-icon { 
+        font-size: 40px; 
+        line-height: 1;
+    }
     
-    .verify-title { color: #800000; font-size: 28px; font-weight: 900; margin-bottom: 10px; }
-    .verify-subtitle { color: #666; font-size: 15px; margin-bottom: 30px; line-height: 1.5; }
+    /* === TYPOGRAPHY === */
+    .verify-title { 
+        color: #720000; 
+        font-size: clamp(26px, 6vw, 32px); 
+        font-weight: 900; 
+        margin-bottom: 12px; 
+        letter-spacing: -0.5px;
+    }
+    .verify-subtitle { 
+        color: #666; 
+        font-size: 15px; 
+        margin-bottom: 35px; 
+        line-height: 1.6; 
+    }
+    .verify-subtitle strong {
+        color: #E60026;
+        font-weight: 800;
+    }
+    
+    /* === OTP INPUT (MODERN UI HACK) === */
+    /* This creates the illusion of 6 individual boxes while keeping 
+       the functionality of a single input field (which is much better 
+       for mobile keyboards and copy/pasting OTP codes).
+    */
+    .otp-container {
+        position: relative;
+        margin-bottom: 30px;
+    }
     
     .otp-input {
-        width: 100%; text-align: center; font-size: 32px; letter-spacing: 15px;
-        padding: 15px; border: 2px dashed #ffccd5; border-radius: 12px;
-        background: #fff0f3; color: #800000; font-weight: 900; outline: none;
-        margin-bottom: 25px; transition: 0.3s;
+        width: 100%; 
+        text-align: center; 
+        font-size: 28px; /* Slightly smaller to fit all 6 digits nicely */
+        letter-spacing: clamp(15px, 4vw, 25px); /* Fluid spacing */
+        padding: 15px 0; 
+        border: none;
+        background: transparent; 
+        color: #720000; 
+        font-weight: 900; 
+        outline: none;
+        font-family: monospace; /* Monospace keeps numbers evenly spaced */
+        position: relative;
+        z-index: 2;
+        /* Hides the blinking cursor for a cleaner look */
+        color: transparent;
+        text-shadow: 0 0 0 #720000;
     }
-    .otp-input:focus { border-color: #ff2a4b; background: white; }
+    
+    /* The visual boxes behind the text */
+    .otp-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        justify-content: space-between;
+        z-index: 1;
+        pointer-events: none;
+    }
+    
+    .otp-box {
+        width: clamp(40px, 12%, 50px);
+        height: 100%;
+        background: #fafafa;
+        border: 2px solid #FFD6DD;
+        border-radius: 12px;
+        transition: 0.2s;
+    }
+    
+    /* When the invisible input is focused, light up all the boxes */
+    .otp-input:focus ~ .otp-background .otp-box {
+        border-color: #E60026;
+        background: white;
+        box-shadow: 0 4px 10px rgba(230,0,38,0.1);
+    }
+
+    /* === BUTTON === */
+    .btn-verify {
+        width: 100%; 
+        padding: 18px; 
+        border-radius: 14px; 
+        font-size: 16px; 
+        background: linear-gradient(135deg, #E60026 0%, #720000 100%); 
+        color: white; 
+        border: none; 
+        font-weight: 900; 
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
+    }
+    
+    .btn-verify:active { transform: scale(0.98); }
+    @media (hover: hover) {
+        .btn-verify:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
+        }
+    }
+    
+    .resend-text {
+        margin-top: 25px; 
+        font-size: 13px; 
+        color: #888;
+        font-weight: 500;
+    }
 </style>
 
 <div class="verify-wrapper">
     <div class="verify-card">
-        <div class="verify-icon">✉️</div>
+        <div class="verify-icon-wrapper">
+            <div class="verify-icon">✉️</div>
+        </div>
+        
         <h1 class="verify-title">Check Your Email</h1>
         <p class="verify-subtitle">We just sent a 6-digit verification code to <strong>{{ email }}</strong>. Enter it below to activate your account.</p>
 
         <form method="POST" action="{{ url_for('auth.verify_email') }}">
-            <input type="text" name="otp_code" class="otp-input" maxlength="6" placeholder="------" required autocomplete="off" autofocus>
-            <button type="submit" class="btn-primary" style="width: 100%; padding: 18px; border-radius: 15px; font-size: 16px; background: linear-gradient(135deg, #ff2a4b 0%, #800000 100%); color: white; border: none; font-weight: 800; cursor: pointer;">Verify Account</button>
+            
+            <div class="otp-container">
+                <input type="text" name="otp_code" class="otp-input" maxlength="6" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" autofocus>
+                
+                <div class="otp-background">
+                    <div class="otp-box"></div>
+                    <div class="otp-box"></div>
+                    <div class="otp-box"></div>
+                    <div class="otp-box"></div>
+                    <div class="otp-box"></div>
+                    <div class="otp-box"></div>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-verify">Verify Account</button>
         </form>
         
-        <p style="margin-top: 25px; font-size: 13px; color: #888;">
+        <p class="resend-text">
             Didn't receive the email? Check your spam folder.
         </p>
     </div>
