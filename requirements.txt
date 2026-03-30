@@ -19,7 +19,9 @@ pandas
 numpy
 scikit-learn
 
-# AI / Deep Learning (TinyLlama & LoRA)
+# AI & External APIs
+groq
+requests
 torch
 torchvision
 transformers
