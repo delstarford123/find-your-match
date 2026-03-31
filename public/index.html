@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIND YOUR MATCH - Invest in the Future of Campus Tech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #E60026; /* Deep Red */
+            --secondary: #720000; /* Maroon */
+            --dark: #2B0004; /* Almost black maroon */
+            --light: #FEF2F4; /* Soft pink background */
+            --accent: #FFD6DD; /* Highlight pink */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--light); color: var(--dark); line-height: 1.6; overflow-x: hidden; }
+
+        /* === HERO SECTION === */
+        .hero {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--secondary) 100%);
+            color: white;
+            padding: clamp(80px, 12vw, 120px) 20px clamp(60px, 10vw, 80px);
+            text-align: center;
+            position: relative;
+        }
+        /* Custom curved bottom for the hero */
+        .hero::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50px;
+            background: var(--light); clip-path: polygon(0 100%, 100% 100%, 100% 0, 50% 100%, 0 0);
+        }
+        
+        .hero h1 { font-size: clamp(38px, 8vw, 72px); font-weight: 900; letter-spacing: -2px; margin-bottom: 20px; line-height: 1.05; }
+        .hero p { font-size: clamp(16px, 4vw, 20px); max-width: 750px; margin: 0 auto 40px; opacity: 0.9; }
+
+        .btn-main {
+            background: var(--primary); color: white; padding: 20px 45px;
+            border-radius: 50px; font-weight: 900; text-decoration: none;
+            font-size: 18px; display: inline-block; box-shadow: 0 10px 30px rgba(230,0,38,0.4);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin: 10px;
+            border: 2px solid var(--primary);
+        }
+        .btn-outline { background: transparent; border-color: rgba(255,255,255,0.5); box-shadow: none; }
+        .btn-main:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 40px rgba(230,0,38,0.6); }
+        .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: white; }
+
+        /* === RENDER STATUS ALERT === */
+        .dev-note {
+            background: white; border: 2px dashed #f5c6cb;
+            max-width: 800px; margin: -20px auto 50px; padding: 20px 25px;
+            border-radius: 16px; display: flex; align-items: flex-start; gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); position: relative; z-index: 10;
+        }
+        .dev-note p { font-size: 14px; color: #856404; margin: 0; line-height: 1.5; }
+
+        /* === FOMO PROGRESS BAR (THE PITCH) === */
+        .invest-section {
+            background: white; padding: clamp(50px, 8vw, 80px) 20px;
+            text-align: center; border-radius: 40px; margin: 20px clamp(15px, 5vw, 40px);
+            box-shadow: 0 20px 50px rgba(114, 0, 0, 0.08); border: 1px solid var(--accent);
+        }
+        
+        .progress-container { max-width: 700px; margin: 40px auto; text-align: left; }
+        .progress-header { display: flex; justify-content: space-between; font-weight: 800; margin-bottom: 10px; color: var(--secondary); font-size: 18px; }
+        .progress-bar-bg { width: 100%; height: 24px; background: var(--light); border-radius: 12px; overflow: hidden; border: 1px solid var(--accent); }
+        /* Adjusted the width to 65% to create urgency */
+        .progress-bar-fill { width: 65%; height: 100%; background: linear-gradient(90deg, var(--secondary), var(--primary)); border-radius: 12px; transition: width 1.5s ease-out; position: relative; }
+        .progress-bar-fill::after { content: "🔥"; position: absolute; right: 5px; top: 1px; font-size: 14px; }
+        
+        .urgency-text { color: var(--primary); font-weight: 900; font-size: 15px; margin-top: 15px; text-align: center; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        /* === INVESTOR GRID === */
+        .invest-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-top: 40px; }
+        .invest-card {
+            background: var(--light); padding: 35px 25px; border-radius: 24px;
+            text-align: left; transition: 0.3s; border: 1px solid transparent;
+        }
+        .invest-card:hover { transform: translateY(-5px); border-color: var(--primary); background: white; box-shadow: 0 15px 30px rgba(230,0,38,0.1); }
+        .invest-card h4 { color: var(--secondary); font-size: 22px; margin-bottom: 15px; font-weight: 900; }
+        .price-tag { font-size: 36px; font-weight: 900; color: var(--primary); margin-bottom: 15px; letter-spacing: -1px; }
+
+        /* === TRACTION SECTION === */
+        .traction { padding: 60px 20px; max-width: 1100px; margin: 0 auto; }
+        .traction-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .stat-box { background: white; padding: 40px 20px; border-radius: 20px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 48px; font-weight: 900; color: var(--secondary); margin-bottom: 5px; line-height: 1; }
+        .stat-label { font-size: 14px; text-transform: uppercase; font-weight: 800; color: #888; letter-spacing: 1px; }
+
+        /* === CONTACT FOOTER === */
+        .cta-box {
+            background: linear-gradient(135deg, var(--dark) 0%, var(--secondary) 100%);
+            color: white; padding: 80px 20px; text-align: center;
+        }
+        .contact-methods { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 40px; }
+        
+        .btn-contact {
+            padding: 18px 35px; border-radius: 16px; font-weight: 900; font-size: 18px;
+            text-decoration: none; display: flex; align-items: center; gap: 10px; transition: 0.3s;
+        }
+        .btn-whatsapp { background: #25D366; color: white; box-shadow: 0 10px 25px rgba(37, 211, 102, 0.3); }
+        .btn-whatsapp:hover { background: #128C7E; transform: translateY(-3px); }
+        
+        .btn-call { background: white; color: var(--dark); box-shadow: 0 10px 25px rgba(255,255,255,0.2); }
+        .btn-call:hover { background: #f0f0f0; transform: translateY(-3px); }
+
+        footer { text-align: center; padding: 30px; background: var(--dark); color: rgba(255,255,255,0.5); font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <section class="hero">
+        <div style="display: inline-block; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 8px 20px; border-radius: 30px; font-size: 14px; font-weight: 700; margin-bottom: 25px; letter-spacing: 1px;">
+            🚀 DELSTARFORD WORKS PRESENTS
+        </div>
+        <h1>Love at First <span style="color: var(--accent);">Match.</span></h1>
+        <p>The first AI-powered dating ecosystem designed exclusively for MMUST students and Kakamega businesses. Don't just use it. Own it.</p>
+        
+        <div style="margin-top: 20px;">
+            <a href="#invest" class="btn-main">Become a Shareholder</a>
+            <a href="https://find-your-match-un1c.onrender.com/" class="btn-main btn-outline">Launch Beta App →</a>
+        </div>
+    </section>
+
+    <div class="dev-note">
+        <div style="font-size: 28px;">⚙️</div>
+        <div>
+            <p style="font-weight: 800; color: var(--secondary); font-size: 15px;">DEVELOPMENT STATUS: Hosted on Render (Free Tier)</p>
+            <p style="opacity: 0.8; margin-top: 5px;">Because we are running on a free server, the AI "sleeps" after 15 minutes of inactivity to save costs. <strong>When you click the Launch button, please wait 30–60 seconds</strong> for the engine to boot up. <br><br><em>(This is exactly why we are raising capital!)</em></p>
+        </div>
+    </div>
+
+    <section class="invest-section" id="invest">
+        <h2 style="font-size: clamp(32px, 6vw, 48px); font-weight: 900; color: var(--secondary); letter-spacing: -1px;">Calling All Innovators.</h2>
+        <p style="max-width: 700px; margin: 20px auto; font-size: 18px; color: #555;">Lecturers, students, and residents: We are opening <strong>Micro-Equity</strong> slots to scale our infrastructure. Secure your stake in Kakamega's fastest-growing tech startup.</p>
+        
+        <div class="progress-container">
+            <div class="progress-header">
+                <span>Seed Round Allocation</span>
+                <span>65% Claimed</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill"></div>
+            </div>
+            <p class="urgency-text">Only 35% of the initial 50% equity pool remains available!</p>
+        </div>
+        
+        <div class="invest-grid">
+            <div class="invest-card">
+                <div style="background: var(--accent); color: var(--secondary); display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; margin-bottom: 15px;">TIER 1</div>
+                <h4>Micro-Investor</h4>
+                <div class="price-tag">KSH 50</div>
+                <p style="color: #666; font-size: 15px;">Ideal for students. Prove you were here early. Secure a <strong>1% stake</strong> in the platform and exclusive early-access perks.</p>
+            </div>
+            
+            <div class="invest-card">
+                <div style="background: var(--secondary); color: white; display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; margin-bottom: 15px;">TIER 2</div>
+                <h4>Strategic Partner</h4>
+                <div class="price-tag">Negotiable</div>
+                <p style="color: #666; font-size: 15px;">For lecturers and serious investors. Acquire up to <strong>50% equity</strong>. Your capital directly funds our migration to Dedicated High-Speed GPU Servers.</p>
+            </div>
+            
+            <div class="invest-card">
+                <div style="background: #28a745; color: white; display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; margin-bottom: 15px;">ROI</div>
+                <h4>Built-In Revenue</h4>
+                <div class="price-tag">B2C & B2B</div>
+                <p style="color: #666; font-size: 15px;">Our M-Pesa integration charges students 20 KSH/mo and local merchants 2,000 KSH/mo. The monetization engine is already active.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="traction">
+        <h2 style="text-align: center; font-size: 32px; font-weight: 900; margin-bottom: 40px; color: var(--secondary);">The Tech Advantage</h2>
+        <div class="traction-grid">
+            <div class="stat-box">
+                <div class="stat-num">✨</div>
+                <div class="stat-label" style="margin-top: 15px;">Vibe Matching AI</div>
+                <p style="font-size: 14px; margin-top: 10px; color: #666;">NLP Sentiment analysis replaces blind swiping.</p>
+            </div>
+            <div class="stat-box">
+                <div class="stat-num">🕒</div>
+                <div class="stat-label" style="margin-top: 15px;">Schedule Sync</div>
+                <p style="font-size: 14px; margin-top: 10px; color: #666;">Algorithm automatically finds overlapping free time.</p>
+            </div>
+            <div class="stat-box">
+                <div class="stat-num">🛡️</div>
+                <div class="stat-label" style="margin-top: 15px;">Kinship Filter</div>
+                <p style="font-size: 14px; margin-top: 10px; color: #666;">Cultural safety tech prevents matching with relatives.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-box">
+        <h2 style="font-size: clamp(32px, 6vw, 48px); font-weight: 900; margin-bottom: 15px;">Let's Talk Business.</h2>
+        <p style="font-size: 18px; max-width: 600px; margin: 0 auto; opacity: 0.9;">The window for early equity is closing. Click below to contact the Founder directly.</p>
+        
+        <div class="contact-methods">
+            <a href="https://wa.me/254707605751?text=Hello%20Delstarford!%20I%20saw%20the%20FIND%20YOUR%20MATCH%20pitch.%20I%20am%20interested%20in%20investing." target="_blank" class="btn-contact btn-whatsapp">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.881-.653-1.475-1.46-1.648-1.757-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+                WhatsApp Me
+            </a>
+            
+            <a href="tel:0707605751" class="btn-contact btn-call">
+                📞 0707 605 751
+            </a>
+        </div>
+        
+        <p style="margin-top: 30px; font-size: 16px; opacity: 0.8;">
+            Or email: <a href="mailto:delstarfordisaiah@gmail.com" style="color: var(--accent); font-weight: 700; text-decoration: none;">delstarfordisaiah@gmail.com</a>
+        </p>
+    </section>
+
+    <footer>
+        <p>&copy; 2026 Delstarford Works AI Solutions. Built for MMUST with Excellence.</p>
+    </footer>
+
+</body>
+</html>

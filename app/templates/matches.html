@@ -4,312 +4,77 @@
 <style>
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
-        display: flex;
-        width: 100%;
-        max-width: 1000px;
-        /* Responsive height: take up most of the screen but leave room for nav/footer */
-        height: calc(100vh - var(--nav-height) - 120px);
-        min-height: 500px;
-        background: white;
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.1);
-        overflow: hidden;
-        margin: 20px auto;
-        border: 1px solid #FFD6DD;
+        display: flex; width: 100%; max-width: 1000px;
+        height: calc(100vh - var(--nav-height) - 40px); min-height: 500px;
+        background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(114, 0, 0, 0.1);
+        overflow: hidden; margin: 20px auto; border: 1px solid #FFD6DD;
     }
     
     /* === SIDEBAR (MATCHES LIST) === */
     .matches-sidebar {
-        width: 35%;
-        border-right: 1px solid #FFD6DD;
-        background: #FEF2F4;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
+        width: 35%; border-right: 1px solid #FFD6DD; background: #FEF2F4;
+        overflow-y: auto; display: flex; flex-direction: column;
     }
-    
-    .sidebar-header {
-        padding: 15px 20px;
-        background: #720000;
-        color: white;
-        font-weight: 800;
-        font-size: 16px;
-        position: sticky;
-        top: 0;
-        z-index: 5;
-    }
+    .sidebar-header { padding: 15px 20px; background: #720000; color: white; font-weight: 900; font-size: 16px; position: sticky; top: 0; z-index: 5; }
 
-    .match-item {
-        padding: 15px;
-        border-bottom: 1px solid #FFD6DD;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        transition: background 0.2s;
-    }
+    .match-item { padding: 15px; border-bottom: 1px solid #FFD6DD; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: background 0.2s; }
     .match-item:hover { background: #FFD6DD; }
     .match-item.active { background: white; border-left: 4px solid #E60026; }
     
-    .avatar-wrapper {
-        position: relative;
-        display: inline-block;
-    }
-    .match-avatar {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #fff;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .online-dot {
-        position: absolute;
-        bottom: 2px;
-        right: 2px;
-        width: 14px;
-        height: 14px;
-        background-color: #ccc; 
-        border-radius: 50%;
-        border: 2px solid #fff;
-    }
+    .avatar-wrapper { position: relative; display: inline-block; }
+    .match-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .online-dot { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background-color: #ccc; border-radius: 50%; border: 2px solid #fff; }
     .online-dot.active { background-color: #28a745; }
 
     /* === CHAT AREA === */
-    .chat-area {
-        width: 65%;
-        display: flex;
-        flex-direction: column;
-        background: #fafafa;
-        position: relative;
-    }
-    .chat-header {
-        padding: 12px 20px;
-        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-        color: white;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        z-index: 10;
-    }
+    .chat-area { width: 65%; display: flex; flex-direction: column; background: #E5DDD5; position: relative; } /* WhatsApp Web Background Color */
+    .chat-header { padding: 12px 20px; background: linear-gradient(90deg, #720000 0%, #E60026 100%); color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10; }
     
-    /* Mobile Back Button (Hidden on Desktop) */
-    .btn-back {
-        display: none;
-        background: none;
-        border: none;
-        color: white;
-        font-size: 24px;
-        margin-right: 10px;
-        cursor: pointer;
-    }
+    .btn-back { display: none; background: none; border: none; color: white; font-size: 24px; margin-right: 10px; cursor: pointer; }
 
-    .chat-history {
-        flex: 1;
-        padding: 20px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
+    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
     
     /* === CHAT BUBBLES (WHATSAPP STYLE) === */
-    .bubble-wrapper {
-        display: flex;
-        width: 100%;
-        margin-bottom: 5px;
-    }
+    .bubble-wrapper { display: flex; width: 100%; margin-bottom: 2px; }
     .bubble-wrapper.me { justify-content: flex-end; }
     .bubble-wrapper.them { justify-content: flex-start; }
     .bubble-wrapper.system { justify-content: center; }
 
-    .chat-bubble {
-        max-width: 80%;
-        padding: 10px 14px;
-        border-radius: 12px;
-        font-size: 14px;
-        line-height: 1.4;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        word-wrap: break-word;
-    }
-    .bubble-them {
-        background: white;
-        color: #4A0008;
-        border-top-left-radius: 0; /* WhatsApp style tail */
-        border: 1px solid #eee;
-    }
-    .bubble-me {
-        background: #E60026;
-        color: white;
-        border-top-right-radius: 0; /* WhatsApp style tail */
-    }
-    .bubble-system {
-        background: #fff3cd;
-        color: #856404;
-        border-radius: 8px;
-        border: 1px solid #ffeeba;
-        font-size: 12px;
-        text-align: center;
-    }
+    .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.15); word-wrap: break-word; position: relative; display: inline-block;}
+    
+    .bubble-them { background: white; color: #111; border-top-left-radius: 0; }
+    .bubble-me { background: #DCF8C6; color: #111; border-top-right-radius: 0; padding-right: 50px; } /* Space for timestamp/ticks */
+    .bubble-system { background: rgba(255,255,255,0.8); color: #555; border-radius: 8px; font-size: 12px; text-align: center; padding: 6px 12px; box-shadow: none; font-weight: bold;}
+
+    .msg-meta { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: #888; display: flex; gap: 4px; align-items: center; }
+    .msg-status { font-size: 12px; }
+    .status-sending { color: #888; }
+    .status-sent { color: #34B7F1; font-weight: bold; } /* WhatsApp Blue Ticks */
 
     /* === TYPING INDICATORS === */
-    .typing-bubble-container {
-        display: none;
-        align-self: flex-start;
-        margin-top: 5px;
-    }
-    .typing-bubble {
-        background: white;
-        border: 1px solid #eee;
-        border-radius: 18px;
-        padding: 10px 14px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        display: flex;
-        gap: 4px;
-        align-items: center;
-        border-top-left-radius: 0;
-        width: fit-content;
-    }
-    .typing-dot {
-        width: 6px;
-        height: 6px;
-        background: #FFD6DD;
-        border-radius: 50%;
-        animation: typingBounce 1.4s infinite ease-in-out both;
-    }
+    .typing-bubble-container { display: none; align-self: flex-start; margin-top: 5px; }
+    .typing-bubble { background: white; border-radius: 18px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; gap: 4px; align-items: center; border-top-left-radius: 0; width: fit-content; }
+    .typing-dot { width: 6px; height: 6px; background: #aaa; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out both; }
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
     .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-    
-    @keyframes typingBounce {
-        0%, 80%, 100% { transform: scale(0.6); background: #FFD6DD; }
-        40% { transform: scale(1.1); background: #E60026; }
-    }
-
-    /* === THE DATE CARD === */
-    .date-card {
-        background: white;
-        border: 2px solid #E60026;
-        border-radius: 15px;
-        padding: 15px;
-        width: 85%;
-        max-width: 300px;
-        align-self: center;
-        box-shadow: 0 5px 15px rgba(114, 0, 0, 0.1);
-        text-align: center;
-        margin: 10px 0;
-    }
-    .date-card-title { color: #720000; font-weight: bold; font-size: 16px; margin-bottom: 10px; }
-    .date-card-details { background: #FEF2F4; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; color: #4A0008; }
+    @keyframes typingBounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; } 40% { transform: scale(1.1); opacity: 1; } }
 
     /* === CHAT INPUT === */
-    .chat-input-area {
-        padding: 10px 15px;
-        background: #f0f0f0;
-        border-top: 1px solid #ddd;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
-    .chat-input-area input {
-        flex: 1;
-        padding: 12px 15px;
-        border: none;
-        border-radius: 25px;
-        outline: none;
-        font-family: inherit;
-        background: white;
-        font-size: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .chat-input-area input:focus { box-shadow: 0 1px 5px rgba(230,0,38,0.3); }
+    .chat-input-area { padding: 12px 15px; background: #f0f0f0; display: flex; gap: 10px; align-items: center; }
+    .chat-input-area input { flex: 1; padding: 14px 20px; border: none; border-radius: 25px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     
-    .btn-propose {
-        background: white;
-        color: #720000;
-        border: none;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        font-size: 18px;
-        transition: 0.2s;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .btn-propose:hover { transform: scale(1.05); color: #E60026; }
-    
-    .btn-send {
-        background: #E60026;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 44px;
-        height: 44px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        font-size: 16px;
-        transition: 0.2s;
-        box-shadow: 0 2px 5px rgba(230,0,38,0.3);
-    }
-    .btn-send:hover { background: #720000; }
+    .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 46px; height: 46px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 18px; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .btn-send:hover { transform: scale(1.05); }
 
-    .btn-end-date {
-        background: rgba(255,255,255,0.2);
-        color: white;
-        border: 1px solid rgba(255,255,255,0.5);
-        padding: 6px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-    .btn-end-date:hover { background: white; color: #E60026; }
-
-    /* === MOBILE RESPONSIVE MEDIA QUERIES === */
+    /* === MOBILE RESPONSIVE === */
     @media (max-width: 768px) {
-        .inbox-container {
-            margin: 0;
-            height: calc(100vh - var(--nav-height));
-            border-radius: 0;
-            border: none;
-            box-shadow: none;
-        }
-
-        /* By default on mobile, show the sidebar and hide the chat area */
-        .matches-sidebar {
-            width: 100%;
-            display: flex;
-        }
-        
-        .chat-area {
-            display: none;
-            width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            height: 100%;
-            z-index: 20;
-        }
-
-        /* When a chat is active on mobile, hide sidebar and show chat */
-        .inbox-container.chat-active .matches-sidebar {
-            display: none;
-        }
-        .inbox-container.chat-active .chat-area {
-            display: flex;
-        }
-
-        .btn-back {
-            display: block; /* Show back button on mobile chat header */
-        }
-        
-        .chat-bubble { max-width: 90%; }
+        .inbox-container { margin: 0; height: calc(100vh - var(--nav-height)); border-radius: 0; border: none; }
+        .matches-sidebar { width: 100%; display: flex; }
+        .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; }
+        .inbox-container.chat-active .matches-sidebar { display: none; }
+        .inbox-container.chat-active .chat-area { display: flex; }
+        .btn-back { display: block; }
+        .chat-bubble { max-width: 85%; }
     }
 </style>
 
@@ -319,31 +84,23 @@
         <div class="sidebar-header">Messages</div>
         {% if my_matches %}
             {% for match in my_matches %}
-            <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" 
-                 onclick="window.location.href='/matches/{{ match.id }}'">
-                
+            <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" onclick="window.location.href='/matches/{{ match.id }}'">
                 <div class="avatar-wrapper">
                     <img src="{{ match.img }}" class="match-avatar">
                     <div class="online-dot {% if match.is_online %}active{% endif %}"></div>
                 </div>
-                
                 <div style="flex: 1;">
-                    <h4 style="color: #720000; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; font-size: 15px;">
+                    <h4 style="color: #111; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; font-size: 15px;">
                         {{ match.name }}
-                        {% if match.id == 'AI_COMPANION' %}
-                            <span title="AI Bot" style="font-size: 14px;">🤖</span>
-                        {% elif match.is_perfect_match %}
-                            <span title="Perfect Match!" style="font-size: 14px;">❤️</span>
-                        {% endif %}
+                        {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
+                        {% elif match.is_perfect_match %} <span title="Perfect Match!">❤️</span> {% endif %}
                     </h4>
-                    <p style="font-size: 12px; color: #E60026; margin: 0; font-weight: 500;">Tap to chat</p>
+                    <p style="font-size: 13px; color: #888; margin: 0;">Tap to chat</p>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #888; font-size: 14px;">
-                No matches yet.<br>Head over to the swipe deck to find students!
-            </div>
+            <div style="padding: 30px 20px; text-align: center; color: #888; font-size: 14px;">No matches yet. Go swipe!</div>
         {% endif %}
     </div>
     
@@ -352,20 +109,15 @@
         <div class="chat-header">
             <div style="display: flex; align-items: center;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
-                <img src="{{ active_partner.img }}" style="width:36px; height:36px; border-radius:50%; margin-right:10px; border: 2px solid white;">
+                <img src="{{ active_partner.img }}" style="width:40px; height:40px; border-radius:50%; margin-right:12px; border: 2px solid white;">
                 <div style="display: flex; flex-direction: column;">
-                    <span style="font-size: 16px; font-weight: bold;">{{ active_partner.name }}</span>
-                    <span style="font-size: 11px; opacity: 0.9;">
-                        {% if active_partner.id == 'AI_COMPANION' %}Your AI Buddy
-                        {% elif active_partner.is_perfect_match %}🔥 High Compatibility
+                    <span style="font-size: 16px; font-weight: 800;">{{ active_partner.name }}</span>
+                    <span style="font-size: 12px; opacity: 0.9;">
+                        {% if active_partner.id == 'AI_COMPANION' %}Always Online
                         {% else %}Online{% endif %}
                     </span>
                 </div>
             </div>
-            
-            {% if active_partner.id != 'AI_COMPANION' %}
-            <button class="btn-end-date" onclick="terminateDate()">🚫 End Date</button>
-            {% endif %}
         </div>
         
         <div class="chat-history" id="chat-history">
@@ -375,32 +127,23 @@
                         {% if msg.sender == 'SYSTEM_AI' %}
                             <div class="bubble-wrapper system"><div class="chat-bubble bubble-system">{{ msg.text }}</div></div>
                         {% else %}
-                            <div class="bubble-wrapper {{ 'me' if msg.sender == session.get('user_id') else 'them' }}">
-                                <div class="chat-bubble {{ 'bubble-me' if msg.sender == session.get('user_id') else 'bubble-them' }}">
+                            {% set is_me = (msg.sender == session.get('user_id')) %}
+                            <div class="bubble-wrapper {{ 'me' if is_me else 'them' }}">
+                                <div class="chat-bubble {{ 'bubble-me' if is_me else 'bubble-them' }}">
                                     {{ msg.text }}
+                                    {% if is_me %}
+                                    <div class="msg-meta">
+                                        <span class="msg-status status-sent">✓✓</span>
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         {% endif %}
-                    {% elif msg.type == 'date_card' %}
-                        <div class="bubble-wrapper system">
-                            <div class="date-card">
-                                <div class="date-card-title">💌 Date Invitation</div>
-                                <div class="date-card-details">
-                                    <strong>📍 Venue:</strong> {{ msg.venue }}<br>
-                                    <strong>📅 When:</strong> {{ msg.day }} at {{ msg.time }}
-                                </div>
-                                <button onclick="triggerSafeMate('{{ active_partner.name }}', '{{ msg.venue }}', '{{ msg.day }}', '{{ msg.time }}')" 
-                                    style="background: #4A0008; color: white; border: none; padding: 10px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                    🛡️ Share Safety Details
-                                </button>
-                            </div>
-                        </div>
                     {% endif %}
                 {% endfor %}
             {% else %}
-                <div style="text-align: center; margin-top: auto; margin-bottom: auto;">
-                    <div style="font-size: 40px; margin-bottom: 10px;">👋</div>
-                    <p style="color: #888; font-size: 14px;">You connected with {{ active_partner.name }}.<br>Send a message to break the ice!</p>
+                <div class="bubble-wrapper system" style="margin-top: 20px;">
+                    <div class="chat-bubble bubble-system">🔒 Messages are end-to-end encrypted. Say hi!</div>
                 </div>
             {% endif %}
             
@@ -414,232 +157,130 @@
         </div>
         
         <div class="chat-input-area">
-            {% if active_partner.id != 'AI_COMPANION' %}
-            <button class="btn-propose" id="btn-open-proposal" title="Propose a Date">📍</button>
-            {% endif %}
-            
-            <input type="text" id="chat-input" placeholder="Message" autocomplete="off">
+            <input type="text" id="chat-input" placeholder="Type a message" autocomplete="off">
             <button class="btn-send" id="btn-send">➤</button>
         </div>
         
         {% else %}
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa; display: none; /* Hidden on mobile if no partner */">
-            <div style="font-size: 50px; color: #FFD6DD; margin-bottom: 15px;">💬</div>
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; display: none;">
+            <div style="font-size: 50px; color: #ccc; margin-bottom: 15px;">💬</div>
             <h3>Your Messages</h3>
-            <p style="font-size: 14px;">Select a match from the sidebar to start chatting.</p>
+            <p>Select a match to start chatting.</p>
         </div>
         {% endif %}
     </div>
 </div>
 
-{% if active_partner and active_partner.id != 'AI_COMPANION' %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<div id="proposal-modal" class="modal hidden">
-    <div class="modal-content" style="text-align: left; max-width: 600px; width: 90%;">
-        <h2 style="color: #720000; margin-bottom: 15px;">Plan a Date</h2>
-        
-        <p style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">1. Choose an approved partner venue</p>
-        <div id="kakamega-map" style="height: 250px; border-radius: 12px; border: 2px solid #FFD6DD; margin-bottom: 15px;"></div>
-        
-        <input type="hidden" id="selected-venue-id">
-        <input type="text" id="selected-venue-name" readonly placeholder="Click a pin on the map..." 
-                style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #FFD6DD; background: #FEF2F4; font-weight: bold; color: #720000; margin-bottom: 15px;">
-
-        <p style="font-size: 13px; color: #666; margin-bottom: 5px; font-weight: bold;">2. Set the Time</p>
-        <div class="input-group" style="display: flex; gap: 10px; margin-top: 5px;">
-            <input type="date" id="date-day" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #FFD6DD; font-family: inherit;">
-            <input type="time" id="date-time" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #FFD6DD; font-family: inherit;">
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 25px;">
-            <button type="button" class="btn-primary" style="background: white; color: #720000; border: 1px solid #720000;" onclick="document.getElementById('proposal-modal').classList.add('hidden')">Cancel</button>
-            <button id="btn-send-proposal" class="btn-primary">Send Invitation</button>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- INITIALIZE KAKAMEGA MAP ---
-    const map = L.map('kakamega-map').setView([0.2827, 34.7519], 14); 
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    const subscribedRestaurants = [
-        { id: "R_001", name: "Savoury Classic", lat: 0.2840, lng: 34.7525 },
-        { id: "R_002", name: "Golf Hotel", lat: 0.2790, lng: 34.7500 }
-    ];
-
-    subscribedRestaurants.forEach(venue => {
-        const marker = L.marker([venue.lat, venue.lng]).addTo(map);
-        marker.bindPopup(`<b>${venue.name}</b><br>Approved Partner`);
-        
-        marker.on('click', function() {
-            document.getElementById('selected-venue-name').value = venue.name;
-            document.getElementById('selected-venue-id').value = venue.id;
-        });
-    });
-
-    document.getElementById('btn-open-proposal').addEventListener('click', () => {
-        document.getElementById('proposal-modal').classList.remove('hidden');
-        setTimeout(() => map.invalidateSize(), 100); 
-    });
-
-    // --- END DATE LOGIC ---
-    function terminateDate() {
-        if(confirm("Are you sure? This will instantly delete your chat history and block this user permanently. This cannot be undone.")) {
-            fetch('/api/end_date', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ partner_id: activePartnerId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    window.location.href = '/dashboard'; 
-                }
-            });
-        }
-    }
-</script>
-{% endif %}
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
     const socket = io();
-    const myName = "{{ current_user }}";
     const myId = "{{ session.get('user_id') }}";
-    
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
-    const activePartnerName = "{% if active_partner %}{{ active_partner.name }}{% else %}none{% endif %}";
 
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('chat-input');
-    const typingIndicator = document.getElementById('typing-indicator'); // Universal typing bubble
+    const typingIndicator = document.getElementById('typing-indicator');
     const btnSend = document.getElementById('btn-send');
-    const btnSendProposal = document.getElementById('btn-send-proposal');
-    const proposalModal = document.getElementById('proposal-modal');
 
     let typingTimer;
-    const doneTypingInterval = 1500;
 
-    // Scroll to bottom on load
     if (chatHistory) {
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 
-    // Safety Sharing feature
-    window.triggerSafeMate = function(matchName, venue, day, time) {
-        const safetyMessage = `🛡️ MMUST Safe-Mate Check-In:\nHey! I'm going on a date via MMUST Dating AI.\n👤 Who: ${matchName}\n📍 Where: ${venue}\n📅 When: ${day} at ${time}\nCheck in with me later to make sure I'm safe!`;
-        if (navigator.share) {
-            navigator.share({ title: 'My Date Details', text: safetyMessage }).catch(console.error);
-        } else {
-            navigator.clipboard.writeText(safetyMessage);
-            alert("Safety message copied! Paste it to your friend in WhatsApp.");
-        }
-    }
-
     if (activePartnerId !== 'none') {
         
-        // --- TYPING LOGIC ---
+        // --- 1. OPTIMISTIC UI: INSTANT RENDER FUNCTION ---
+        function renderMyMessageInstantly(text, tempId) {
+            const html = `
+                <div class="bubble-wrapper me" id="msg-${tempId}">
+                    <div class="chat-bubble bubble-me">
+                        ${text}
+                        <div class="msg-meta">
+                            <span class="msg-status status-sending" id="status-${tempId}">🕒</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // --- 2. SEND LOGIC ---
+        function sendMessage() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+            
+            // Generate a random ID for tracking this specific message
+            const tempId = Math.random().toString(36).substr(2, 9);
+            
+            // INSTANTLY show it on screen
+            renderMyMessageInstantly(text, tempId);
+            
+            // Clear input and stop typing indicator
+            chatInput.value = '';
+            socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
+            typingIndicator.style.display = 'none';
+
+            // Send to server
+            socket.emit('send_message', { 
+                type: 'text', 
+                receiver_id: activePartnerId,
+                text: text,
+                temp_id: tempId // Pass ID to server so it can return it
+            });
+        }
+
+        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+        btnSend.onclick = sendMessage;
+
+        // --- 3. TYPING INDICATOR LOGIC ---
         chatInput.addEventListener('input', () => {
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: true });
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
                 socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
-            }, doneTypingInterval);
+            }, 1500);
         });
 
-        // Listen for typing events (Both Human and AI)
         socket.on('user_typing', function(data) {
             if (data.is_typing) {
                 typingIndicator.style.display = 'flex';
-                // Append it to the bottom so it stays under new messages
-                chatHistory.appendChild(typingIndicator);
+                chatHistory.appendChild(typingIndicator); // Push to bottom
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             } else {
                 typingIndicator.style.display = 'none';
             }
         });
 
-        // --- SEND LOGIC ---
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') btnSend.click(); });
-
-        btnSend.onclick = () => {
-            const text = chatInput.value.trim();
-            if (!text) return;
-            
-            socket.emit('send_message', { 
-                type: 'text', 
-                receiver_id: activePartnerId,
-                text: text 
-            });
-            chatInput.value = '';
-            socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
-            typingIndicator.style.display = 'none'; // Hide locally immediately
-        };
-
-        // --- PROPOSE DATE LOGIC ---
-        if (btnSendProposal && proposalModal) {
-            btnSendProposal.onclick = () => {
-                socket.emit('send_message', {
-                    type: 'date_card',
-                    receiver_id: activePartnerId,
-                    venue: document.getElementById('selected-venue-name').value || 'TBD',
-                    day: document.getElementById('date-day').value,
-                    time: document.getElementById('date-time').value
-                });
-                proposalModal.classList.add('hidden');
-            };
-        }
-
-        // --- RECEIVE LOGIC ---
+        // --- 4. RECEIVE LOGIC ---
         socket.on('receive_message', function(data) {
-            // Only process if it belongs to this chat
-            if (data.sender === myId || data.sender === activePartnerId || data.sender === 'SYSTEM_AI' || data.sender === 'AI_COMPANION' || data.sender_id === myId) {
-                
-                // Hide typing indicator
-                typingIndicator.style.display = 'none';
-                
-                const isMe = data.sender === myId || data.sender_id === myId;
-                const isSystem = data.sender === 'SYSTEM_AI';
-                let html = '';
-                
-                if (data.type === 'text') {
-                    if (isSystem) {
-                        html = `<div class="bubble-wrapper system"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
-                    } else {
-                        html = `<div class="bubble-wrapper ${isMe ? 'me' : 'them'}"><div class="chat-bubble ${isMe ? 'bubble-me' : 'bubble-them'}">${data.text}</div></div>`;
-                    }
-                } else if (data.type === 'date_card') {
-                    html = `
-                        <div class="bubble-wrapper system">
-                            <div class="date-card">
-                                <div class="date-card-title">💌 Date Invitation</div>
-                                <div class="date-card-details">
-                                    <strong>📍 Venue:</strong> ${data.venue}<br>
-                                    <strong>📅 When:</strong> ${data.day} at ${data.time}
-                                </div>
-                                <button onclick="triggerSafeMate('${activePartnerName}', '${data.venue}', '${data.day}', '${data.time}')" 
-                                    style="background: #4A0008; color: white; border: none; padding: 10px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                    🛡️ Share Safety Details
-                                </button>
-                            </div>
-                        </div>`;
+            // Ignore messages from other chats
+            if (data.sender !== myId && data.sender !== activePartnerId && data.sender !== 'SYSTEM_AI') return;
+
+            typingIndicator.style.display = 'none';
+            
+            // If it's MY message returning from the server, just update the tick marks
+            if (data.sender === myId || data.sender_id === myId) {
+                const statusElement = document.getElementById(`status-${data.temp_id}`);
+                if (statusElement) {
+                    statusElement.innerText = '✓✓';
+                    statusElement.className = 'msg-status status-sent';
                 }
-                
-                // Insert message BEFORE the typing indicator
-                chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                return; // Stop here, we already drew the text bubble
             }
+
+            // If it's a message from THEM or SYSTEM, draw it normally
+            let html = '';
+            if (data.sender === 'SYSTEM_AI') {
+                html = `<div class="bubble-wrapper system"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
+            } else {
+                html = `<div class="bubble-wrapper them"><div class="chat-bubble bubble-them">${data.text}</div></div>`;
+            }
+            
+            chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
         });
     }
 </script>
-
-{% if session.get('user_religion') == 'Christian' %}
-{% endif %}
-
 {% endblock %}

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIND YOUR MATCH - The Future of Campus Connection</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #E60026;
+            --secondary: #720000;
+            --dark: #4A0008;
+            --light: #FEF2F4;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background-color: white; color: var(--dark); line-height: 1.6; }
+
+        /* === HERO SECTION === */
+        .hero {
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+            color: white;
+            padding: 80px 20px;
+            text-align: center;
+            clip-path: ellipse(150% 100% at 50% 0%);
+        }
+        .hero h1 { font-size: clamp(40px, 8vw, 70px); font-weight: 900; letter-spacing: -2px; margin-bottom: 20px; }
+        .hero p { font-size: 20px; max-width: 700px; margin: 0 auto 40px; opacity: 0.9; }
+
+        .btn-main {
+            background: white; color: var(--primary); padding: 18px 40px;
+            border-radius: 40px; font-weight: 900; text-decoration: none;
+            font-size: 18px; display: inline-block; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: 0.3s;
+        }
+        .btn-main:hover { transform: scale(1.05); box-shadow: 0 15px 40px rgba(0,0,0,0.3); }
+
+        /* === RENDER STATUS ALERT === */
+        .dev-note {
+            background: var(--light); border: 2px dashed var(--primary);
+            max-width: 800px; margin: -30px auto 60px; padding: 20px;
+            border-radius: 15px; display: flex; align-items: center; gap: 15px;
+            text-align: left;
+        }
+        .dev-note span { font-size: 30px; }
+        .dev-note p { font-size: 14px; color: var(--secondary); font-weight: 600; }
+
+        /* === FEATURES SECTION === */
+        .section { padding: 80px 20px; max-width: 1100px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+        .card { padding: 40px; border-radius: 20px; background: var(--light); border: 1px solid #FFD6DD; }
+        .card h3 { color: var(--secondary); margin-bottom: 15px; font-size: 24px; }
+
+        /* === INVESTOR SECTION === */
+        .investor-box {
+            background: var(--dark); color: white; padding: 60px 40px;
+            border-radius: 30px; margin: 60px 0;
+        }
+        .investor-box h2 { font-size: 36px; margin-bottom: 20px; color: #FFD6DD; }
+        .revenue-pill {
+            background: rgba(255,255,255,0.1); padding: 15px 25px;
+            border-radius: 15px; display: inline-block; margin: 10px;
+            border-left: 4px solid var(--primary);
+        }
+
+        footer { text-align: center; padding: 40px; background: #eee; font-size: 14px; }
+        
+        @media (max-width: 600px) {
+            .hero { padding: 60px 15px; }
+            .dev-note { margin: 20px 15px; flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <section class="hero">
+        <h1>Love at First Match.</h1>
+        <p>The first AI-powered dating ecosystem specifically designed for MMUST students and the Kakamega business community.</p>
+        <a href="https://findyourmatch-mmust.onrender.com" class="btn-main">Enter the Deck →</a>
+    </section>
+
+    <div class="dev-note">
+        <span>🚀</span>
+        <div>
+            <p>System Status: Under Development (Hosted on Render Free Tier).</p>
+            <p style="font-weight: normal; opacity: 0.8; margin-top: 5px;">
+                Note: Because we are on the free tier, the server "sleeps" after inactivity. 
+                <strong>Please wait 30-60 seconds</strong> on the first load for the AI to boot up!
+            </p>
+        </div>
+    </div>
+
+    <section class="section">
+        <h2 style="text-align: center; font-size: 36px; margin-bottom: 50px;">Why it works.</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>🤖 AI Vibes</h3>
+                <p>We don't just swipe. Our NLP engines analyze bios to match students based on "Hot Takes" and campus sentiment.</p>
+            </div>
+            <div class="card">
+                <h3>🕒 Schedule Sync</h3>
+                <p>Matches are based on free time. The AI finds the exact window when both students are out of lectures.</p>
+            </div>
+            <div class="card">
+                <h3>🛡️ Kinship Filter</h3>
+                <p>Exclusive safety tech that prevents accidental matching with distant relatives—crucial for our community.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="investor-box">
+            <h2>The Business Case</h2>
+            <p style="margin-bottom: 30px; opacity: 0.8;">FIND YOUR MATCH is not just a social app; it is a revenue-generating machine.</p>
+            
+            <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                <div>
+                    <div class="revenue-pill">
+                        <strong>B2C: Student Subscriptions</strong><br>
+                        KSH 20 / Month per user via M-Pesa.
+                    </div>
+                    <div class="revenue-pill">
+                        <strong>B2B: Merchant Portal</strong><br>
+                        KSH 2,000 / Month for local venues.
+                    </div>
+                </div>
+                <div style="padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.1);">
+                    <p><strong>Investment Opportunity:</strong></p>
+                    <p style="font-size: 14px; margin-top: 10px;">We are scaling to 5,000+ verified students. We are looking for partners to help fund our move to <strong>Dedicated GPU Servers</strong> to remove Render lag and implement real-time video verification.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" style="text-align: center;">
+        <h2>Ready to see the future?</h2>
+        <p style="margin: 20px 0 30px;">Join the thousands of MMUST students finding their perfect match.</p>
+        <a href="https://findyourmatch-mmust.onrender.com" class="btn-main" style="background: var(--primary); color: white;">Launch App Now</a>
+    </section>
+
+    <footer>
+        <p>&copy; 2026 Delstarford Works. All Rights Reserved.</p>
+        <p>Built with ❤️ in Kakamega, Kenya.</p>
+    </footer>
+
+</body>
+</html>

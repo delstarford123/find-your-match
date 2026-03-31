@@ -930,36 +930,36 @@ def mpesa_callback():
         return jsonify({"ResultCode": 1, "ResultDesc": "Internal Error"}), 500
 
 
-
 # ==========================================
 # WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
 # ==========================================
 import threading
+import logging
 from datetime import datetime
 from flask import session, request
 from flask_socketio import emit, join_room
-# Make sure db and get_ai_companion_response are imported at the top of your file!
+
+logger = logging.getLogger(__name__)
 
 @socketio.on('connect')
 def handle_connect():
     """Security Step: Automatically join a private room based on user_id when connecting."""
     user_id = session.get('user_id')
     if user_id:
-        join_room(user_id) # Now we can send messages directly to this user's private room
+        join_room(user_id)
 
 @socketio.on('typing')
 def handle_typing(data):
-    """Routes the typing indicator only to the person they are chatting with."""
+    """Routes the typing indicator instantly."""
     receiver_id = data.get('receiver_id')
     if receiver_id:
         emit('user_typing', data, to=receiver_id)
 
 @socketio.on('send_message')
 def handle_message(data):
-    # 1. Security Check: Ensure the user is actually logged in
     sender_id = session.get('user_id')
     if not sender_id:
-        return # Ignore the event if they aren't logged in
+        return 
 
     receiver_id = data.get('receiver_id')
     msg_text = data.get('text')
@@ -969,24 +969,16 @@ def handle_message(data):
     # ROUTE A: AI COMPANION LOGIC
     # ==========================================
     if receiver_id == 'AI_COMPANION':
-        # Echo the user's message back to their own screen
         emit('receive_message', data, to=request.sid)
-        
-        # Show AI typing indicator
         emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
         
-        # Fetch the user's gender from Firebase for dynamic AI persona
         current_user_gender = "unknown"
         user_profile = db.reference(f'profiles/{sender_id}').get()
         if user_profile and 'gender' in user_profile:
             current_user_gender = user_profile['gender']
         
-        # Worker function for the background thread
         def ai_worker(query, sid, gender):
-            # Now we pass the gender to make the AI smart!
             ai_reply = get_ai_companion_response(query, user_gender=gender)
-            
-            # Stop typing indicator and send reply
             socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=sid)
             socketio.emit('receive_message', {
                 'sender': 'AI_COMPANION',
@@ -994,7 +986,6 @@ def handle_message(data):
                 'text': ai_reply
             }, to=sid)
 
-        # Start the AI in a separate thread so the server doesn't freeze
         threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
         return
 
@@ -1002,25 +993,27 @@ def handle_message(data):
     # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
     # ==========================================
     if msg_type == 'text':
+        # Note: If analyze_safety calls an external API, it will slightly delay the message. 
+        # For maximum speed, ensure analyze_safety uses a fast local library.
         safety_check = analyze_safety(msg_text)
         
         if not safety_check['is_safe']:
-            # Log serious violations to the admin panel
             if safety_check['flag'] in ['self_harm', 'violence']:
-                db.reference('admin_alerts').push({
-                    'sender': sender_id,
-                    'receiver': receiver_id,
-                    'message': msg_text,
-                    'flag': safety_check['flag'],
-                    'timestamp': datetime.now().isoformat()
-                })
+                # Save alerts in the background so it doesn't freeze the app
+                def save_alert():
+                    db.reference('admin_alerts').push({
+                        'sender': sender_id,
+                        'receiver': receiver_id,
+                        'message': msg_text,
+                        'flag': safety_check['flag'],
+                        'timestamp': datetime.now().isoformat()
+                    })
+                threading.Thread(target=save_alert).start()
             
-            # Warn the sender privately (don't send to receiver)
             warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
             emit('receive_message', warning_msg, to=request.sid) 
             return
 
-        # Prevent sharing phone numbers
         if contains_phone_number(msg_text):
             warning_msg = {
                 'sender': 'SYSTEM_AI',
@@ -1031,16 +1024,23 @@ def handle_message(data):
             return
 
     # ==========================================
-    # ROUTE C: SAFE MESSAGE DELIVERY
+    # ROUTE C: LIGHTNING FAST MESSAGE DELIVERY
     # ==========================================
-    # Save to Firebase
-    save_chat_message(sender_id, receiver_id, msg_text, msg_type)
     
-    # Send to the specific receiver's private room (NOT broadcast=True!)
-    emit('receive_message', data, to=receiver_id)
-    # Also echo it back to the sender so it shows up in their chat UI
-    emit('receive_message', data, to=request.sid)
+    # 1. SEND INSTANTLY (0ms delay for users)
+    emit('receive_message', data, to=request.sid) # Echo to sender
+    emit('receive_message', data, to=receiver_id) # Send to receiver
 
+    # 2. SAVE IN BACKGROUND (Don't let Firebase slow down the chat UI)
+    def background_save():
+        try:
+            save_chat_message(sender_id, receiver_id, msg_text, msg_type)
+        except Exception as e:
+            logger.error(f"Failed to save chat message to DB: {e}")
+
+    threading.Thread(target=background_save).start()
+    
+    
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
