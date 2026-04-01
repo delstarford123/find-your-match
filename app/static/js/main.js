@@ -4,37 +4,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const shimmer = document.getElementById('shimmer');
     const profileImg = document.getElementById('profile-img');
     const aiTag = document.getElementById('ai-tag');
+    const matchSignal = document.getElementById('is-match-signal');
     
-    const modal = document.getElementById('match-modal');
+    const overlay = document.getElementById('match-overlay');
     const feedbackModal = document.getElementById('feedback-modal');
     
+    // --- STATE ---
     let profiles = []; 
     let currentIndex = 0;
+    let isAnimating = false;
+    let isDragging = false;
+    let startX = 0;
     
-    const myUserId = window.currentUserId || "MMUST_001"; 
+    const myUserId = window.currentUserId || "MMUST_STUDENT"; 
+    const hasGSAP = typeof gsap !== 'undefined';
 
-    // GSAP Registration
-    if (typeof gsap !== 'undefined') {
-        gsap.registerPlugin(SplitText, TextPlugin);
-    } else {
-        console.warn("GSAP is not loaded. Animations will fallback to CSS.");
+    // 1. STARTUP
+    init();
+
+    async function init() {
+        await fetchProfiles();
+        // Check for feedback after a short delay
+        setTimeout(checkPendingDateFeedback, 2000);
     }
 
-    // 1. INITIAL FETCH
-    fetchProfiles();
-    setTimeout(checkPendingDateFeedback, 1500);
-
-    function fetchProfiles() {
-        fetch(`/api/profiles?user_id=${myUserId}`)
-            .then(res => res.json())
-            .then(data => {
-                profiles = data;
-                setTimeout(loadProfile, 800); 
-            })
-            .catch(err => {
-                console.error("Failed to fetch profiles", err);
+    async function fetchProfiles() {
+        try {
+            // Show loading state initially
+            if (shimmer) shimmer.style.display = 'block';
+            
+            const res = await fetch(`/api/profiles?user_id=${myUserId}`);
+            if (!res.ok) throw new Error("Server error");
+            
+            profiles = await res.json();
+            
+            if (profiles && profiles.length > 0) {
+                loadProfile();
+            } else {
                 showEmptyState();
-            });
+            }
+        } catch (err) {
+            console.error("Failed to fetch profiles:", err);
+            showEmptyState();
+        }
     }
 
     function loadProfile() {
@@ -43,148 +55,83 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        isAnimating = false;
         const profile = profiles[currentIndex];
         
-        // --- THE TRANSITION ---
-        shimmer.style.display = 'block';
-        profileImg.style.display = 'none';
-        aiTag.classList.add('hidden');
+        // --- 1. Prepare UI for next profile ---
+        if (shimmer) shimmer.style.display = 'block';
+        if (profileImg) profileImg.style.display = 'none';
+        if (aiTag) aiTag.classList.add('hidden');
+        
+        // NEW: Signal if this is a mutual match immediately
+        if (typeof window.updateMatchSignal === 'function') {
+            window.updateMatchSignal(profile.is_mutual_match);
+        }
 
+        // --- 2. Update Text Fields ---
         const nameEl = document.getElementById('profile-name');
         const bioEl = document.getElementById('profile-bio');
+        const ageEl = document.getElementById('profile-age');
 
-        nameEl.innerText = profile.name;
-        bioEl.innerText = profile.bio;
+        if (nameEl) nameEl.innerText = profile.name || "Explorer";
+        if (bioEl) bioEl.innerText = profile.bio || "Searching for connections...";
+        if (ageEl) ageEl.innerText = profile.age ? `, ${profile.age}` : "";
         
-        // Handle AI Tags
-        if (profile.bio.includes("MATCHING FREE TIME") || profile.bio.includes("🕒")) {
-            aiTag.innerText = " SCHEDULE MATCH";
-            aiTag.classList.remove('hidden');
-        } else if (profile.bio.includes("AI Top Pick") || profile.bio.includes("✨")) {
-            aiTag.innerText = "AI TOP PICK";
+        // --- 3. AI Badge Logic ---
+        if (aiTag && (profile.is_perfect_match || (profile.bio && profile.bio.includes("✨")))) {
+            aiTag.innerText = "✨ AI TOP PICK";
             aiTag.classList.remove('hidden');
         }
 
-        // Load Image
+        // --- 4. Image Handling (Prevents White Screen) ---
         const img = new Image();
         img.src = profile.img || "/static/img/placeholder.png";
-        img.onload = () => {
-            profileImg.src = img.src;
-            shimmer.style.display = 'none';
-            profileImg.style.display = 'block';
-
-            // GSAP ANIMATION: Cascade Reveal for Text
-            if (typeof gsap !== 'undefined' && typeof SplitText !== 'undefined') {
-                const splitName = new SplitText(nameEl, { type: "chars" });
-                gsap.from(splitName.chars, {
-                    y: -40, rotation: -10, opacity: 0,
-                    stagger: { each: 0.03, from: "start" },
-                    duration: 0.4, ease: "back.out(1.4)"
-                });
-                
-                gsap.from(bioEl, {
-                    y: 20, opacity: 0, delay: 0.2,
-                    duration: 0.5, ease: "power2.out"
-                });
+        
+        // Set a timeout: if image takes too long, show placeholder
+        const imgTimeout = setTimeout(() => {
+            if (profileImg.style.display === 'none') {
+                profileImg.src = "/static/img/placeholder.png";
+                revealProfile();
             }
+        }, 5000);
+
+        img.onload = () => {
+            clearTimeout(imgTimeout);
+            profileImg.src = img.src;
+            revealProfile();
         };
 
-        // Reset Card Position
-        card.className = 'card'; 
-        gsap.set(card, { x: 0, y: 0, rotation: 0, scale: 1 }); // GSAP Reset
+        img.onerror = () => {
+            clearTimeout(imgTimeout);
+            profileImg.src = "/static/img/placeholder.png";
+            revealProfile();
+        };
     }
 
-    // --- NEW: THE MATCH MODAL LOGIC (WITH GSAP) ---
-    function triggerMatchModal(targetProfile) {
-        document.getElementById('match-name-text').innerText = targetProfile.name.split(',')[0];
-        document.getElementById('match-avatar').src = targetProfile.img || "/static/img/placeholder.png";
-        
-        const icebreakerContainer = document.getElementById('icebreaker-container');
-        icebreakerContainer.innerHTML = '<div class="spinner text-center text-secondary">🤖 Thinking of Kakamega banter...</div>';
-        
-        // Show the modal
-        modal.classList.remove('hidden');
+    function revealProfile() {
+        if (shimmer) shimmer.style.display = 'none';
+        if (profileImg) profileImg.style.display = 'block';
 
-        // GSAP ANIMATION: 3D Unfold + Elastic Snap for the Modal Pop
-        if (typeof gsap !== 'undefined') {
-            gsap.from(".modal-content", {
-                scale: 0.5, rotationX: 45, opacity: 0,
-                transformPerspective: 800,
-                duration: 1.2, ease: "elastic.out(1, 0.4)"
-            });
-            
-            // GSAP ANIMATION: Slot Machine effect for "IT'S A MATCH" text
-            if (typeof SplitText !== 'undefined') {
-                const matchTitle = new SplitText(".match-title", { type: "chars" });
-                gsap.from(matchTitle.chars, {
-                    yPercent: -200, opacity: 0,
-                    stagger: { each: 0.05, from: "start" },
-                    duration: 0.5, ease: "power4.out", delay: 0.3
-                });
-            }
+        if (hasGSAP) {
+            // Smooth reveal animation
+            gsap.fromTo(['#profile-name', '#profile-age', '#profile-bio'], 
+                { y: 15, opacity: 0 }, 
+                { y: 0, opacity: 1, duration: 0.4, stagger: 0.08, ease: "power2.out" }
+            );
+            // Reset card visuals
+            gsap.set(card, { x: 0, y: 0, rotation: 0, opacity: 1, scale: 1 });
+            gsap.set(['.stamp'], { opacity: 0 });
         }
-
-        fetch('/api/icebreakers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ match_bio: targetProfile.bio })
-        })
-        .then(res => res.json())
-        .then(data => {
-            icebreakerContainer.innerHTML = '';
-            const lines = data.icebreakers ? data.icebreakers.split('\n').filter(l => l.trim()) : ["Hey! We matched!"];
-            
-            lines.forEach((line, index) => {
-                const cleanText = line.replace(/^\d+\.\s*/, '');
-                const bubble = document.createElement('div');
-                // Updated styles to match the new Maroon/Red palette
-                bubble.style.cssText = "background: #FFD6DD; padding: 12px; margin-bottom: 10px; border-radius: 12px; cursor: pointer; font-size: 14px; color: #720000; font-weight: 500; text-align: left; box-shadow: 0 2px 5px rgba(114,0,0,0.1);";
-                
-                icebreakerContainer.appendChild(bubble);
-
-                // GSAP ANIMATION: Typewriter effect for AI Icebreakers
-                if (typeof gsap !== 'undefined') {
-                    gsap.to(bubble, {
-                        text: cleanText,
-                        duration: Math.min(cleanText.length * 0.03, 2), // Speed based on length
-                        ease: "none",
-                        delay: 0.8 + (index * 0.5) // Stagger the typing
-                    });
-                } else {
-                    bubble.innerText = cleanText;
-                }
-                
-                bubble.onclick = () => {
-                    navigator.clipboard.writeText(cleanText);
-                    const originalText = bubble.innerText;
-                    bubble.innerText = "📋 Copied to clipboard!";
-                    bubble.style.background = "#E60026";
-                    bubble.style.color = "white";
-                    
-                    // GSAP Pulse on click
-                    if (typeof gsap !== 'undefined') {
-                        gsap.from(bubble, { scale: 1.05, duration: 0.2, ease: "power1.out" });
-                    }
-                    
-                    setTimeout(() => {
-                        bubble.innerText = originalText;
-                        bubble.style.background = "#FFD6DD";
-                        bubble.style.color = "#720000";
-                    }, 2000);
-                };
-            });
-        })
-        .catch(() => {
-            icebreakerContainer.innerHTML = '<div style="background: #FFD6DD; padding: 10px; border-radius: 10px; font-size: 14px; color: #720000;">Hey! We matched! (AI is resting right now)</div>';
-        });
     }
 
-    // --- SWIPE PROCESSING ---
-    function handleSwipe(direction) {
-        if (currentIndex >= profiles.length) return;
+    // --- SWIPE LOGIC ---
+    window.handleSwipe = function(direction) {
+        if (currentIndex >= profiles.length || isAnimating) return;
+        isAnimating = true;
 
         const targetProfile = profiles[currentIndex];
 
+        // 1. Update Database (Background)
         fetch('/api/swipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -193,145 +140,126 @@ document.addEventListener('DOMContentLoaded', () => {
                 target_id: targetProfile.id, 
                 action: direction 
             })
-        });
+        }).catch(e => console.error("Swipe sync failed:", e));
 
-        // GSAP ANIMATION: Whip Slide for swiping away
-        if (typeof gsap !== 'undefined') {
-            const endX = direction === 'like' ? window.innerWidth + 200 : -window.innerWidth - 200;
-            const rotation = direction === 'like' ? 30 : -30;
+        // 2. Animation
+        if (hasGSAP) {
+            const endX = direction === 'like' ? 800 : -800;
+            const rotation = direction === 'like' ? 35 : -35;
+            const stamp = direction === 'like' ? '#stamp-like' : '#stamp-nope';
+
+            // Show stamp fully during animation
+            gsap.to(stamp, { opacity: 1, duration: 0.1 });
             
             gsap.to(card, {
                 x: endX,
                 rotation: rotation,
                 opacity: 0,
-                duration: 0.6,
-                ease: "power3.in",
-                onComplete: () => {
-                    if (direction === 'like') {
-                        triggerMatchModal(targetProfile);
-                    } else {
-                        currentIndex++;
-                        loadProfile();
-                    }
-                }
+                duration: 0.5,
+                ease: "power2.in",
+                onComplete: () => finalizeSwipe(direction, targetProfile)
             });
         } else {
-            // Fallback CSS animation
-            card.classList.add(direction === 'like' ? 'swipe-right' : 'swipe-left');
-            if (direction === 'like') {
-                setTimeout(() => triggerMatchModal(targetProfile), 300); 
-            } else {
-                setTimeout(() => {
-                    currentIndex++;
-                    loadProfile();
-                }, 400); 
-            }
+            finalizeSwipe(direction, targetProfile);
         }
+    };
+
+    function finalizeSwipe(direction, profile) {
+        // If it's a mutual match and they liked, show the big celebration
+        if (direction === 'like' && profile.is_mutual_match) {
+            if (typeof window.triggerMatchCelebration === 'function') {
+                window.triggerMatchCelebration(profile);
+            }
+        } else {
+            currentIndex++;
+            loadProfile();
+        }
+    }
+
+    // Called from Celebration Modal
+    window.loadNextProfile = function() {
+        currentIndex++;
+        loadProfile();
+    };
+
+    function showEmptyState() {
+        const activeProfileUI = document.getElementById('active-profile');
+        const swipeButtonsUI = document.getElementById('swipe-buttons');
+        const emptyStateUI = document.getElementById('empty-state');
+
+        if (activeProfileUI) activeProfileUI.classList.add('hidden');
+        if (swipeButtonsUI) swipeButtonsUI.classList.add('hidden');
+        if (matchSignal) matchSignal.style.display = 'none';
+        
+        if (emptyStateUI) {
+            emptyStateUI.classList.remove('hidden');
+            emptyStateUI.style.display = 'flex';
+            if (hasGSAP) gsap.from(emptyStateUI, { scale: 0.95, opacity: 0, duration: 0.5 });
+        }
+    }
+
+    // --- INTERACTIVE PHYSICS ---
+    if (card) {
+        card.onpointerdown = (e) => {
+            if (currentIndex >= profiles.length || isAnimating) return;
+            isDragging = true;
+            startX = e.clientX;
+            card.style.transition = 'none';
+            if (hasGSAP) gsap.killTweensOf(card);
+        };
+
+        document.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            
+            const x = e.clientX - startX;
+            const rotation = x * 0.1;
+            
+            // Calculate stamp opacities (appear as you drag further)
+            const opacityLike = Math.max(0, Math.min(1, (x - 50) / 100));
+            const opacityNope = Math.max(0, Math.min(1, (-x - 50) / 100));
+
+            if (hasGSAP) {
+                gsap.set(card, { x: x, rotation: rotation });
+                gsap.set('#stamp-like', { opacity: opacityLike });
+                gsap.set('#stamp-nope', { opacity: opacityNope });
+            } else {
+                card.style.transform = `translateX(${x}px) rotate(${rotation}deg)`;
+            }
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const x = e.clientX - startX;
+            const threshold = 130;
+
+            if (Math.abs(x) > threshold) {
+                window.handleSwipe(x > 0 ? 'like' : 'pass');
+            } else {
+                // Snap back to center
+                if (hasGSAP) {
+                    gsap.to(card, { x: 0, rotation: 0, duration: 0.5, ease: "elastic.out(1, 0.6)" });
+                    gsap.to(['.stamp'], { opacity: 0, duration: 0.2 });
+                } else {
+                    card.style.transition = '0.3s ease';
+                    card.style.transform = 'translate(0,0) rotate(0deg)';
+                }
+            }
+        });
     }
 
     async function checkPendingDateFeedback() {
         try {
             const res = await fetch(`/api/check-pending-date?user_id=${myUserId}`);
             const data = await res.json();
-            if (data.show_feedback) {
-                document.getElementById('fb-name').innerText = data.match_name;
-                document.getElementById('fb-venue').innerText = data.venue;
+            if (data.show_feedback && feedbackModal) {
+                const fbName = document.getElementById('fb-name');
+                if (fbName) fbName.innerText = data.match_name;
                 feedbackModal.classList.remove('hidden');
-                
-                // GSAP Reveal for Feedback Modal
-                if (typeof gsap !== 'undefined') {
-                     gsap.from(feedbackModal.querySelector('.modal-content'), {
-                        y: 100, opacity: 0, duration: 0.6, ease: "back.out(1.2)"
-                    });
-                }
             }
-        } catch (e) { console.log("No feedback needed."); }
+        } catch (e) {
+            // Silently fail if route doesn't exist yet
+        }
     }
-
-    function showEmptyState() {
-        document.getElementById('active-profile').classList.add('hidden');
-        document.getElementById('swipe-buttons').classList.add('hidden');
-        
-        const emptyState = document.getElementById('empty-state');
-        emptyState.classList.remove('hidden');
-        emptyState.style.display = 'flex';
-
-        // GSAP ANIMATION: Float up the empty state
-        if (typeof gsap !== 'undefined') {
-            gsap.from(emptyState, {
-                y: 50, opacity: 0, duration: 0.8, ease: "power2.out"
-            });
-        }
-
-        card.onpointerdown = null; 
-        gsap.set(card, { clearProps: "all" });
-        card.style.cursor = 'default';
-    }
-
-    // --- EVENT LISTENERS ---
-    document.getElementById('btn-like').onclick = () => handleSwipe('like');
-    document.getElementById('btn-pass').onclick = () => handleSwipe('pass');
-    
-    document.getElementById('btn-close-modal').onclick = () => {
-        // GSAP Fallaway
-        if (typeof gsap !== 'undefined') {
-             gsap.to(".modal-content", {
-                scale: 0.8, opacity: 0, y: 50, duration: 0.3, ease: "power2.in",
-                onComplete: () => {
-                    modal.classList.add('hidden');
-                    gsap.set(".modal-content", { clearProps: "all" }); // Reset for next time
-                    currentIndex++;
-                    loadProfile();
-                }
-             });
-        } else {
-            modal.classList.add('hidden');
-            currentIndex++;
-            loadProfile();
-        }
-    };
-
-    // --- SWIPE PHYSICS (GSAP ENHANCED) ---
-    let isDragging = false;
-    let startX = 0;
-
-    card.onpointerdown = (e) => {
-        if (currentIndex >= profiles.length) return;
-        isDragging = true;
-        startX = e.clientX;
-        // Kill any active tweens on the card so the user can grab it
-        if (typeof gsap !== 'undefined') gsap.killTweensOf(card);
-    };
-
-    document.onpointermove = (e) => {
-        if (!isDragging) return;
-        let x = e.clientX - startX;
-        // Snap dragging to pointer
-        if (typeof gsap !== 'undefined') {
-             gsap.set(card, { x: x, rotation: x * 0.05 });
-        } else {
-             card.style.transform = `translateX(${x}px) rotate(${x * 0.05}deg)`;
-        }
-    };
-
-    document.onpointerup = (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        let x = e.clientX - startX;
-        
-        if (Math.abs(x) > 120) {
-            handleSwipe(x > 0 ? 'like' : 'pass');
-        } else {
-            // GSAP ANIMATION: Spring Scale (Rubber Band snap back to center)
-            if (typeof gsap !== 'undefined') {
-                gsap.to(card, {
-                    x: 0, rotation: 0, 
-                    duration: 0.8, ease: "elastic.out(1, 0.4)"
-                });
-            } else {
-                card.style.transition = '0.3s';
-                card.style.transform = '';
-            }
-        }
-    };
 });

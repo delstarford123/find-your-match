@@ -304,12 +304,44 @@ def venues():
     active_venues = get_all_restaurants(active_only=True)
     return render_template('venues.html', current_user=session.get('user_name'), venues=active_venues)
 
+from flask import render_template, session, redirect, url_for, flash
+from flask import session, flash, redirect, url_for, render_template
+# Make sure your db is imported! e.g., from app.database import db
+
 @app.route('/swipe')
 @requires_subscription
 def swipe():
-    # PROTECTED: Must be logged in AND paid
-    return render_template('swipe.html', current_user=session.get('user_name'))
+    """
+    Renders the main Tinder-style discovery deck.
+    Requires the user to be authenticated and have an active premium subscription.
+    """
+    user_id = session.get('user_id')
+    
+    # 1. Fallback Validation (Safety Net)
+    if not user_id:
+        flash("Your session expired. Please log in again.", "warning")
+        # Ensure 'auth.login' matches your actual login blueprint/route name
+        return redirect(url_for('auth.login')) 
 
+    # 2. Fetch Fresh Data (The Source of Truth)
+    # Always pull from the DB for the swipe deck so settings/images are never stale
+    user_profile = db.reference(f'profiles/{user_id}').get() or {}
+
+    # 3. Bundle Context for the Frontend
+    current_user = {
+        'id': user_id,
+        # Split by space to get just their First Name for a friendlier UI
+        'name': user_profile.get('name', session.get('user_name', 'Student')).split(' ')[0], 
+        # Fallback to a placeholder if they haven't uploaded an image yet
+        'img': user_profile.get('img') or url_for('static', filename='img/placeholder.png'),
+        # Grab their latest filter preferences
+        'settings': user_profile.get('settings', {}) 
+    }
+
+    return render_template(
+        'swipe.html', 
+        current_user=current_user
+    ) 
 @app.route('/dashboard')
 @requires_subscription
 def dashboard():
