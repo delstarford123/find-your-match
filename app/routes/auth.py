@@ -231,6 +231,41 @@ def business_register():
             
     return render_template('restaurant_signup.html')
 
+import random
+# Ensure you have 'db' imported at the top of your file if it isn't already!
+# from app.database import db
+
+@auth_bp.route('/resend_otp', methods=['POST'])
+def resend_otp():
+    """Generates a new OTP and updates Firebase."""
+    # 1. Grab the email from the session
+    email = session.get('unverified_email') 
+    
+    if not email:
+        flash("Session expired. Please log in or sign up again.", "error")
+        return redirect(url_for('auth.login'))
+
+    # 2. Generate a new 6-digit OTP
+    new_otp = str(random.randint(100000, 999999))
+    
+    try:
+        # 3. Save the new OTP to Firebase
+        # Firebase keys cannot contain periods, so we replace them with commas
+        email_safe_key = email.replace('.', ',')
+        db.reference(f'unverified_users/{email_safe_key}/otp').set(new_otp)
+        
+        # 4. Fire your email sending function here!
+        # If you have an email function, call it here. For now, we will print it to the terminal so you can test it locally.
+        print(f"📧 NEW OTP SENT TO {email}: {new_otp}")
+        
+        flash("A new 6-digit code has been sent to your email.", "success")
+        
+    except Exception as e:
+        print(f"Error resending OTP: {e}")
+        flash("Failed to resend code. Please try again.", "error")
+        
+    # Redirect right back to the verification page
+    return redirect(url_for('auth.verify_email'))
 
 @auth_bp.route('/logout')
 def logout():

@@ -2,11 +2,19 @@
 
 {% block content %}
 <style>
+    /* === DYNAMIC THEME VARIABLES === */
+    :root {
+        --chat-bg: #E5DDD5; 
+        --chat-bg-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+        --my-bubble-color: #DCF8C6; 
+        --my-bubble-text: #111;
+    }
+
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
         display: flex; width: 100%; max-width: 1000px;
         height: calc(100vh - var(--nav-height) - 40px); min-height: 500px;
-        background: white; border-radius: 15px; box-shadow: 0 10px 25px rgba(114, 0, 0, 0.1);
+        background: white; border-radius: 20px; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
         overflow: hidden; margin: 20px auto; border: 1px solid #FFD6DD;
     }
     
@@ -15,56 +23,113 @@
         width: 35%; border-right: 1px solid #FFD6DD; background: #FEF2F4;
         overflow-y: auto; display: flex; flex-direction: column;
     }
-    .sidebar-header { padding: 15px 20px; background: #720000; color: white; font-weight: 900; font-size: 16px; position: sticky; top: 0; z-index: 5; }
+    .sidebar-header { 
+        padding: 20px; background: #720000; color: white; 
+        font-weight: 900; font-size: 18px; position: sticky; top: 0; z-index: 5; 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
 
-    .match-item { padding: 15px; border-bottom: 1px solid #FFD6DD; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: background 0.2s; }
-    .match-item:hover { background: #FFD6DD; }
-    .match-item.active { background: white; border-left: 4px solid #E60026; }
+    .match-item { 
+        padding: 15px 20px; border-bottom: 1px solid #FFD6DD; cursor: pointer; 
+        display: flex; align-items: center; gap: 15px; transition: all 0.2s ease; 
+    }
+    .match-item:hover { background: #FFD6DD; transform: translateX(5px); }
+    .match-item.active { background: white; border-left: 5px solid #E60026; }
     
     .avatar-wrapper { position: relative; display: inline-block; }
-    .match-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .online-dot { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background-color: #ccc; border-radius: 50%; border: 2px solid #fff; }
-    .online-dot.active { background-color: #28a745; }
-
-    /* === CHAT AREA === */
-    .chat-area { width: 65%; display: flex; flex-direction: column; background: #E5DDD5; position: relative; } /* WhatsApp Web Background Color */
-    .chat-header { padding: 12px 20px; background: linear-gradient(90deg, #720000 0%, #E60026 100%); color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 10; }
+    .match-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
     
-    .btn-back { display: none; background: none; border: none; color: white; font-size: 24px; margin-right: 10px; cursor: pointer; }
+    /* 🔥 NEW: Visual Signal for Mutual Matches */
+    .avatar-match-glow { border: 2px solid #E60026; box-shadow: 0 0 12px rgba(230, 0, 38, 0.4); }
+    .badge-match {
+        background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
+        font-size: 9px; padding: 3px 8px; border-radius: 12px; font-weight: 900;
+        letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(230, 0, 38, 0.3);
+        animation: pulseMatch 2s infinite;
+    }
+    @keyframes pulseMatch { 
+        0% { box-shadow: 0 0 0 0 rgba(230,0,38,0.4); } 
+        70% { box-shadow: 0 0 0 5px rgba(230,0,38,0); } 
+        100% { box-shadow: 0 0 0 0 rgba(230,0,38,0); } 
+    }
 
-    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+    .online-dot { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background-color: #bbb; border-radius: 50%; border: 2px solid #fff; transition: 0.3s ease;}
+    .online-dot.active { background-color: #28a745; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
+
+    /* === CHAT AREA (THEMED) === */
+    .chat-area { 
+        width: 65%; display: flex; flex-direction: column; position: relative; 
+        background-color: var(--chat-bg);
+        background-image: var(--chat-bg-image);
+        background-repeat: repeat;
+        background-size: 400px;
+    }
     
-    /* === CHAT BUBBLES (WHATSAPP STYLE) === */
+    .chat-header { 
+        padding: 15px 20px; background: linear-gradient(90deg, #720000 0%, #E60026 100%); 
+        color: white; display: flex; justify-content: space-between; align-items: center; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 10; position: relative;
+    }
+    
+    .btn-back { display: none; background: none; border: none; color: white; font-size: 28px; margin-right: 15px; cursor: pointer; transition: 0.2s; }
+    .btn-back:active { transform: scale(0.9); }
+
+    /* === THEME MODAL UI === */
+    .theme-modal {
+        position: absolute; top: 70px; right: 20px; background: white;
+        padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        z-index: 100; width: 320px; display: none; border: 1px solid #FFD6DD;
+    }
+    .theme-modal.active { display: block; animation: popIn 0.2s ease-out forwards; }
+    @keyframes popIn { 0% { opacity: 0; transform: scale(0.9) translateY(-10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+    
+    .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 10px; }
+    .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .color-swatch:hover { transform: scale(1.2); border-color: #333; }
+    
+    .bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .bg-swatch { height: 60px; border-radius: 10px; cursor: pointer; background-size: cover; background-position: center; border: 2px solid #ddd; transition: 0.2s; }
+    .bg-swatch:hover { border-color: #E60026; transform: scale(1.05); }
+
+    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+    
+    /* === CHAT BUBBLES === */
     .bubble-wrapper { display: flex; width: 100%; margin-bottom: 2px; }
     .bubble-wrapper.me { justify-content: flex-end; }
     .bubble-wrapper.them { justify-content: flex-start; }
     .bubble-wrapper.system { justify-content: center; }
 
-    .chat-bubble { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.15); word-wrap: break-word; position: relative; display: inline-block;}
+    .bubble-enter { animation: popBubble 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    @keyframes popBubble { 0% { opacity: 0; transform: translateY(15px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+
+    .chat-bubble { max-width: 75%; padding: 10px 14px 14px; border-radius: 16px; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.1); word-wrap: break-word; position: relative; display: inline-block; }
     
     .bubble-them { background: white; color: #111; border-top-left-radius: 0; }
-    .bubble-me { background: #DCF8C6; color: #111; border-top-right-radius: 0; padding-right: 50px; } /* Space for timestamp/ticks */
-    .bubble-system { background: rgba(255,255,255,0.8); color: #555; border-radius: 8px; font-size: 12px; text-align: center; padding: 6px 12px; box-shadow: none; font-weight: bold;}
+    .bubble-me { background: var(--my-bubble-color); color: var(--my-bubble-text); border-top-right-radius: 0; padding-right: 65px; } 
+    .bubble-system { background: rgba(255,255,255,0.9); color: #555; border-radius: 10px; font-size: 12px; text-align: center; padding: 8px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: bold; }
 
-    .msg-meta { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: #888; display: flex; gap: 4px; align-items: center; }
-    .msg-status { font-size: 12px; }
-    .status-sending { color: #888; }
-    .status-sent { color: #34B7F1; font-weight: bold; } /* WhatsApp Blue Ticks */
+    .msg-meta { position: absolute; right: 10px; bottom: 4px; font-size: 11px; opacity: 0.8; display: flex; gap: 4px; align-items: center; }
+    .msg-time { font-size: 10px; }
+    .msg-status { font-size: 13px; }
+    .status-sending { opacity: 0.6; }
+    .status-sent { color: #34B7F1; font-weight: bold; opacity: 1; }
 
     /* === TYPING INDICATORS === */
     .typing-bubble-container { display: none; align-self: flex-start; margin-top: 5px; }
-    .typing-bubble { background: white; border-radius: 18px; padding: 12px 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; gap: 4px; align-items: center; border-top-left-radius: 0; width: fit-content; }
-    .typing-dot { width: 6px; height: 6px; background: #aaa; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out both; }
+    .typing-bubble { background: white; border-radius: 18px; padding: 14px 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 5px; align-items: center; border-top-left-radius: 0; width: fit-content; }
+    .typing-dot { width: 7px; height: 7px; background: #aaa; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out both; }
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
     .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-    @keyframes typingBounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.6; } 40% { transform: scale(1.1); opacity: 1; } }
+    @keyframes typingBounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-4px); opacity: 1; background: #E60026; } }
 
     /* === CHAT INPUT === */
-    .chat-input-area { padding: 12px 15px; background: #f0f0f0; display: flex; gap: 10px; align-items: center; }
-    .chat-input-area input { flex: 1; padding: 14px 20px; border: none; border-radius: 25px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .chat-input-area { padding: 15px 20px; background: #f0f0f0; display: flex; gap: 12px; align-items: center; border-top: 1px solid #ddd; }
+    .chat-input-area input { flex: 1; padding: 15px 20px; border: none; border-radius: 30px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; }
+    .chat-input-area input:focus { box-shadow: 0 4px 15px rgba(230,0,38,0.15); }
     
-    .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 46px; height: 46px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 18px; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .btn-send:hover { transform: scale(1.05); }
+    .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 10px rgba(0, 168, 132, 0.3); }
+    .btn-send:hover { transform: scale(1.1) rotate(5deg); }
+    .btn-send:active { transform: scale(0.9); }
 
     /* === MOBILE RESPONSIVE === */
     @media (max-width: 768px) {
@@ -74,49 +139,78 @@
         .inbox-container.chat-active .matches-sidebar { display: none; }
         .inbox-container.chat-active .chat-area { display: flex; }
         .btn-back { display: block; }
-        .chat-bubble { max-width: 85%; }
+        .chat-bubble { max-width: 88%; }
     }
 </style>
 
 <div class="inbox-container {% if active_partner %}chat-active{% endif %}" id="main-inbox">
     
     <div class="matches-sidebar">
-        <div class="sidebar-header">Messages</div>
+        <div class="sidebar-header">Inbox</div>
         {% if my_matches %}
             {% for match in my_matches %}
             <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" onclick="window.location.href='/matches/{{ match.id }}'">
+                
                 <div class="avatar-wrapper">
-                    <img src="{{ match.img }}" class="match-avatar">
+                    <img src="{{ match.img }}" class="match-avatar {% if match.is_mutual_match %}avatar-match-glow{% endif %}">
                     <div class="online-dot {% if match.is_online %}active{% endif %}"></div>
                 </div>
-                <div style="flex: 1;">
-                    <h4 style="color: #111; margin-bottom: 3px; display: flex; align-items: center; justify-content: space-between; font-size: 15px;">
-                        {{ match.name }}
-                        {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
-                        {% elif match.is_perfect_match %} <span title="Perfect Match!">❤️</span> {% endif %}
+                
+                <div style="flex: 1; overflow: hidden;">
+                    <h4 style="color: #111; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 800;">
+                        <span style="display: flex; align-items: center; gap: 4px;">
+                            {{ match.name }}
+                            {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
+                            {% elif match.is_perfect_match %} <span title="High Compatibility!">❤️</span> {% endif %}
+                        </span>
+                        
+                        {% if match.is_mutual_match %}
+                            <span class="badge-match">MATCH!</span>
+                        {% endif %}
                     </h4>
-                    <p style="font-size: 13px; color: #888; margin: 0;">Tap to chat</p>
+                    
+                    <p style="font-size: 13px; color: {% if match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.is_mutual_match %}bold{% else %}normal{% endif %};">
+                        {{ match.last_message | default('Tap to start chatting') }}
+                    </p>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #888; font-size: 14px;">No matches yet. Go swipe!</div>
+            <div style="padding: 40px 20px; text-align: center; color: #888; font-size: 15px;">
+                <div style="font-size: 40px; margin-bottom: 15px;">👻</div>
+                No one here yet.<br>Explore the Swipe Deck!
+            </div>
         {% endif %}
     </div>
     
     <div class="chat-area">
         {% if active_partner %}
+        
         <div class="chat-header">
             <div style="display: flex; align-items: center;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
-                <img src="{{ active_partner.img }}" style="width:40px; height:40px; border-radius:50%; margin-right:12px; border: 2px solid white;">
+                <img src="{{ active_partner.img }}" style="width:45px; height:45px; border-radius:50%; margin-right:15px; border: 2px solid white;">
                 <div style="display: flex; flex-direction: column;">
-                    <span style="font-size: 16px; font-weight: 800;">{{ active_partner.name }}</span>
-                    <span style="font-size: 12px; opacity: 0.9;">
+                    <span style="font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 6px;">
+                        {{ active_partner.name }}
+                        {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
+                    </span>
+                    <span style="font-size: 12px; opacity: 0.9; font-weight: 500;">
                         {% if active_partner.id == 'AI_COMPANION' %}Always Online
-                        {% else %}Online{% endif %}
+                        {% elif active_partner.is_online %}Online
+                        {% else %}Offline{% endif %}
                     </span>
                 </div>
+            </div>
+            
+            <button onclick="toggleThemeModal(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; transition: 0.2s;">🎨</button>
+            
+            <div id="theme-modal" class="theme-modal">
+                <h4 style="color: #720000; margin-bottom: 5px; font-size: 14px;">My Chat Bubble Color</h4>
+                <div id="color-picker" class="color-grid"></div>
+                
+                <h4 style="color: #720000; margin: 20px 0 5px; font-size: 14px;">Chat Background</h4>
+                <div id="bg-picker" class="bg-grid"></div>
             </div>
         </div>
         
@@ -133,6 +227,7 @@
                                     {{ msg.text }}
                                     {% if is_me %}
                                     <div class="msg-meta">
+                                        <span class="msg-time">{{ msg.timestamp[-8:-3] if msg.timestamp else '' }}</span>
                                         <span class="msg-status status-sent">✓✓</span>
                                     </div>
                                     {% endif %}
@@ -143,7 +238,13 @@
                 {% endfor %}
             {% else %}
                 <div class="bubble-wrapper system" style="margin-top: 20px;">
-                    <div class="chat-bubble bubble-system">🔒 Messages are end-to-end encrypted. Say hi!</div>
+                    <div class="chat-bubble bubble-system">
+                        {% if active_partner.is_mutual_match %}
+                            🔥 You matched with {{ active_partner.name }}! Say something nice.
+                        {% else %}
+                            🔒 Say hi to {{ active_partner.name }}.
+                        {% endif %}
+                    </div>
                 </div>
             {% endif %}
             
@@ -157,15 +258,15 @@
         </div>
         
         <div class="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Type a message" autocomplete="off">
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
             <button class="btn-send" id="btn-send">➤</button>
         </div>
         
         {% else %}
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; display: none;">
-            <div style="font-size: 50px; color: #ccc; margin-bottom: 15px;">💬</div>
-            <h3>Your Messages</h3>
-            <p>Select a match to start chatting.</p>
+        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa; display: none;">
+            <div style="font-size: 60px; color: #ddd; margin-bottom: 20px;">💬</div>
+            <h3 style="color: #555;">Your Messages</h3>
+            <p>Select a user from the sidebar to start chatting.</p>
         </div>
         {% endif %}
     </div>
@@ -173,6 +274,100 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
+    // ==========================================
+    // THEME CUSTOMIZATION LOGIC
+    // ==========================================
+    const chatColors = [
+        '#DCF8C6', '#E60026', '#FFD6DD', '#720000', '#007BFF', '#6610f2', 
+        '#e83e8c', '#fd7e14', '#ffc107', '#28a745', '#20c997', '#17a2b8', 
+        '#322E2F', '#F3E0BE', '#E2D1F9', '#317773', '#E2F0CB', '#FF6F69'
+    ];
+
+    const chatBackgrounds = [
+        { url: 'none', color: '#E5DDD5' }, 
+        { url: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')", color: '#E5DDD5' },
+        { url: "url('https://i.pinimg.com/originals/8f/ba/cb/8fbacbd464e996966eb9d4a6b7a9c21e.jpg')", color: '#000000' },
+        { url: 'none', color: '#111111' }, 
+        { url: 'none', color: '#FEF2F4' }, 
+        { url: 'none', color: '#e6f2ff' }  
+    ];
+
+    function toggleThemeModal(e) {
+        e.stopPropagation();
+        document.getElementById('theme-modal').classList.toggle('active');
+    }
+
+    function initThemePicker() {
+        const colorContainer = document.getElementById('color-picker');
+        const bgContainer = document.getElementById('bg-picker');
+        const root = document.documentElement;
+
+        if (!colorContainer || !bgContainer) return;
+
+        chatColors.forEach(color => {
+            let swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = color;
+            swatch.onclick = (e) => {
+                e.stopPropagation();
+                root.style.setProperty('--my-bubble-color', color);
+                localStorage.setItem('mmust_bubble_color', color);
+                
+                const isDark = isColorDark(color);
+                root.style.setProperty('--my-bubble-text', isDark ? '#fff' : '#111');
+            };
+            colorContainer.appendChild(swatch);
+        });
+
+        chatBackgrounds.forEach(bg => {
+            let swatch = document.createElement('div');
+            swatch.className = 'bg-swatch';
+            swatch.style.backgroundColor = bg.color;
+            swatch.style.backgroundImage = bg.url;
+            swatch.onclick = (e) => {
+                e.stopPropagation();
+                root.style.setProperty('--chat-bg-image', bg.url);
+                root.style.setProperty('--chat-bg', bg.color);
+                localStorage.setItem('mmust_bg_image', bg.url);
+                localStorage.setItem('mmust_bg_color', bg.color);
+            };
+            bgContainer.appendChild(swatch);
+        });
+
+        const savedBubble = localStorage.getItem('mmust_bubble_color');
+        const savedBgImg = localStorage.getItem('mmust_bg_image');
+        const savedBgColor = localStorage.getItem('mmust_bg_color');
+
+        if (savedBubble) {
+            root.style.setProperty('--my-bubble-color', savedBubble);
+            root.style.setProperty('--my-bubble-text', isColorDark(savedBubble) ? '#fff' : '#111');
+        }
+        if (savedBgImg) root.style.setProperty('--chat-bg-image', savedBgImg);
+        if (savedBgColor) root.style.setProperty('--chat-bg', savedBgColor);
+    }
+
+    function isColorDark(color) {
+        const hex = color.replace('#', '');
+        if (hex.length !== 6) return false;
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        return (yiq < 128);
+    }
+
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('theme-modal');
+        if (modal && modal.classList.contains('active') && !e.target.closest('.theme-modal')) {
+            modal.classList.remove('active');
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', initThemePicker);
+
+    // ==========================================
+    // REAL-TIME CHAT WEBSOCKETS
+    // ==========================================
     const socket = io();
     const myId = "{{ session.get('user_id') }}";
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
@@ -184,19 +379,26 @@
 
     let typingTimer;
 
-    if (chatHistory) {
-        chatHistory.scrollTop = chatHistory.scrollHeight;
+    function getCurrentTime() {
+        const now = new Date();
+        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
     if (activePartnerId !== 'none') {
         
-        // --- 1. OPTIMISTIC UI: INSTANT RENDER FUNCTION ---
+        window.onload = () => {
+            if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+            if (window.innerWidth > 768 && chatInput) chatInput.focus();
+        };
+        
         function renderMyMessageInstantly(text, tempId) {
+            const timeString = getCurrentTime();
             const html = `
-                <div class="bubble-wrapper me" id="msg-${tempId}">
+                <div class="bubble-wrapper me bubble-enter" id="msg-${tempId}">
                     <div class="chat-bubble bubble-me">
                         ${text}
                         <div class="msg-meta">
+                            <span class="msg-time">${timeString}</span>
                             <span class="msg-status status-sending" id="status-${tempId}">🕒</span>
                         </div>
                     </div>
@@ -206,36 +408,30 @@
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
-        // --- 2. SEND LOGIC ---
         function sendMessage() {
             const text = chatInput.value.trim();
             if (!text) return;
             
-            // Generate a random ID for tracking this specific message
             const tempId = Math.random().toString(36).substr(2, 9);
-            
-            // INSTANTLY show it on screen
             renderMyMessageInstantly(text, tempId);
             
-            // Clear input and stop typing indicator
             chatInput.value = '';
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
             typingIndicator.style.display = 'none';
+            chatInput.focus();
 
-            // Send to server
             socket.emit('send_message', { 
                 type: 'text', 
                 receiver_id: activePartnerId,
                 text: text,
-                temp_id: tempId // Pass ID to server so it can return it
+                temp_id: tempId 
             });
         }
 
-        chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
-        btnSend.onclick = sendMessage;
+        if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+        if (btnSend) btnSend.onclick = sendMessage;
 
-        // --- 3. TYPING INDICATOR LOGIC ---
-        chatInput.addEventListener('input', () => {
+        if (chatInput) chatInput.addEventListener('input', () => {
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: true });
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
@@ -246,36 +442,41 @@
         socket.on('user_typing', function(data) {
             if (data.is_typing) {
                 typingIndicator.style.display = 'flex';
-                chatHistory.appendChild(typingIndicator); // Push to bottom
+                chatHistory.appendChild(typingIndicator);
                 chatHistory.scrollTop = chatHistory.scrollHeight;
             } else {
                 typingIndicator.style.display = 'none';
             }
         });
 
-        // --- 4. RECEIVE LOGIC ---
         socket.on('receive_message', function(data) {
-            // Ignore messages from other chats
             if (data.sender !== myId && data.sender !== activePartnerId && data.sender !== 'SYSTEM_AI') return;
 
             typingIndicator.style.display = 'none';
             
-            // If it's MY message returning from the server, just update the tick marks
             if (data.sender === myId || data.sender_id === myId) {
                 const statusElement = document.getElementById(`status-${data.temp_id}`);
                 if (statusElement) {
                     statusElement.innerText = '✓✓';
                     statusElement.className = 'msg-status status-sent';
                 }
-                return; // Stop here, we already drew the text bubble
+                return;
             }
 
-            // If it's a message from THEM or SYSTEM, draw it normally
             let html = '';
             if (data.sender === 'SYSTEM_AI') {
-                html = `<div class="bubble-wrapper system"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
+                html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
             } else {
-                html = `<div class="bubble-wrapper them"><div class="chat-bubble bubble-them">${data.text}</div></div>`;
+                const timeString = getCurrentTime();
+                html = `
+                <div class="bubble-wrapper them bubble-enter">
+                    <div class="chat-bubble bubble-them">
+                        ${data.text}
+                        <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
+                            <span class="msg-time">${timeString}</span>
+                        </div>
+                    </div>
+                </div>`;
             }
             
             chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);

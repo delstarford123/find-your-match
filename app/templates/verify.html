@@ -69,11 +69,7 @@
         font-weight: 800;
     }
     
-    /* === OTP INPUT (MODERN UI HACK) === */
-    /* This creates the illusion of 6 individual boxes while keeping 
-       the functionality of a single input field (which is much better 
-       for mobile keyboards and copy/pasting OTP codes).
-    */
+    /* === OTP INPUT === */
     .otp-container {
         position: relative;
         margin-bottom: 30px;
@@ -82,29 +78,24 @@
     .otp-input {
         width: 100%; 
         text-align: center; 
-        font-size: 28px; /* Slightly smaller to fit all 6 digits nicely */
-        letter-spacing: clamp(15px, 4vw, 25px); /* Fluid spacing */
+        font-size: 28px; 
+        letter-spacing: clamp(15px, 4vw, 25px);
         padding: 15px 0; 
         border: none;
         background: transparent; 
         color: #720000; 
         font-weight: 900; 
         outline: none;
-        font-family: monospace; /* Monospace keeps numbers evenly spaced */
+        font-family: monospace;
         position: relative;
         z-index: 2;
-        /* Hides the blinking cursor for a cleaner look */
         color: transparent;
         text-shadow: 0 0 0 #720000;
     }
     
-    /* The visual boxes behind the text */
     .otp-background {
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        top: 0; left: 0; right: 0; bottom: 0;
         display: flex;
         justify-content: space-between;
         z-index: 1;
@@ -120,14 +111,13 @@
         transition: 0.2s;
     }
     
-    /* When the invisible input is focused, light up all the boxes */
     .otp-input:focus ~ .otp-background .otp-box {
         border-color: #E60026;
         background: white;
         box-shadow: 0 4px 10px rgba(230,0,38,0.1);
     }
 
-    /* === BUTTON === */
+    /* === BUTTONS === */
     .btn-verify {
         width: 100%; 
         padding: 18px; 
@@ -152,9 +142,29 @@
     
     .resend-text {
         margin-top: 25px; 
-        font-size: 13px; 
+        font-size: 14px; 
         color: #888;
         font-weight: 500;
+    }
+
+    /* NEW: Resend Button Styling */
+    .btn-resend {
+        background: transparent;
+        border: none;
+        color: #E60026;
+        font-weight: 900;
+        font-size: 14px;
+        cursor: pointer;
+        transition: 0.2s;
+        padding: 5px 10px;
+        border-radius: 8px;
+    }
+    .btn-resend:disabled {
+        color: #aaa;
+        cursor: not-allowed;
+    }
+    .btn-resend:not(:disabled):hover {
+        background: #FEF2F4;
     }
 </style>
 
@@ -165,10 +175,9 @@
         </div>
         
         <h1 class="verify-title">Check Your Email</h1>
-        <p class="verify-subtitle">We just sent a 6-digit verification code to <strong>{{ email }}</strong>. Enter it below to activate your account.</p>
+        <p class="verify-subtitle">We sent a 6-digit verification code to <br><strong>{{ email }}</strong>.</p>
 
         <form method="POST" action="{{ url_for('auth.verify_email') }}">
-            
             <div class="otp-container">
                 <input type="text" name="otp_code" class="otp-input" maxlength="6" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" autofocus>
                 
@@ -185,9 +194,35 @@
             <button type="submit" class="btn-verify">Verify Account</button>
         </form>
         
-        <p class="resend-text">
-            Didn't receive the email? Check your spam folder.
-        </p>
+        <div class="resend-text">
+            Didn't receive the email? Check spam or
+            <form method="POST" action="{{ url_for('auth.resend_otp') }}" style="display: inline;">
+                <button type="submit" id="btn-resend" class="btn-resend" disabled>
+                    Resend Code <span id="timer-text">(60s)</span>
+                </button>
+            </form>
+        </div>
+
     </div>
 </div>
+
+<script>
+    // --- 60-Second Countdown Timer Logic ---
+    document.addEventListener("DOMContentLoaded", () => {
+        let timeLeft = 60; // 60 seconds
+        const btnResend = document.getElementById('btn-resend');
+        const timerText = document.getElementById('timer-text');
+
+        const countdown = setInterval(() => {
+            timeLeft--;
+            timerText.innerText = `(${timeLeft}s)`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                btnResend.disabled = false;
+                timerText.innerText = "";
+            }
+        }, 1000);
+    });
+</script>
 {% endblock %}
