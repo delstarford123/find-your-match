@@ -947,6 +947,7 @@ def handle_connect():
     user_id = session.get('user_id')
     if user_id:
         join_room(user_id)
+        logger.info(f"User {user_id} connected to WebSockets.")
 
 @socketio.on('typing')
 def handle_typing(data):
@@ -957,9 +958,16 @@ def handle_typing(data):
 
 @socketio.on('send_message')
 def handle_message(data):
+    # 1. SECURITY: Get the sender's ID
     sender_id = session.get('user_id')
     if not sender_id:
         return 
+
+    # 🚨 CRITICAL FIX FOR WHATSAPP SPEED 🚨
+    # You MUST stamp the message with the sender's ID and a server timestamp 
+    # before bouncing it back. This is what triggers the double-blue ticks!
+    data['sender'] = sender_id
+    data['timestamp'] = datetime.now().isoformat()
 
     receiver_id = data.get('receiver_id')
     msg_text = data.get('text')
@@ -969,7 +977,9 @@ def handle_message(data):
     # ROUTE A: AI COMPANION LOGIC
     # ==========================================
     if receiver_id == 'AI_COMPANION':
+        # Echo back instantly to change the clock (🕒) to double ticks (✓✓)
         emit('receive_message', data, to=request.sid)
+        # Show AI typing indicator
         emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
         
         current_user_gender = "unknown"
@@ -983,9 +993,11 @@ def handle_message(data):
             socketio.emit('receive_message', {
                 'sender': 'AI_COMPANION',
                 'type': 'text',
-                'text': ai_reply
+                'text': ai_reply,
+                'timestamp': datetime.now().isoformat()
             }, to=sid)
 
+        # Run AI in the background so the server doesn't freeze
         threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
         return
 
@@ -993,13 +1005,11 @@ def handle_message(data):
     # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
     # ==========================================
     if msg_type == 'text':
-        # Note: If analyze_safety calls an external API, it will slightly delay the message. 
-        # For maximum speed, ensure analyze_safety uses a fast local library.
         safety_check = analyze_safety(msg_text)
         
         if not safety_check['is_safe']:
             if safety_check['flag'] in ['self_harm', 'violence']:
-                # Save alerts in the background so it doesn't freeze the app
+                # Save alerts in the background
                 def save_alert():
                     db.reference('admin_alerts').push({
                         'sender': sender_id,
@@ -1010,6 +1020,7 @@ def handle_message(data):
                     })
                 threading.Thread(target=save_alert).start()
             
+            # Send warning back to sender ONLY
             warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
             emit('receive_message', warning_msg, to=request.sid) 
             return
@@ -1028,10 +1039,10 @@ def handle_message(data):
     # ==========================================
     
     # 1. SEND INSTANTLY (0ms delay for users)
-    emit('receive_message', data, to=request.sid) # Echo to sender
-    emit('receive_message', data, to=receiver_id) # Send to receiver
+    emit('receive_message', data, to=request.sid) # Echoes back to you -> Triggers ✓✓
+    emit('receive_message', data, to=receiver_id) # Delivers to your match
 
-    # 2. SAVE IN BACKGROUND (Don't let Firebase slow down the chat UI)
+    # 2. SAVE IN BACKGROUND (Firebase won't slow down the chat UI)
     def background_save():
         try:
             save_chat_message(sender_id, receiver_id, msg_text, msg_type)
@@ -1039,7 +1050,6 @@ def handle_message(data):
             logger.error(f"Failed to save chat message to DB: {e}")
 
     threading.Thread(target=background_save).start()
-    
     
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
