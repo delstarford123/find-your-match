@@ -4,7 +4,7 @@
 <style>
     /* === SCREEN LAYOUT === */
     .qr-wrapper {
-        min-height: calc(100vh - var(--nav-height) - 100px);
+        min-height: calc(100vh - var(--nav-height, 70px) - 40px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -14,7 +14,7 @@
 
     .qr-container { 
         width: 100%;
-        max-width: 450px; 
+        max-width: 480px; 
         text-align: center; 
         background: white; 
         padding: clamp(30px, 8vw, 50px) 20px; 
@@ -23,44 +23,34 @@
         box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
         position: relative;
         overflow: hidden;
+        animation: fadeUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
     
-    /* Decorative top bar to look like a premium card */
+    @keyframes fadeUp {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Decorative top bar */
     .qr-container::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 8px;
+        content: ''; position: absolute; top: 0; left: 0;
+        width: 100%; height: 8px;
         background: linear-gradient(90deg, #720000 0%, #E60026 100%);
     }
 
     .qr-title {
-        color: #720000;
-        font-size: clamp(24px, 6vw, 32px);
-        font-weight: 900;
-        margin: 0 0 5px 0;
-        line-height: 1.2;
-        letter-spacing: -0.5px;
+        color: #720000; font-size: clamp(24px, 6vw, 32px);
+        font-weight: 900; margin: 0 0 5px 0; line-height: 1.2; letter-spacing: -0.5px;
     }
     .qr-subtitle {
-        color: #666;
-        font-size: 15px;
-        font-weight: 600;
-        margin: 0 0 25px 0;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: #666; font-size: 15px; font-weight: 800;
+        margin: 0 0 25px 0; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
     .qr-img-wrapper {
-        background: white;
-        padding: 15px;
-        border-radius: 20px;
-        display: inline-block;
-        border: 4px solid #FEF2F4;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        margin-bottom: 25px;
+        background: white; padding: 15px; border-radius: 20px;
+        display: inline-block; border: 4px solid #FEF2F4;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 25px;
     }
     .qr-img { 
         width: clamp(180px, 50vw, 250px); 
@@ -69,90 +59,80 @@
     }
 
     .staff-instructions {
-        background: #FEF2F4; 
-        padding: 20px; 
-        border-radius: 16px; 
-        border: 1px solid #FFD6DD;
-        text-align: left;
+        background: #FEF2F4; padding: 20px; border-radius: 16px; 
+        border: 1px solid #FFD6DD; text-align: left;
     }
     .staff-instructions h4 {
-        color: #720000;
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: #720000; margin: 0 0 8px 0; font-size: 14px;
+        font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;
     }
     .staff-instructions p {
-        color: #4A0008;
-        font-size: 14px;
-        margin: 0;
-        line-height: 1.5;
+        color: #4A0008; font-size: 14px; margin: 0; line-height: 1.5; font-weight: 500;
     }
 
-    .btn-print { 
-        background: #E60026; 
-        color: white; 
-        padding: 16px 30px; 
-        border-radius: 30px; 
-        border: none; 
-        cursor: pointer; 
-        font-weight: 800; 
-        font-size: 16px;
-        margin-top: 30px; 
-        width: 100%;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 8px 20px rgba(230,0,38,0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
+    /* === BUTTONS === */
+    .button-group {
+        display: flex; gap: 15px; margin-top: 30px;
+        flex-direction: column; /* Stacks on mobile */
     }
     
-    @media (hover: hover) {
-        .btn-print:hover { 
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(230,0,38,0.3);
-            background: #720000;
-        }
+    @media (min-width: 480px) {
+        .button-group { flex-direction: row; }
     }
 
+    .btn-action { 
+        flex: 1; padding: 16px 20px; border-radius: 16px; border: none; 
+        cursor: pointer; font-weight: 800; font-size: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-print { background: #E60026; color: white; box-shadow: 0 8px 20px rgba(230,0,38,0.2); }
+    .btn-download { background: white; color: #720000; border: 2px solid #FFD6DD; }
+    
+    @media (hover: hover) {
+        .btn-print:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230,0,38,0.3); background: #720000; }
+        .btn-download:hover { transform: translateY(-2px); background: #FEF2F4; border-color: #E60026; }
+    }
+    .btn-action:active { transform: scale(0.98); }
+
     /* === PRINT LAYOUT === */
-    /* This CSS ONLY applies when the user clicks 'Print' or presses Ctrl+P */
     @media print { 
-        /* Hide everything that isn't the card */
-        body { background: white; }
-        .navbar, footer, .btn-print, .b2b-header { display: none !important; } 
+        @page { margin: 0; } /* Removes default browser headers/footers in many browsers */
         
-        .qr-wrapper {
-            padding: 0;
-            min-height: auto;
-            background: white;
-        }
+        body { background: white; padding: 20px; display: flex; justify-content: center; align-items: flex-start; }
+        
+        /* Hide UI elements */
+        nav, footer, .button-group, .navbar { display: none !important; } 
+        
+        .qr-wrapper { padding: 0; min-height: auto; background: white; display: block; }
 
         .qr-container { 
-            border: 4px solid #720000; 
-            margin: 0; 
-            box-shadow: none;
-            padding: 50px;
-            max-width: 100%; /* Take up the full printed page width */
-            border-radius: 0; /* Remove curved edges for printing */
+            border: 2px dashed #999; /* Creates a "Cut Here" line */
+            margin: 0 auto; box-shadow: none; padding: 60px 40px;
+            max-width: 600px; border-radius: 0; animation: none;
         }
         
-        /* Make the QR code massive for the printed page */
-        .qr-img-wrapper { border: none; padding: 0; box-shadow: none; }
-        .qr-img { width: 400px; height: 400px; }
+        .qr-container::before { display: none; } /* Hide color gradient bar */
         
-        .qr-title { font-size: 48px; }
-        .qr-subtitle { font-size: 24px; margin-bottom: 50px; }
+        .qr-img-wrapper { border: none; padding: 0; box-shadow: none; }
+        .qr-img { width: 300px; height: 300px; }
+        
+        .qr-title { font-size: 40px; color: black; }
+        .qr-subtitle { font-size: 20px; margin-bottom: 40px; color: #333; }
         
         .staff-instructions { 
-            border: 2px solid #ddd; 
-            background: white !important; 
-            -webkit-print-color-adjust: exact; /* Forces printers to render background colors if needed */
+            border: 2px solid #000; background: white !important; 
+            -webkit-print-color-adjust: exact; padding: 25px;
         }
-        .staff-instructions h4 { font-size: 18px; }
-        .staff-instructions p { font-size: 16px; }
+        .staff-instructions h4 { font-size: 16px; color: black; }
+        .staff-instructions p { font-size: 14px; color: black; }
+        
+        /* Add a "Cut along dotted line" text at the top */
+        .qr-container::after {
+            content: '✂️ Cut along dotted line to display at register';
+            position: absolute; top: -30px; left: 0; width: 100%;
+            text-align: center; font-size: 12px; color: #666;
+        }
     }
 </style>
 
@@ -162,17 +142,40 @@
         <p class="qr-subtitle">Student Discount Verification</p>
         
         <div class="qr-img-wrapper">
-            <img src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="Merchant QR">
+            <img id="qr-code-img" src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="{{ restaurant_name }} QR Code">
         </div>
         
         <div class="staff-instructions">
             <h4>Instructions for Staff:</h4>
-            <p>Ask the student to scan this code with their phone. If their screen turns <strong style="color: #28a745; font-weight: 900;">GREEN</strong>, they are an active MMUST subscriber. Please apply the agreed discount.</p>
+            <p>Ask the student to scan this code with their app. If their screen turns <strong style="color: #28a745; font-weight: 900;">GREEN</strong>, they are an active MMUST subscriber. Please apply the agreed discount.</p>
         </div>
 
-        <button class="btn-print" onclick="window.print()">
-            <span style="font-size: 20px;">🖨️</span> Print Discount Card
-        </button>
+        <div class="button-group">
+            <button class="btn-action btn-download" onclick="downloadQR()">
+                <span style="font-size: 18px;">⬇️</span> Download Image
+            </button>
+            
+            <button class="btn-action btn-print" onclick="window.print()">
+                <span style="font-size: 18px;">🖨️</span> Print Card
+            </button>
+        </div>
     </div>
 </div>
+
+<script>
+    // Allows the business to download the raw PNG file for custom marketing
+    function downloadQR() {
+        const qrImageSrc = document.getElementById('qr-code-img').src;
+        const restaurantName = "{{ restaurant_name|default('restaurant', true) }}".replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        
+        const link = document.createElement('a');
+        link.href = qrImageSrc;
+        link.download = `mmust_qr_${restaurantName}.png`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
 {% endblock %}

@@ -4,7 +4,7 @@
 <style>
     /* === LAYOUT === */
     .profile-wrapper {
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        min-height: calc(100vh - var(--nav-height, 70px) - 40px);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -13,17 +13,17 @@
 
     .profile-view-container {
         width: 100%;
-        max-width: 450px;
+        max-width: 480px;
         background: white;
-        border-radius: 24px;
+        border-radius: 30px;
         overflow: hidden;
-        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.12);
         border: 1px solid #FFD6DD;
-        animation: slideUpFade 0.5s ease-out forwards;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
 
     @keyframes slideUpFade {
-        from { opacity: 0; transform: translateY(20px); }
+        from { opacity: 0; transform: translateY(30px); }
         to { opacity: 1; transform: translateY(0); }
     }
 
@@ -31,130 +31,123 @@
     .img-container {
         position: relative;
         width: 100%;
-        height: clamp(350px, 60vh, 500px);
+        height: clamp(380px, 65vh, 550px);
         background: #FEF2F4;
     }
     
-    .profile-view-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
+    .profile-view-img { width: 100%; height: 100%; object-fit: cover; }
     
-    /* Gradient overlay to make the transition to text smoother */
     .img-gradient {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: linear-gradient(to top, white 0%, rgba(255,255,255,0) 100%);
+        position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+        background: linear-gradient(to top, white 10%, rgba(255,255,255,0) 100%);
+    }
+
+    /* Online Pulse Indicator */
+    .status-pill {
+        position: absolute; top: 20px; left: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 6px 14px; border-radius: 20px;
+        display: flex; align-items: center; gap: 8px;
+        font-size: 12px; font-weight: 800; color: #4A0008;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot-online { background: #28a745; box-shadow: 0 0 8px #28a745; animation: pulse 2s infinite; }
+    .dot-offline { background: #bbb; }
+
+    @keyframes pulse { 
+        0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } 
     }
 
     /* === DETAILS SECTION === */
     .profile-view-details {
-        padding: 20px clamp(20px, 6vw, 30px) 30px;
+        padding: 10px clamp(20px, 6vw, 30px) 30px;
         position: relative;
     }
 
+    .major-tag {
+        display: inline-block;
+        background: #720000; color: white;
+        padding: 4px 12px; border-radius: 8px;
+        font-size: 11px; font-weight: 900;
+        text-transform: uppercase; letter-spacing: 1px;
+        margin-bottom: 10px;
+    }
+
     .profile-view-name {
-        font-size: clamp(26px, 6vw, 32px);
-        color: #720000;
-        font-weight: 900;
-        margin: 0 0 15px 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        letter-spacing: -0.5px;
-        line-height: 1.2;
+        font-size: clamp(28px, 6vw, 36px);
+        color: #720000; font-weight: 900;
+        margin: 0 0 15px 0; display: flex;
+        align-items: center; justify-content: space-between;
+        letter-spacing: -1px; line-height: 1.1;
     }
     
     .age-badge {
-        background: #FEF2F4; 
-        color: #E60026; 
-        font-size: 14px; 
-        padding: 4px 12px; 
-        border-radius: 15px; 
-        font-weight: 900;
-        margin-left: 10px;
-        vertical-align: middle;
-        letter-spacing: 0.5px;
+        background: #FEF2F4; color: #E60026; font-size: 16px; 
+        padding: 5px 15px; border-radius: 12px; font-weight: 900;
     }
 
     .profile-view-bio-box {
-        background: #fafafa;
-        padding: 20px;
-        border-radius: 16px;
-        color: #4A0008;
-        font-size: 15px;
-        line-height: 1.6;
-        border: 1px solid #f0f0f0;
-        margin-bottom: 30px;
+        background: #fafafa; padding: 20px; border-radius: 18px;
+        color: #4A0008; font-size: 15px; line-height: 1.6;
+        border: 1px solid #f0f0f0; margin-bottom: 25px;
+        white-space: pre-wrap; /* Preserves student's line breaks */
     }
+    
     .bio-label {
-        color: #E60026; 
-        text-transform: uppercase; 
-        font-size: 12px; 
-        letter-spacing: 1px;
-        font-weight: 900;
-        display: block;
-        margin-bottom: 8px;
+        color: #E60026; text-transform: uppercase; 
+        font-size: 11px; letter-spacing: 1.5px;
+        font-weight: 900; display: block; margin-bottom: 10px;
+    }
+
+    /* Compatibility Insight Card */
+    .ai-insight {
+        background: linear-gradient(135deg, #FFF5F6 0%, #FFFFFF 100%);
+        border: 1px dashed #FFD6DD; padding: 15px;
+        border-radius: 16px; margin-bottom: 30px;
+        display: flex; align-items: center; gap: 12px;
     }
 
     /* === ACTION BUTTONS === */
-    .action-bar {
-        display: flex;
-        gap: 15px;
-    }
+    .action-bar { display: flex; gap: 15px; }
 
     .btn-back {
-        background: white;
-        color: #720000;
-        border: 2px solid #FFD6DD;
-        padding: 16px;
-        border-radius: 14px;
-        flex: 1;
-        text-align: center;
-        font-weight: 800;
-        text-decoration: none;
-        transition: 0.2s;
-        font-size: 15px;
+        background: white; color: #720000; border: 2px solid #FFD6DD;
+        padding: 16px; border-radius: 16px; flex: 1;
+        text-align: center; font-weight: 800; text-decoration: none;
+        transition: 0.2s; font-size: 15px;
     }
     
     .btn-chat-primary {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white;
-        border: none;
-        padding: 16px;
-        border-radius: 14px;
-        flex: 2;
-        text-align: center;
-        font-weight: 900;
-        text-decoration: none;
-        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
-        transition: transform 0.2s, box-shadow 0.2s;
-        font-size: 15px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
+        color: white; border: none; padding: 16px;
+        border-radius: 16px; flex: 2; text-align: center;
+        font-weight: 900; text-decoration: none;
+        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25);
+        transition: 0.3s; font-size: 15px;
+        display: flex; justify-content: center; align-items: center; gap: 8px;
     }
 
     @media (hover: hover) {
         .btn-back:hover { background: #FEF2F4; border-color: #E60026; }
         .btn-chat-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(230, 0, 38, 0.4);
         }
     }
     
-    .btn-back:active, .btn-chat-primary:active { transform: scale(0.98); }
+    .btn-back:active, .btn-chat-primary:active { transform: scale(0.96); }
 </style>
 
 <div class="profile-wrapper">
     <div class="profile-view-container">
         
         <div class="img-container">
+            <div class="status-pill">
+                <div class="status-dot {{ 'dot-online' if student.is_online else 'dot-offline' }}"></div>
+                {{ 'Online Now' if student.is_online else 'Recently Active' }}
+            </div>
+
             {% if student.img %}
                 <img src="{{ student.img }}" alt="{{ student.name }}" class="profile-view-img">
             {% else %}
@@ -164,23 +157,33 @@
         </div>
         
         <div class="profile-view-details">
+            <div class="major-tag">🏫 {{ student.major | default('MMUST Student') }}</div>
+            
             <h1 class="profile-view-name">
                 <div>
                     {{ student.name.split(',')[0] }}
                     <span class="age-badge">{{ student.age | default(18) }}</span>
                 </div>
-                <span style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));" title="Verified MMUST Student">🎓</span>
+                <span title="Verified MMUST Identity">✅</span>
             </h1>
             
+            <div class="ai-insight">
+                <div style="font-size: 24px;">✨</div>
+                <div>
+                    <div style="font-weight: 900; font-size: 13px; color: #720000;">AI COMPATIBILITY</div>
+                    <div style="font-size: 12px; color: #666;">You share similar hobbies and interests!</div>
+                </div>
+            </div>
+
             <div class="profile-view-bio-box">
-                <span class="bio-label">About Me</span>
-                {{ student.bio }}
+                <span class="bio-label">The Bio</span>
+                {{ student.bio or "This student is keeping it mysterious... for now!" }}
             </div>
 
             <div class="action-bar">
-                <a href="javascript:history.back()" class="btn-back">Go Back</a>
+                <a href="javascript:history.back()" class="btn-back">Not Today</a>
                 <a href="{{ url_for('matches', partner_id=student.id) }}" class="btn-chat-primary">
-                    <span style="font-size: 18px;">💬</span> Message
+                    <span style="font-size: 18px;">❤️</span> Chat with {{ student.name.split(' ')[0] }}
                 </a>
             </div>
         </div>

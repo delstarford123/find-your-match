@@ -49,7 +49,7 @@
     .admin-header { 
         margin: 0 0 30px; 
         display: flex; 
-        flex-wrap: wrap; /* Allows wrapping on tiny screens */
+        flex-wrap: wrap;
         justify-content: space-between; 
         align-items: center; 
         gap: 15px;
@@ -66,6 +66,13 @@
         font-size: 14px;
     }
     
+    .status-group {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
     .system-status {
         background: rgba(56, 189, 248, 0.1); 
         color: #38bdf8; 
@@ -78,6 +85,23 @@
         align-items: center;
         gap: 6px;
     }
+
+    .btn-lock {
+        background: #0f172a;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: 0.2s;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-lock:hover { background: #ef4444; color: white; border-color: #ef4444; }
     
     /* === REVENUE CARDS === */
     .metrics-grid { 
@@ -144,71 +168,62 @@
         border: 1px solid #334155;
         display: flex; 
         justify-content: space-between; 
-        align-items: flex-start; /* Better alignment if text is long */
+        align-items: flex-start; 
         flex-wrap: wrap; 
         gap: 20px;
     }
     
     /* Warning Flags */
     .flag-red { 
-        color: #ef4444; 
-        font-weight: 900; 
-        background: rgba(239, 68, 68, 0.15); 
-        padding: 6px 12px; 
-        border-radius: 8px; 
-        font-size: 12px;
-        letter-spacing: 0.5px;
+        color: #ef4444; font-weight: 900; background: rgba(239, 68, 68, 0.15); 
+        padding: 6px 12px; border-radius: 8px; font-size: 12px; letter-spacing: 0.5px;
     }
     .flag-yellow { 
-        color: #eab308; 
-        font-weight: 800; 
-        background: rgba(234, 179, 8, 0.15); 
-        padding: 6px 12px; 
-        border-radius: 8px; 
-        font-size: 12px;
+        color: #eab308; font-weight: 800; background: rgba(234, 179, 8, 0.15); 
+        padding: 6px 12px; border-radius: 8px; font-size: 12px;
     }
     
     /* Message Bubble */
     .alert-message {
-        color: #e2e8f0; 
-        font-size: 14px; 
-        margin: 10px 0; 
-        background: #0f172a; 
-        padding: 15px; 
-        border-radius: 8px; 
-        border-left: 4px solid #ef4444;
-        line-height: 1.5;
-        word-wrap: break-word; /* Prevents long links/spam from breaking layout */
+        color: #e2e8f0; font-size: 14px; margin: 10px 0; background: #0f172a; 
+        padding: 15px; border-radius: 8px; border-left: 4px solid #ef4444;
+        line-height: 1.5; word-wrap: break-word; 
     }
     
     /* Action Buttons */
-    .action-group {
-        display: flex; 
-        gap: 10px; 
-        flex-wrap: wrap; /* Stacks buttons on very small screens */
-    }
+    .action-group { display: flex; gap: 10px; flex-wrap: wrap; }
     .btn-admin { 
-        padding: 12px 18px; 
-        border-radius: 8px; 
-        font-weight: 800; 
-        cursor: pointer; 
-        border: none; 
-        font-size: 13px; 
-        transition: 0.2s; 
+        padding: 12px 18px; border-radius: 8px; font-weight: 800; 
+        cursor: pointer; border: none; font-size: 13px; transition: 0.2s; 
     }
+    .btn-admin:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .btn-approve { background: #10b981; color: white; }
-    .btn-approve:hover { background: #059669; }
+    .btn-approve:hover:not(:disabled) { background: #059669; }
     
     .btn-ban { background: #ef4444; color: white; }
-    .btn-ban:hover { background: #dc2626; }
+    .btn-ban:hover:not(:disabled) { background: #dc2626; }
     
     .btn-dismiss { background: transparent; color: #94a3b8; border: 1px solid #475569; }
-    .btn-dismiss:hover { background: #334155; color: white; }
+    .btn-dismiss:hover:not(:disabled) { background: #334155; color: white; }
     
-    /* Responsive overrides */
     @media (max-width: 600px) {
         .action-group { width: 100%; }
-        .btn-admin { width: 100%; text-align: center; } /* Full width buttons on mobile */
+        .btn-admin { width: 100%; text-align: center; }
+    }
+
+    /* === ADMIN TOAST NOTIFICATION === */
+    .admin-toast {
+        display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: #38bdf8; color: #0f172a; padding: 15px 25px; border-radius: 12px;
+        font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        z-index: 10000; animation: slideUpToast 0.3s ease-out forwards;
+    }
+    .admin-toast.error { background: #ef4444; color: white; }
+    
+    @keyframes slideUpToast {
+        from { opacity: 0; bottom: 0; }
+        to { opacity: 1; bottom: 30px; }
     }
 </style>
 
@@ -232,24 +247,27 @@
             <h1>Command Center</h1>
             <p>Live Overview of MMUST Dating AI</p>
         </div>
-        <div class="system-status">
-            <div style="width: 8px; height: 8px; background: #38bdf8; border-radius: 50%; box-shadow: 0 0 8px #38bdf8;"></div>
-            System Online
+        <div class="status-group">
+            <div class="system-status">
+                <div style="width: 8px; height: 8px; background: #38bdf8; border-radius: 50%; box-shadow: 0 0 8px #38bdf8;"></div>
+                System Online
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="btn-lock">🔒 Lock Terminal</a>
         </div>
     </div>
 
     <div class="metrics-grid">
         <div class="metric-card highlight">
             <div class="m-title">Total Gross Revenue</div>
-            <div class="m-value"><span>KSH</span> {{ total_revenue }}</div>
+            <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
         </div>
         <div class="metric-card">
             <div class="m-title">B2C (Student Subs)</div>
-            <div class="m-value"><span>KSH</span> {{ student_revenue }}</div>
+            <div class="m-value"><span>KSH</span> <span class="format-num">{{ student_revenue | default(0) }}</span></div>
         </div>
         <div class="metric-card">
             <div class="m-title">B2B (Partner Venues)</div>
-            <div class="m-value"><span>KSH</span> {{ b2b_revenue }}</div>
+            <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
         </div>
     </div>
 
@@ -272,13 +290,14 @@
                 </div>
                 
                 <div class="action-group">
-                    <button class="btn-admin btn-dismiss" onclick="adminAction('dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
-                    <button class="btn-admin btn-ban" onclick="adminAction('ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
+                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
+                    <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
             <div style="padding: 40px; text-align: center; color: #64748b; background: #1e293b; border-radius: 12px; border: 1px dashed #334155; font-weight: 600;">
+                <div style="font-size: 30px; margin-bottom: 10px;">🛡️</div>
                 The community is safe. No AI alerts currently pending.
             </div>
         {% endif %}
@@ -296,21 +315,46 @@
                 </div>
                 
                 <div class="action-group">
-                    <button class="btn-admin btn-approve" onclick="adminAction('approve_business', '{{ biz.id }}')">Approve & Activate</button>
+                    <button class="btn-admin btn-approve" onclick="adminAction(this, 'approve_business', '{{ biz.id }}')">Approve & Activate</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
             <div style="padding: 40px; text-align: center; color: #64748b; background: #1e293b; border-radius: 12px; border: 1px dashed #334155; font-weight: 600;">
+                <div style="font-size: 30px; margin-bottom: 10px;">📉</div>
                 No new businesses pending approval right now.
             </div>
         {% endif %}
     </div>
 
+    <div id="admin-toast" class="admin-toast">Action completed successfully.</div>
+
     <script>
-        function adminAction(actionType, targetId, alertId = null) {
+        // Format large revenue numbers with commas
+        document.querySelectorAll('.format-num').forEach(el => {
+            const num = parseFloat(el.innerText);
+            if(!isNaN(num)) {
+                el.innerText = num.toLocaleString('en-KE');
+            }
+        });
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('admin-toast');
+            toast.innerText = message;
+            toast.className = isError ? 'admin-toast error' : 'admin-toast';
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        // Updated function to accept 'btn' reference to disable it during load
+        function adminAction(btn, actionType, targetId, alertId = null) {
             if (!confirm("Are you sure you want to execute this action?")) return;
             
+            // Disable button and show loading state
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "Processing...";
+
             fetch('/api/admin/action', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -319,19 +363,28 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    // Dynamically remove the item from the screen without reloading
-                    if (actionType === 'dismiss_alert' || actionType === 'ban_user') {
-                        document.getElementById('alert-' + (alertId || targetId)).style.display = 'none';
-                    } else if (actionType === 'approve_business') {
-                        document.getElementById('biz-' + targetId).style.display = 'none';
-                        alert("Business Approved! They are now live on the Venues page.");
-                    }
+                    // Find the exact ID to hide
+                    const removeId = (actionType === 'approve_business') ? 'biz-' + targetId : 'alert-' + (alertId || targetId);
+                    const elementToRemove = document.getElementById(removeId);
+                    
+                    if (elementToRemove) elementToRemove.style.display = 'none';
+                    
+                    let msg = "Action completed.";
+                    if (actionType === 'dismiss_alert') msg = "Alert dismissed.";
+                    if (actionType === 'ban_user') msg = "User permanently banned.";
+                    if (actionType === 'approve_business') msg = "Business approved and activated!";
+                    
+                    showToast(msg);
                 } else {
-                    alert("Action failed: " + data.message);
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                    showToast("Action failed: " + data.message, true);
                 }
             })
             .catch(err => {
-                alert("Network error occurred.");
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast("Network error. Check console.", true);
                 console.error(err);
             });
         }

@@ -50,7 +50,7 @@
         align-items: center;
         border: 2px solid white;
         box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
-        display: none; /* Hidden by default */
+        display: none;
         animation: pulseMatch 2s infinite;
     }
 
@@ -198,7 +198,8 @@
     .bubble-enter { animation: popBubble 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     @keyframes popBubble { 0% { opacity: 0; transform: translateY(15px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 
-    .chat-bubble { max-width: 75%; padding: 10px 14px 14px; border-radius: 16px; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.1); word-wrap: break-word; position: relative; display: inline-block; }
+    /* Fix: white-space: pre-wrap preserves multi-line text */
+    .chat-bubble { max-width: 75%; padding: 10px 14px 14px; border-radius: 16px; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.1); word-wrap: break-word; white-space: pre-wrap; position: relative; display: inline-block; }
     
     .bubble-them { background: white; color: #111; border-top-left-radius: 0; }
     .bubble-me { background: var(--my-bubble-color); color: var(--my-bubble-text); border-top-right-radius: 0; padding-right: 65px; } 
@@ -228,6 +229,10 @@
     .btn-send:active { transform: scale(0.9); }
 
     /* === MOBILE RESPONSIVE === */
+    .empty-chat-state {
+        flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa;
+    }
+
     @media (max-width: 768px) {
         .inbox-container { margin: 0; height: calc(100vh - var(--nav-height)); border-radius: 0; border: none; }
         .matches-sidebar { width: 100%; display: flex; }
@@ -236,6 +241,8 @@
         .inbox-container.chat-active .chat-area { display: flex; }
         .btn-back { display: block; }
         .chat-bubble { max-width: 88%; }
+        /* Hide the placeholder entirely on mobile when not chatting */
+        .empty-chat-state { display: none; }
     }
 </style>
 
@@ -374,7 +381,7 @@
         </div>
         
         {% else %}
-        <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa; display: none;">
+        <div class="empty-chat-state">
             <div style="font-size: 60px; color: #ddd; margin-bottom: 20px;">💬</div>
             <h3 style="color: #555;">Your Messages</h3>
             <p>Select a user from the sidebar to start chatting.</p>
@@ -385,6 +392,22 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
+    // ==========================================
+    // XSS SANITIZATION (CRITICAL SECURITY FIX)
+    // ==========================================
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
+
     // ==========================================
     // THEME CUSTOMIZATION LOGIC
     // ==========================================
@@ -502,10 +525,12 @@
             offlineQueue[activePartnerId].forEach(msg => {
                 const timeObj = new Date(msg.timestamp || Date.now());
                 const timeString = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                // Fix: Sanitize message before injection
+                const cleanText = escapeHTML(msg.text);
                 const html = `
                     <div class="bubble-wrapper them bubble-enter">
                         <div class="chat-bubble bubble-them">
-                            ${msg.text}
+                            ${cleanText}
                             <div class="msg-meta" style="right:auto;left:10px;justify-content:flex-start;">
                                 <span class="msg-time">${timeString}</span>
                             </div>
@@ -543,10 +568,10 @@
             }
             
             const count = unreadMap[uid].count;
-            const msgText = unreadMap[uid].text;
+            // Fix: Sanitize message preview text
+            const msgText = escapeHTML(unreadMap[uid].text);
             totalUnread += count;
             
-            // Try to find user info from sidebar
             const sidebarItem = document.querySelector(`.match-item[data-uid="${uid}"]`);
             let name = "New Match";
             let img = "/static/img/placeholder.png";
@@ -554,7 +579,7 @@
 
             if (sidebarItem) {
                 const nameSpan = sidebarItem.querySelector('.user-name-text');
-                if (nameSpan) name = nameSpan.textContent.trim();
+                if (nameSpan) name = escapeHTML(nameSpan.textContent.trim());
                 const imgEl = sidebarItem.querySelector('.match-avatar');
                 if (imgEl) img = imgEl.src;
                 const dot = sidebarItem.querySelector('.online-dot');
@@ -585,7 +610,6 @@
             badge.style.display = 'flex';
             list.innerHTML = popoverHtml;
             
-            // Add animation to bell to draw attention
             const bell = document.getElementById('global-bell');
             bell.style.transform = 'scale(1.15) rotate(10deg)';
             setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
@@ -596,7 +620,6 @@
         }
     }
 
-    // Initialize Bell on load
     updateBellUI();
 
 
@@ -634,10 +657,12 @@
         
         function renderMyMessageInstantly(text, tempId) {
             const timeString = getCurrentTime();
+            // Fix: Sanitize before rendering
+            const cleanText = escapeHTML(text);
             const html = `
                 <div class="bubble-wrapper me bubble-enter" id="msg-${tempId}">
                     <div class="chat-bubble bubble-me">
-                        ${text}
+                        ${cleanText}
                         <div class="msg-meta">
                             <span class="msg-time">${timeString}</span>
                             <span class="msg-status status-sending" id="status-${tempId}">🕒</span>
@@ -695,7 +720,6 @@
     });
 
     socket.on('receive_message', function(data) {
-        // 1. Delivery Confirmation
         if (data.sender === myId || data.sender_id === myId) {
             const statusElement = document.getElementById(`status-${data.temp_id}`);
             if (statusElement) {
@@ -705,9 +729,7 @@
             return;
         }
 
-        // 2. Message from a background user (Triggers Bell Notification)
         if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
-            
             let currentCount = 0;
             if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
                  currentCount = unreadMap[data.sender].count || 0;
@@ -725,7 +747,6 @@
             });
             localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
 
-            // Update the Top-Right Bell!
             updateBellUI();
 
             const sidebarItem = document.querySelector(`.match-item[data-uid="${data.sender}"]`);
@@ -741,18 +762,20 @@
             return;
         }
 
-        // 3. Message from the active partner
         if(typingIndicator) typingIndicator.style.display = 'none';
         
         let html = '';
+        // Fix: Sanitize incoming data
+        const cleanText = escapeHTML(data.text);
+        
         if (data.sender === 'SYSTEM_AI') {
-            html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
+            html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${cleanText}</div></div>`;
         } else {
             const timeString = getCurrentTime();
             html = `
             <div class="bubble-wrapper them bubble-enter">
                 <div class="chat-bubble bubble-them">
-                    ${data.text}
+                    ${cleanText}
                     <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
                         <span class="msg-time">${timeString}</span>
                     </div>

@@ -2,65 +2,139 @@
 
 {% block content %}
 <style>
+    /* === GLOBAL NOTIFICATION BELL === */
+    .floating-bell {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border: 2px solid #FFD6DD;
+        color: #720000;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
+        z-index: 9999;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .floating-bell:hover { transform: scale(1.1); }
+    .floating-bell:active { transform: scale(0.9); }
+
+    .bell-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #E60026;
+        color: white;
+        font-size: 11px;
+        font-weight: 900;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        padding: 0 4px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid white;
+        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
+        display: none; /* Hidden by default */
+        animation: pulseMatch 2s infinite;
+    }
+
+    /* === NOTIFICATION POPOVER MENU === */
+    .bell-popover {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        width: 320px;
+        z-index: 10000;
+        border: 1px solid #FFD6DD;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        transform-origin: top right;
+        animation: popIn 0.2s ease-out forwards;
+    }
+    .bell-popover.active { display: flex; }
+
+    .popover-header {
+        padding: 15px;
+        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        color: white;
+        font-weight: 900;
+        font-size: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .popover-list { max-height: 350px; overflow-y: auto; }
+    .popover-item {
+        padding: 12px 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: 0.2s;
+        background: white;
+    }
+    .popover-item:hover { background: #FEF2F4; }
+    .popover-item:last-child { border-bottom: none; }
+
+    .popover-unread-count {
+        background: #E60026; color: white; border-radius: 10px;
+        padding: 2px 8px; font-size: 11px; font-weight: 900; flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
+        .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
+    }
+
+    @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
     /* === CORE LAYOUT & RESPONSIVE SIZING === */
     .deck-wrapper {
-        display: flex; 
-        justify-content: center; 
-        align-items: center;
-        /* Force it to fill the entire screen below the nav */
+        display: flex; justify-content: center; align-items: center;
         height: calc(100vh - var(--nav-height, 70px) - 20px); 
-        width: 100%;
-        padding: 10px; 
-        perspective: 1000px; 
-        overflow: hidden;
-        background: #f4f6f8; 
+        width: 100%; padding: 10px; perspective: 1000px; 
+        overflow: hidden; background: #f4f6f8; 
     }
     
     .deck-container { 
-        position: relative; 
-        /* The Magic Fix: Forces expansion */
-        width: 95vw; 
-        max-width: 420px; 
-        height: 80vh; 
-        max-height: 680px; 
-        min-height: 500px;
+        position: relative; width: 95vw; max-width: 420px; 
+        height: 80vh; max-height: 680px; min-height: 500px;
     }
     
     /* === THE CARD (FULL BLEED) === */
     .card { 
-        background: white; 
-        border-radius: 24px; 
-        overflow: hidden; 
+        background: white; border-radius: 24px; overflow: hidden; 
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); 
-        position: absolute; 
-        inset: 0; 
-        display: flex; 
-        flex-direction: column; 
+        position: absolute; inset: 0; display: flex; flex-direction: column; 
         transition: transform 0.3s ease, opacity 0.3s ease;
-        will-change: transform; 
-        cursor: grab;
-        border: 1px solid rgba(255,255,255,0.5);
-        z-index: 5; 
+        will-change: transform; cursor: grab;
+        border: 1px solid rgba(255,255,255,0.5); z-index: 5; 
     }
     .card:active { cursor: grabbing; }
     
-    /* === MATCH SIGNAL BADGE (NEW FEATURE) === */
+    /* === MATCH SIGNAL BADGE === */
     #is-match-signal {
-        position: absolute;
-        top: 25px;
-        right: 25px;
-        background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 30px;
-        font-weight: 900;
-        font-size: 13px;
-        letter-spacing: 1px;
-        box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4);
-        z-index: 100;
-        display: none; /* Controlled by JS via updateMatchSignal */
-        animation: pulseBadge 1.5s infinite;
-        pointer-events: none;
+        position: absolute; top: 25px; right: 25px;
+        background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: white;
+        padding: 8px 16px; border-radius: 30px; font-weight: 900;
+        font-size: 13px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4);
+        z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
     @keyframes pulseBadge {
         0% { transform: scale(1); box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4); }
@@ -69,12 +143,7 @@
     }
 
     /* === IMAGE & GRADIENT === */
-    .image-container { 
-        position: absolute; 
-        inset: 0; 
-        background: #e0e0e0; 
-        overflow: hidden;
-    }
+    .image-container { position: absolute; inset: 0; background: #e0e0e0; overflow: hidden; }
     #profile-img { width: 100%; height: 100%; object-fit: cover; display: none; }
     
     .card-info { 
@@ -131,9 +200,23 @@
     .hidden { display: none !important; }
 </style>
 
+<div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
+    🔔
+    <div class="bell-badge" id="bell-badge">0</div>
+</div>
+
+<div class="bell-popover" id="bell-popover">
+    <div class="popover-header">
+        <span>💬 New Messages</span>
+        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">×</button>
+    </div>
+    <div class="popover-list" id="bell-popover-list">
+        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px;">No new messages</div>
+    </div>
+</div>
+
 <div class="deck-wrapper">
     <div class="deck-container">
-        
         <div id="is-match-signal">ITS A MATCH! 🔥</div>
 
         <div id="profile-card" class="card">
@@ -185,11 +268,12 @@
     <button onclick="closeMatchOverlay()" style="background:transparent; color:white; border:none; margin-top:15px; cursor:pointer; opacity:0.7;">KEEP SWIPING</button>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
-    // Set global User ID for main.js
+    // --- Set global User ID for main.js ---
     window.currentUserId = "{{ current_user.id }}";
 
-    // FUNCTION: Show/Hide the "ITS A MATCH!" badge on the current card
+    // --- Swipe/Match Logic ---
     window.updateMatchSignal = function(isMutual) {
         const signal = document.getElementById('is-match-signal');
         if (signal) {
@@ -197,13 +281,11 @@
         }
     };
 
-    // Match Celebration Trigger
     window.triggerMatchCelebration = function(matchData) {
         document.getElementById('match-name-celeb').innerText = matchData.name.split(' ')[0];
         document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
         document.getElementById('match-overlay').style.display = 'flex';
 
-        // Load AI Icebreakers
         const container = document.getElementById('icebreaker-container');
         container.innerHTML = '<p style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom: 10px;">AI SUGGESTED ICEBREAKERS</p>';
         
@@ -234,6 +316,106 @@
         document.getElementById('match-overlay').style.display = 'none';
         if(typeof window.loadNextProfile === 'function') window.loadNextProfile();
     }
+
+
+    // ==========================================
+    // GLOBAL BELL NOTIFICATION LOGIC
+    // ==========================================
+    const myId = "{{ session.get('user_id') }}";
+    const socket = io();
+    let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
+    let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
+
+    function toggleBellPopover(e) {
+        e.stopPropagation();
+        const pop = document.getElementById('bell-popover');
+        if (pop) pop.classList.toggle('active');
+    }
+
+    function updateBellUI() {
+        const badge = document.getElementById('bell-badge');
+        const list  = document.getElementById('bell-popover-list');
+        if (!badge || !list) return;
+
+        let totalUnread = 0;
+        let popoverHtml = '';
+
+        for (const [uid, data] of Object.entries(unreadMap)) {
+            if (typeof data !== 'object') {
+                 unreadMap[uid] = { count: data, text: "New Message" };
+            }
+            const count = unreadMap[uid].count;
+            const msgText = unreadMap[uid].text;
+            totalUnread += count;
+
+            popoverHtml += `
+                <div class="popover-item" onclick="window.location.href='/matches/${uid}'">
+                    <div style="position:relative; flex-shrink:0;">
+                        <img src="/static/img/placeholder.png" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+                        <span style="position:absolute; bottom:1px; right:1px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:#28a745;"></span>
+                    </div>
+                    <div style="flex:1; overflow:hidden;">
+                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            New Match
+                        </div>
+                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            ${msgText}
+                        </div>
+                    </div>
+                    <span class="popover-unread-count">${count}</span>
+                </div>
+            `;
+        }
+
+        if (totalUnread > 0) {
+            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            badge.style.display = 'flex';
+            list.innerHTML = popoverHtml;
+            
+            // Jiggle animation on new message
+            const bell = document.getElementById('global-bell');
+            bell.style.transform = 'scale(1.15) rotate(10deg)';
+            setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
+        } else {
+            badge.style.display = 'none';
+            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">No new messages</div>';
+        }
+    }
+
+    // Init UI on load
+    updateBellUI();
+
+    // Listen for new incoming messages while swiping
+    socket.on('receive_message', function(data) {
+        if (data.sender === myId || data.sender_id === myId || data.sender === 'SYSTEM_AI') return;
+
+        let currentCount = 0;
+        if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
+             currentCount = unreadMap[data.sender].count || 0;
+        } else if (typeof unreadMap[data.sender] === 'number') {
+             currentCount = unreadMap[data.sender];
+        }
+
+        unreadMap[data.sender] = { count: currentCount + 1, text: data.text };
+        localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+        
+        if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
+        offlineQueue[data.sender].push({
+            text: data.text,
+            timestamp: data.timestamp || new Date().toISOString()
+        });
+        localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+
+        updateBellUI();
+    });
+
+    // Close popover when clicking outside
+    window.addEventListener('click', function(e) {
+        const bellPop = document.getElementById('bell-popover');
+        if (bellPop && bellPop.classList.contains('active') && !e.target.closest('#bell-popover') && !e.target.closest('#global-bell')) {
+            bellPop.classList.remove('active');
+        }
+    });
 </script>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>

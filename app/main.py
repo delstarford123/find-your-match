@@ -533,6 +533,7 @@ def view_student(target_id):
 def settings():
     # PROTECTED: Must be logged in (but unpaid users can still edit settings)
     user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
 
     if request.method == 'POST':
         gender_pref = request.form.get('gender_pref')
@@ -541,15 +542,16 @@ def settings():
         ai_mode = request.form.get('ai_mode') == 'on'
 
         try:
-            ref = db.reference(f'profiles/{user_id}/settings')
-            ref.update({
+            # Save settings to the 'settings' sub-node
+            user_ref.child('settings').update({
                 'looking_for': gender_pref,
                 'major_filter': major_filter,
                 'strict_schedule': strict_mode,
                 'ai_companion_mode': ai_mode
             })
             
-            db.reference(f'profiles/{user_id}').update({
+            # Update main profile visibility
+            user_ref.update({
                 'is_visible': not ai_mode 
             })
             
@@ -559,8 +561,25 @@ def settings():
 
         return redirect(url_for('settings'))
 
-    return render_template('settings.html', current_user=session.get('user_name'))
+    # === GET REQUEST LOGIC (THE FIX) ===
+    # 1. Fetch the user's data from Firebase
+    user_profile = user_ref.get() or {}
+    user_settings = user_profile.get('settings', {})
 
+    # 2. Map the Firebase keys to the variable names the HTML template expects
+    template_user_data = {
+        'gender_pref': user_settings.get('looking_for', 'Everyone'),
+        'major_filter': user_settings.get('major_filter', 'All'),
+        'strict_mode': user_settings.get('strict_schedule', False),
+        'ai_mode': user_settings.get('ai_companion_mode', False)
+    }
+
+    # 3. Pass the mapped data to the template
+    return render_template(
+        'settings.html', 
+        current_user=session.get('user_name'),
+        user=template_user_data
+    )
 # ==========================================
 # B2B PAGES (MERCHANTS)
 # ==========================================

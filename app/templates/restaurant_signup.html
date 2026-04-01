@@ -211,7 +211,7 @@
             </ul>
         </div>
 
-        <form action="{{ url_for('auth.business_register') }}" method="POST">
+        <form action="{{ url_for('auth.business_register') }}" method="POST" onsubmit="return validatePasswords()">
             
             <div class="flex-row">
                 <div class="input-group">
@@ -230,9 +230,29 @@
                     <input type="text" id="owner_name" name="owner_name" required placeholder="Full Name">
                 </div>
                 <div class="input-group">
-                    <label for="email">Business Email</label>
-                    <input type="email" id="email" name="email" required placeholder="manager@business.com">
+                    <label for="phone">Phone / M-Pesa Number</label>
+                    <input type="tel" id="phone" name="phone" required placeholder="2547XXXXXXXX">
                 </div>
+            </div>
+
+            <div class="input-group">
+                <label for="email">Business Email (Used for Login)</label>
+                <input type="email" id="email" name="email" required placeholder="manager@business.com">
+            </div>
+
+            <div class="flex-row">
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Create a password">
+                </div>
+                <div class="input-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" required placeholder="Type it again">
+                </div>
+            </div>
+            
+            <div id="password-error" style="color: #E60026; font-size: 13px; font-weight: bold; margin-bottom: 15px; display: none;">
+                Passwords do not match. Please try again.
             </div>
 
             <div class="input-group">
@@ -244,9 +264,27 @@
         </form>
         
         <div class="auth-footer">
+            Already a partner? <a href="{{ url_for('auth.login') }}">Log in here</a>.<br><br>
             Are you a student looking for a date? <a href="{{ url_for('auth.signup') }}">Sign up here</a>.
         </div>
 
     </div>
 </div>
+
+<script>
+    // FIX: Client-side password validation
+    function validatePasswords() {
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        const errorDiv = document.getElementById('password-error');
+        
+        if (password !== confirmPassword) {
+            errorDiv.style.display = 'block';
+            return false; // Prevents form submission
+        }
+        
+        errorDiv.style.display = 'none';
+        return true; // Allows form submission
+    }
+</script>
 {% endblock %}

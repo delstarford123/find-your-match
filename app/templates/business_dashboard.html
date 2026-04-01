@@ -12,7 +12,7 @@
     /* Header */
     .b2b-header { 
         display: flex; 
-        flex-wrap: wrap; /* Allows wrapping on very small screens */
+        flex-wrap: wrap;
         justify-content: space-between; 
         align-items: center; 
         gap: 15px;
@@ -60,7 +60,7 @@
     /* M-Pesa Payment Box */
     .payment-box {
         display: flex; 
-        flex-wrap: wrap; /* Stacks on mobile */
+        flex-wrap: wrap;
         gap: 10px; 
         width: 100%; 
         max-width: 500px; 
@@ -72,7 +72,7 @@
     
     .mpesa-input {
         flex: 1; 
-        min-width: 200px; /* Prevents input from getting too small before wrapping */
+        min-width: 200px;
         padding: 12px; 
         border: 1px solid #ccc; 
         border-radius: 8px; 
@@ -91,13 +91,13 @@
         cursor: pointer; 
         transition: 0.2s;
         white-space: nowrap;
-        flex: 1; /* Allow button to grow on mobile */
+        flex: 1; 
         min-width: 150px;
     }
     .btn-pay:hover:not(:disabled) { background: #218838; transform: translateY(-1px); }
     .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
 
-    /* Stat Cards (Fluid Grid) */
+    /* Stat Cards */
     .stats-grid { 
         display: grid; 
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
@@ -129,18 +129,33 @@
     }
     .b2b-section h2, .b2b-section h3 { color: #720000; margin-top: 0; margin-bottom: 20px; font-weight: 800; }
     
-    /* Responsive Table Wrapper */
-    .table-responsive {
-        width: 100%;
-        overflow-x: auto; /* Allows horizontal scrolling on mobile */
-        -webkit-overflow-scrolling: touch;
-    }
-
-    table { width: 100%; border-collapse: collapse; min-width: 600px; /* Forces scroll if screen is too narrow */ }
+    /* === RESPONSIVE TABLE FIX === */
+    .table-responsive { width: 100%; }
+    table { width: 100%; border-collapse: collapse; }
     th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
     th { color: #888; font-size: 12px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
     td { color: #4A0008; font-size: 14px; font-weight: 500; }
     
+    /* Mobile Table -> Cards Conversion */
+    @media (max-width: 768px) {
+        table, thead, tbody, th, td, tr { display: block; }
+        thead tr { position: absolute; top: -9999px; left: -9999px; }
+        tr { border: 1px solid #FFD6DD; border-radius: 12px; margin-bottom: 15px; padding: 15px; background: #fafafa; }
+        td { border: none; position: relative; padding-left: 40%; text-align: left; padding-bottom: 10px; }
+        td:before { 
+            position: absolute; top: 0; left: 0; width: 35%; padding-right: 10px; 
+            white-space: nowrap; font-weight: 800; font-size: 12px; color: #888; text-transform: uppercase; 
+        }
+        /* Map columns to labels */
+        td:nth-of-type(1):before { content: "Couple"; }
+        td:nth-of-type(2):before { content: "Date Day"; }
+        td:nth-of-type(3):before { content: "Time"; }
+        td:nth-of-type(4):before { content: "Status"; }
+        td:nth-of-type(5):before { content: "Actions"; }
+        
+        .action-flex { justify-content: flex-start; }
+    }
+
     .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
     .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
     .status-approved { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -155,54 +170,43 @@
 
     /* Promo / Action Banner */
     .action-banner {
-        background: white; 
-        padding: 25px; 
-        border-radius: 15px; 
-        margin-bottom: 30px; 
-        border: 1px solid #FFD6DD; 
-        display: flex; 
-        flex-wrap: wrap;
-        gap: 20px;
-        align-items: center; 
-        justify-content: space-between;
+        background: white; padding: 25px; border-radius: 15px; margin-bottom: 30px; 
+        border: 1px solid #FFD6DD; display: flex; flex-wrap: wrap; gap: 20px;
+        align-items: center; justify-content: space-between;
     }
     
     .btn-qr {
-        text-decoration: none; 
-        display: flex; 
-        align-items: center; 
-        gap: 8px; 
-        background: #E60026;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: bold;
-        transition: background 0.2s;
-        white-space: nowrap;
+        text-decoration: none; display: flex; align-items: center; gap: 8px; 
+        background: #E60026; color: white; padding: 12px 20px;
+        border-radius: 8px; font-weight: bold; transition: background 0.2s; white-space: nowrap;
     }
     .btn-qr:hover { background: #720000; }
 
     /* Heatmap styling */
     .heatmap-container {
-        display: flex; 
-        align-items: flex-end; 
-        gap: 4px; /* Tighter gap for mobile */
-        height: 150px; 
-        padding-top: 20px; 
-        border-bottom: 2px solid #eee;
-        overflow-x: auto; /* Allow scroll if too many bars */
+        display: flex; align-items: flex-end; gap: 4px; height: 150px; 
+        padding-top: 20px; border-bottom: 2px solid #eee; overflow-x: auto; 
     }
     .heat-bar-wrapper {
-        flex: 1; 
-        min-width: 15px; /* Ensures bars don't get completely crushed */
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        gap: 8px;
+        flex: 1; min-width: 15px; display: flex; flex-direction: column; 
+        align-items: center; gap: 8px;
     }
     
-    /* Toast Animation */
+    /* === TOAST ANIMATION & STYLES === */
+    .toast-alert {
+        display: none; position: fixed; bottom: 30px; right: 30px; 
+        background: #720000; color: white; padding: 20px; 
+        border-radius: 15px; box-shadow: 0 10px 30px rgba(114,0,0,0.3); 
+        z-index: 9999; width: 90%; max-width: 350px; 
+        animation: slideUp 0.5s ease-out;
+    }
     @keyframes slideUp { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center; padding: 40px 20px; background: #fafafa;
+        border-radius: 15px; border: 2px dashed #FFD6DD;
+    }
 </style>
 
 <div class="b2b-container">
@@ -272,9 +276,9 @@
         </div>
 
         <div class="heatmap-container">
-            {% for hour in range(7, 22) %} {# Shows 7 AM to 9 PM #}
+            {% for hour in range(7, 22) %}
                 {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
-                {% set height = (count * 10) if count < 15 else 150 %} {# Scalable height #}
+                {% set height = (count * 10) if count < 15 else 150 %}
                 
                 <div class="heat-bar-wrapper">
                     <div style="width: 100%; height: {{ height }}px; background: {% if count > 5 %}#E60026{% else %}#FFD6DD{% endif %}; border-radius: 4px 4px 0 0; transition: 0.3s;" 
@@ -348,13 +352,17 @@
             </table>
         </div>
         {% else %}
-        <p style="text-align: center; color: #888; padding: 30px 10px; margin: 0; font-style: italic;">No date reservations yet. Ensure your subscription is active to receive bookings!</p>
+        <div class="empty-state">
+            <div style="font-size: 40px; margin-bottom: 10px;">📅</div>
+            <h3 style="color: #4A0008; margin-bottom: 5px;">No reservations yet</h3>
+            <p style="color: #888; font-size: 14px; margin: 0;">Ensure your subscription is active to receive bookings from students.</p>
+        </div>
         {% endif %}
     </div>
 
 </div>
 
-<div id="live-alert-toast" style="display: none; position: fixed; bottom: 30px; right: 30px; background: #720000; color: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(114,0,0,0.3); z-index: 9999; width: 90%; max-width: 350px; animation: slideUp 0.5s ease-out;">
+<div id="live-alert-toast" class="toast-alert">
     <div style="display: flex; align-items: center; gap: 15px;">
         <div style="font-size: 30px; background: #E60026; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 50%;">⚡</div>
         <div>
@@ -392,7 +400,6 @@
             setTimeout(() => {
                 toast.style.display = 'none';
                 alertRef.update({ status: 'read' });
-                // Optional: window.location.reload(); 
             }, 8000);
         }
     });
