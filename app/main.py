@@ -1019,123 +1019,170 @@ def mpesa_callback():
 # ==========================================
 # WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
 # ==========================================
-import threading
 import logging
 from datetime import datetime
 from flask import session, request
 from flask_socketio import emit, join_room
 
+# Ensure your database tools are imported
+# from your_database_file import db, save_chat_message, get_ai_companion_response, analyze_safety, contains_phone_number
+
 logger = logging.getLogger(__name__)
 
+# ==========================================
+# CONNECTION & STATUS TRACKING
+# ==========================================
 @socketio.on('connect')
 def handle_connect():
-    """Security Step: Automatically join a private room based on user_id when connecting."""
+    """Security Step: Join a private room and set status to ONLINE."""
     user_id = session.get('user_id')
     if user_id:
         join_room(user_id)
-        logger.info(f"User {user_id} connected to WebSockets.")
+        try:
+            # Broadcast to everyone that this user is online
+            db.reference(f'profiles/{user_id}').update({'is_online': True})
+            emit('status_change', {'user_id': user_id, 'is_online': True}, broadcast=True)
+            logger.info(f"User {user_id} connected to WebSockets.")
+        except Exception as e:
+            logger.error(f"Presence update failed on connect: {e}")
 
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle user disconnect and set status to OFFLINE."""
+    user_id = session.get('user_id')
+    if user_id:
+        try:
+            db.reference(f'profiles/{user_id}').update({'is_online': False})
+            emit('status_change', {'user_id': user_id, 'is_online': False}, broadcast=True)
+            logger.info(f"User {user_id} disconnected from WebSockets.")
+        except Exception as e:
+            logger.error(f"Presence update failed on disconnect: {e}")
+
+# ==========================================
+# TYPING INDICATOR
+# ==========================================
 @socketio.on('typing')
 def handle_typing(data):
     """Routes the typing indicator instantly."""
     receiver_id = data.get('receiver_id')
     if receiver_id:
+        # Route directly to the receiver's private room
         emit('user_typing', data, to=receiver_id)
 
+# ==========================================
+# MESSAGE ROUTING
+# ==========================================
 @socketio.on('send_message')
 def handle_message(data):
     # 1. SECURITY: Get the sender's ID
     sender_id = session.get('user_id')
     if not sender_id:
+        logger.warning("Unauthorized message attempt (no session).")
         return 
 
+    # 2. VALIDATION: Prevent empty ghost messages
+    receiver_id = data.get('receiver_id')
+    msg_text = data.get('text', '').strip()
+    msg_type = data.get('type', 'text')
+
+    if not receiver_id or not msg_text:
+        return
+
     # 🚨 CRITICAL FIX FOR WHATSAPP SPEED 🚨
-    # You MUST stamp the message with the sender's ID and a server timestamp 
-    # before bouncing it back. This is what triggers the double-blue ticks!
     data['sender'] = sender_id
     data['timestamp'] = datetime.now().isoformat()
 
-    receiver_id = data.get('receiver_id')
-    msg_text = data.get('text')
-    msg_type = data.get('type', 'text')
-
-    # ==========================================
+    # ------------------------------------------
     # ROUTE A: AI COMPANION LOGIC
-    # ==========================================
+    # ------------------------------------------
     if receiver_id == 'AI_COMPANION':
-        # Echo back instantly to change the clock (🕒) to double ticks (✓✓)
-        emit('receive_message', data, to=request.sid)
-        # Show AI typing indicator
-        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
+        # Emit to sender's room so all their open tabs stay in sync
+        emit('receive_message', data, to=sender_id)
+        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=sender_id)
         
         current_user_gender = "unknown"
-        user_profile = db.reference(f'profiles/{sender_id}').get()
-        if user_profile and 'gender' in user_profile:
-            current_user_gender = user_profile['gender']
+        try:
+            user_profile = db.reference(f'profiles/{sender_id}').get()
+            if user_profile and 'gender' in user_profile:
+                current_user_gender = user_profile['gender']
+        except Exception:
+            pass
         
-        def ai_worker(query, sid, gender):
-            ai_reply = get_ai_companion_response(query, user_gender=gender)
-            socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=sid)
-            socketio.emit('receive_message', {
-                'sender': 'AI_COMPANION',
-                'type': 'text',
-                'text': ai_reply,
-                'timestamp': datetime.now().isoformat()
-            }, to=sid)
+        def ai_worker(query, user_room, gender):
+            try:
+                ai_reply = get_ai_companion_response(query, user_gender=gender)
+                socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=user_room)
+                socketio.emit('receive_message', {
+                    'sender': 'AI_COMPANION',
+                    'type': 'text',
+                    'text': ai_reply,
+                    'timestamp': datetime.now().isoformat()
+                }, to=user_room)
+            except Exception as e:
+                logger.error(f"AI Worker Error: {e}")
 
-        # Run AI in the background so the server doesn't freeze
-        threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
+        # Use SocketIO's safe background task instead of standard threading
+        socketio.start_background_task(ai_worker, msg_text, sender_id, current_user_gender)
         return
 
-    # ==========================================
+    # ------------------------------------------
     # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
-    # ==========================================
+    # ------------------------------------------
     if msg_type == 'text':
-        safety_check = analyze_safety(msg_text)
-        
-        if not safety_check['is_safe']:
-            if safety_check['flag'] in ['self_harm', 'violence']:
-                # Save alerts in the background
-                def save_alert():
-                    db.reference('admin_alerts').push({
-                        'sender': sender_id,
-                        'receiver': receiver_id,
-                        'message': msg_text,
-                        'flag': safety_check['flag'],
-                        'timestamp': datetime.now().isoformat()
-                    })
-                threading.Thread(target=save_alert).start()
+        try:
+            safety_check = analyze_safety(msg_text)
             
-            # Send warning back to sender ONLY
-            warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
-            emit('receive_message', warning_msg, to=request.sid) 
-            return
+            if not safety_check.get('is_safe', True):
+                if safety_check.get('flag') in ['self_harm', 'violence']:
+                    def save_alert(s_id, r_id, txt, flag):
+                        try:
+                            db.reference('admin_alerts').push({
+                                'sender': s_id,
+                                'receiver': r_id,
+                                'message': txt,
+                                'flag': flag,
+                                'timestamp': datetime.now().isoformat()
+                            })
+                        except Exception as e:
+                            logger.error(f"Alert save error: {e}")
+                    
+                    socketio.start_background_task(save_alert, sender_id, receiver_id, msg_text, safety_check['flag'])
+                
+                warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check.get('system_reply', 'Message flagged.')}
+                emit('receive_message', warning_msg, to=sender_id) 
+                return
 
-        if contains_phone_number(msg_text):
-            warning_msg = {
-                'sender': 'SYSTEM_AI',
-                'type': 'text',
-                'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
-            }
-            emit('receive_message', warning_msg, to=request.sid) 
-            return
+            if contains_phone_number(msg_text):
+                warning_msg = {
+                    'sender': 'SYSTEM_AI',
+                    'type': 'text',
+                    'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
+                }
+                emit('receive_message', warning_msg, to=sender_id) 
+                return
+                
+        except Exception as e:
+            logger.error(f"Safety Check Error: {e}")
 
-    # ==========================================
+    # ------------------------------------------
     # ROUTE C: LIGHTNING FAST MESSAGE DELIVERY
-    # ==========================================
+    # ------------------------------------------
     
     # 1. SEND INSTANTLY (0ms delay for users)
-    emit('receive_message', data, to=request.sid) # Echoes back to you -> Triggers ✓✓
-    emit('receive_message', data, to=receiver_id) # Delivers to your match
+    # Changed from request.sid to sender_id to support multi-device syncing
+    emit('receive_message', data, to=sender_id) 
+    emit('receive_message', data, to=receiver_id)
 
-    # 2. SAVE IN BACKGROUND (Firebase won't slow down the chat UI)
-    def background_save():
+    # 2. SAVE IN BACKGROUND
+    def background_save(s_id, r_id, text, m_type):
         try:
-            save_chat_message(sender_id, receiver_id, msg_text, msg_type)
+            save_chat_message(s_id, r_id, text, m_type)
         except Exception as e:
             logger.error(f"Failed to save chat message to DB: {e}")
 
-    threading.Thread(target=background_save).start()
+    # Use SocketIO's safe background task manager
+    socketio.start_background_task(background_save, sender_id, receiver_id, msg_text, msg_type)
+    
     
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing

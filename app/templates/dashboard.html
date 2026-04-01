@@ -53,19 +53,28 @@
     }
     .btn-install:active { transform: scale(0.98); }
 
-    /* === GRID LAYOUT === */
+    /* === HORIZONTAL SCROLL GRID (THE FIX) === */
     .matches-grid {
-        display: grid;
-        /* The magic formula: 1 card per row on mobile, multiple on desktop */
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-        gap: clamp(20px, 4vw, 30px);
+        display: flex; /* Switched from grid to flex */
+        gap: clamp(15px, 4vw, 25px);
         max-width: 1100px;
         margin: 0 auto 60px auto;
-        padding: 0 15px;
+        padding: 15px 15px 40px 15px; /* Extra padding so shadows and hover effects aren't cut off */
+        overflow-x: auto; /* Enable horizontal scrolling */
+        scroll-snap-type: x mandatory; /* Makes the cards snap smoothly */
+        scrollbar-width: none; /* Hide scrollbar for Firefox */
+        -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling for iOS */
+    }
+
+    /* Hide scrollbar for Chrome/Safari/Edge */
+    .matches-grid::-webkit-scrollbar {
+        display: none;
     }
 
     /* === MATCH CARD === */
     .match-card {
+        flex: 0 0 85%; /* Shows 85% of card on mobile to peek the next one */
+        max-width: 320px; /* Limits max size */
         background: white;
         border-radius: 20px;
         overflow: hidden;
@@ -74,7 +83,15 @@
         border: 1px solid #FFD6DD;
         display: flex;
         flex-direction: column;
-        height: 100%;
+        scroll-snap-align: center; /* Snaps card to center of screen */
+    }
+
+    /* Desktop Adjustments */
+    @media (min-width: 768px) {
+        .match-card {
+            flex: 0 0 300px; /* Fixed width on desktop */
+            scroll-snap-align: start; /* Snaps to left edge on wider screens */
+        }
     }
     
     @media (hover: hover) {
@@ -135,7 +152,7 @@
         margin: 0 0 20px 0;
         flex: 1;
         
-        /* Truncate long bios beautifully (Supported on all modern browsers) */
+        /* Truncate long bios beautifully */
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
@@ -167,7 +184,7 @@
 
     /* === EMPTY STATE === */
     .empty-state {
-        grid-column: 1 / -1; /* Spans the whole grid regardless of columns */
+        flex: 1 1 100%; /* Ensures empty state takes up full container width */
         text-align: center;
         padding: clamp(40px, 8vw, 60px) 20px;
         background: white;

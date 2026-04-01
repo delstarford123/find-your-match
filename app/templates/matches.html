@@ -10,6 +10,103 @@
         --my-bubble-text: #111;
     }
 
+    /* === GLOBAL NOTIFICATION BELL (TOP RIGHT) === */
+    .floating-bell {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border: 2px solid #FFD6DD;
+        color: #720000;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
+        z-index: 9999;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .floating-bell:hover { transform: scale(1.1); }
+    .floating-bell:active { transform: scale(0.9); }
+
+    .bell-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #E60026;
+        color: white;
+        font-size: 11px;
+        font-weight: 900;
+        min-width: 22px;
+        height: 22px;
+        border-radius: 11px;
+        padding: 0 4px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid white;
+        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
+        display: none; /* Hidden by default */
+        animation: pulseMatch 2s infinite;
+    }
+
+    /* === NOTIFICATION POPOVER MENU === */
+    .bell-popover {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        width: 320px;
+        z-index: 10000;
+        border: 1px solid #FFD6DD;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+        transform-origin: top right;
+        animation: popIn 0.2s ease-out;
+    }
+    .bell-popover.active { display: flex; }
+
+    .popover-header {
+        padding: 15px;
+        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        color: white;
+        font-weight: 900;
+        font-size: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .popover-list { max-height: 350px; overflow-y: auto; }
+    .popover-item {
+        padding: 12px 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: 0.2s;
+        background: white;
+    }
+    .popover-item:hover { background: #FEF2F4; }
+    .popover-item:last-child { border-bottom: none; }
+
+    .popover-unread-count {
+        background: #E60026; color: white; border-radius: 10px;
+        padding: 2px 8px; font-size: 11px; font-weight: 900; flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
+        .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
+    }
+
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
         display: flex; width: 100%; max-width: 1000px;
@@ -39,7 +136,6 @@
     .avatar-wrapper { position: relative; display: inline-block; }
     .match-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
     
-    /* 🔥 NEW: Visual Signal for Mutual Matches */
     .avatar-match-glow { border: 2px solid #E60026; box-shadow: 0 0 12px rgba(230, 0, 38, 0.4); }
     .badge-match {
         background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
@@ -143,13 +239,28 @@
     }
 </style>
 
+<div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
+    🔔
+    <div class="bell-badge" id="bell-badge">0</div>
+</div>
+
+<div class="bell-popover" id="bell-popover">
+    <div class="popover-header">
+        <span>💬 New Messages</span>
+        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">×</button>
+    </div>
+    <div class="popover-list" id="bell-popover-list">
+        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px;">No new messages</div>
+    </div>
+</div>
+
 <div class="inbox-container {% if active_partner %}chat-active{% endif %}" id="main-inbox">
     
     <div class="matches-sidebar">
         <div class="sidebar-header">Inbox</div>
         {% if my_matches %}
             {% for match in my_matches %}
-            <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" onclick="window.location.href='/matches/{{ match.id }}'">
+            <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" data-uid="{{ match.id }}" onclick="window.location.href='/matches/{{ match.id }}'">
                 
                 <div class="avatar-wrapper">
                     <img src="{{ match.img }}" class="match-avatar {% if match.is_mutual_match %}avatar-match-glow{% endif %}">
@@ -159,7 +270,7 @@
                 <div style="flex: 1; overflow: hidden;">
                     <h4 style="color: #111; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 800;">
                         <span style="display: flex; align-items: center; gap: 4px;">
-                            {{ match.name }}
+                            <span class="user-name-text">{{ match.name }}</span>
                             {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
                             {% elif match.is_perfect_match %} <span title="High Compatibility!">❤️</span> {% endif %}
                         </span>
@@ -169,7 +280,7 @@
                         {% endif %}
                     </h4>
                     
-                    <p style="font-size: 13px; color: {% if match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.is_mutual_match %}bold{% else %}normal{% endif %};">
+                    <p class="sidebar-last-msg" style="font-size: 13px; color: {% if match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.is_mutual_match %}bold{% else %}normal{% endif %};">
                         {{ match.last_message | default('Tap to start chatting') }}
                     </p>
                 </div>
@@ -195,7 +306,7 @@
                         {{ active_partner.name }}
                         {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
                     </span>
-                    <span style="font-size: 12px; opacity: 0.9; font-weight: 500;">
+                    <span class="status-text" style="font-size: 12px; opacity: 0.9; font-weight: 500;">
                         {% if active_partner.id == 'AI_COMPANION' %}Always Online
                         {% elif active_partner.is_online %}Online
                         {% else %}Offline{% endif %}
@@ -361,22 +472,142 @@
         if (modal && modal.classList.contains('active') && !e.target.closest('.theme-modal')) {
             modal.classList.remove('active');
         }
+        const bellPop = document.getElementById('bell-popover');
+        if (bellPop && bellPop.classList.contains('active') && !e.target.closest('#bell-popover') && !e.target.closest('#global-bell')) {
+            bellPop.classList.remove('active');
+        }
     });
 
     document.addEventListener('DOMContentLoaded', initThemePicker);
 
     // ==========================================
-    // REAL-TIME CHAT WEBSOCKETS
+    // FRONTEND OFFLINE QUEUE & BELL UNREAD LOGIC
     // ==========================================
-    const socket = io();
     const myId = "{{ session.get('user_id') }}";
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
 
+    let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
+    let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
+
+    // Clear active partner's unread instantly
+    if (activePartnerId !== 'none') {
+        if (unreadMap[activePartnerId]) {
+            delete unreadMap[activePartnerId];
+            localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+        }
+        // Inject offline queue
+        if (offlineQueue[activePartnerId] && offlineQueue[activePartnerId].length > 0) {
+            const chatHistory = document.getElementById('chat-history');
+            const typingIndicator = document.getElementById('typing-indicator');
+            offlineQueue[activePartnerId].forEach(msg => {
+                const timeObj = new Date(msg.timestamp || Date.now());
+                const timeString = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const html = `
+                    <div class="bubble-wrapper them bubble-enter">
+                        <div class="chat-bubble bubble-them">
+                            ${msg.text}
+                            <div class="msg-meta" style="right:auto;left:10px;justify-content:flex-start;">
+                                <span class="msg-time">${timeString}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                if (chatHistory && typingIndicator) {
+                    chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
+                }
+            });
+            delete offlineQueue[activePartnerId];
+            localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+            if (chatHistory) {
+                setTimeout(() => { chatHistory.scrollTop = chatHistory.scrollHeight; }, 100);
+            }
+        }
+    }
+
+    function toggleBellPopover(e) {
+        e.stopPropagation();
+        const pop = document.getElementById('bell-popover');
+        if (pop) pop.classList.toggle('active');
+    }
+
+    function updateBellUI() {
+        const badge = document.getElementById('bell-badge');
+        const list  = document.getElementById('bell-popover-list');
+        if (!badge || !list) return;
+
+        let totalUnread = 0;
+        let popoverHtml = '';
+
+        for (const [uid, data] of Object.entries(unreadMap)) {
+            if (typeof data !== 'object') {
+                 unreadMap[uid] = { count: data, text: "New Message" };
+            }
+            
+            const count = unreadMap[uid].count;
+            const msgText = unreadMap[uid].text;
+            totalUnread += count;
+            
+            // Try to find user info from sidebar
+            const sidebarItem = document.querySelector(`.match-item[data-uid="${uid}"]`);
+            let name = "New Match";
+            let img = "/static/img/placeholder.png";
+            let isOnline = false;
+
+            if (sidebarItem) {
+                const nameSpan = sidebarItem.querySelector('.user-name-text');
+                if (nameSpan) name = nameSpan.textContent.trim();
+                const imgEl = sidebarItem.querySelector('.match-avatar');
+                if (imgEl) img = imgEl.src;
+                const dot = sidebarItem.querySelector('.online-dot');
+                if (dot) isOnline = dot.classList.contains('active');
+            }
+
+            popoverHtml += `
+                <div class="popover-item" onclick="window.location.href='/matches/${uid}'">
+                    <div style="position:relative; flex-shrink:0;">
+                        <img src="${img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+                        <span style="position:absolute; bottom:1px; right:1px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:${isOnline ? '#28a745' : '#bbb'};"></span>
+                    </div>
+                    <div style="flex:1; overflow:hidden;">
+                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            ${name}
+                        </div>
+                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            ${msgText}
+                        </div>
+                    </div>
+                    <span class="popover-unread-count">${count}</span>
+                </div>
+            `;
+        }
+
+        if (totalUnread > 0) {
+            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            badge.style.display = 'flex';
+            list.innerHTML = popoverHtml;
+            
+            // Add animation to bell to draw attention
+            const bell = document.getElementById('global-bell');
+            bell.style.transform = 'scale(1.15) rotate(10deg)';
+            setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
+
+        } else {
+            badge.style.display = 'none';
+            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">No new messages</div>';
+        }
+    }
+
+    // Initialize Bell on load
+    updateBellUI();
+
+
+    // ==========================================
+    // REAL-TIME CHAT WEBSOCKETS
+    // ==========================================
+    const socket = io();
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('chat-input');
     const typingIndicator = document.getElementById('typing-indicator');
     const btnSend = document.getElementById('btn-send');
-
     let typingTimer;
 
     function getCurrentTime() {
@@ -384,8 +615,18 @@
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    socket.on('status_change', function(data) {
+        document.querySelectorAll(`.match-item[data-uid="${data.user_id}"] .online-dot`)
+            .forEach(dot => dot.classList.toggle('active', data.is_online));
+
+        if (String(data.user_id) === String(activePartnerId)) {
+            const statusEl = document.querySelector('.chat-header .status-text');
+            if (statusEl) statusEl.textContent = data.is_online ? 'Online' : 'Offline';
+        }
+        updateBellUI();
+    });
+
     if (activePartnerId !== 'none') {
-        
         window.onload = () => {
             if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
             if (window.innerWidth > 768 && chatInput) chatInput.focus();
@@ -417,7 +658,7 @@
             
             chatInput.value = '';
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
-            typingIndicator.style.display = 'none';
+            if(typingIndicator) typingIndicator.style.display = 'none';
             chatInput.focus();
 
             socket.emit('send_message', { 
@@ -438,8 +679,11 @@
                 socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
             }, 1500);
         });
+    }
 
-        socket.on('user_typing', function(data) {
+    socket.on('user_typing', function(data) {
+        if (String(data.sender) !== String(activePartnerId)) return;
+        if (typingIndicator) {
             if (data.is_typing) {
                 typingIndicator.style.display = 'flex';
                 chatHistory.appendChild(typingIndicator);
@@ -447,41 +691,79 @@
             } else {
                 typingIndicator.style.display = 'none';
             }
-        });
+        }
+    });
 
-        socket.on('receive_message', function(data) {
-            if (data.sender !== myId && data.sender !== activePartnerId && data.sender !== 'SYSTEM_AI') return;
+    socket.on('receive_message', function(data) {
+        // 1. Delivery Confirmation
+        if (data.sender === myId || data.sender_id === myId) {
+            const statusElement = document.getElementById(`status-${data.temp_id}`);
+            if (statusElement) {
+                statusElement.innerText = '✓✓';
+                statusElement.className = 'msg-status status-sent';
+            }
+            return;
+        }
 
-            typingIndicator.style.display = 'none';
+        // 2. Message from a background user (Triggers Bell Notification)
+        if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
             
-            if (data.sender === myId || data.sender_id === myId) {
-                const statusElement = document.getElementById(`status-${data.temp_id}`);
-                if (statusElement) {
-                    statusElement.innerText = '✓✓';
-                    statusElement.className = 'msg-status status-sent';
+            let currentCount = 0;
+            if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
+                 currentCount = unreadMap[data.sender].count || 0;
+            } else if (typeof unreadMap[data.sender] === 'number') {
+                 currentCount = unreadMap[data.sender];
+            }
+
+            unreadMap[data.sender] = { count: currentCount + 1, text: data.text };
+            localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+            
+            if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
+            offlineQueue[data.sender].push({
+                text: data.text,
+                timestamp: data.timestamp || new Date().toISOString()
+            });
+            localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+
+            // Update the Top-Right Bell!
+            updateBellUI();
+
+            const sidebarItem = document.querySelector(`.match-item[data-uid="${data.sender}"]`);
+            if (sidebarItem) {
+                sidebarItem.style.background = '#FEF2F4';
+                const sidebarMsg = sidebarItem.querySelector('.sidebar-last-msg');
+                if (sidebarMsg) {
+                    sidebarMsg.innerText = data.text;
+                    sidebarMsg.style.color = '#E60026';
+                    sidebarMsg.style.fontWeight = 'bold';
                 }
-                return;
             }
+            return;
+        }
 
-            let html = '';
-            if (data.sender === 'SYSTEM_AI') {
-                html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
-            } else {
-                const timeString = getCurrentTime();
-                html = `
-                <div class="bubble-wrapper them bubble-enter">
-                    <div class="chat-bubble bubble-them">
-                        ${data.text}
-                        <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
-                            <span class="msg-time">${timeString}</span>
-                        </div>
+        // 3. Message from the active partner
+        if(typingIndicator) typingIndicator.style.display = 'none';
+        
+        let html = '';
+        if (data.sender === 'SYSTEM_AI') {
+            html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${data.text}</div></div>`;
+        } else {
+            const timeString = getCurrentTime();
+            html = `
+            <div class="bubble-wrapper them bubble-enter">
+                <div class="chat-bubble bubble-them">
+                    ${data.text}
+                    <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
+                        <span class="msg-time">${timeString}</span>
                     </div>
-                </div>`;
-            }
-            
+                </div>
+            </div>`;
+        }
+        
+        if(chatHistory) {
             chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
             chatHistory.scrollTop = chatHistory.scrollHeight;
-        });
-    }
+        }
+    });
 </script>
 {% endblock %}

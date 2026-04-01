@@ -28,17 +28,27 @@
         opacity: 0.85;
     }
 
-    /* === GRID & CARDS === */
+    /* === HORIZONTAL SCROLL GRID (THE FIX) === */
     .venue-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-        gap: clamp(20px, 4vw, 35px);
+        display: flex; /* Changed from grid to flex */
+        gap: clamp(15px, 4vw, 25px);
         max-width: 1100px;
         margin: 0 auto 60px auto;
-        padding: 0 15px;
+        padding: 10px 15px 30px 15px; /* Extra bottom padding for shadows */
+        overflow-x: auto; /* Enable horizontal scrolling */
+        scroll-snap-type: x mandatory; /* Makes the cards snap into place */
+        scrollbar-width: none; /* Firefox: hide scrollbar */
+        -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
+    }
+
+    /* Chrome/Safari/Edge: hide scrollbar for a clean app-like look */
+    .venue-grid::-webkit-scrollbar {
+        display: none;
     }
 
     .venue-card {
+        flex: 0 0 85%; /* On mobile, show 85% of card to peek the next one */
+        max-width: 320px; /* Prevent it from getting too big on desktop */
         background: white;
         border-radius: 20px;
         overflow: hidden;
@@ -48,7 +58,15 @@
         display: flex;
         flex-direction: column;
         position: relative;
-        height: 100%;
+        scroll-snap-align: center; /* Snaps the card to the center of the screen */
+    }
+
+    /* Desktop adjustments for the scroller */
+    @media (min-width: 768px) {
+        .venue-card {
+            flex: 0 0 300px; /* Fixed width on larger screens */
+            scroll-snap-align: start; /* Snaps to the left edge on desktop */
+        }
     }
     
     @media (hover: hover) {
@@ -115,7 +133,7 @@
 
     /* Card Content */
     .venue-info {
-        padding: 35px 20px 20px; /* Extra top padding to clear the verified badge */
+        padding: 35px 20px 20px;
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -147,7 +165,7 @@
         color: #4A0008;
         font-weight: 600;
         line-height: 1.5;
-        flex: 1; /* Pushes the button to the bottom */
+        flex: 1;
     }
     
     .btn-propose {
@@ -185,7 +203,7 @@
         margin: 0 auto 60px auto;
         box-shadow: 0 20px 40px rgba(114, 0, 0, 0.2);
         background-image: radial-gradient(circle at top right, #E60026 0%, transparent 60%);
-        width: calc(100% - 30px); /* Accounts for mobile margins */
+        width: calc(100% - 30px);
     }
     .b2b-banner h2 { 
         font-size: clamp(24px, 5vw, 36px); 
