@@ -705,46 +705,76 @@ def verify_customer(restaurant_id):
                            message=message, 
                            color=color,
                            restaurant_name=restaurant.get('business_name'))
+import os
+import logging
+from datetime import datetime, timedelta, timezone
+from flask import session, request, flash, redirect, url_for, render_template, jsonify
+
+# Setup Admin Logger
+logger = logging.getLogger('god_mode')
+
+# Define East Africa Time (UTC+3) for accurate Kenyan timestamps
+EAT = timezone(timedelta(hours=3))
 
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
-
 @app.route('/admin/super', methods=['GET', 'POST'])
 def super_admin():
-    ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS", "delstarford2026")
+    # SECURITY: Never use a fallback password in production.
+    ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
     
+    if not ADMIN_PASSWORD:
+        logger.critical("SUPER_ADMIN_PASS environment variable is missing!")
+        return "CRITICAL ERROR: Admin environment not configured safely.", 500
+
     if request.method == 'POST':
         if request.form.get('password') == ADMIN_PASSWORD:
             session['is_super_admin'] = True
+            session.permanent = False  # Forces session to expire when browser closes
             flash("Welcome to God Mode, Creator.", "success")
         else:
+            logger.warning(f"Failed God Mode login attempt from IP: {request.remote_addr}")
             flash("Access Denied. Incorrect Password.", "error")
         return redirect(url_for('super_admin'))
         
     if not session.get('is_super_admin'):
+        # FIXED: Pointing to super_admin.html
         return render_template('super_admin.html', logged_in=False)
 
-    all_profiles = db.reference('profiles').get() or {}
-    all_restaurants = db.reference('restaurants').get() or {}
+    try:
+        # Fetch Data
+        all_profiles = db.reference('profiles').get() or {}
+        all_restaurants = db.reference('restaurants').get() or {}
+        alerts_dict = db.reference('admin_alerts').get() or {}
+        
+        # Calculate Revenue
+        student_revenue = sum(20 for p in all_profiles.values() if p.get('is_paid'))
+        b2b_revenue = sum(2000 for r in all_restaurants.values() if r.get('subscription_active'))
+        total_revenue = student_revenue + b2b_revenue
+
+        # Format and Sort Alerts (Newest First)
+        alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items()]
+        alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        # Filter Pending Businesses
+        pending_businesses = [
+            {'id': k, **v} for k, v in all_restaurants.items() 
+            if not v.get('subscription_active')
+        ]
+
+        # FIXED: Pointing to super_admin.html
+        return render_template('super_admin.html', 
+                               logged_in=True,
+                               total_revenue=total_revenue,
+                               student_revenue=student_revenue,
+                               b2b_revenue=b2b_revenue,
+                               alerts=alerts,
+                               pending_businesses=pending_businesses)
+    except Exception as e:
+        logger.error(f"God Mode Dashboard Error: {e}")
+        return "Failed to load dashboard data.", 500
     
-    student_revenue = sum(20 for p in all_profiles.values() if p.get('is_paid'))
-    b2b_revenue = sum(2000 for r in all_restaurants.values() if r.get('subscription_active'))
-    total_revenue = student_revenue + b2b_revenue
-
-    alerts_dict = db.reference('admin_alerts').get() or {}
-    alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items()]
-
-    pending_businesses = [{'id': k, **v} for k, v in all_restaurants.items() if not v.get('subscription_active')]
-
-    return render_template('super_admin.html', 
-                           logged_in=True,
-                           total_revenue=total_revenue,
-                           student_revenue=student_revenue,
-                           b2b_revenue=b2b_revenue,
-                           alerts=alerts,
-                           pending_businesses=pending_businesses)
-
 @app.route('/api/admin/action', methods=['POST'])
 def admin_action():
     if not session.get('is_super_admin'):
@@ -759,45 +789,65 @@ def admin_action():
             delete_user_account(target_id)
             if data.get('alert_id'):
                 db.reference(f"admin_alerts/{data.get('alert_id')}").delete()
+            logger.info(f"GOD_MODE: User {target_id} banned.")
                 
         elif action == 'approve_business':
-            expiry = (datetime.now() + timedelta(days=30)).isoformat()
+            # Use East Africa Time for accurate 30-day windows
+            now_eat = datetime.now(EAT)
+            expiry = (now_eat + timedelta(days=30)).isoformat()
+            
             db.reference(f'restaurants/{target_id}').update({
                 'subscription_active': True,
+                'subscription_start': now_eat.isoformat(),
                 'subscription_expiry': expiry
             })
+            logger.info(f"GOD_MODE: Merchant {target_id} approved.")
             
         elif action == 'dismiss_alert':
             db.reference(f'admin_alerts/{target_id}').delete()
             
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Admin Action Error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Admin Action Error ({action}): {e}")
+        return jsonify({'success': False, 'message': "Internal server error."}), 500
 
 @app.route('/admin/ledger')
 def admin_ledger():
     if not session.get('is_super_admin'):
         return redirect(url_for('home'))
 
-    profiles = db.reference('profiles').get() or {}
-    restaurants = db.reference('restaurants').get() or {}
-    
-    paid_students = [p for p in profiles.values() if p.get('is_paid')]
-    student_revenue = len(paid_students) * 20
-    
-    active_merchants = [r for r in restaurants.values() if r.get('subscription_active')]
-    merchant_revenue = len(active_merchants) * 2000
-    
-    total_revenue = student_revenue + merchant_revenue
+    try:
+        profiles = db.reference('profiles').get() or {}
+        restaurants = db.reference('restaurants').get() or {}
+        
+        paid_students = [p for p in profiles.values() if p.get('is_paid')]
+        student_revenue = len(paid_students) * 20
+        
+        active_merchants = [r for r in restaurants.values() if r.get('subscription_active')]
+        merchant_revenue = len(active_merchants) * 2000
+        
+        total_revenue = student_revenue + merchant_revenue
 
-    return render_template('admin_ledger.html', 
-                           student_count=len(paid_students),
-                           student_rev=student_revenue,
-                           merchant_count=len(active_merchants),
-                           merchant_rev=merchant_revenue,
-                           total_rev=total_revenue,
-                           last_updated=datetime.now().strftime("%Y-%m-%d %H:%M"))
+        # Print current time in EAT
+        current_time_eat = datetime.now(EAT).strftime("%Y-%m-%d %H:%M EAT")
+
+        return render_template('admin_ledger.html', 
+                               student_count=len(paid_students),
+                               student_rev=student_revenue,
+                               merchant_count=len(active_merchants),
+                               merchant_rev=merchant_revenue,
+                               total_rev=total_revenue,
+                               last_updated=current_time_eat)
+    except Exception as e:
+        logger.error(f"Admin Ledger Error: {e}")
+        return "Failed to load ledger.", 500
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('is_super_admin', None)
+    flash("Securely logged out of Command Center.", "info")
+    return redirect(url_for('super_admin'))
+
 
 # ==========================================
 # API ENDPOINTS (SWIPE, PAYMENTS, NOTIFICATIONS)
