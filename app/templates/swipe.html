@@ -42,8 +42,14 @@
         align-items: center;
         border: 2px solid white;
         box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
-        display: none; /* Hidden by default */
-        animation: pulseMatch 2s infinite;
+        display: none; 
+        animation: pulseBell 2s infinite;
+    }
+
+    @keyframes pulseBell {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
     }
 
     /* === NOTIFICATION POPOVER MENU === */
@@ -104,7 +110,7 @@
         100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
-    /* === CORE LAYOUT & RESPONSIVE SIZING === */
+    /* === CORE LAYOUT & SWIPE CARD === */
     .deck-wrapper {
         display: flex; justify-content: center; align-items: center;
         height: calc(100vh - var(--nav-height, 70px) - 20px); 
@@ -117,7 +123,6 @@
         height: 80vh; max-height: 680px; min-height: 500px;
     }
     
-    /* === THE CARD (FULL BLEED) === */
     .card { 
         background: white; border-radius: 24px; overflow: hidden; 
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); 
@@ -128,7 +133,6 @@
     }
     .card:active { cursor: grabbing; }
     
-    /* === MATCH SIGNAL BADGE === */
     #is-match-signal {
         position: absolute; top: 25px; right: 25px;
         background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: white;
@@ -137,12 +141,11 @@
         z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
     @keyframes pulseBadge {
-        0% { transform: scale(1); box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4); }
-        50% { transform: scale(1.1); box-shadow: 0 8px 25px rgba(230, 0, 38, 0.6); }
-        100% { transform: scale(1); box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4); }
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
     }
 
-    /* === IMAGE & GRADIENT === */
     .image-container { position: absolute; inset: 0; background: #e0e0e0; overflow: hidden; }
     #profile-img { width: 100%; height: 100%; object-fit: cover; display: none; }
     
@@ -158,7 +161,6 @@
     #profile-age { font-size: 24px; font-weight: 400; opacity: 0.9; }
     #profile-bio { margin: 5px 0 0; font-size: 15px; line-height: 1.4; opacity: 0.9; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-    /* === TINDER DRAG STAMPS === */
     .stamp {
         position: absolute; top: 50px; padding: 5px 15px; border: 4px solid; border-radius: 10px;
         font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
@@ -167,7 +169,6 @@
     .stamp-nope { color: #fd5c63; border-color: #fd5c63; right: 30px; transform: rotate(15deg); }
     .stamp-like { color: #2de2a6; border-color: #2de2a6; left: 30px; transform: rotate(-15deg); }
     
-    /* === FLOATING ACTION BUTTONS === */
     .action-buttons { 
         position: absolute; bottom: 25px; left: 0; right: 0; 
         display: flex; justify-content: center; align-items: center; gap: 30px; 
@@ -248,7 +249,7 @@
             <div style="font-size: 60px;">📡</div>
             <h2 style="color: #111; font-weight: 800;">No one new nearby.</h2>
             <p style="color: #666; margin-bottom: 20px;">Try expanding your discovery settings.</p>
-            <button onclick="window.location.href='/settings'" style="padding: 12px 25px; border-radius: 25px; background: #E60026; color: white; border: none; font-weight: bold;">Adjust Filters</button>
+            <button onclick="window.location.href='/settings'" style="padding: 12px 25px; border-radius: 25px; background: #E60026; color: white; border: none; font-weight: bold; cursor: pointer;">Adjust Filters</button>
         </div>
     </div>
 </div>
@@ -264,14 +265,30 @@
 
     <div id="icebreaker-container" style="width: 100%; max-width: 350px;"></div>
 
-    <button onclick="window.location.href='/matches'" class="btn-action" style="background:#2de2a6; color:white; width:100%; max-width:300px; border-radius:30px; font-size:16px; height:auto; padding:18px; margin-top: 20px;">SEND MESSAGE</button>
+    <button id="btn-send-msg" class="btn-action" style="background:#2de2a6; color:white; width:100%; max-width:300px; border-radius:30px; font-size:16px; height:auto; padding:18px; margin-top: 20px;">SEND MESSAGE</button>
     <button onclick="closeMatchOverlay()" style="background:transparent; color:white; border:none; margin-top:15px; cursor:pointer; opacity:0.7;">KEEP SWIPING</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
-    // --- Set global User ID for main.js ---
+    // --- Global Configurations ---
     window.currentUserId = "{{ current_user.id }}";
+    const myId = "{{ session.get('user_id') }}";
+    const socket = io();
+
+    // --- Helper: XSS Protection ---
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
 
     // --- Swipe/Match Logic ---
     window.updateMatchSignal = function(isMutual) {
@@ -282,13 +299,18 @@
     };
 
     window.triggerMatchCelebration = function(matchData) {
+        const partnerId = matchData.id || '';
         document.getElementById('match-name-celeb').innerText = matchData.name.split(' ')[0];
         document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
         document.getElementById('match-overlay').style.display = 'flex';
+        
+        // Link the button to the specific chat
+        document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
 
         const container = document.getElementById('icebreaker-container');
         container.innerHTML = '<p style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom: 10px;">AI SUGGESTED ICEBREAKERS</p>';
         
+        // Fetch AI icebreakers based on bio
         fetch('/api/icebreakers', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -317,12 +339,9 @@
         if(typeof window.loadNextProfile === 'function') window.loadNextProfile();
     }
 
-
     // ==========================================
     // GLOBAL BELL NOTIFICATION LOGIC
     // ==========================================
-    const myId = "{{ session.get('user_id') }}";
-    const socket = io();
     let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
 
@@ -341,11 +360,12 @@
         let popoverHtml = '';
 
         for (const [uid, data] of Object.entries(unreadMap)) {
+            // Data structure cleanup if needed
             if (typeof data !== 'object') {
                  unreadMap[uid] = { count: data, text: "New Message" };
             }
             const count = unreadMap[uid].count;
-            const msgText = unreadMap[uid].text;
+            const msgText = escapeHTML(unreadMap[uid].text);
             totalUnread += count;
 
             popoverHtml += `
@@ -372,7 +392,7 @@
             badge.style.display = 'flex';
             list.innerHTML = popoverHtml;
             
-            // Jiggle animation on new message
+            // Notification Jiggle
             const bell = document.getElementById('global-bell');
             bell.style.transform = 'scale(1.15) rotate(10deg)';
             setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
@@ -382,25 +402,24 @@
         }
     }
 
-    // Init UI on load
+    // Initialize UI
     updateBellUI();
 
-    // Listen for new incoming messages while swiping
+    // WebSocket listener for incoming messages
     socket.on('receive_message', function(data) {
-        if (data.sender === myId || data.sender_id === myId || data.sender === 'SYSTEM_AI') return;
+        const senderId = data.sender || data.sender_id;
+        if (senderId === myId || senderId === 'SYSTEM_AI') return;
 
         let currentCount = 0;
-        if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
-             currentCount = unreadMap[data.sender].count || 0;
-        } else if (typeof unreadMap[data.sender] === 'number') {
-             currentCount = unreadMap[data.sender];
+        if (unreadMap[senderId] && typeof unreadMap[senderId] === 'object') {
+             currentCount = unreadMap[senderId].count || 0;
         }
 
-        unreadMap[data.sender] = { count: currentCount + 1, text: data.text };
+        unreadMap[senderId] = { count: currentCount + 1, text: data.text };
         localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
         
-        if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
-        offlineQueue[data.sender].push({
+        if (!offlineQueue[senderId]) offlineQueue[senderId] = [];
+        offlineQueue[senderId].push({
             text: data.text,
             timestamp: data.timestamp || new Date().toISOString()
         });
@@ -418,5 +437,116 @@
     });
 </script>
 
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+    // ==========================================
+    // CORE SWIPE & RENDER LOGIC
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", () => {
+        let profiles = [];
+        let currentIndex = 0;
+        
+        const card = document.getElementById('profile-card');
+        const emptyState = document.getElementById('empty-state');
+        const imgEl = document.getElementById('profile-img');
+        const shimmer = document.getElementById('shimmer');
+        const nameEl = document.getElementById('profile-name');
+        const ageEl = document.getElementById('profile-age');
+        const bioEl = document.getElementById('profile-bio');
+
+        // 1. Fetch Profiles from API
+        fetch(`/api/profiles?user_id=${window.currentUserId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data || data.length === 0 || data.error) {
+                    // No profiles found: Show Empty State
+                    card.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                } else {
+                    // Profiles found: Render the first one
+                    profiles = data;
+                    renderProfile(profiles[currentIndex]);
+                }
+            })
+            .catch(err => {
+                console.error("Fetch Error:", err);
+                nameEl.innerText = "Network Error";
+                bioEl.innerText = "Please refresh the page.";
+            });
+
+        // 2. Render Profile Function
+        window.renderProfile = function(profile) {
+            if (!profile) {
+                // Reached the end of the deck
+                card.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            // Reset image states
+            imgEl.style.display = 'none';
+            if (shimmer) shimmer.style.display = 'block';
+
+            // Load new image
+            imgEl.onload = () => {
+                imgEl.style.display = 'block';
+                if (shimmer) shimmer.style.display = 'none';
+            };
+            imgEl.onerror = () => {
+                imgEl.src = '/static/img/placeholder.png'; 
+            };
+            imgEl.src = profile.img || '/static/img/placeholder.png';
+            
+            // Populate text
+            nameEl.innerText = (profile.name || 'Student').split(' ')[0];
+            ageEl.innerText = profile.age ? `, ${profile.age}` : '';
+            bioEl.innerText = profile.bio || 'No bio provided.';
+            
+            // Reset stamps
+            document.getElementById('stamp-like').style.opacity = '0';
+            document.getElementById('stamp-nope').style.opacity = '0';
+        };
+
+        // 3. Handle Button Clicks (Like / Pass)
+        window.handleSwipe = function(action) {
+            const currentProfile = profiles[currentIndex];
+            if (!currentProfile) return;
+
+            // Show Stamp temporarily
+            const stamp = action === 'like' ? document.getElementById('stamp-like') : document.getElementById('stamp-nope');
+            if(stamp) stamp.style.opacity = '1';
+
+            // Visual swipe animation out
+            card.style.transform = action === 'like' ? 'translateX(120%) rotate(15deg)' : 'translateX(-120%) rotate(-15deg)';
+            card.style.opacity = '0';
+
+            // Send action to Database
+            fetch('/api/swipe', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ target_id: currentProfile.id, action: action })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.match) {
+                    window.triggerMatchCelebration(data.match_details);
+                }
+            });
+
+            // Load next profile and slide back in
+            setTimeout(() => {
+                currentIndex++;
+                card.style.transition = 'none'; // Disable transition to snap back to center instantly
+                card.style.transform = 'translateX(0) rotate(0)';
+                
+                renderProfile(profiles[currentIndex]);
+                
+                // Allow browser to render the snap before fading back in
+                requestAnimationFrame(() => {
+                    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                    card.style.opacity = '1';
+                });
+            }, 300); // 300ms matches the CSS transition time
+        };
+    });
+</script>
 {% endblock %}

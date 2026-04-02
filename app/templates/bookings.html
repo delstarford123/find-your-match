@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === WRAPPER === */
+    .discover-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: clamp(10px, 3vw, 20px) 0; /* Horizontal padding handled by inner elements */
+        min-height: calc(100vh - var(--nav-height) - 40px);
+    }
+
+    /* === HERO SECTION (FLUID & RESPONSIVE) === */
+    .venue-hero {
+        text-align: center;
+        padding: clamp(30px, 5vw, 60px) 20px clamp(20px, 4vw, 40px);
+        background: linear-gradient(to bottom, #FFD6DD, #FEF2F4);
+        border-radius: 24px;
+        margin: 20px 15px 40px 15px; 
+        border: 1px solid rgba(255, 204, 213, 0.5);
+    }
+    .venue-hero h1 {
+        color: #720000;
+        font-size: clamp(28px, 5vw, 42px);
+        font-weight: 900;
+        margin: 0 0 15px 0;
+        letter-spacing: -1px;
+        line-height: 1.2;
+    }
+    .venue-hero p {
+        color: #4A0008;
+        font-size: clamp(15px, 3vw, 18px);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+        opacity: 0.85;
+    }
+
+    /* === HORIZONTAL SCROLL GRID === */
+    .venue-grid {
+        display: flex; 
+        gap: clamp(15px, 4vw, 25px);
+        max-width: 1100px;
+        margin: 0 auto 60px auto;
+        padding: 10px 15px 30px 15px; 
+        overflow-x: auto; 
+        scroll-snap-type: x mandatory; 
+        scrollbar-width: none; /* Firefox */
+        -webkit-overflow-scrolling: touch; 
+    }
+    .venue-grid::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+    .venue-card {
+        flex: 0 0 85%; /* Mobile: Peek next card */
+        max-width: 320px; 
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.08);
+        border: 1px solid #FFD6DD;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        scroll-snap-align: center; 
+    }
+
+    @media (min-width: 768px) {
+        .venue-card {
+            flex: 0 0 300px; 
+            scroll-snap-align: start; 
+        }
+    }
+    
+    @media (hover: hover) {
+        .venue-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15);
+            border-color: #E60026;
+        }
+    }
+
+    /* Image & Badges */
+    .venue-img-wrapper {
+        height: 200px;
+        position: relative;
+        background: #eee;
+    }
+    .venue-img-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    /* Gradient overlay for readability */
+    .venue-img-wrapper::after {
+        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
+        background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);
+    }
+    
+    .fallback-bg {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #FFD6DD 0%, #E60026 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 50px;
+    }
+    
+    .discount-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #E60026;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 900;
+        font-size: 12px;
+        box-shadow: 0 4px 12px rgba(230,0,38,0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 2px solid white;
+        z-index: 2;
+    }
+    .verified-badge {
+        position: absolute;
+        bottom: -15px;
+        left: 20px;
+        background: white;
+        color: #28a745;
+        padding: 6px 14px;
+        border-radius: 15px;
+        font-weight: 800;
+        font-size: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid #d4edda;
+        z-index: 3; 
+    }
+
+    /* Card Content */
+    .venue-info {
+        padding: 35px 20px 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .venue-info h3 {
+        color: #720000;
+        margin: 0 0 5px 0;
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+    .location {
+        color: #666;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .perk-box {
+        background: #FEF2F4;
+        border-left: 4px solid #E60026;
+        padding: 12px 15px;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 20px;
+        font-size: 14px;
+        color: #4A0008;
+        font-weight: 700;
+        line-height: 1.5;
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .btn-propose {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 14px;
+        font-weight: 800;
+        font-size: 15px;
+        cursor: pointer;
+        width: 100%;
+        margin-top: auto;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.2);
+        text-align: center;
+        display: block;
+        text-decoration: none;
+    }
+    
+    @media (hover: hover) {
+        .btn-propose:hover { box-shadow: 0 8px 25px rgba(230,0,38,0.3); transform: translateY(-2px); color: white;}
+    }
+    .btn-propose:active { transform: scale(0.97); }
+    .btn-propose:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    /* === B2B SALES BANNER === */
+    .b2b-banner {
+        background: #720000;
+        border-radius: 24px;
+        padding: clamp(40px, 6vw, 60px) clamp(20px, 5vw, 40px);
+        text-align: center;
+        color: white;
+        max-width: 1100px;
+        margin: 0 15px 60px 15px;
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.2);
+        background-image: radial-gradient(circle at top right, #E60026 0%, transparent 60%);
+    }
+    @media (min-width: 1130px) { .b2b-banner { margin: 0 auto 60px auto; } }
+
+    .b2b-banner h2 { 
+        font-size: clamp(24px, 5vw, 36px); 
+        margin: 0 0 15px 0; 
+        line-height: 1.2;
+        font-weight: 900;
+        letter-spacing: -0.5px;
+    }
+    .b2b-banner p { 
+        font-size: clamp(15px, 3vw, 18px); 
+        opacity: 0.9; 
+        max-width: 650px; 
+        margin: 0 auto 30px; 
+        line-height: 1.6; 
+    }
+    
+    .stats-row {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap; 
+        gap: clamp(20px, 5vw, 50px);
+        margin-bottom: 35px;
+    }
+    .stat-item h4 { 
+        font-size: clamp(32px, 6vw, 42px); 
+        color: #FFD6DD; 
+        margin: 0 0 5px 0; 
+        font-weight: 900;
+    }
+    .stat-item span { 
+        font-size: 13px; 
+        text-transform: uppercase; 
+        font-weight: 800; 
+        opacity: 0.9; 
+        letter-spacing: 1px;
+    }
+
+    .btn-register-b2b {
+        background: white; 
+        color: #720000; 
+        padding: 18px 40px; 
+        border-radius: 30px; 
+        font-size: 16px;
+        font-weight: 900;
+        text-decoration: none;
+        display: inline-block;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    
+    @media (hover: hover) {
+        .btn-register-b2b:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            color: #E60026;
+        }
+    }
+    .btn-register-b2b:active { transform: scale(0.98); }
+
+    /* === PROPOSAL MODAL === */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+        display: none; align-items: center; justify-content: center;
+        z-index: 9999; opacity: 0; transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active { display: flex; opacity: 1; }
+    
+    .modal-box {
+        background: white; width: 90%; max-width: 420px;
+        border-radius: 28px; padding: 35px 30px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+        transform: scale(0.8) translateY(20px); 
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
+    
+    .modal-header {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        margin-bottom: 25px;
+    }
+    .modal-header h3 { margin: 0; color: #720000; font-weight: 900; font-size: 22px; line-height: 1.2; }
+    .close-btn { 
+        background: #f0f0f0; border: none; font-size: 20px; 
+        cursor: pointer; color: #666; width: 36px; height: 36px; 
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        transition: 0.2s;
+    }
+    .close-btn:hover { background: #e0e0e0; color: #111; }
+    
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 800; color: #4A0008; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group select, .form-group input {
+        width: 100%; padding: 14px 16px; border: 2px solid #f0f0f0; border-radius: 12px;
+        font-size: 15px; font-family: inherit; outline: none; transition: all 0.2s ease;
+        -webkit-appearance: none; background: #fafafa; color: #333;
+    }
+    .form-group select:focus, .form-group input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
+
+    /* === TOAST NOTIFICATION === */
+    .venue-toast {
+        display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+        background: #111; color: white; padding: 15px 25px; border-radius: 14px;
+        font-weight: 800; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        z-index: 10000; animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        white-space: nowrap;
+    }
+    .venue-toast.success { background: #28a745; }
+    .venue-toast.error { background: #E60026; }
+    
+    @keyframes slideUpToast {
+        from { opacity: 0; bottom: -20px; transform: translateX(-50%) scale(0.9); }
+        to { opacity: 1; bottom: 30px; transform: translateX(-50%) scale(1); }
+    }
+</style>
+
+<div class="discover-wrapper">
+    
+    <div class="venue-hero">
+        <h1>MMUST's Top Date Spots</h1>
+        <p>We've partnered with the best restaurants and cafes in Kakamega. Flash your active MMUST Dating AI Powered profile to claim exclusive student discounts at these verified locations.</p>
+    </div>
+
+    <div class="venue-grid">
+        {% if venues %}
+            {% for venue in venues %}
+            <div class="venue-card">
+                <div class="venue-img-wrapper">
+                    {% if venue.images and venue.images|length > 0 %}
+                        <img src="{{ venue.images[0] }}" alt="{{ venue.business_name }}">
+                    {% else %}
+                        <div class="fallback-bg">🍽️</div>
+                    {% endif %}
+                    
+                    <div class="discount-badge">{{ venue.conditions.split(',')[0][:15] | default('Active Perks') }}</div>
+                    <div class="verified-badge">✓ MMUST Verified</div>
+                </div>
+                
+                <div class="venue-info">
+                    <h3>{{ venue.business_name }}</h3>
+                    <div class="location">📍 {{ venue.location }}</div>
+                    
+                    <div class="perk-box">
+                        <span style="font-size: 18px;">🎁</span> 
+                        <span>{{ venue.conditions | default('Show your MMUST profile for a special student discount!') }}</span>
+                    </div>
+                    
+                    <button class="btn-propose" onclick="openModal('{{ venue.id }}', '{{ venue.business_name|escape }}')">
+                        Propose a Date
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+            
+        {% else %}
+            <div class="venue-card">
+                <div class="venue-img-wrapper">
+                    <div class="fallback-bg" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">☕</div>
+                    <div class="discount-badge">10% OFF</div>
+                    <div class="verified-badge">✓ MMUST Verified</div>
+                </div>
+                <div class="venue-info">
+                    <h3>Savoury Classic</h3>
+                    <div class="location">📍 Kakamega CBD</div>
+                    <div class="perk-box"><span style="font-size: 18px;">🎁</span> <span>Show profile for 10% off all coffees and pastries on your first date.</span></div>
+                    <button class="btn-propose" onclick="openModal('demo1', 'Savoury Classic')">Propose a Date</button>
+                </div>
+            </div>
+
+            <div class="venue-card">
+                <div class="venue-img-wrapper">
+                    <div class="fallback-bg" style="background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);">🍷</div>
+                    <div class="discount-badge">FREE DESSERT</div>
+                    <div class="verified-badge">✓ MMUST Verified</div>
+                </div>
+                <div class="venue-info">
+                    <h3>Golf Hotel Kakamega</h3>
+                    <div class="location">📍 Near State Lodge</div>
+                    <div class="perk-box"><span style="font-size: 18px;">🎁</span> <span>Free dessert to share when you book a dinner table through our app.</span></div>
+                    <button class="btn-propose" onclick="openModal('demo2', 'Golf Hotel Kakamega')">Propose a Date</button>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="b2b-banner">
+        <h2>Own a Restaurant in Kakamega?</h2>
+        <p>Partner with Delstarford Works. For just <strong>2,000 KSH/month</strong>, your business gets listed on this page, putting you directly in front of thousands of university students planning their next date.</p>
+        
+        <div class="stats-row">
+            <div class="stat-item">
+                <h4>100%</h4>
+                <span>Local Students</span>
+            </div>
+            <div class="stat-item">
+                <h4>0%</h4>
+                <span>Hidden Fees</span>
+            </div>
+            <div class="stat-item">
+                <h4>24/7</h4>
+                <span>Analytics</span>
+            </div>
+        </div>
+        
+        <a href="{{ url_for('auth.business_register') }}" class="btn-register-b2b">Register Your Business Now</a>
+    </div>
+
+</div> <div class="modal-overlay" id="dateModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Invite to <br><span id="modalVenueName" style="color: #111;">Venue</span></h3>
+            <button class="close-btn" onclick="closeModal()">×</button>
+        </div>
+        
+        <form id="proposalForm" onsubmit="submitProposal(event)">
+            <input type="hidden" id="venueIdInput">
+            <input type="hidden" id="venueNameInput">
+            
+            <div class="form-group">
+                <label>Who are you asking?</label>
+                <select id="partnerSelect" required>
+                    <option value="" disabled selected>Select a Match...</option>
+                    {% if matches %}
+                        {% for match in matches %}
+                            <option value="{{ match.id }}">{{ match.name }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="" disabled>No active matches yet!</option>
+                    {% endif %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Which Day?</label>
+                <select id="daySelect" required>
+                    <option value="" disabled selected>Select a Day...</option>
+                    <option value="Today">Today</option>
+                    <option value="Tomorrow">Tomorrow</option>
+                    <option value="This Friday">This Friday</option>
+                    <option value="This Saturday">This Saturday</option>
+                    <option value="This Sunday">This Sunday</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>What Time? (Between 8 AM - 10 PM)</label>
+                <input type="time" id="timeSelect" required min="08:00" max="22:00">
+            </div>
+            
+            <button type="submit" class="btn-propose" id="submitBtn" style="margin-top: 10px;">
+                Send Invitation 💌
+            </button>
+        </form>
+    </div>
+</div>
+
+<div id="venue-toast" class="venue-toast">Action completed.</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+    const modal = document.getElementById('dateModal');
+    let toastTimeout;
+
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('venue-toast');
+        toast.innerText = message;
+        toast.className = `venue-toast ${type}`;
+        
+        toast.style.display = 'none';
+        void toast.offsetWidth; // Trigger reflow
+        toast.style.display = 'block';
+        
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+    
+    function openModal(venueId, venueName) {
+        document.getElementById('venueIdInput').value = venueId;
+        document.getElementById('venueNameInput').value = venueName;
+        document.getElementById('modalVenueName').innerText = venueName;
+        modal.classList.add('active');
+    }
+    
+    function closeModal() {
+        modal.classList.remove('active');
+        // Add a slight delay before resetting so the user doesn't see the form wipe as it fades out
+        setTimeout(() => { document.getElementById('proposalForm').reset(); }, 300);
+    }
+    
+    // Close modal if clicking outside the white box
+    window.onclick = function(event) {
+        if (event.target == modal) closeModal();
+    }
+
+    function submitProposal(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('submitBtn');
+        const originalText = btn.innerText;
+        btn.innerText = "Sending Invite...";
+        btn.disabled = true;
+
+        const payload = {
+            venue_id: document.getElementById('venueIdInput').value,
+            venue_name: document.getElementById('venueNameInput').value,
+            partner_id: document.getElementById('partnerSelect').value,
+            day: document.getElementById('daySelect').value,
+            time: document.getElementById('timeSelect').value
+        };
+
+        fetch('/api/propose_date', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast("✨ Invitation sent perfectly!", "success");
+                closeModal();
+                
+                // Redirect to chat after a brief moment to let them see the success toast
+                setTimeout(() => {
+                    window.location.href = '/matches/' + payload.partner_id;
+                }, 1500);
+            } else {
+                showToast(data.message || "Error sending invitation.", "error");
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast("Network error. Please try again.", "error");
+            btn.innerText = originalText;
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}

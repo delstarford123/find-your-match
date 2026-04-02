@@ -6,40 +6,54 @@ import io
 import base64
 import qrcode
 import json
-import threading
+import logging
 import requests
+import threading
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit, join_room  # Added join_room here
+from flask_socketio import SocketIO, emit, join_room
 from pywebpush import webpush, WebPushException
+from groq import Groq
 
-# 1. Path Setup & Environment
+# ==========================================
+# 1. PATH SETUP & ENVIRONMENT
+# ==========================================
 load_dotenv()
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# 2. Local App Imports
+# Define East Africa Time (UTC+3) for accurate Kenyan timestamps
+EAT = timezone(timedelta(hours=3))
+
+# Configure Central Logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# 2. LOCAL APP IMPORTS
+# ==========================================
+# 🔥 FIX: Added get_user_matches and create_date_booking!
 from app.database import (
     db, get_all_profiles, save_schedule, update_user_bio, 
     save_chat_message, get_chat_history, save_swipe, save_date_feedback,
     get_restaurant, get_restaurant_bookings, update_booking_status, terminate_connection,
-    get_all_restaurants, delete_user_account, increment_restaurant_view
+    get_all_restaurants, delete_user_account, increment_restaurant_view,
+    get_user_matches, create_date_booking
 )
 
 from app.services.recommendation_engine import generate_ranked_deck
 from app.services.moderation import contains_phone_number, analyze_safety
 from app.payments import initiate_stk_push
-from groq import Groq
-
-# Pull the key securely from the system environment
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # ==========================================
 # 3. AI COMPANION SERVICE (GROQ)
 # ==========================================
+# Pull the key securely from the system environment
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
 
 def get_ai_companion_response(user_text, user_gender="unknown"):
     """Connects to Groq and dynamically adjusts persona based on user gender."""
@@ -169,102 +183,137 @@ def trigger_match_notification(target_user_id, current_user_name):
             db.reference(f'push_subscriptions/{target_user_id}').delete()
             print(f"🧹 Cleaned up expired push token for {target_user_id}")
 
-
 # ==========================================
 # 6. WEBSOCKET EVENTS (CHAT & AI MODERATION)
 # ==========================================
+from datetime import datetime
+
 @socketio.on('connect')
 def handle_connect():
-    """Security Step: Automatically join a private room based on user_id when connecting."""
+    """Security Step: Automatically join a private room based on user_id."""
     user_id = session.get('user_id')
     if user_id:
         join_room(user_id)
 
 @socketio.on('typing')
 def handle_typing(data):
-    """Routes the typing indicator only to the person they are chatting with."""
+    """Routes the typing indicator securely."""
     receiver_id = data.get('receiver_id')
-    if receiver_id:
+    sender_id = session.get('user_id')
+    
+    if receiver_id and sender_id:
+        # Force the sender ID so clients cannot spoof who is typing
+        data['sender'] = sender_id
         emit('user_typing', data, to=receiver_id)
 
 @socketio.on('send_message')
 def handle_message(data):
-    # Security Check: Ensure the user is actually logged in
+    # 1. SECURITY: Ensure user is authenticated
     sender_id = session.get('user_id')
     if not sender_id:
         return
 
     receiver_id = data.get('receiver_id')
-    msg_text = data.get('text')
+    msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
 
-    # ROUTE A: AI COMPANION LOGIC
-    if receiver_id == 'AI_COMPANION':
-        # Echo the user's message back to their own screen
-        emit('receive_message', data, to=request.sid)
-        
-        # Show AI typing indicator
-        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=request.sid)
-        
-        # Fetch the user's gender from Firebase for dynamic AI persona
-        current_user_gender = "unknown"
-        user_profile = db.reference(f'profiles/{sender_id}').get()
-        if user_profile and 'gender' in user_profile:
-            current_user_gender = user_profile['gender']
-        
-        # Worker function for the background thread
-        def ai_worker(query, sid, gender):
-            ai_reply = get_ai_companion_response(query, user_gender=gender)
-            
-            socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=sid)
-            socketio.emit('receive_message', {
-                'sender': 'AI_COMPANION',
-                'type': 'text',
-                'text': ai_reply
-            }, to=sid)
-
-        # Start the AI in a separate thread
-        threading.Thread(target=ai_worker, args=(msg_text, request.sid, current_user_gender)).start()
+    # Prevent empty "ghost" messages
+    if not receiver_id or not msg_text:
         return
 
-    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
-    if msg_type == 'text':
-        safety_check = analyze_safety(msg_text)
+    # 2. SERVER-SIDE STAMPING: Overwrite payload to prevent client spoofing
+    data['sender'] = sender_id
+    data['timestamp'] = datetime.now().isoformat()
+
+    # ==========================================
+    # ROUTE A: AI COMPANION LOGIC
+    # ==========================================
+    if receiver_id == 'AI_COMPANION':
+        # Echo to all of the user's active devices (phone, laptop, etc.)
+        emit('receive_message', data, to=sender_id)
+        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=sender_id)
         
-        if not safety_check['is_safe']:
-            # Log serious violations to the admin panel
-            if safety_check['flag'] in ['self_harm', 'violence']:
-                db.reference('admin_alerts').push({
-                    'sender': sender_id,
-                    'receiver': receiver_id,
-                    'message': msg_text,
-                    'flag': safety_check['flag'],
+        # Safely fetch gender
+        current_user_gender = "unknown"
+        try:
+            user_profile = db.reference(f'profiles/{sender_id}').get()
+            if user_profile and 'gender' in user_profile:
+                current_user_gender = user_profile['gender']
+        except Exception:
+            pass
+        
+        # Async worker for AI generation
+        def ai_worker(query, user_room, gender):
+            try:
+                ai_reply = get_ai_companion_response(query, user_gender=gender)
+                socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=user_room)
+                socketio.emit('receive_message', {
+                    'sender': 'AI_COMPANION',
+                    'type': 'text',
+                    'text': ai_reply,
                     'timestamp': datetime.now().isoformat()
-                })
+                }, to=user_room)
+            except Exception as e:
+                print(f"AI Worker Error: {e}")
+
+        # Use SocketIO's safe background task manager instead of standard threading
+        socketio.start_background_task(ai_worker, msg_text, sender_id, current_user_gender)
+        return
+
+    # ==========================================
+    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
+    # ==========================================
+    if msg_type == 'text':
+        try:
+            safety_check = analyze_safety(msg_text)
             
-            # Warn the sender privately
-            warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check['system_reply']}
-            emit('receive_message', warning_msg, to=request.sid) 
-            return
+            if not safety_check.get('is_safe', True):
+                if safety_check.get('flag') in ['self_harm', 'violence']:
+                    # Offload DB write to prevent blocking the socket
+                    def save_alert():
+                        db.reference('admin_alerts').push({
+                            'sender': sender_id,
+                            'receiver': receiver_id,
+                            'message': msg_text,
+                            'flag': safety_check['flag'],
+                            'timestamp': datetime.now().isoformat()
+                        })
+                    socketio.start_background_task(save_alert)
+                
+                # Warn the sender privately across all their devices
+                warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check.get('system_reply', 'Message flagged.')}
+                emit('receive_message', warning_msg, to=sender_id) 
+                return
 
-        if contains_phone_number(msg_text):
-            warning_msg = {
-                'sender': 'SYSTEM_AI',
-                'type': 'text',
-                'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
-            }
-            emit('receive_message', warning_msg, to=request.sid) 
-            return
+            if contains_phone_number(msg_text):
+                warning_msg = {
+                    'sender': 'SYSTEM_AI',
+                    'type': 'text',
+                    'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
+                }
+                emit('receive_message', warning_msg, to=sender_id) 
+                return
+        except Exception as e:
+            print(f"Safety Check Error: {e}")
 
-    # ROUTE C: SAFE MESSAGE DELIVERY
-    # Save to Firebase
-    save_chat_message(sender_id, receiver_id, msg_text, msg_type)
+    # ==========================================
+    # ROUTE C: LIGHTNING FAST MESSAGE DELIVERY
+    # ==========================================
     
-    # Send to the specific receiver's private room
+    # 1. Deliver instantly to UI (Zero-latency feel)
     emit('receive_message', data, to=receiver_id)
-    # Also echo it back to the sender
-    emit('receive_message', data, to=request.sid)
+    emit('receive_message', data, to=sender_id)
+    
+    # 2. Save to database in the background
+    def background_db_save():
+        try:
+            save_chat_message(sender_id, receiver_id, msg_text, msg_type)
+        except Exception as e:
+            print(f"DB Save Error: {e}")
 
+    socketio.start_background_task(background_db_save)
+    
+    
 # Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
 # ==========================================
 # CORE B2C PAGES (STUDENTS)
@@ -373,10 +422,75 @@ def dashboard():
                 })
 
     return render_template('dashboard.html', current_user=session.get('user_name'), matches=my_matches)
+
 @app.route('/matches')
 @app.route('/matches/<partner_id>')
 @requires_subscription
 def matches(partner_id=None):
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Check if the user is in "Ghost Mode" (only talking to AI)
+    ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
+    
+    my_matches = []
+    
+    if ai_mode:
+        # If AI Mode is on, restrict the inbox to ONLY the AI Companion
+        my_matches.append({
+            'id': 'AI_COMPANION', 'name': 'AI Companion',
+            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=MMUST&backgroundColor=ffccd5', 
+            'is_perfect_match': True, 'is_online': True, 'is_mutual_match': True,
+            'last_message': 'Ready to chat!', 'last_message_time': 'Just now'
+        })
+        partner_id = 'AI_COMPANION'
+    else:
+        # THE UPGRADE: Use the database helper to ONLY fetch mutual matches + AI Wingman
+        my_matches = get_user_matches(user_id)
+        
+        # Sort the inbox so the most recently active chats float to the top
+        my_matches.sort(key=lambda x: x.get('last_message_time', ''), reverse=True)
+        
+        # Auto-select the top chat if they just clicked "Messages" without a specific ID
+        if not partner_id and my_matches:
+            partner_id = my_matches[0]['id']
+
+    # Find the data for the person currently being chatted with
+    active_partner = next((m for m in my_matches if str(m['id']) == str(partner_id)), None)
+    
+    # Security Validation: Stop users from typing a random ID in the URL to spy on non-matches
+    if partner_id and not active_partner and partner_id != 'AI_COMPANION':
+        flash("You can only message students you have mutually matched with!", "warning")
+        return redirect(url_for('matches'))
+
+    # Load the chat history
+    history = get_chat_history(user_id, partner_id) if active_partner else []
+    
+    return render_template('matches.html', 
+                           current_user=session.get('user_name'), 
+                           my_matches=my_matches, 
+                           active_partner=active_partner, 
+                           chat_history=history)
+@app.route('/api/check-pending-date')
+@login_required
+def check_pending_date():
+    user_id = request.args.get('user_id')
+    # Query your bookings table for any 'Approved' dates for this user
+    bookings = db.reference('bookings').order_by_child('user_a_id').equal_to(user_id).get() or {}
+    
+    # Check both sides (User A and User B)
+    pending_found = False
+    for b in bookings.values():
+        if b.get('status') == 'Approved':
+            pending_found = True
+            break
+            
+    return jsonify({'has_pending': pending_found})
+
+@app.route('/matchess')
+@app.route('/matchess/<partner_ids>')
+@requires_subscription
+def matchess(partner_id=None):
     # PROTECTED: Must be logged in AND paid
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
@@ -849,78 +963,118 @@ def admin_logout():
     return redirect(url_for('super_admin'))
 
 
+import os
+import logging
+from datetime import datetime, timedelta
+from flask import request, jsonify, session, flash, url_for
+
+logger = logging.getLogger(__name__)
+
 # ==========================================
 # API ENDPOINTS (SWIPE, PAYMENTS, NOTIFICATIONS)
 # ==========================================
-
+def ai_wingman_match_intro(user_id, partner_profile):
+    """AI Wingman analyzes the match and sends the user a tip on how to start the chat."""
+    try:
+        partner_name = partner_profile.get('name', 'your match').split(' ')[0]
+        partner_bio = partner_profile.get('bio', 'No bio provided.')
+        
+        # Craft a prompt for the Wingman
+        prompt = (
+            f"I just matched with {partner_name}. Their bio says: '{partner_bio}'. "
+            f"Give me one short, funny, and clever opening line I can use. "
+            f"Make it relevant to their bio. Keep it to one sentence."
+        )
+        
+        # Get AI response
+        ai_tip = get_ai_companion_response(prompt)
+        
+        # Format the system message
+        wingman_msg = f"🕶️ **WINGMAN TIP:** You and {partner_name} are a great match! Try this opener: \"{ai_tip}\""
+        
+        # Save this as a message from the AI_COMPANION to the user
+        save_chat_message('AI_COMPANION', user_id, wingman_msg, msg_type='text')
+        
+        # Emit it live so it pops up in their UI if they are looking at matches
+        socketio.emit('receive_message', {
+            'sender': 'AI_COMPANION',
+            'text': wingman_msg,
+            'type': 'text',
+            'timestamp': datetime.now(EAT).isoformat()
+        }, to=user_id)
+        
+    except Exception as e:
+        logger.error(f"Wingman Match Intro Error: {e}")
+        
 @app.route('/api/profiles')
 def get_profiles():
     user_id = request.args.get('user_id')
     ranked_deck = generate_ranked_deck(user_id)
     return jsonify(ranked_deck)
-
 @app.route('/api/swipe', methods=['POST'])
+@login_required
 def record_swipe():
-    if 'user_id' not in session:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-
     data = request.json
     current_user_id = session.get('user_id')
     target_user_id = data.get('target_id')
     action = data.get('action') 
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now(EAT).isoformat()
 
     if not target_user_id or not action:
         return jsonify({"status": "error", "message": "Missing swipe data"}), 400
 
     try:
+        # 1. Record the swipe
         db.reference(f'swipes/{current_user_id}/{target_user_id}').set({
             'action': action,
             'timestamp': timestamp
         })
+        
+        is_match = False
+        match_details = {}
+
+        if action == 'like':
+            # 2. Check if it's a mutual match
+            target_swipe = db.reference(f'swipes/{target_user_id}/{current_user_id}').get()
+
+            if target_swipe and target_swipe.get('action') == 'like':
+                is_match = True
+                match_id = "_".join(sorted([current_user_id, target_user_id]))
+                
+                # 3. Save Match Entry
+                db.reference(f'matches/{match_id}').set({
+                    'users': {current_user_id: True, target_user_id: True},
+                    'matched_at': timestamp,
+                    'last_message': 'You matched! Say hi.',
+                    'last_message_time': timestamp
+                })
+                
+                # 4. Prepare details for frontend popup
+                target_profile = db.reference(f'profiles/{target_user_id}').get() or {}
+                current_profile = db.reference(f'profiles/{current_user_id}').get() or {}
+                
+                match_details = {
+                    'name': target_profile.get('name', 'Your Match').split(' ')[0],
+                    'img': target_profile.get('img', '/static/img/placeholder.png')
+                }
+
+                # 5. TRIGGER PUSH NOTIFICATION (Normal match buzz)
+                current_name = current_profile.get('name', 'Someone').split(' ')[0]
+                socketio.start_background_task(trigger_match_notification, target_user_id, current_name)
+
+                # 6.  THE AI MAGIC: AI Wingman sends a tip to the current user
+                socketio.start_background_task(ai_wingman_match_intro, current_user_id, target_profile)
+
+        return jsonify({
+            "status": "success",
+            "match": is_match,
+            "match_details": match_details
+        })
+
     except Exception as e:
-        print(f"Database Error saving swipe: {e}")
-        return jsonify({"status": "error", "message": "Database failed"}), 500
-
-    is_match = False
-    match_details = {}
-
-    if action == 'like':
-        target_swipe = db.reference(f'swipes/{target_user_id}/{current_user_id}').get()
-
-        if target_swipe and target_swipe.get('action') == 'like':
-            is_match = True
-            match_id = "_".join(sorted([current_user_id, target_user_id]))
-            
-            db.reference(f'matches/{match_id}').set({
-                'users': {current_user_id: True, target_user_id: True},
-                'matched_at': timestamp,
-                'last_message': 'You matched! Say hi.',
-                'last_message_time': timestamp
-            })
-
-            current_profile = db.reference(f'profiles/{current_user_id}').get() or {}
-            target_profile = db.reference(f'profiles/{target_user_id}').get() or {}
-
-            current_name = current_profile.get('name', 'Someone').split(' ')[0]
-            target_name = target_profile.get('name', 'Your Match').split(' ')[0]
-            
-            match_details = {
-                'name': target_name,
-                'img': target_profile.get('img', '/static/img/placeholder.png')
-            }
-
-            try:
-                trigger_match_notification(target_user_id, current_name)
-            except Exception as e:
-                print(f"Failed to send push notification: {e}")
-
-    return jsonify({
-        "status": "success",
-        "match": is_match,
-        "match_details": match_details
-    })
-
+        logger.error(f"Swipe Error: {e}")
+        return jsonify({"status": "error", "message": "Database error"}), 500
+    
 @app.route('/api/save-subscription', methods=['POST'])
 def save_subscription():
     if 'user_id' not in session:
@@ -933,12 +1087,14 @@ def save_subscription():
         db.reference(f'push_subscriptions/{user_id}').set(subscription_data)
         return jsonify({"status": "success", "message": "Subscription saved to Firebase"})
     except Exception as e:
-        print(f"Error saving subscription: {e}")
+        logger.error(f"Error saving subscription: {e}")
         return jsonify({"status": "error", "message": "Database error"}), 500
 
 @app.route('/api/end_date', methods=['POST'])
 def end_date():
-    if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
+    if 'user_id' not in session: 
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     user_id = session.get('user_id')
     partner_id = request.json.get('partner_id')
     
@@ -946,6 +1102,10 @@ def end_date():
         flash("Date terminated. All data and chats have been securely deleted.", "success")
         return jsonify({'success': True})
     return jsonify({'success': False}), 500
+
+# ==========================================
+# M-PESA B2C: STUDENT SUBSCRIPTIONS
+# ==========================================
 
 @app.route('/api/pay_student_fee', methods=['POST'])
 def pay_student_fee():
@@ -958,7 +1118,10 @@ def pay_student_fee():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
-    callback_url = "https://unpent-ethically-arie.ngrok-free.app/api/mpesa/student_callback"
+    # Dynamically generate the callback URL for whichever environment you are currently running
+    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    callback_url = f"{base_url}/api/mpesa/student_callback"
+    
     response = initiate_stk_push(phone_number, 20, user_id, callback_url)
 
     if 'error' in response:
@@ -966,6 +1129,7 @@ def pay_student_fee():
 
     if 'CheckoutRequestID' in response:
         checkout_id = response['CheckoutRequestID']
+        # Temporarily link this specific transaction to this specific user
         db.reference(f'pending_payments/{checkout_id}').set(user_id)
         return jsonify({'success': True, 'message': 'Check your phone for the M-Pesa PIN prompt!'})
     
@@ -973,9 +1137,9 @@ def pay_student_fee():
 
 @app.route('/api/mpesa/student_callback', methods=['POST'])
 def mpesa_student_callback():
-    callback_data = request.json
+    data = request.json
     try:
-        stk_callback = callback_data['Body']['stkCallback']
+        stk_callback = data['Body']['stkCallback']
         result_code = stk_callback['ResultCode']
         checkout_id = stk_callback['CheckoutRequestID']
 
@@ -983,6 +1147,7 @@ def mpesa_student_callback():
             metadata = stk_callback['CallbackMetadata']['Item']
             mpesa_receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             
+            # Lookup who initiated this exact transaction
             pending_ref = db.reference(f'pending_payments/{checkout_id}')
             user_id = pending_ref.get()
 
@@ -993,15 +1158,24 @@ def mpesa_student_callback():
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': mpesa_receipt
                 })
+                # Clean up pending state
                 pending_ref.delete()
-                print(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
+                logger.info(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
+            else:
+                logger.warning(f"⚠️ Orphaned student payment received: {checkout_id}")
         else:
-            print(f"❌ STUDENT PAYMENT FAILED: Code {result_code}")
+            fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
+            logger.info(f"❌ STUDENT PAYMENT FAILED/CANCELLED: {fail_reason}")
 
     except Exception as e:
-        print(f"⚠️ Callback Error: {e}")
+        logger.error(f"⚠️ Student Callback Error: {e}")
 
+    # Always return 0 to Safaricom so they stop retrying the webhook
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+# ==========================================
+# M-PESA B2B: MERCHANT SUBSCRIPTIONS
+# ==========================================
 
 @app.route('/api/pay_subscription', methods=['POST'])
 def pay_subscription():
@@ -1015,76 +1189,78 @@ def pay_subscription():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
 
-    callback_url = "https://unpent-ethically-arie.ngrok-free.app/api/mpesa/callback"
+    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    callback_url = f"{base_url}/api/mpesa/b2b_callback"
+    
     response = initiate_stk_push(phone_number, 2000, restaurant_id, callback_url)
 
     if 'error' in response:
         return jsonify({'success': False, 'message': 'Payment initiation failed. Try again.'})
     
-    return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
+    if 'CheckoutRequestID' in response:
+        checkout_id = response['CheckoutRequestID']
+        # Securely link the transaction to the merchant
+        db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
+        return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
+
+    return jsonify({'success': False, 'message': 'Payment failed.'})
 
 
-
-@app.route('/mpesa/callback', methods=['POST'])
-def mpesa_callback():
-    """
-    WEBHOOK: Safaricom hits this URL when a payment completes.
-    """
+@app.route('/api/mpesa/b2b_callback', methods=['POST'])
+def mpesa_b2b_callback():
+    """WEBHOOK: Safaricom hits this URL when a B2B payment completes."""
     data = request.get_json()
     if not data:
         return "No data", 400
 
     try:
-        result_code = data['Body']['stkCallback']['ResultCode']
+        stk_callback = data['Body']['stkCallback']
+        result_code = stk_callback['ResultCode']
+        checkout_id = stk_callback['CheckoutRequestID']
         
-        # ResultCode 0 means SUCCESS (Customer entered PIN and paid)
         if result_code == 0:
-            callback_metadata = data['Body']['stkCallback']['CallbackMetadata']['Item']
-            
-            # Extract the exact details from Safaricom
-            amount = next((item['Value'] for item in callback_metadata if item['Name'] == 'Amount'), None)
-            receipt = next((item['Value'] for item in callback_metadata if item['Name'] == 'MpesaReceiptNumber'), None)
-            phone = next((item['Value'] for item in callback_metadata if item['Name'] == 'PhoneNumber'), None)
+            metadata = stk_callback['CallbackMetadata']['Item']
+            amount = next((item['Value'] for item in metadata if item['Name'] == 'Amount'), None)
+            receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
+            phone = next((item['Value'] for item in metadata if item['Name'] == 'PhoneNumber'), None)
             
             # 1. Save to Financial Ledger
             db.reference('ledger').push({
+                'type': 'B2B',
                 'amount': amount,
                 'receipt': receipt,
                 'phone': phone,
                 'timestamp': datetime.now().isoformat(),
                 'status': 'Completed'
             })
-            print(f"💰 M-Pesa Payment Received: {amount} KSH (Receipt: {receipt})")
+            logger.info(f"💰 M-Pesa B2B Payment Received: {amount} KSH (Receipt: {receipt})")
 
-            # 2. THE UNLOCK LOGIC: Find the user with this phone number and unlock them
-            if phone:
-                # Convert the integer phone from Safaricom to string just in case
-                phone_str = str(phone) 
-                
-                # Search the database for the user who owns this phone number
-                profiles_ref = db.reference('profiles')
-                matching_users = profiles_ref.order_by_child('phone').equal_to(phone_str).get()
-                
-                if matching_users:
-                    for uid in matching_users.keys():
-                        # Change their payment status to True!
-                        db.reference(f'profiles/{uid}').update({'is_paid': True})
-                        print(f"✅ Successfully unlocked account for user ID: {uid}")
-                else:
-                    print(f"⚠️ Payment received, but could not find a user with phone: {phone_str}")
+            # 2. ACTIVATE THE MERCHANT
+            pending_ref = db.reference(f'pending_b2b_payments/{checkout_id}')
+            restaurant_id = pending_ref.get()
+
+            if restaurant_id:
+                expiry_date = (datetime.now() + timedelta(days=30)).isoformat()
+                db.reference(f'restaurants/{restaurant_id}').update({
+                    'subscription_active': True,
+                    'subscription_expiry': expiry_date,
+                    'last_payment_receipt': receipt
+                })
+                pending_ref.delete()
+                logger.info(f"✅ MERCHANT ACTIVATED: ID {restaurant_id}")
+            else:
+                logger.warning(f"⚠️ Payment received, but could not find matching merchant for checkout: {checkout_id}")
 
         else:
-            # ResultCode is not 0 (User cancelled, insufficient funds, etc.)
-            fail_reason = data['Body']['stkCallback'].get('ResultDesc', 'Unknown Error')
-            print(f"❌ M-Pesa Payment Failed: {fail_reason}")
+            fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
+            logger.info(f"❌ M-Pesa B2B Payment Failed: {fail_reason}")
 
         return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
     except Exception as e:
-        print(f"Error processing M-Pesa Callback: {e}")
+        logger.error(f"Error processing B2B M-Pesa Callback: {e}")
         return jsonify({"ResultCode": 1, "ResultDesc": "Internal Error"}), 500
-
-
+    
 # ==========================================
 # WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
 # ==========================================
@@ -1251,8 +1427,140 @@ def handle_message(data):
 
     # Use SocketIO's safe background task manager
     socketio.start_background_task(background_save, sender_id, receiver_id, msg_text, msg_type)
+# ==========================================
+# STUDENT VENUE DISCOVERY & BOOKING
+# ==========================================
+
+@app.route('/discover')
+@login_required
+def discover_venues():
+    user_id = session.get('user_id')
     
+    # 1. Fetch only ACTIVE (paying) restaurants
+    venues = get_all_restaurants(active_only=True)
     
+    # 2. Fetch the user's active matches for the dropdown
+    my_matches = get_user_matches(user_id) 
+    
+    return render_template('bookings.html', venues=venues, matches=my_matches)
+
+@app.route('/api/propose_date', methods=['POST'])
+@login_required
+def propose_date():
+    """Handles the booking request and sends a real-time invite in the chat."""
+    data = request.json
+    sender_id = session.get('user_id')
+    
+    venue_id = data.get('venue_id')
+    venue_name = data.get('venue_name')
+    partner_id = data.get('partner_id')
+    date_day = data.get('day')
+    date_time = data.get('time')
+    
+    if not all([venue_id, partner_id, date_day, date_time]):
+        return jsonify({'success': False, 'message': 'Missing details.'}), 400
+        
+    try:
+        # 1. Create the pending booking for the merchant
+        create_date_booking(venue_id, sender_id, partner_id, date_day, date_time)
+        
+        # 2. Increment venue profile views
+        increment_restaurant_view(venue_id)
+        
+        # 3. Format & Save the chat message
+        invite_msg = (
+            f"💌 **DATE INVITATION** 💌\n\n"
+            f"I'd love to take you to **{venue_name}**!\n"
+            f"📅 **When:** {date_day} at {date_time}\n"
+            f"Let me know if you're down!"
+        )
+        save_chat_message(sender_id, partner_id, invite_msg, msg_type='date_invite')
+        
+        # 4. REAL-TIME SYNC: Push the message instantly to the partner's screen
+        socket_payload = {
+            'sender': sender_id,
+            'receiver_id': partner_id,
+            'type': 'date_invite',
+            'text': invite_msg,
+            'timestamp': datetime.now(EAT).isoformat(),
+            'temp_id': f"invite_{int(datetime.now().timestamp())}"
+        }
+        
+        try:
+            socketio.emit('receive_message', socket_payload, to=partner_id)
+        except Exception as sock_err:
+            logger.warning(f"Socket emit failed (partner might be offline): {sock_err}")
+
+        return jsonify({'success': True, 'message': 'Invitation sent!'})
+        
+    except Exception as e:
+        logger.error(f"Error proposing date: {e}")
+        return jsonify({'success': False, 'message': 'Internal server error.'}), 500
+
+
+# ==========================================
+# AI WINGMAN & RIZZ CHECK ROUTES
+# ==========================================
+
+@app.route('/wingman')
+@login_required
+def ai_wingman():
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    my_matches = get_user_matches(user_id) 
+    
+    return render_template('wingman.html', user=user_profile, matches=my_matches)
+
+@app.route('/api/wingman_action', methods=['POST'])
+@login_required
+def api_wingman_action():
+    """Handles requests for Profile Roasts and Icebreakers."""
+    data = request.json
+    action = data.get('action')
+    user_id = session.get('user_id')
+    
+    try:
+        if action == 'roast_profile':
+            user_profile = db.reference(f'profiles/{user_id}').get() or {}
+            bio = user_profile.get('bio', 'No bio provided.')
+            major = user_profile.get('major', 'Unknown major.')
+            
+            prompt = (
+                f"Act as a brutally honest, funny, but ultimately helpful college dating coach. "
+                f"My major is {major} and my dating app bio is: '{bio}'. "
+                f"Give me a funny 'roast' of this bio, and then provide 3 actionable tips "
+                f"or rewrite suggestions to make it more attractive to college students."
+            )
+            
+            ai_response = get_ai_companion_response(prompt, user_gender=user_profile.get('gender', 'unknown'))
+            return jsonify({'success': True, 'response': ai_response})
+            
+        elif action == 'generate_icebreaker':
+            partner_id = data.get('partner_id')
+            if not partner_id:
+                return jsonify({'success': False, 'message': 'Select a match first!'}), 400
+                
+            partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+            partner_bio = partner_profile.get('bio', 'They have no bio... time to get creative.')
+            partner_name = partner_profile.get('name', 'your match').split(',')[0]
+            
+            prompt = (
+                f"Act as my ultimate wingman. I just matched with someone named {partner_name}. "
+                f"Their bio says: '{partner_bio}'. "
+                f"Generate 3 highly customized, funny, and engaging icebreakers I can send them right now. "
+                f"Don't be creepy. Keep it fun and college-appropriate."
+            )
+            
+            ai_response = get_ai_companion_response(prompt, user_gender='unknown')
+            return jsonify({'success': True, 'response': ai_response})
+            
+        else:
+            return jsonify({'success': False, 'message': 'Invalid action.'}), 400
+
+    except Exception as e:
+        logger.error(f"Wingman API Error: {e}")
+        return jsonify({'success': False, 'message': 'The Wingman is currently busy. Try again later!'}), 500  
+         
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

@@ -21,12 +21,12 @@
     <style>
         /* === GLOBAL CSS VARIABLES (THE ROMANTIC PALETTE) === */
         :root {
-            --primary: #E60026; /* The striking 'Color of Love' red */
-            --primary-light: #FFD6DD; /* Soft romantic pink for hovers */
-            --secondary: #720000; /* Deep Maroon */
-            --secondary-dark: #4A0008; /* Very deep maroon for text/footer */
-            --text-dark: var(--secondary-dark); /* Replaced dark gray with deep maroon */
-            --bg-color: #FEF2F4; /* Soft, warm romantic blush background */
+            --primary: #E60026;
+            --primary-light: #FFD6DD;
+            --secondary: #720000;
+            --secondary-dark: #4A0008;
+            --text-dark: var(--secondary-dark);
+            --bg-color: #FEF2F4;
             --nav-height: 70px;
         }
 
@@ -223,6 +223,20 @@
         /* === MAIN CONTENT === */
         .container { flex: 1; width: 100%; max-width: 1200px; margin: var(--nav-height) auto 0; padding: 0; position: relative; z-index: 10; }
 
+        /* === APP INSTALL BANNER === */
+        .pwa-banner {
+            display: none; position: fixed; bottom: 30px; left: 15px; right: 15px; 
+            background: white; padding: 20px; border-radius: 16px; 
+            box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 9999; 
+            border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; 
+            animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pwa-banner h4 { margin: 0 0 5px; color: var(--secondary); font-weight: 900; font-size: 16px; }
+        .pwa-banner p { margin: 0; font-size: 13px; color: #666; line-height: 1.4; }
+        .pwa-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(230,0,38,0.2); }
+        @media (min-width: 600px) { .pwa-banner { left: auto; max-width: 400px; right: 30px; } }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
         /* === FOOTER === */
         footer { background: var(--secondary-dark); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
         footer p { font-size: 14px; opacity: 0.9; margin: 0; }
@@ -267,18 +281,27 @@
                         <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
                         <div class="dropdown-content">
                             <a href="{{ url_for('swipe') }}">Swipe Deck</a>
-                            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-                            <a href="{{ url_for('venues') }}">Date Venues</a>
+                            <a href="{{ url_for('discover_venues') }}">Approved Date Spots</a>
+                            <a href="{{ url_for('ai_wingman') }}">Wingman</a>
+                            <a href="{{ url_for('venues') }}">All dating spots</a>
+                        </div>
+                    </div>
+
+                    <div class="dropdown">
+                        <button class="dropbtn" onclick="toggleDropdown(this)">Dashboard ▾</button>
+                        <div class="dropdown-content">
+                            <a href="{{ url_for('dashboard') }}">Overview</a>
+                            <a href="{{ url_for('matches') }}">Messages</a>
                         </div>
                     </div>
 
                     <div class="dropdown">
                         <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
                         <div class="dropdown-content">
-                            <a href="{{ url_for('matches') }}">Messages</a>
                             <a href="{{ url_for('profile') }}">Edit Profile</a>
-                            <a href="{{ url_for('settings') }}">Settings</a>
+                            <a href="{{ url_for('settings') }}">Preferences & Settings</a>
                             <a href="{{ url_for('safety') }}">Safety Center</a>
+                            <a href="#" onclick="subscribeToPushNotifications(); return false;">Enable Notifications</a>
                         </div>
                     </div>
                     
@@ -318,12 +341,12 @@
         {% endblock %}
     </main>
     
-    <div id="install-banner" style="display: none; position: fixed; bottom: 30px; left: 15px; right: 15px; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 9999; border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; animation: slideIn 0.5s ease-out;">
+    <div id="install-banner" class="pwa-banner">
         <div>
-            <h4 style="margin: 0 0 5px; color: var(--secondary); font-weight: 900; font-size: 16px;">Get the FIND YOUR MATCH App!</h4>
-            <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.4;">Install on your home screen for a faster, full-screen experience.</p>
+            <h4>Get the FIND YOUR MATCH App!</h4>
+            <p>Install on your home screen for a faster, full-screen experience.</p>
         </div>
-        <button id="install-btn" style="background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(230,0,38,0.2);">Install</button>
+        <button id="install-btn" class="pwa-btn">Install</button>
     </div>
 
     <footer>
@@ -347,6 +370,7 @@
     <script>
         document.getElementById('current-year').textContent = new Date().getFullYear();
 
+        /* === NAVBAR LOGIC === */
         function toggleMenu() {
             const nav = document.getElementById('nav-links');
             const btn = document.getElementById('menu-btn');
@@ -355,22 +379,19 @@
             
             if (nav.classList.contains('active')) {
                 btn.innerHTML = '✕'; 
-                document.body.style.overflow = 'hidden'; // Prevents background scrolling when menu is open
+                document.body.style.overflow = 'hidden';
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'flex'; });
             } else {
                 btn.innerHTML = '☰';
                 document.body.style.overflow = ''; 
-                // Close all dropdowns when menu closes
                 document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'none'; });
             }
         }
 
         function toggleDropdown(button) {
-            // Only trigger click logic on mobile views (desktop uses CSS hover)
             if (window.innerWidth <= 900) {
                 const parentDropdown = button.parentElement;
-                // Close other dropdowns first
                 document.querySelectorAll('.dropdown.active').forEach(d => {
                     if (d !== parentDropdown) d.classList.remove('active');
                 });
@@ -378,6 +399,7 @@
             }
         }
         
+        /* === TOAST LOGIC === */
         function closeToast(button) {
             const toast = button.parentElement;
             toast.style.animation = 'slideOut 0.4s forwards';
@@ -388,7 +410,6 @@
             const toasts = document.querySelectorAll('.alert');
             toasts.forEach(toast => {
                 setTimeout(() => {
-                    // Only auto-dismiss if it hasn't been manually dismissed
                     if (document.body.contains(toast)) {
                         toast.style.animation = 'slideOut 0.4s forwards';
                         setTimeout(() => toast.remove(), 400);
@@ -397,7 +418,50 @@
             });
         });
 
-        // === PWA REGISTRATION & INSTALL LOGIC ===
+        /* === PWA REGISTRATION & NOTIFICATIONS === */
+        const PUBLIC_VAPID_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpALO8QaYYjlrVifPH8A2yuIvoQoo';
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        async function subscribeToPushNotifications() {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                try {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        const registration = await navigator.serviceWorker.ready;
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                        });
+                        
+                        await fetch('/api/save_subscription', {
+                            method: 'POST',
+                            body: JSON.stringify(subscription),
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        alert('✅ Push Notifications Enabled! You will now receive messages instantly.');
+                    } else {
+                        alert('Notifications were blocked. Please enable them in your browser settings.');
+                    }
+                } catch (error) {
+                    console.error('Push subscription failed:', error);
+                }
+            } else {
+                alert('Your browser does not support Web Push Notifications.');
+            }
+        }
+
+        /* === PWA INSTALL PROMPT === */
         let deferredPrompt;
         const installBanner = document.getElementById('install-banner');
         const installBtn = document.getElementById('install-btn');
@@ -434,5 +498,7 @@
             console.log('App was successfully installed!');
         });
     </script>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>
