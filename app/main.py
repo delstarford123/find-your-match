@@ -160,7 +160,7 @@ def trigger_match_notification(target_user_id, current_user_name):
     sub_ref = db.reference(f'push_subscriptions/{target_user_id}').get()
     
     if not sub_ref:
-        print(f"⚠️ User {target_user_id} has not enabled push notifications.")
+        print(f" User {target_user_id} has not enabled push notifications.")
         return
 
     payload = json.dumps({
@@ -176,9 +176,9 @@ def trigger_match_notification(target_user_id, current_user_name):
             vapid_private_key=app.config['VAPID_PRIVATE_KEY'],
             vapid_claims=app.config['VAPID_CLAIMS']
         )
-        print(f"✅ Push notification instantly sent to {target_user_id}!")
+        print(f" Push notification instantly sent to {target_user_id}!")
     except WebPushException as ex:
-        print(f"❌ Push failed: {repr(ex)}")
+        print(f" Push failed: {repr(ex)}")
         if ex.response and ex.response.status_code == 410:
             db.reference(f'push_subscriptions/{target_user_id}').delete()
             print(f"🧹 Cleaned up expired push token for {target_user_id}")
