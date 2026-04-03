@@ -134,39 +134,37 @@ def update_user_bio(user_id: str, bio: str) -> bool:
 # ==========================================
 # REAL-TIME CHAT STORAGE & MATCHES
 # ==========================================
-
 def get_user_matches(user_id: str) -> list:
     """
-    Fetches all active matches for a specific user.
+    Fetches all active matches for a specific user safely.
     Returns a list of dictionaries containing partner details.
     """
     try:
-        # Query the matches table where this user is listed in the 'users' dict
-        matches_ref = db.reference('matches')
-        user_matches = matches_ref.order_by_child(f'users/{user_id}').equal_to(True).get()
+        # FIX: Fetch all matches and filter in Python to avoid Firebase Index errors
+        all_matches = db.reference('matches').get() or {}
         
-        if not user_matches:
-            return []
-            
         result = []
-        for match_id, match_data in user_matches.items():
-            # Find the ID of the person who is NOT the current user
+        for match_id, match_data in all_matches.items():
             users_in_match = match_data.get('users', {})
-            partner_id = next((uid for uid in users_in_match.keys() if uid != user_id), None)
             
-            if partner_id:
-                # Fetch the partner's public profile data
-                partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+            # Check if our current user is part of this match
+            if user_id in users_in_match:
+                # Find the ID of the person who is NOT the current user
+                partner_id = next((uid for uid in users_in_match.keys() if uid != user_id), None)
                 
-                result.append({
-                    'id': partner_id,
-                    'name': partner_profile.get('name', 'Unknown Match'),
-                    'img': partner_profile.get('img', '/static/img/placeholder.png'),
-                    'last_message': match_data.get('last_message', 'Say hi!'),
-                    'is_online': partner_profile.get('is_online', False),
-                    'is_mutual_match': True 
-                })
-                
+                if partner_id:
+                    # Fetch the partner's public profile data
+                    partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+                    
+                    result.append({
+                        'id': partner_id,
+                        'name': partner_profile.get('name', 'Unknown Match'),
+                        'img': partner_profile.get('img', '/static/img/placeholder.png'),
+                        'last_message': match_data.get('last_message', 'Say hi!'),
+                        'is_online': partner_profile.get('is_online', False),
+                        'is_mutual_match': True 
+                    })
+                    
         # Optional: Add the AI_COMPANION to everyone's match list by default
         result.append({
             'id': 'AI_COMPANION',
@@ -181,7 +179,7 @@ def get_user_matches(user_id: str) -> list:
     except Exception as e:
         logger.error(f"Error fetching user matches for {user_id}: {e}")
         return []
-
+    
 def save_chat_message(sender_id: str, receiver_id: str, message_text: str, msg_type: str = 'text') -> bool:
     """Permanently saves a chat message."""
     try:

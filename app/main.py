@@ -423,54 +423,7 @@ def dashboard():
 
     return render_template('dashboard.html', current_user=session.get('user_name'), matches=my_matches)
 
-@app.route('/matches')
-@app.route('/matches/<partner_id>')
-@requires_subscription
-def matches(partner_id=None):
-    user_id = session.get('user_id')
-    user_data = db.reference(f'profiles/{user_id}').get() or {}
-    
-    # Check if the user is in "Ghost Mode" (only talking to AI)
-    ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
-    
-    my_matches = []
-    
-    if ai_mode:
-        # If AI Mode is on, restrict the inbox to ONLY the AI Companion
-        my_matches.append({
-            'id': 'AI_COMPANION', 'name': 'AI Companion',
-            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=MMUST&backgroundColor=ffccd5', 
-            'is_perfect_match': True, 'is_online': True, 'is_mutual_match': True,
-            'last_message': 'Ready to chat!', 'last_message_time': 'Just now'
-        })
-        partner_id = 'AI_COMPANION'
-    else:
-        # THE UPGRADE: Use the database helper to ONLY fetch mutual matches + AI Wingman
-        my_matches = get_user_matches(user_id)
-        
-        # Sort the inbox so the most recently active chats float to the top
-        my_matches.sort(key=lambda x: x.get('last_message_time', ''), reverse=True)
-        
-        # Auto-select the top chat if they just clicked "Messages" without a specific ID
-        if not partner_id and my_matches:
-            partner_id = my_matches[0]['id']
 
-    # Find the data for the person currently being chatted with
-    active_partner = next((m for m in my_matches if str(m['id']) == str(partner_id)), None)
-    
-    # Security Validation: Stop users from typing a random ID in the URL to spy on non-matches
-    if partner_id and not active_partner and partner_id != 'AI_COMPANION':
-        flash("You can only message students you have mutually matched with!", "warning")
-        return redirect(url_for('matches'))
-
-    # Load the chat history
-    history = get_chat_history(user_id, partner_id) if active_partner else []
-    
-    return render_template('matches.html', 
-                           current_user=session.get('user_name'), 
-                           my_matches=my_matches, 
-                           active_partner=active_partner, 
-                           chat_history=history)
 @app.route('/api/check-pending-date')
 @login_required
 def check_pending_date():
@@ -487,45 +440,45 @@ def check_pending_date():
             
     return jsonify({'has_pending': pending_found})
 
-@app.route('/matchess')
-@app.route('/matchess/<partner_ids>')
+@app.route('/matches')
+@app.route('/matches/<partner_id>')
 @requires_subscription
-def matchess(partner_id=None):
+def matches(partner_id=None):
     # PROTECTED: Must be logged in AND paid
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Check if the user is in "Ghost Mode" (only talking to AI)
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
     
     my_matches = []
     
     if ai_mode:
-        # --- AI COMPANION MODE ---
+        # --- AI COMPANION MODE (Ghost Mode) ---
         my_matches.append({
-            'id': 'AI_COMPANION',
-            'name': 'AI Companion',
+            'id': 'AI_COMPANION', 'name': 'AI Companion',
             'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=MMUST&backgroundColor=ffccd5', 
-            'is_perfect_match': True,
-            'is_online': True,
-            'is_mutual_match': True, # AI is always a match
-            'last_message': 'Ready to chat!',
-            'last_message_time': 'Just now'
+            'is_perfect_match': True, 'is_online': True, 'is_mutual_match': True,
+            'last_message': 'Ready to chat!', 'last_message_time': 'Just now'
         })
         partner_id = 'AI_COMPANION'
     else:
-        # --- HUMAN OPEN-DM MODE ---
-        # 1. Fetch the mutual matches to see who gets the "MATCH" badge
+        # --- HUMAN OPEN-DM MODE (Shows everyone, highlights matches) ---
+        
+        # 1. FIXED: Fetch all matches and filter in Python to PREVENT Firebase crashes!
         all_matches = db.reference('matches').get() or {}
         
-        # Extract the partner IDs and chat metadata
         matched_data = {}
         for match_id, m_data in all_matches.items():
             if user_id in m_data.get('users', {}):
-                # Find the ID of the *other* person in this match
-                other_id = [uid for uid in m_data['users'].keys() if uid != user_id][0]
-                matched_data[other_id] = {
-                    'last_message': m_data.get('last_message', 'You matched! Say hi.'),
-                    'last_message_time': m_data.get('last_message_time', '')
-                }
+                users_dict = m_data.get('users', {})
+                other_id = next((uid for uid in users_dict.keys() if uid != user_id), None)
+                
+                if other_id:
+                    matched_data[other_id] = {
+                        'last_message': m_data.get('last_message', 'You matched! Say hi.'),
+                        'last_message_time': m_data.get('last_message_time', '')
+                    }
 
         # 2. Fetch ALL profiles in the system
         all_profiles = get_all_profiles()
@@ -535,44 +488,46 @@ def matchess(partner_id=None):
             # Skip the current user themselves and hidden profiles
             if p['id'] != user_id and p.get('is_visible', True): 
                 p_id = p['id']
-                
-                # Check if this person is in the mutual match dictionary
                 is_mutual = p_id in matched_data
                 
-                # Assign message text based on match status
                 if is_mutual:
                     last_msg = matched_data[p_id]['last_message']
                     last_msg_time = matched_data[p_id]['last_message_time']
                 else:
                     last_msg = 'Tap to start chatting'
-                    last_msg_time = '' # Empty time pushes them down the list
+                    last_msg_time = ''
+                
+                # Retrieve AI score safely, default to 0
+                ai_score = p.get('ai_score', 0)
                 
                 my_matches.append({
                     'id': p_id,
                     'name': p.get('name', 'Student').split(' ')[0], # First Name only
                     'img': p.get('img', '/static/img/placeholder.png'),
-                    'is_perfect_match': p.get('ai_score', 0) > 80,
+                    'is_perfect_match': ai_score > 80, # ❤️ TRIGGERS PERFECT MATCH BADGE
                     'is_online': p.get('is_online', False),
-                    'is_mutual_match': is_mutual, # 🔥 THIS POWERS THE HTML GLOW EFFECT
+                    'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
                     'last_message': last_msg,
                     'last_message_time': last_msg_time
                 })
         
-        # 4. Sort the inbox: Mutual Matches with recent chats float to the top
-        # We sort by is_mutual_match (True first), then by time
-        my_matches.sort(
-            key=lambda x: (x['is_mutual_match'], x.get('last_message_time', '')), 
-            reverse=True
-        )
+        # 4. ALWAYS append the AI Wingman to the list
+        my_matches.append({
+            'id': 'AI_COMPANION', 'name': 'AI Wingman',
+            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman',
+            'is_perfect_match': False, 'is_online': True, 'is_mutual_match': False,
+            'last_message': 'Need dating advice?', 'last_message_time': ''
+        })
 
-        # 5. Auto-select the top chat if no specific partner_id is in the URL
+        # 5. Sort matches (Mutual matches first, then by time)
+        my_matches.sort(key=lambda x: (x['is_mutual_match'], x.get('last_message_time', '')), reverse=True)
+
         if not partner_id and my_matches:
             partner_id = my_matches[0]['id']
 
     # Find the data for the person currently being chatted with
     active_partner = next((m for m in my_matches if str(m['id']) == str(partner_id)), None)
     
-    # Validation: Ensure the user isn't typing a fake ID in the URL
     if partner_id and not active_partner and not ai_mode:
         flash("This student could not be found.", "warning")
         return redirect(url_for('matches'))
@@ -585,7 +540,7 @@ def matchess(partner_id=None):
                            my_matches=my_matches,
                            active_partner=active_partner,
                            chat_history=history)   
-        
+             
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():

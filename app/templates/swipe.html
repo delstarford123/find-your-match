@@ -4,46 +4,22 @@
 <style>
     /* === GLOBAL NOTIFICATION BELL === */
     .floating-bell {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        border: 2px solid #FFD6DD;
-        color: #720000;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 22px;
-        cursor: pointer;
-        box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
-        z-index: 9999;
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: fixed; top: 20px; right: 20px;
+        background: white; border: 2px solid #FFD6DD; color: #720000;
+        width: 50px; height: 50px; border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 22px; cursor: pointer; box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
+        z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     .floating-bell:hover { transform: scale(1.1); }
     .floating-bell:active { transform: scale(0.9); }
 
     .bell-badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        background: #E60026;
-        color: white;
-        font-size: 11px;
-        font-weight: 900;
-        min-width: 22px;
-        height: 22px;
-        border-radius: 11px;
-        padding: 0 4px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border: 2px solid white;
-        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
-        display: none; 
-        animation: pulseBell 2s infinite;
+        position: absolute; top: -6px; right: -6px; background: #E60026;
+        color: white; font-size: 11px; font-weight: 900; min-width: 22px;
+        height: 22px; border-radius: 11px; padding: 0 4px; display: none; 
+        justify-content: center; align-items: center; border: 2px solid white;
+        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4); animation: pulseBell 2s infinite;
     }
 
     @keyframes pulseBell {
@@ -54,43 +30,22 @@
 
     /* === NOTIFICATION POPOVER MENU === */
     .bell-popover {
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        width: 320px;
-        z-index: 10000;
-        border: 1px solid #FFD6DD;
-        display: none;
-        flex-direction: column;
-        overflow: hidden;
-        transform-origin: top right;
-        animation: popIn 0.2s ease-out forwards;
+        position: fixed; top: 80px; right: 20px; background: white; border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
+        border: 1px solid #FFD6DD; display: none; flex-direction: column;
+        overflow: hidden; transform-origin: top right; animation: popIn 0.2s ease-out forwards;
     }
     .bell-popover.active { display: flex; }
 
     .popover-header {
-        padding: 15px;
-        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-        color: white;
-        font-weight: 900;
-        font-size: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        padding: 15px; background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        color: white; font-weight: 900; font-size: 15px; display: flex;
+        justify-content: space-between; align-items: center;
     }
     .popover-list { max-height: 350px; overflow-y: auto; }
     .popover-item {
-        padding: 12px 15px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        transition: 0.2s;
-        background: white;
+        padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+        border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white;
     }
     .popover-item:hover { background: #FEF2F4; }
     .popover-item:last-child { border-bottom: none; }
@@ -140,6 +95,15 @@
         font-size: 13px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4);
         z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
+    
+    #perfect-match-badge {
+        position: absolute; top: 15px; left: 15px;
+        background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
+        padding: 6px 14px; border-radius: 20px; font-weight: 900;
+        font-size: 11px; box-shadow: 0 4px 10px rgba(230,0,38,0.3);
+        display: none; z-index: 10; letter-spacing: 0.5px;
+    }
+
     @keyframes pulseBadge {
         0% { transform: scale(1); }
         50% { transform: scale(1.1); }
@@ -226,6 +190,8 @@
                     <img id="profile-img" src="" alt="Student Profile">
                     <div id="shimmer" class="shimmer" style="width:100%; height:100%; background: #eee;"></div>
                     
+                    <div id="perfect-match-badge">✨ PERFECT MATCH</div>
+                    
                     <div id="stamp-nope" class="stamp stamp-nope">NOPE</div>
                     <div id="stamp-like" class="stamp stamp-like">LIKE</div>
                     
@@ -271,79 +237,20 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
-    // --- Global Configurations ---
+    // ==========================================
+    // GLOBAL VARIABLES & NOTIFICATIONS
+    // ==========================================
     window.currentUserId = "{{ current_user.id }}";
     const myId = "{{ session.get('user_id') }}";
     const socket = io();
 
-    // --- Helper: XSS Protection ---
-    function escapeHTML(str) {
-        if (!str) return '';
-        return str.replace(/[&<>'"]/g, 
-            tag => ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                "'": '&#39;',
-                '"': '&quot;'
-            }[tag] || tag)
-        );
-    }
-
-    // --- Swipe/Match Logic ---
-    window.updateMatchSignal = function(isMutual) {
-        const signal = document.getElementById('is-match-signal');
-        if (signal) {
-            signal.style.display = isMutual ? 'block' : 'none';
-        }
-    };
-
-    window.triggerMatchCelebration = function(matchData) {
-        const partnerId = matchData.id || '';
-        document.getElementById('match-name-celeb').innerText = matchData.name.split(' ')[0];
-        document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
-        document.getElementById('match-overlay').style.display = 'flex';
-        
-        // Link the button to the specific chat
-        document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
-
-        const container = document.getElementById('icebreaker-container');
-        container.innerHTML = '<p style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom: 10px;">AI SUGGESTED ICEBREAKERS</p>';
-        
-        // Fetch AI icebreakers based on bio
-        fetch('/api/icebreakers', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ match_bio: matchData.bio })
-        })
-        .then(res => res.json())
-        .then(data => {
-            const lines = data.icebreakers ? data.icebreakers.split('\n') : ["Hey! Let's chat."];
-            lines.forEach(text => {
-                if(!text.trim()) return;
-                const div = document.createElement('div');
-                div.className = 'ice-bubble';
-                div.innerText = text.replace(/^\d+\.\s*/, '');
-                div.onclick = () => {
-                    navigator.clipboard.writeText(div.innerText);
-                    div.innerText = " Copied!";
-                    setTimeout(() => div.innerText = text, 2000);
-                };
-                container.appendChild(div);
-            });
-        });
-    };
-
-    function closeMatchOverlay() {
-        document.getElementById('match-overlay').style.display = 'none';
-        if(typeof window.loadNextProfile === 'function') window.loadNextProfile();
-    }
-
-    // ==========================================
-    // GLOBAL BELL NOTIFICATION LOGIC
-    // ==========================================
     let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
+    }
 
     function toggleBellPopover(e) {
         e.stopPropagation();
@@ -360,7 +267,6 @@
         let popoverHtml = '';
 
         for (const [uid, data] of Object.entries(unreadMap)) {
-            // Data structure cleanup if needed
             if (typeof data !== 'object') {
                  unreadMap[uid] = { count: data, text: "New Message" };
             }
@@ -391,21 +297,14 @@
             badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
             badge.style.display = 'flex';
             list.innerHTML = popoverHtml;
-            
-            // Notification Jiggle
-            const bell = document.getElementById('global-bell');
-            bell.style.transform = 'scale(1.15) rotate(10deg)';
-            setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
         } else {
             badge.style.display = 'none';
             list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">No new messages</div>';
         }
     }
 
-    // Initialize UI
     updateBellUI();
 
-    // WebSocket listener for incoming messages
     socket.on('receive_message', function(data) {
         const senderId = data.sender || data.sender_id;
         if (senderId === myId || senderId === 'SYSTEM_AI') return;
@@ -426,18 +325,20 @@
         localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
 
         updateBellUI();
+        
+        // Jiggle the bell
+        const bell = document.getElementById('global-bell');
+        bell.style.transform = 'scale(1.15) rotate(10deg)';
+        setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
     });
 
-    // Close popover when clicking outside
     window.addEventListener('click', function(e) {
         const bellPop = document.getElementById('bell-popover');
         if (bellPop && bellPop.classList.contains('active') && !e.target.closest('#bell-popover') && !e.target.closest('#global-bell')) {
             bellPop.classList.remove('active');
         }
     });
-</script>
 
-<script>
     // ==========================================
     // CORE SWIPE & RENDER LOGIC
     // ==========================================
@@ -452,17 +353,16 @@
         const nameEl = document.getElementById('profile-name');
         const ageEl = document.getElementById('profile-age');
         const bioEl = document.getElementById('profile-bio');
+        const perfectMatchBadge = document.getElementById('perfect-match-badge');
 
         // 1. Fetch Profiles from API
         fetch(`/api/profiles?user_id=${window.currentUserId}`)
             .then(res => res.json())
             .then(data => {
                 if (!data || data.length === 0 || data.error) {
-                    // No profiles found: Show Empty State
                     card.classList.add('hidden');
                     emptyState.classList.remove('hidden');
                 } else {
-                    // Profiles found: Render the first one
                     profiles = data;
                     renderProfile(profiles[currentIndex]);
                 }
@@ -476,7 +376,6 @@
         // 2. Render Profile Function
         window.renderProfile = function(profile) {
             if (!profile) {
-                // Reached the end of the deck
                 card.classList.add('hidden');
                 emptyState.classList.remove('hidden');
                 return;
@@ -486,22 +385,24 @@
             imgEl.style.display = 'none';
             if (shimmer) shimmer.style.display = 'block';
 
-            // Load new image
+            // Check AI Score for "Perfect Match" Badge
+            if (profile.ai_score && profile.ai_score >= 80) {
+                perfectMatchBadge.style.display = 'block';
+            } else {
+                perfectMatchBadge.style.display = 'none';
+            }
+
             imgEl.onload = () => {
                 imgEl.style.display = 'block';
                 if (shimmer) shimmer.style.display = 'none';
             };
-            imgEl.onerror = () => {
-                imgEl.src = '/static/img/placeholder.png'; 
-            };
+            imgEl.onerror = () => { imgEl.src = '/static/img/placeholder.png'; };
             imgEl.src = profile.img || '/static/img/placeholder.png';
             
-            // Populate text
             nameEl.innerText = (profile.name || 'Student').split(' ')[0];
             ageEl.innerText = profile.age ? `, ${profile.age}` : '';
             bioEl.innerText = profile.bio || 'No bio provided.';
             
-            // Reset stamps
             document.getElementById('stamp-like').style.opacity = '0';
             document.getElementById('stamp-nope').style.opacity = '0';
         };
@@ -511,15 +412,12 @@
             const currentProfile = profiles[currentIndex];
             if (!currentProfile) return;
 
-            // Show Stamp temporarily
             const stamp = action === 'like' ? document.getElementById('stamp-like') : document.getElementById('stamp-nope');
             if(stamp) stamp.style.opacity = '1';
 
-            // Visual swipe animation out
             card.style.transform = action === 'like' ? 'translateX(120%) rotate(15deg)' : 'translateX(-120%) rotate(-15deg)';
             card.style.opacity = '0';
 
-            // Send action to Database
             fetch('/api/swipe', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -528,24 +426,61 @@
             .then(res => res.json())
             .then(data => {
                 if (data.match) {
-                    window.triggerMatchCelebration(data.match_details);
+                    window.triggerMatchCelebration(data.match_details, currentProfile.id);
                 }
             });
 
-            // Load next profile and slide back in
             setTimeout(() => {
                 currentIndex++;
-                card.style.transition = 'none'; // Disable transition to snap back to center instantly
+                card.style.transition = 'none'; 
                 card.style.transform = 'translateX(0) rotate(0)';
                 
                 renderProfile(profiles[currentIndex]);
                 
-                // Allow browser to render the snap before fading back in
                 requestAnimationFrame(() => {
                     card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
                     card.style.opacity = '1';
                 });
-            }, 300); // 300ms matches the CSS transition time
+            }, 300);
+        };
+
+        // 4. Match Celebration UI
+        window.triggerMatchCelebration = function(matchData, partnerId) {
+            document.getElementById('match-name-celeb').innerText = matchData.name.split(' ')[0];
+            document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
+            document.getElementById('match-overlay').style.display = 'flex';
+            
+            // Route to specific chat ID provided by frontend logic
+            document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
+
+            const container = document.getElementById('icebreaker-container');
+            container.innerHTML = '<p style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom: 10px;">AI SUGGESTED ICEBREAKERS</p>';
+            
+            fetch('/api/icebreakers', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ match_bio: matchData.bio || "MMUST Student" })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const lines = data.icebreakers ? data.icebreakers.split('\n') : ["Hey! Let's chat."];
+                lines.forEach(text => {
+                    if(!text.trim()) return;
+                    const div = document.createElement('div');
+                    div.className = 'ice-bubble';
+                    div.innerText = text.replace(/^\d+\.\s*/, '');
+                    div.onclick = () => {
+                        navigator.clipboard.writeText(div.innerText);
+                        div.innerText = " Copied!";
+                        setTimeout(() => div.innerText = text, 2000);
+                    };
+                    container.appendChild(div);
+                });
+            });
+        };
+
+        window.closeMatchOverlay = function() {
+            document.getElementById('match-overlay').style.display = 'none';
         };
     });
 </script>

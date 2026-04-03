@@ -12,99 +12,65 @@
 
     /* === GLOBAL NOTIFICATION BELL (TOP RIGHT) === */
     .floating-bell {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: white;
-        border: 2px solid #FFD6DD;
-        color: #720000;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 22px;
-        cursor: pointer;
-        box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
-        z-index: 9999;
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: fixed; top: 20px; right: 20px;
+        background: white; border: 2px solid #FFD6DD; color: #720000;
+        width: 50px; height: 50px; border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 22px; cursor: pointer; box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
+        z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     .floating-bell:hover { transform: scale(1.1); }
     .floating-bell:active { transform: scale(0.9); }
 
     .bell-badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        background: #E60026;
-        color: white;
-        font-size: 11px;
-        font-weight: 900;
-        min-width: 22px;
-        height: 22px;
-        border-radius: 11px;
-        padding: 0 4px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        border: 2px solid white;
-        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4);
-        display: none;
-        animation: pulseMatch 2s infinite;
+        position: absolute; top: -6px; right: -6px; background: #E60026;
+        color: white; font-size: 11px; font-weight: 900; min-width: 22px;
+        height: 22px; border-radius: 11px; padding: 0 4px; display: none;
+        justify-content: center; align-items: center; border: 2px solid white;
+        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4); animation: pulseBell 2s infinite;
+    }
+
+    @keyframes pulseBell {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
     }
 
     /* === NOTIFICATION POPOVER MENU === */
     .bell-popover {
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        width: 320px;
-        z-index: 10000;
-        border: 1px solid #FFD6DD;
-        display: none;
-        flex-direction: column;
-        overflow: hidden;
-        transform-origin: top right;
-        animation: popIn 0.2s ease-out;
+        position: fixed; top: 80px; right: 20px; background: white; border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
+        border: 1px solid #FFD6DD; display: none; flex-direction: column;
+        overflow: hidden; transform-origin: top right; animation: popIn 0.2s ease-out forwards;
     }
     .bell-popover.active { display: flex; }
 
     .popover-header {
-        padding: 15px;
-        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-        color: white;
-        font-weight: 900;
-        font-size: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        padding: 15px; background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        color: white; font-weight: 900; font-size: 15px; display: flex;
+        justify-content: space-between; align-items: center;
     }
     .popover-list { max-height: 350px; overflow-y: auto; }
     .popover-item {
-        padding: 12px 15px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        transition: 0.2s;
-        background: white;
+        padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+        border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white;
     }
     .popover-item:hover { background: #FEF2F4; }
     .popover-item:last-child { border-bottom: none; }
 
     .popover-unread-count {
-        background: #E60026; color: white; border-radius: 10px;
-        padding: 2px 8px; font-size: 11px; font-weight: 900; flex-shrink: 0;
+        background: #E60026; color: white; border-radius: 10px; padding: 2px 8px; 
+        font-size: 11px; font-weight: 900; flex-shrink: 0;
     }
 
     @media (max-width: 768px) {
         .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
+    }
+
+    @keyframes popIn {
+        0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     /* === MAIN RESPONSIVE LAYOUT === */
@@ -133,7 +99,7 @@
     .match-item:hover { background: #FFD6DD; transform: translateX(5px); }
     .match-item.active { background: white; border-left: 5px solid #E60026; }
     
-    .avatar-wrapper { position: relative; display: inline-block; }
+    .avatar-wrapper { position: relative; display: inline-block; flex-shrink: 0; }
     .match-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
     
     .avatar-match-glow { border: 2px solid #E60026; box-shadow: 0 0 12px rgba(230, 0, 38, 0.4); }
@@ -141,7 +107,7 @@
         background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
         font-size: 9px; padding: 3px 8px; border-radius: 12px; font-weight: 900;
         letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(230, 0, 38, 0.3);
-        animation: pulseMatch 2s infinite;
+        animation: pulseMatch 2s infinite; white-space: nowrap;
     }
     @keyframes pulseMatch { 
         0% { box-shadow: 0 0 0 0 rgba(230,0,38,0.4); } 
@@ -155,10 +121,8 @@
     /* === CHAT AREA (THEMED) === */
     .chat-area { 
         width: 65%; display: flex; flex-direction: column; position: relative; 
-        background-color: var(--chat-bg);
-        background-image: var(--chat-bg-image);
-        background-repeat: repeat;
-        background-size: 400px;
+        background-color: var(--chat-bg); background-image: var(--chat-bg-image);
+        background-repeat: repeat; background-size: 400px;
     }
     
     .chat-header { 
@@ -172,12 +136,11 @@
 
     /* === THEME MODAL UI === */
     .theme-modal {
-        position: absolute; top: 70px; right: 20px; background: white;
-        padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-        z-index: 100; width: 320px; display: none; border: 1px solid #FFD6DD;
+        position: absolute; top: 70px; right: 20px; background: white; padding: 20px; 
+        border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 100; 
+        width: 320px; display: none; border: 1px solid #FFD6DD;
     }
     .theme-modal.active { display: block; animation: popIn 0.2s ease-out forwards; }
-    @keyframes popIn { 0% { opacity: 0; transform: scale(0.9) translateY(-10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
     
     .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 10px; }
     .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -198,9 +161,7 @@
     .bubble-enter { animation: popBubble 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     @keyframes popBubble { 0% { opacity: 0; transform: translateY(15px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 
-    /* Fix: white-space: pre-wrap preserves multi-line text */
     .chat-bubble { max-width: 75%; padding: 10px 14px 14px; border-radius: 16px; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.1); word-wrap: break-word; white-space: pre-wrap; position: relative; display: inline-block; }
-    
     .bubble-them { background: white; color: #111; border-top-left-radius: 0; }
     .bubble-me { background: var(--my-bubble-color); color: var(--my-bubble-text); border-top-right-radius: 0; padding-right: 65px; } 
     .bubble-system { background: rgba(255,255,255,0.9); color: #555; border-radius: 10px; font-size: 12px; text-align: center; padding: 8px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); font-weight: bold; }
@@ -241,7 +202,6 @@
         .inbox-container.chat-active .chat-area { display: flex; }
         .btn-back { display: block; }
         .chat-bubble { max-width: 88%; }
-        /* Hide the placeholder entirely on mobile when not chatting */
         .empty-chat-state { display: none; }
     }
 </style>
@@ -275,17 +235,17 @@
                 </div>
                 
                 <div style="flex: 1; overflow: hidden;">
-                    <h4 style="color: #111; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 800;">
-                        <span style="display: flex; align-items: center; gap: 4px;">
-                            <span class="user-name-text">{{ match.name }}</span>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <div style="display: flex; align-items: center; gap: 4px; overflow: hidden;">
+                            <span class="user-name-text" style="color: #111; font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ match.name }}</span>
                             {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
                             {% elif match.is_perfect_match %} <span title="High Compatibility!">❤️</span> {% endif %}
-                        </span>
+                        </div>
                         
                         {% if match.is_mutual_match %}
-                            <span class="badge-match">MATCH!</span>
+                            <span class="badge-match" style="margin-left: 5px;">MATCH!</span>
                         {% endif %}
-                    </h4>
+                    </div>
                     
                     <p class="sidebar-last-msg" style="font-size: 13px; color: {% if match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.is_mutual_match %}bold{% else %}normal{% endif %};">
                         {{ match.last_message | default('Tap to start chatting') }}
@@ -525,7 +485,6 @@
             offlineQueue[activePartnerId].forEach(msg => {
                 const timeObj = new Date(msg.timestamp || Date.now());
                 const timeString = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                // Fix: Sanitize message before injection
                 const cleanText = escapeHTML(msg.text);
                 const html = `
                     <div class="bubble-wrapper them bubble-enter">
@@ -568,7 +527,6 @@
             }
             
             const count = unreadMap[uid].count;
-            // Fix: Sanitize message preview text
             const msgText = escapeHTML(unreadMap[uid].text);
             totalUnread += count;
             
@@ -657,7 +615,6 @@
         
         function renderMyMessageInstantly(text, tempId) {
             const timeString = getCurrentTime();
-            // Fix: Sanitize before rendering
             const cleanText = escapeHTML(text);
             const html = `
                 <div class="bubble-wrapper me bubble-enter" id="msg-${tempId}">
@@ -754,7 +711,7 @@
                 sidebarItem.style.background = '#FEF2F4';
                 const sidebarMsg = sidebarItem.querySelector('.sidebar-last-msg');
                 if (sidebarMsg) {
-                    sidebarMsg.innerText = data.text;
+                    sidebarMsg.innerText = escapeHTML(data.text);
                     sidebarMsg.style.color = '#E60026';
                     sidebarMsg.style.fontWeight = 'bold';
                 }
@@ -765,7 +722,6 @@
         if(typingIndicator) typingIndicator.style.display = 'none';
         
         let html = '';
-        // Fix: Sanitize incoming data
         const cleanText = escapeHTML(data.text);
         
         if (data.sender === 'SYSTEM_AI') {
