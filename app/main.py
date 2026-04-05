@@ -422,7 +422,117 @@ def dashboard():
                 })
 
     return render_template('dashboard.html', current_user=session.get('user_name'), matches=my_matches)
+@app.route('/api/unmatch', methods=['POST'])
+@login_required
+def unmatch_user():
+    data = request.json
+    user_id = session.get('user_id')
+    target_id = data.get('target_id')
+    reason = data.get('reason') # Optional report reason
 
+    if not target_id:
+        return jsonify({"status": "error", "message": "Missing target user"}), 400
+
+    try:
+        # 1. Generate the unique match ID
+        match_id = "_".join(sorted([user_id, target_id]))
+        
+        # 2. Delete the mutual match
+        db.reference(f'matches/{match_id}').delete()
+
+        # 3. Delete the chat history (Optional, but good for privacy)
+        db.reference(f'chats/{match_id}').delete()
+
+        # 4. Overwrite their previous swipes so they don't show up in the deck again
+        timestamp = datetime.now(EAT).isoformat()
+        db.reference(f'swipes/{user_id}/{target_id}').set({'action': 'unmatched', 'timestamp': timestamp})
+        db.reference(f'swipes/{target_id}/{user_id}').set({'action': 'unmatched', 'timestamp': timestamp})
+
+        # 5. If they provided a reason, log it to the Admin Reports node
+        if reason:
+            db.reference('reports').push({
+                'reporter_id': user_id,
+                'reported_id': target_id,
+                'reason': reason,
+                'timestamp': timestamp,
+                'status': 'pending_review'
+            })
+
+        return jsonify({"status": "success"})
+        
+    except Exception as e:
+        logger.error(f"Unmatch Error: {e}")
+        return jsonify({"status": "error", "message": "Database error"}), 500
+@app.route('/api/add-crush', methods=['POST'])
+@login_required
+def add_crush():
+    data = request.json
+    user_id = session.get('user_id')
+    # Normalize the Reg Number (e.g., strip spaces and make uppercase)
+    crush_reg_num = data.get('crush_id', '').strip().upper() 
+
+    if not crush_reg_num:
+        return jsonify({"status": "error", "message": "Please enter a valid Registration Number."}), 400
+
+    # Stop users from crushing on themselves!
+    if crush_reg_num == user_id:
+        return jsonify({"status": "error", "message": "You can't crush on yourself!"}), 400
+
+    try:
+        timestamp = datetime.now(EAT).isoformat()
+
+        # 1. Save the secret crush to the database
+        # Structure: crushes/MY_ID/THEIR_ID = timestamp
+        db.reference(f'crushes/{user_id}/{crush_reg_num}').set(timestamp)
+
+        # 2. Check if it is a Mutual Crush! (Did they already crush on me?)
+        mutual_crush = db.reference(f'crushes/{crush_reg_num}/{user_id}').get()
+
+        if mutual_crush:
+            # 💘 IT'S A MATCH! Create the chat room immediately.
+            match_id = "_".join(sorted([user_id, crush_reg_num]))
+            
+            db.reference(f'matches/{match_id}').set({
+                'users': {user_id: True, crush_reg_num: True},
+                'matched_at': timestamp,
+                'last_message': '💘 Secret Crush Radar Match! You both liked each other.',
+                'last_message_time': timestamp
+            })
+
+            # Force mutual right-swipes in the database so they never see each other in the deck again
+            db.reference(f'swipes/{user_id}/{crush_reg_num}').set({'action': 'like', 'timestamp': timestamp})
+            db.reference(f'swipes/{crush_reg_num}/{user_id}').set({'action': 'like', 'timestamp': timestamp})
+
+            # Trigger real-time notifications if they are online
+            socketio.emit('receive_message', {
+                'sender': 'SYSTEM_AI',
+                'text': '💘 OMG! Your Secret Crush just matched with you!',
+                'timestamp': timestamp
+            }, to=user_id)
+            
+            socketio.emit('receive_message', {
+                'sender': 'SYSTEM_AI',
+                'text': '💘 OMG! Your Secret Crush just matched with you!',
+                'timestamp': timestamp
+            }, to=crush_reg_num)
+
+            return jsonify({
+                "status": "success", 
+                "match": True, 
+                "message": "💘 OMG! It's a match! They liked you too. Check your messages!"
+            })
+
+        # 3. Not a mutual crush yet. Keep it a secret.
+        return jsonify({
+            "status": "success", 
+            "match": False, 
+            "message": "🤫 Crush locked in! If they join and enter your Reg Number, you'll match instantly."
+        })
+
+    except Exception as e:
+        logger.error(f"Crush Radar Error: {e}")
+        return jsonify({"status": "error", "message": "Server error while saving crush."}), 500
+        
 
 @app.route('/api/check-pending-date')
 @login_required
@@ -605,13 +715,17 @@ def settings():
     user_ref = db.reference(f'profiles/{user_id}')
 
     if request.method == 'POST':
+        # 1. Grab values from the HTML Form
         gender_pref = request.form.get('gender_pref')
         major_filter = request.form.get('major_filter')
         strict_mode = request.form.get('strict_mode') == 'on'
         ai_mode = request.form.get('ai_mode') == 'on'
+        
+        # 🆕 Grab the new Intent Tag (defaults to 'none' if they didn't touch it)
+        intent = request.form.get('intent', 'none') 
 
         try:
-            # Save settings to the 'settings' sub-node
+            # 2. Save filter settings to the 'settings' sub-node
             user_ref.child('settings').update({
                 'looking_for': gender_pref,
                 'major_filter': major_filter,
@@ -619,36 +733,45 @@ def settings():
                 'ai_companion_mode': ai_mode
             })
             
-            # Update main profile visibility
+            # 3. Update main profile attributes (visibility and the new intent tag)
             user_ref.update({
-                'is_visible': not ai_mode 
+                'is_visible': not ai_mode,
+                'intent': intent  # 🆕 Save the intent to the main profile
             })
             
             flash("Discovery settings updated successfully!", "success")
+            
+            # 4. Redirect them back to the Swipe deck to see their new matches!
+            return redirect(url_for('swipe'))
+            
         except Exception as e:
+            logger.error(f"Settings Save Error: {e}")
             flash("Error saving settings to cloud.", "error")
+            return redirect(url_for('settings'))
 
-        return redirect(url_for('settings'))
-
-    # === GET REQUEST LOGIC (THE FIX) ===
+    # === GET REQUEST LOGIC ===
     # 1. Fetch the user's data from Firebase
     user_profile = user_ref.get() or {}
     user_settings = user_profile.get('settings', {})
 
-    # 2. Map the Firebase keys to the variable names the HTML template expects
+    # 2. Map the Firebase keys to the variables the HTML template expects
     template_user_data = {
         'gender_pref': user_settings.get('looking_for', 'Everyone'),
         'major_filter': user_settings.get('major_filter', 'All'),
         'strict_mode': user_settings.get('strict_schedule', False),
-        'ai_mode': user_settings.get('ai_companion_mode', False)
+        'ai_mode': user_settings.get('ai_companion_mode', False),
+        
+        # 🆕 Pass the intent back so the dropdown remembers their choice
+        'intent': user_profile.get('intent', 'none') 
     }
 
-    # 3. Pass the mapped data to the template
+    # 3. Render the page
     return render_template(
         'settings.html', 
         current_user=session.get('user_name'),
         user=template_user_data
     )
+    
 # ==========================================
 # B2B PAGES (MERCHANTS)
 # ==========================================

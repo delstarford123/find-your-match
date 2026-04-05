@@ -44,46 +44,52 @@
     /* === FORMS & INPUTS === */
     .input-group { margin-bottom: 20px; }
     .input-group label {
-        display: block;
-        font-size: 12px;
-        font-weight: 800;
-        color: #4A0008;
-        margin-bottom: 8px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: block; font-size: 12px; font-weight: 800;
+        color: #4A0008; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
     .input-group input[type="text"], 
     .input-group input[type="number"], 
     .input-group select, 
     .input-group textarea {
-        width: 100%;
-        padding: 14px 15px;
-        border: 2px solid #f0f0f0;
-        border-radius: 12px;
-        font-family: inherit;
-        font-size: 16px; /* Prevents iOS auto-zoom */
-        background: #fafafa;
-        transition: all 0.3s ease;
-        -webkit-appearance: none;
+        width: 100%; padding: 14px 15px; border: 2px solid #f0f0f0;
+        border-radius: 12px; font-family: inherit; font-size: 16px; 
+        background: #fafafa; transition: all 0.3s ease; -webkit-appearance: none;
     }
     
     .input-group select {
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-        background-repeat: no-repeat;
-        background-position: right 15px top 50%;
-        background-size: 12px auto;
-        padding-right: 40px;
+        background-repeat: no-repeat; background-position: right 15px top 50%;
+        background-size: 12px auto; padding-right: 40px;
     }
 
     .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
-        border-color: #E60026;
-        background: white;
-        outline: none;
+        border-color: #E60026; background: white; outline: none;
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
 
     .flex-row { display: flex; gap: 15px; margin-bottom: 20px; }
+
+    /* === TOGGLE SWITCHES (Restored) === */
+    .toggle-wrapper { 
+        display: flex; justify-content: space-between; align-items: center; 
+        gap: 15px; padding: 18px 20px; border-radius: 16px; margin-bottom: 15px;
+    }
+    .toggle-wrapper.strict { background: #fafafa; border: 2px solid #f0f0f0; }
+    .toggle-wrapper.ai-mode { background: #FEF2F4; border: 2px dashed #E60026; }
+    
+    .toggle-text h4 { margin: 0 0 5px 0; font-size: 16px; font-weight: 800; }
+    .toggle-wrapper.strict .toggle-text h4 { color: #333; }
+    .toggle-wrapper.ai-mode .toggle-text h4 { color: #720000; }
+    .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.4; }
+    .toggle-wrapper.ai-mode .toggle-text p { color: #4A0008; }
+    
+    .switch { position: relative; display: inline-block; width: 56px; height: 30px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 30px; }
+    .slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    input:checked + .slider { background-color: #E60026; }
+    input:checked + .slider:before { transform: translateX(26px); }
 
     /* === DYNAMIC SCHEDULE === */
     .schedule-row { 
@@ -94,24 +100,19 @@
     
     .schedule-input {
         padding: 12px; border-radius: 8px; border: 2px solid #f0f0f0; 
-        font-family: inherit; font-size: 15px; flex: 1;
-        min-width: 100px; background: white; outline: none;
+        font-family: inherit; font-size: 15px; flex: 1; min-width: 100px; background: white; outline: none;
     }
     .schedule-input:focus { border-color: #E60026; }
     
     .btn-remove-row { 
-        background: #FFD6DD; border: none; color: #720000; 
-        width: 34px; height: 34px; border-radius: 50%;
-        font-size: 20px; font-weight: bold; cursor: pointer; 
-        display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        background: #FFD6DD; border: none; color: #720000; width: 34px; height: 34px; border-radius: 50%;
+        font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
     }
     .btn-remove-row:hover { background: #E60026; color: white; }
 
     .btn-add {
-        width: 100%; border: 2px dashed #E60026; background: #FEF2F4; 
-        color: #E60026; font-weight: 800; font-size: 15px;
-        margin: 10px 0 30px; padding: 14px; border-radius: 12px; 
-        cursor: pointer; transition: all 0.2s;
+        width: 100%; border: 2px dashed #E60026; background: #FEF2F4; color: #E60026; font-weight: 800; font-size: 15px;
+        margin: 10px 0 30px; padding: 14px; border-radius: 12px; cursor: pointer; transition: all 0.2s;
     }
     .btn-add:hover { background: #FFD6DD; color: #720000; }
 
@@ -119,56 +120,51 @@
     .btn-save {
         width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white; border: none; padding: 16px; border-radius: 12px;
-        font-size: 16px; font-weight: 800; cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
+        font-size: 16px; font-weight: 800; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
     }
     .btn-save:active { transform: scale(0.98); }
-    @media (hover: hover) { .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); } }
+    
+    .btn-delete {
+        width: 100%; background: white; color: #dc3545; border: 2px solid #dc3545; 
+        padding: 14px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; margin-top: 15px;
+    }
+    
+    @media (hover: hover) { 
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); } 
+        .btn-delete:hover { background: #fff5f5; }
+    }
 
     /* Custom File Upload Button */
     .file-upload-wrapper { position: relative; margin-top: 20px; }
-    .file-upload-wrapper input[type="file"] {
-        position: absolute; left: 0; top: 0; width: 100%; height: 100%;
-        opacity: 0; cursor: pointer; z-index: 2;
-    }
-    .btn-photo {
-        background: white; border: 2px solid #FFD6DD; color: #E60026; 
-        padding: 14px 20px; border-radius: 12px; font-weight: 800; 
-        font-size: 15px; text-align: center; display: block;
-        transition: 0.2s; width: 100%;
-    }
+    .file-upload-wrapper input[type="file"] { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2; }
+    .btn-photo { background: white; border: 2px solid #FFD6DD; color: #E60026; padding: 14px 20px; border-radius: 12px; font-weight: 800; font-size: 15px; text-align: center; display: block; transition: 0.2s; width: 100%; }
     .file-upload-wrapper:hover .btn-photo { border-color: #E60026; background: #FEF2F4; }
 
     /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
-        flex: 1 1 35%;
-        min-width: 300px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: sticky;
-        top: calc(var(--nav-height, 70px) + 20px);
+        flex: 1 1 35%; min-width: 300px; display: flex; flex-direction: column; align-items: center; position: sticky; top: calc(var(--nav-height, 70px) + 20px);
     }
 
     .preview-title {
-        color: #E60026; font-size: 13px; text-transform: uppercase;
-        font-weight: 800; letter-spacing: 1px; margin-bottom: 15px;
-        background: #FEF2F4; padding: 6px 16px; border-radius: 20px;
+        color: #E60026; font-size: 13px; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 15px; background: #FEF2F4; padding: 6px 16px; border-radius: 20px;
     }
 
     .preview-card {
-        width: 100%; max-width: 350px; background: white;
-        border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15);
-        border: 1px solid #FFD6DD;
+        width: 100%; max-width: 350px; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border: 1px solid #FFD6DD;
     }
 
     .preview-card img { width: 100%; height: 350px; object-fit: cover; background: #eee; }
-    .preview-info { padding: 20px; }
+    .preview-info { padding: 20px; position: relative; }
     .preview-info h3 { color: #720000; font-size: 24px; font-weight: 900; margin: 0 0 8px 0; display: flex; align-items: center; gap: 10px; }
     .preview-info p { color: #555; font-size: 15px; line-height: 1.5; margin: 0; word-wrap: break-word; }
     
     .age-badge { background: #FEF2F4; color: #E60026; font-size: 13px; padding: 4px 10px; border-radius: 15px; font-weight: 900; }
+    
+    .intent-tag-preview {
+        display: inline-block; padding: 5px 12px; border-radius: 15px;
+        background: #fff0f2; border: 1px solid #FFD6DD; color: #E60026;
+        font-size: 12px; font-weight: 900; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(230,0,38,0.1);
+    }
 
     /* === RESPONSIVE FIXES === */
     @media (max-width: 768px) {
@@ -184,7 +180,8 @@
 <div class="profile-container">
     
     <div class="edit-section">
-        <h2>Edit Profile</h2>
+        
+        <h2>Edit Public Profile</h2>
         <form action="{{ url_for('profile') }}" method="POST" enctype="multipart/form-data">
             
             <h4 class="section-title">Basic Info</h4>
@@ -238,7 +235,6 @@
                                 <input type="time" name="start_time[]" class="schedule-input" value="{{ block.start }}" required>
                                 <span style="color: #720000; font-weight: 800; font-size: 14px;">TO</span>
                                 <input type="time" name="end_time[]" class="schedule-input" value="{{ block.end }}" required>
-                                
                                 <button type="button" class="btn-remove-row" title="Remove" onclick="this.closest('.schedule-wrapper').remove();">&times;</button>
                             </div>
                         </div>
@@ -268,17 +264,84 @@
             </div>
 
             <button type="button" id="btn-add-schedule" class="btn-add">+ Add Another Free Block</button>
-
-            <button type="submit" class="btn-save">Save All Changes</button>
+            <button type="submit" class="btn-save">Save Profile Details</button>
         </form>
 
-        <div style="margin-top: 40px; padding-top: 25px; border-top: 2px solid #FEF2F4;">
-            <p style="font-size: 13px; color: #4A0008; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">Uneditable Details</p>
+        <form action="{{ url_for('settings') }}" method="POST" style="margin-top: 40px;">
+            <h4 class="section-title">Discovery Preferences</h4>
+            
+            <div class="input-group">
+                <label class="field-label">I am looking for</label>
+                <select name="gender_pref">
+                    <option value="Everyone" {% if user.gender_pref == 'Everyone' %}selected{% endif %}>Everyone</option>
+                    <option value="Female" {% if user.gender_pref == 'Female' %}selected{% endif %}>Women</option>
+                    <option value="Male" {% if user.gender_pref == 'Male' %}selected{% endif %}>Men</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label class="field-label">Major / Study Field Filter</label>
+                <select name="major_filter">
+                    <option value="All" {% if user.major_filter == 'All' %}selected{% endif %}>Anyone in MMUST</option>
+                    <option value="CS_IT" {% if user.major_filter == 'CS_IT' %}selected{% endif %}>Computer Science & IT</option>
+                    <option value="Health" {% if user.major_filter == 'Health' %}selected{% endif %}>Health Sciences (Nursing, Med)</option>
+                    <option value="Engineering" {% if user.major_filter == 'Engineering' %}selected{% endif %}>Engineering</option>
+                    <option value="Business" {% if user.major_filter == 'Business' %}selected{% endif %}>Business & Economics</option>
+                    <option value="Education" {% if user.major_filter == 'Education' %}selected{% endif %}>Education & Arts</option>
+                    <option value="Agriculture" {% if user.major_filter == 'Agriculture' %}selected{% endif %}>Agriculture & Biotech</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label class="field-label">What are you looking for?</label>
+                <select name="intent" id="intent-select">
+                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}>🤫 Keep it mysterious</option>
+                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}>☕ Just Coffee</option>
+                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>📚 Study Buddy</option>
+                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>🎉 Event +1</option>
+                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>💘 Looking for a Relationship</option>
+                </select>
+            </div>
+
+            <div class="toggle-wrapper strict">
+                <div class="toggle-text">
+                    <h4>Strict Schedule Mode</h4>
+                    <p>Only show me people who share at least 30 minutes of free time with me.</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" name="strict_mode" {% if user.strict_mode %}checked{% endif %}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="toggle-wrapper ai-mode">
+                <div class="toggle-text">
+                    <h4>🤖 AI Companion Mode</h4>
+                    <p>Hide my profile from real people and chat with a supportive AI partner instead.</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" name="ai_mode" {% if user.ai_mode %}checked{% endif %}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <button type="submit" class="btn-save" style="margin-top: 10px;">Save Match Preferences</button>
+        </form>
+
+        <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 35px 0;">
+        
+        <div style="padding-top: 10px;">
+            <p style="font-size: 13px; color: #4A0008; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">Account Details</p>
             <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Name:</strong> {{ user.name }}</p>
             <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
             <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Gender:</strong> {{ user.gender }}</p>
-            <small style="color: #E60026; font-size: 12px; display: block; margin-top: 15px; font-weight: 500;">* Core details cannot be changed after signup.</small>
+            <small style="color: #888; font-size: 12px; display: block; margin-top: 15px; font-weight: 500;">Core details cannot be changed after signup.</small>
+            
+            <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
+                <button type="submit" class="btn-delete">Delete Account Permanently</button>
+            </form>
         </div>
+
     </div>
 
     <div class="preview-section">
@@ -288,6 +351,14 @@
             <img id="live-preview-img" src="{{ user.img or '/static/img/placeholder.png' }}" alt="Profile Picture">
             
             <div class="preview-info">
+                <div id="preview-intent-tag" class="intent-tag-preview" {% if user.intent == 'none' or not user.intent %}style="display: none;"{% endif %}>
+                    {% if user.intent == 'coffee' %}☕ Just Coffee
+                    {% elif user.intent == 'study' %}📚 Study Buddy
+                    {% elif user.intent == 'event' %}🎉 Event +1
+                    {% elif user.intent == 'relationship' %}💘 Relationship
+                    {% endif %}
+                </div>
+                
                 <h3>
                     {{ user.name.split(',')[0] if user.name else 'Student' }} 
                     <span class="age-badge" id="preview-age-badge">{{ user.age }}</span>
@@ -316,6 +387,24 @@
     document.getElementById('age').addEventListener('input', function() {
         const badge = document.getElementById('preview-age-badge');
         if(badge) badge.innerText = this.value || "18";
+    });
+
+    // Live Preview for Intent Tag
+    document.getElementById('intent-select').addEventListener('change', function() {
+        const intentMap = {
+            'none': '',
+            'coffee': '☕ Just Coffee',
+            'study': '📚 Study Buddy',
+            'event': '🎉 Event +1',
+            'relationship': '💘 Relationship'
+        };
+        const tag = document.getElementById('preview-intent-tag');
+        if (this.value === 'none') {
+            tag.style.display = 'none';
+        } else {
+            tag.style.display = 'inline-block';
+            tag.innerText = intentMap[this.value];
+        }
     });
 
     // Live Image Preview before uploading

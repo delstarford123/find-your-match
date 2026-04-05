@@ -28,6 +28,29 @@
         100% { transform: scale(1); }
     }
 
+    /* === CRUSH RADAR === */
+    .radar-btn {
+        position: fixed; top: 20px; left: 20px;
+        background: linear-gradient(135deg, #6610f2, #e83e8c); color: white;
+        border: none; padding: 12px 20px; border-radius: 30px;
+        font-weight: 900; font-size: 15px; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 16, 242, 0.4); z-index: 9999;
+        display: flex; align-items: center; gap: 8px; transition: 0.2s;
+    }
+    .radar-btn:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 6px 20px rgba(102, 16, 242, 0.6); }
+    .radar-btn:active { transform: scale(0.95); }
+
+    .crush-modal {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+        z-index: 10001; justify-content: center; align-items: center; padding: 20px;
+        backdrop-filter: blur(8px);
+    }
+    .crush-modal-content {
+        background: white; border-radius: 24px; padding: 30px; width: 100%;
+        max-width: 360px; text-align: center; box-shadow: 0 20px 50px rgba(230,0,38,0.2);
+        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
     /* === NOTIFICATION POPOVER MENU === */
     .bell-popover {
         position: fixed; top: 80px; right: 20px; background: white; border-radius: 16px;
@@ -57,6 +80,7 @@
 
     @media (max-width: 768px) {
         .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
+        .radar-btn { top: 15px; left: 15px; padding: 10px 16px; font-size: 13px; }
         .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
     }
 
@@ -74,12 +98,12 @@
     }
     
     .deck-container { 
-        position: relative; width: 95vw; max-width: 420px; 
-        height: 80vh; max-height: 680px; min-height: 500px;
+        position: relative; width: 95vw; max-width: 400px; 
+        height: 75vh; max-height: 650px; min-height: 500px;
     }
     
     .card { 
-        background: white; border-radius: 24px; overflow: hidden; 
+        background: #eee; border-radius: 24px; overflow: hidden; 
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); 
         position: absolute; inset: 0; display: flex; flex-direction: column; 
         transition: transform 0.3s ease, opacity 0.3s ease;
@@ -111,13 +135,33 @@
     }
 
     .image-container { position: absolute; inset: 0; background: #e0e0e0; overflow: hidden; }
-    #profile-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    
+    #shimmer {
+        position: absolute; inset: 0; width: 100%; height: 100%; 
+        background: linear-gradient(90deg, #e0e0e0 25%, #f5f5f5 50%, #e0e0e0 75%);
+        background-size: 200% 100%; animation: shimmerAnim 1.5s infinite; z-index: 1;
+    }
+    @keyframes shimmerAnim { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    #profile-img { 
+        position: absolute; inset: 0; width: 100%; height: 100%; 
+        object-fit: cover; z-index: 2; display: none; 
+    }
     
     .card-info { 
         position: absolute; bottom: 0; left: 0; right: 0; 
-        padding: 120px 20px 110px; 
+        padding: 120px 20px 100px; 
         background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%); 
-        color: white; pointer-events: none;
+        color: white; pointer-events: none; z-index: 5;
+    }
+
+    /* === NEW: INTENT TAG STYLES === */
+    .intent-tag {
+        display: inline-block; padding: 6px 14px; border-radius: 20px;
+        background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5);
+        color: white; font-size: 13px; font-weight: 900; margin-bottom: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
     .name-age-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
@@ -136,11 +180,11 @@
     .action-buttons { 
         position: absolute; bottom: 25px; left: 0; right: 0; 
         display: flex; justify-content: center; align-items: center; gap: 30px; 
-        z-index: 10; padding: 0 20px;
+        z-index: 20; padding: 0 20px;
     }
     .btn-action { 
-        width: 68px; height: 68px; border-radius: 50%; border: none; 
-        font-size: 34px; display: flex; align-items: center; justify-content: center; 
+        width: 65px; height: 65px; border-radius: 50%; border: none; 
+        font-size: 30px; display: flex; align-items: center; justify-content: center; 
         cursor: pointer; background: white; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
     }
@@ -165,6 +209,10 @@
     .hidden { display: none !important; }
 </style>
 
+<button class="radar-btn" onclick="document.getElementById('crush-modal').style.display='flex'">
+    🎯 Crush Radar
+</button>
+
 <div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
     🔔
     <div class="bell-badge" id="bell-badge">0</div>
@@ -185,23 +233,22 @@
         <div id="is-match-signal">ITS A MATCH! 🔥</div>
 
         <div id="profile-card" class="card">
-            <div id="active-profile" style="flex: 1; position: relative;">
-                <div class="image-container">
-                    <img id="profile-img" src="" alt="Student Profile">
-                    <div id="shimmer" class="shimmer" style="width:100%; height:100%; background: #eee;"></div>
+            <div class="image-container">
+                <div id="shimmer"></div>
+                <img id="profile-img" src="" alt="Student Profile">
+                
+                <div id="perfect-match-badge">✨ PERFECT MATCH</div>
+                <div id="stamp-nope" class="stamp stamp-nope">NOPE</div>
+                <div id="stamp-like" class="stamp stamp-like">LIKE</div>
+                
+                <div class="card-info">
+                    <div id="profile-intent" class="intent-tag" style="display: none;">☕ Just Coffee</div>
                     
-                    <div id="perfect-match-badge">✨ PERFECT MATCH</div>
-                    
-                    <div id="stamp-nope" class="stamp stamp-nope">NOPE</div>
-                    <div id="stamp-like" class="stamp stamp-like">LIKE</div>
-                    
-                    <div class="card-info">
-                        <div class="name-age-row">
-                            <h2 id="profile-name">Connecting...</h2>
-                            <span id="profile-age"></span>
-                        </div>
-                        <p id="profile-bio">Searching for students at MMUST...</p>
+                    <div class="name-age-row">
+                        <h2 id="profile-name">Connecting...</h2>
+                        <span id="profile-age"></span>
                     </div>
+                    <p id="profile-bio">Searching for students at MMUST...</p>
                 </div>
             </div>
 
@@ -214,9 +261,26 @@
         <div id="empty-state" class="hidden" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
             <div style="font-size: 60px;">📡</div>
             <h2 style="color: #111; font-weight: 800;">No one new nearby.</h2>
-            <p style="color: #666; margin-bottom: 20px;">Try expanding your discovery settings.</p>
+            <p style="color: #666; margin-bottom: 20px;">Try expanding your discovery settings, or wait for new students to sign up!</p>
             <button onclick="window.location.href='/settings'" style="padding: 12px 25px; border-radius: 25px; background: #E60026; color: white; border: none; font-weight: bold; cursor: pointer;">Adjust Filters</button>
         </div>
+    </div>
+</div>
+
+<div id="crush-modal" class="crush-modal">
+    <div class="crush-modal-content">
+        <div style="font-size: 60px; margin-bottom: 5px;">🎯</div>
+        <h2 style="color: #111; margin-top: 0; font-weight: 900; letter-spacing: -0.5px;">Secret Radar</h2>
+        
+        <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
+            Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly! 🤫
+        </p>
+
+        <input type="text" id="crush-input" placeholder="e.g. SAB_B_01-04444_2023" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #eee; margin-bottom: 15px; font-size: 16px; font-weight: bold; text-align: center; text-transform: uppercase; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
+
+        <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 16px; border-radius: 30px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 12px; transition: 0.2s; box-shadow: 0 4px 15px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>
+        
+        <button onclick="document.getElementById('crush-modal').style.display='none'" style="width: 100%; padding: 15px; border-radius: 30px; background: transparent; color: #888; border: none; font-weight: bold; font-size: 15px; cursor: pointer;">Cancel</button>
     </div>
 </div>
 
@@ -326,7 +390,6 @@
 
         updateBellUI();
         
-        // Jiggle the bell
         const bell = document.getElementById('global-bell');
         bell.style.transform = 'scale(1.15) rotate(10deg)';
         setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
@@ -337,7 +400,60 @@
         if (bellPop && bellPop.classList.contains('active') && !e.target.closest('#bell-popover') && !e.target.closest('#global-bell')) {
             bellPop.classList.remove('active');
         }
+        
+        const crushModal = document.getElementById('crush-modal');
+        if (crushModal && crushModal.style.display === 'flex' && e.target === crushModal) {
+            crushModal.style.display = 'none';
+        }
     });
+
+    // ==========================================
+    // CRUSH RADAR LOGIC
+    // ==========================================
+    function submitCrush() {
+        const crushInput = document.getElementById('crush-input');
+        const crushRegNum = crushInput.value.trim().toUpperCase();
+        const btn = document.getElementById('btn-submit-crush');
+
+        if (!crushRegNum) {
+            crushInput.style.borderColor = '#E60026';
+            return;
+        }
+
+        // UI Loading State
+        crushInput.style.borderColor = '#eee';
+        btn.innerText = "Scanning Campus...";
+        btn.disabled = true;
+
+        fetch('/api/add-crush', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ crush_id: crushRegNum })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                if (data.match) {
+                    alert(data.message);
+                    window.location.href = '/matches'; // Redirect to inbox
+                } else {
+                    alert(data.message);
+                    document.getElementById('crush-modal').style.display = 'none';
+                    crushInput.value = '';
+                }
+            } else {
+                alert(data.message);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Campus Wi-Fi dropped. Try again!");
+        })
+        .finally(() => {
+            btn.innerText = "Lock it in 🔒";
+            btn.disabled = false;
+        });
+    }
 
     // ==========================================
     // CORE SWIPE & RENDER LOGIC
@@ -396,12 +512,33 @@
                 imgEl.style.display = 'block';
                 if (shimmer) shimmer.style.display = 'none';
             };
-            imgEl.onerror = () => { imgEl.src = '/static/img/placeholder.png'; };
+            
+            imgEl.onerror = () => { 
+                imgEl.onerror = null;
+                imgEl.src = '/static/img/placeholder.png'; 
+            };
+            
             imgEl.src = profile.img || '/static/img/placeholder.png';
             
             nameEl.innerText = (profile.name || 'Student').split(' ')[0];
             ageEl.innerText = profile.age ? `, ${profile.age}` : '';
             bioEl.innerText = profile.bio || 'No bio provided.';
+            
+            // --- NEW: Handle Intent Tags ---
+            const intentMap = {
+                'coffee': '☕ Just Coffee',
+                'study': '📚 Study Buddy',
+                'event': '🎉 Event +1',
+                'relationship': '💘 Relationship'
+            };
+            const intentEl = document.getElementById('profile-intent');
+            
+            if (profile.intent && intentMap[profile.intent]) {
+                intentEl.innerText = intentMap[profile.intent];
+                intentEl.style.display = 'inline-block';
+            } else {
+                intentEl.style.display = 'none'; // Hide if 'none' or missing
+            }
             
             document.getElementById('stamp-like').style.opacity = '0';
             document.getElementById('stamp-nope').style.opacity = '0';
@@ -450,7 +587,6 @@
             document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
             document.getElementById('match-overlay').style.display = 'flex';
             
-            // Route to specific chat ID provided by frontend logic
             document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
 
             const container = document.getElementById('icebreaker-container');

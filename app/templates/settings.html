@@ -133,6 +133,17 @@
             </div>
 
             <div class="settings-group">
+                <label class="field-label">What are you looking for?</label>
+                <select name="intent">
+                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}>🤫 Keep it mysterious</option>
+                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}>☕ Just Coffee</option>
+                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>📚 Study Buddy</option>
+                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>🎉 Event +1</option>
+                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>💘 Looking for a Relationship</option>
+                </select>
+            </div>
+
+            <div class="settings-group">
                 <div class="toggle-wrapper strict">
                     <div class="toggle-text">
                         <h4>Strict Schedule Mode</h4>
