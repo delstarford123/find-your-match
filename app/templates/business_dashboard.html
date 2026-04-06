@@ -406,7 +406,21 @@
         <button onclick="document.getElementById('live-alert-toast').style.display='none'" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer;">&times;</button>
     </div>
 </div>
-
+<a href="{{ url_for('merchant_dashboard') }}" style="
+    display: inline-block;
+    background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+    color: white;
+    text-decoration: none;
+    padding: 15px 30px;
+    border-radius: 12px;
+    font-weight: 900;
+    font-size: 15px;
+    box-shadow: 0 4px 15px rgba(230,0,38,0.2);
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+">
+    📊 Open Analytics Dashboard
+</a>
 <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/1008/1008-preview.mp3" preload="auto"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>

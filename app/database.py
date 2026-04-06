@@ -179,7 +179,47 @@ def get_user_matches(user_id: str) -> list:
     except Exception as e:
         logger.error(f"Error fetching user matches for {user_id}: {e}")
         return []
+from datetime import datetime, timedelta, timezone
+
+EAT = timezone(timedelta(hours=3))
+
+def cleanup_expired_chats():
+    """
+    Deletes chat history for dates that happened more than 24 hours ago.
+    You can trigger this once a day via a Cron Job or whenever an admin logs in.
+    """
+    all_bookings = db.reference('bookings').get() or {}
+    chats_ref = db.reference('chats')
     
+    now = datetime.now(EAT)
+    
+    for b_id, b_data in all_bookings.items():
+        if b_data.get('status') == 'Approved':
+            try:
+                # Parse the date (Assuming format 'This Friday at 18:00', you might need to adapt your date parser)
+                # For simplicity, let's assume you save an actual ISO timestamp when the date starts:
+                date_time_str = b_data.get('exact_date_timestamp') 
+                if not date_time_str: continue
+                
+                date_time = datetime.fromisoformat(date_time_str)
+                
+                # If the date was more than 24 hours ago
+                if now > date_time + timedelta(hours=24):
+                    user_a = b_data['user_a_id']
+                    user_b = b_data['user_b_id']
+                    
+                    # Generate the chat room ID (usually sorted user IDs joined by an underscore)
+                    room_id = f"{min(user_a, user_b)}_{max(user_a, user_b)}"
+                    
+                    # WIPE THE CHAT
+                    chats_ref.child(room_id).delete()
+                    
+                    # Mark booking as completed/archived so we don't check it again
+                    db.reference(f'bookings/{b_id}/status').set('Archived')
+                    
+            except Exception as e:
+                print(f"Error parsing date for booking {b_id}: {e}") 
+                  
 def save_chat_message(sender_id: str, receiver_id: str, message_text: str, msg_type: str = 'text') -> bool:
     """Permanently saves a chat message."""
     try:

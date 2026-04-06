@@ -6,7 +6,7 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: clamp(20px, 5vw, 40px) 15px;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        min-height: calc(100vh - var(--nav-height, 70px) - 40px);
         display: flex;
         gap: 30px;
         flex-wrap: wrap;
@@ -63,7 +63,7 @@
         border: none;
         padding: 16px;
         border-radius: 14px;
-        font-weight: 800;
+        font-weight: 900;
         font-size: 15px;
         cursor: pointer;
         width: 100%;
@@ -82,26 +82,87 @@
         }
     }
     .btn-action:active:not(:disabled) { transform: scale(0.97); }
-    .btn-action:disabled { opacity: 0.7; cursor: not-allowed; }
+    .btn-action:disabled { opacity: 0.7; cursor: not-allowed; box-shadow: none; }
 
-    select.wingman-select {
-        width: 100%;
-        padding: 14px 16px;
-        border: 2px solid #f0f0f0;
-        border-radius: 12px;
-        font-size: 15px;
-        font-family: inherit;
-        outline: none;
-        transition: all 0.2s ease;
-        -webkit-appearance: none;
+    /* === NEW: MATCH LIST SCROLLER === */
+    .match-list-container {
+        max-height: 280px;
+        overflow-y: auto;
         background: #fafafa;
-        color: #333;
+        border: 2px solid #f0f0f0;
+        border-radius: 16px;
+        padding: 10px;
         margin-bottom: 15px;
     }
-    select.wingman-select:focus {
-        border-color: #E60026;
+    .match-list-container::-webkit-scrollbar { width: 6px; }
+    .match-list-container::-webkit-scrollbar-track { background: transparent; }
+    .match-list-container::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+    .match-list-container::-webkit-scrollbar-thumb:hover { background: #ccc; }
+
+    .match-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+        margin-bottom: 8px;
+    }
+    .match-item:last-child { margin-bottom: 0; }
+    .match-item:hover {
         background: white;
-        box-shadow: 0 0 0 4px rgba(230,0,38,0.1);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .match-item.active {
+        background: #FEF2F4;
+        border-color: #E60026;
+        box-shadow: 0 4px 12px rgba(230, 0, 38, 0.1);
+    }
+    
+    .match-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        flex-shrink: 0;
+    }
+    
+    .match-details {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        flex: 1;
+        overflow: hidden;
+    }
+    .match-name {
+        font-size: 16px;
+        font-weight: 800;
+        color: #111;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .match-score {
+        font-size: 13px;
+        color: #666;
+        font-weight: 600;
+        margin-top: 3px;
+    }
+    .perfect-badge {
+        background: #E60026;
+        color: white;
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
     }
 
     /* Right Column: AI Output Terminal */
@@ -117,6 +178,7 @@
         flex-direction: column;
         position: relative;
         overflow: hidden;
+        border: 1px solid #333;
     }
     
     .terminal-header {
@@ -142,20 +204,40 @@
         line-height: 1.6;
         color: #00ff00; /* Hacker green text */
         white-space: pre-wrap;
+        padding-right: 10px;
     }
+
+    /* Custom Terminal Scrollbar */
+    .terminal-content::-webkit-scrollbar { width: 6px; }
+    .terminal-content::-webkit-scrollbar-track { background: #1a1a1a; border-radius: 10px; }
+    .terminal-content::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+    .terminal-content::-webkit-scrollbar-thumb:hover { background: #666; }
+
+    /* Blinking Cursor */
+    .cursor {
+        display: inline-block;
+        width: 8px;
+        height: 15px;
+        background-color: #00ff00;
+        vertical-align: middle;
+        animation: blink 1s step-end infinite;
+        margin-left: 2px;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
     /* Typing Animation dots */
     .typing-indicator {
         display: none;
+        align-items: center;
         gap: 5px;
-        margin-top: 10px;
+        padding: 10px 0;
     }
     .typing-dot {
         width: 8px; height: 8px; background: #00ff00; border-radius: 50%;
         animation: bounce 1.4s infinite ease-in-out both;
     }
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(3) { animation-delay: -0.16s; }
     @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
     
     .placeholder-state {
@@ -167,15 +249,34 @@
         color: #555;
         text-align: center;
     }
+
+    /* Copy Button */
+    .btn-copy {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #333;
+        color: white;
+        border: 1px solid #555;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: bold;
+        cursor: pointer;
+        display: none;
+        transition: 0.2s;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .btn-copy:hover { background: #444; border-color: #00ff00; color: #00ff00; }
+    .btn-copy:active { transform: scale(0.95); }
 </style>
 
 <div class="wingman-wrapper">
     
     <div class="tools-column">
-        
         <div style="margin-bottom: 10px;">
             <h1 style="color: #720000; font-weight: 900; font-size: 32px; margin: 0 0 5px 0;">AI Wingman 🕶️</h1>
-            <p style="color: #666; margin: 0; font-size: 15px;">Your personal dating coach. Let's optimize your game.</p>
+            <p style="color: #666; margin: 0; font-size: 15px; font-weight: 500;">Your personal dating coach. Let's optimize your game.</p>
         </div>
 
         <div class="tool-card">
@@ -187,7 +288,7 @@
                 </div>
             </div>
             
-            <div style="background: #fafafa; padding: 15px; border-radius: 12px; font-size: 13px; color: #888; margin-bottom: 15px; border: 1px solid #eee; font-style: italic;">
+            <div style="background: #fafafa; padding: 15px; border-radius: 12px; font-size: 13px; color: #888; margin-bottom: 15px; border: 1px solid #eee; font-style: italic; line-height: 1.5;">
                 "{{ user.bio | default('You have no bio! The AI is going to tear you apart.') }}"
             </div>
             
@@ -201,26 +302,37 @@
                 <div class="tool-icon">🧊</div>
                 <div>
                     <h3 class="tool-title">The Icebreaker</h3>
-                    <p class="tool-desc">Don't know what to say? Let AI write the perfect opener.</p>
+                    <p class="tool-desc">Click a student to generate custom openers based on their profile.</p>
                 </div>
             </div>
             
-            <select class="wingman-select" id="matchSelect">
-                <option value="" disabled selected>Select a Match to analyze...</option>
+            <div class="match-list-container">
                 {% if matches %}
                     {% for match in matches %}
-                        <option value="{{ match.id }}">{{ match.name }}</option>
+                        {% if match.id != 'AI_COMPANION' %}
+                        <div class="match-item" onclick="selectAndTriggerIcebreaker(this, '{{ match.id }}')">
+                            <img src="{{ match.img | default('/static/img/placeholder.png') }}" class="match-avatar" alt="{{ match.name }}">
+                            <div class="match-details">
+                                <div class="match-name">
+                                    {{ match.name }}
+                                    {% if match.is_perfect_match %}
+                                        <span class="perfect-badge">❤️ Perfect Match</span>
+                                    {% endif %}
+                                </div>
+                                <div class="match-score">✨ {{ match.compatibility }}% Compatibility</div>
+                            </div>
+                        </div>
+                        {% endif %}
                     {% endfor %}
                 {% else %}
-                    <option value="" disabled>Get some matches first!</option>
+                    <div style="text-align: center; padding: 30px; color: #888; font-size: 14px; font-weight: bold;">No students available yet!</div>
                 {% endif %}
-            </select>
+            </div>
             
             <button class="btn-action" id="btn-icebreaker" onclick="triggerWingman('generate_icebreaker', this)" style="background: #111; color: white;">
-                Generate Openers ⚡
+                Regenerate Openers ⚡
             </button>
         </div>
-        
     </div>
 
     <div class="terminal-column">
@@ -229,16 +341,18 @@
             <span style="font-weight: 800; font-size: 14px; letter-spacing: 1px; color: #888;">WINGMAN_OS v2.0</span>
         </div>
         
+        <button id="copy-btn" class="btn-copy" onclick="copyTerminalText()">Copy Text 📋</button>
+        
         <div class="terminal-content" id="terminal-output">
             <div class="placeholder-state" id="terminal-placeholder">
                 <div style="font-size: 50px; margin-bottom: 15px;">🤖</div>
-                <h3 style="color: #fff; margin: 0 0 5px 0;">Awaiting Input...</h3>
-                <p style="margin: 0;">Select a tool on the left to activate the AI.</p>
+                <h3 style="color: #fff; margin: 0 0 5px 0;">Awaiting Target...</h3>
+                <p style="margin: 0; color: #888;">Click on a student's card to run the analysis.</p>
             </div>
         </div>
         
         <div class="typing-indicator" id="typing-indicator">
-            <span style="color: #00ff00; font-weight: bold; margin-right: 5px;">Analyzing</span>
+            <span style="color: #00ff00; font-weight: bold; font-family: 'Courier New', Courier, monospace;">Analyzing Profile</span>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
@@ -248,29 +362,47 @@
 </div>
 
 <script>
+    let currentRawText = ""; 
+    let selectedIcebreakerTarget = null;
+
+    // Triggered automatically when a user clicks a student card
+    function selectAndTriggerIcebreaker(element, partnerId) {
+        // Highlight the selected student visually
+        document.querySelectorAll('.match-item').forEach(el => el.classList.remove('active'));
+        element.classList.add('active');
+        
+        // Save the ID so the regenerate button works
+        selectedIcebreakerTarget = partnerId;
+        
+        // Auto-fire the AI request!
+        const btn = document.getElementById('btn-icebreaker');
+        triggerWingman('generate_icebreaker', btn);
+    }
+
     function triggerWingman(actionType, btnElement) {
         const terminalOutput = document.getElementById('terminal-output');
         const placeholder = document.getElementById('terminal-placeholder');
         const typingIndicator = document.getElementById('typing-indicator');
+        const copyBtn = document.getElementById('copy-btn');
         
         let payload = { action: actionType };
         
         if (actionType === 'generate_icebreaker') {
-            const matchSelect = document.getElementById('matchSelect');
-            if (!matchSelect.value) {
-                alert("Please select a match from the dropdown first!");
+            if (!selectedIcebreakerTarget) {
+                alert("Please click on a student's card first!");
                 return;
             }
-            payload.partner_id = matchSelect.value;
+            payload.partner_id = selectedIcebreakerTarget;
         }
 
         // UI State: Loading
         const originalText = btnElement.innerText;
-        btnElement.innerText = "Analyzing...";
+        btnElement.innerText = "Analyzing... ⏳";
         btnElement.disabled = true;
+        copyBtn.style.display = 'none';
         
         if (placeholder) placeholder.style.display = 'none';
-        terminalOutput.innerHTML = ''; // Clear previous output
+        terminalOutput.innerHTML = ''; 
         typingIndicator.style.display = 'flex';
 
         fetch('/api/wingman_action', {
@@ -285,6 +417,7 @@
             btnElement.disabled = false;
             
             if (data.success) {
+                currentRawText = data.response; // Save for clipboard
                 typeWriterEffect(data.response, terminalOutput);
             } else {
                 terminalOutput.innerHTML = `<span style="color: #ff3333;">ERROR: ${data.message}</span>`;
@@ -299,36 +432,53 @@
         });
     }
     
-    // Cool Hacker-style Typewriter Effect
     function typeWriterEffect(text, element, speed = 15) {
         element.innerHTML = '';
         let i = 0;
-        
-        // Parse basic markdown-style bolding from the AI
-        const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong style="color: white;">$1</strong>');
-        
+        let isBold = false;
+        let currentBuffer = '';
+
         function type() {
-            if (i < formattedText.length) {
-                // If it's an HTML tag, skip ahead to render the whole tag instantly
-                if (formattedText.charAt(i) === '<') {
-                    let tag = '';
-                    while (formattedText.charAt(i) !== '>' && i < formattedText.length) {
-                        tag += formattedText.charAt(i);
-                        i++;
-                    }
-                    tag += '>';
-                    element.innerHTML += tag;
+            if (i < text.length) {
+                if (text.substring(i, i + 2) === '**') {
+                    isBold = !isBold;
+                    currentBuffer += isBold ? '<strong style="color: white; text-shadow: 0 0 5px rgba(255,255,255,0.5);">' : '</strong>';
+                    i += 2;
+                } else if (text.charAt(i) === '\n') {
+                    currentBuffer += '<br>';
                     i++;
                 } else {
-                    element.innerHTML += formattedText.charAt(i);
+                    currentBuffer += text.charAt(i);
                     i++;
                 }
                 
-                element.scrollTop = element.scrollHeight; // Auto-scroll to bottom
+                element.innerHTML = currentBuffer + '<span class="cursor"></span>';
+                element.scrollTop = element.scrollHeight; 
                 setTimeout(type, speed);
+            } else {
+                element.innerHTML = currentBuffer;
+                document.getElementById('copy-btn').style.display = 'block';
             }
         }
         type();
+    }
+
+    function copyTerminalText() {
+        const copyBtn = document.getElementById('copy-btn');
+        const cleanText = currentRawText.replace(/\*\*/g, ''); 
+        
+        navigator.clipboard.writeText(cleanText).then(() => {
+            const originalText = copyBtn.innerText;
+            copyBtn.innerText = "Copied! ✔️";
+            copyBtn.style.color = "#00ff00";
+            copyBtn.style.borderColor = "#00ff00";
+            
+            setTimeout(() => {
+                copyBtn.innerText = originalText;
+                copyBtn.style.color = "white";
+                copyBtn.style.borderColor = "#555";
+            }, 2000);
+        });
     }
 </script>
 {% endblock %}

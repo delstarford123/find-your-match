@@ -27,6 +27,15 @@
         margin: 0 0 15px 0;
         letter-spacing: -1px;
     }
+    .venue-hero p {
+        color: #4A0008;
+        font-size: clamp(15px, 3vw, 18px);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+        font-weight: 500;
+        opacity: 0.9;
+    }
 
     /* === VENUE GRID === */
     .venue-grid {
@@ -50,61 +59,124 @@
         overflow: hidden;
         box-shadow: 0 10px 30px rgba(114, 0, 0, 0.08);
         border: 1px solid #FFD6DD;
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
         display: flex;
         flex-direction: column;
         scroll-snap-align: center; 
     }
 
     @media (min-width: 768px) { .venue-card { flex: 0 0 300px; scroll-snap-align: start; } }
+    @media (hover: hover) { .venue-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15); border-color: #E60026; } }
     
     .venue-img-wrapper { height: 200px; position: relative; background: #eee; }
     .venue-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    .venue-img-wrapper::after {
+        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 40%;
+        background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+    }
     
+    .fallback-bg {
+        width: 100%; height: 100%;
+        background: linear-gradient(135deg, #FFD6DD 0%, #E60026 100%);
+        display: flex; align-items: center; justify-content: center; font-size: 50px;
+    }
+
     .discount-badge {
         position: absolute; top: 15px; right: 15px;
         background: #E60026; color: white; padding: 6px 12px;
         border-radius: 20px; font-weight: 900; font-size: 12px;
-        box-shadow: 0 4px 12px rgba(230,0,38,0.4);
+        box-shadow: 0 4px 12px rgba(230,0,38,0.4); text-transform: uppercase;
+        letter-spacing: 0.5px; border: 2px solid white; z-index: 2;
+    }
+    .verified-badge {
+        position: absolute; bottom: -15px; left: 20px;
+        background: white; color: #28a745; padding: 6px 14px;
+        border-radius: 15px; font-weight: 800; font-size: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex;
+        align-items: center; gap: 5px; border: 1px solid #d4edda; z-index: 3; 
     }
 
     .venue-info { padding: 35px 20px 20px; flex: 1; display: flex; flex-direction: column; }
-    .venue-info h3 { color: #720000; margin: 0 0 5px 0; font-size: 22px; font-weight: 900; }
+    .venue-info h3 { color: #720000; margin: 0 0 5px 0; font-size: 22px; font-weight: 900; line-height: 1.2;}
+    .location { color: #666; font-size: 13px; font-weight: 700; margin-bottom: 15px; text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
     
+    .perk-box {
+        background: #FEF2F4; border-left: 4px solid #E60026;
+        padding: 12px 15px; border-radius: 0 8px 8px 0; margin-bottom: 20px;
+        font-size: 14px; color: #4A0008; font-weight: 700; line-height: 1.5;
+        flex: 1; display: flex; align-items: flex-start; gap: 8px;
+    }
+
     .btn-propose {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white; border: none; padding: 16px; border-radius: 14px;
         font-weight: 900; font-size: 15px; cursor: pointer; width: 100%;
-        box-shadow: 0 4px 15px rgba(230,0,38,0.2); transition: 0.2s;
+        margin-top: auto; transition: 0.2s;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.2); text-align: center;
+        display: block; text-decoration: none;
     }
     .btn-propose:active { transform: scale(0.97); }
+    .btn-propose:disabled { opacity: 0.7; cursor: not-allowed; box-shadow: none; }
 
-    /* === MODAL === */
+    /* === B2B SALES BANNER === */
+    .b2b-banner {
+        background: #720000; border-radius: 24px;
+        padding: clamp(40px, 6vw, 60px) clamp(20px, 5vw, 40px);
+        text-align: center; color: white; max-width: 1100px;
+        margin: 0 15px 60px 15px; box-shadow: 0 20px 40px rgba(114, 0, 0, 0.2);
+        background-image: radial-gradient(circle at top right, #E60026 0%, transparent 60%);
+    }
+    @media (min-width: 1130px) { .b2b-banner { margin: 0 auto 60px auto; } }
+    .b2b-banner h2 { font-size: clamp(24px, 5vw, 36px); margin: 0 0 15px 0; line-height: 1.2; font-weight: 900; letter-spacing: -0.5px; }
+    .b2b-banner p { font-size: clamp(15px, 3vw, 18px); opacity: 0.9; max-width: 650px; margin: 0 auto 30px; line-height: 1.6; }
+    .stats-row { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(20px, 5vw, 50px); margin-bottom: 35px; }
+    .stat-item h4 { font-size: clamp(32px, 6vw, 42px); color: #FFD6DD; margin: 0 0 5px 0; font-weight: 900; }
+    .stat-item span { font-size: 13px; text-transform: uppercase; font-weight: 800; opacity: 0.9; letter-spacing: 1px; }
+    .btn-register-b2b {
+        background: white; color: #720000; padding: 18px 40px; border-radius: 30px; 
+        font-size: 16px; font-weight: 900; text-decoration: none; display: inline-block;
+        transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    @media (hover: hover) { .btn-register-b2b:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(0,0,0,0.3); color: #E60026; } }
+
+    /* === PROPOSAL MODAL === */
     .modal-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0.6); 
-        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         display: none; align-items: center; justify-content: center; z-index: 9999;
+        opacity: 0; transition: opacity 0.3s ease;
     }
-    .modal-overlay.active { display: flex; }
+    .modal-overlay.active { display: flex; opacity: 1; }
     .modal-box {
         background: white; width: 90%; max-width: 420px;
         border-radius: 28px; padding: 35px 30px; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
+        transform: scale(0.9) translateY(20px); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+    .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
+    .modal-header h3 { margin: 0; color: #720000; font-weight: 900; font-size: 22px; }
+    .close-btn { background: #f0f0f0; border: none; font-size: 20px; cursor: pointer; color: #666; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+    .close-btn:hover { background: #e0e0e0; color: #111; }
+
     .form-group { margin-bottom: 20px; }
     .form-group label { display: block; font-size: 11px; font-weight: 900; color: #E60026; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
     .form-group select, .form-group input {
         width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 12px;
         font-size: 15px; font-weight: 700; outline: none; background: #fafafa; box-sizing: border-box;
     }
-    .form-group select:focus { border-color: #E60026; background: white; }
+    .form-group select:focus, .form-group input:focus { border-color: #E60026; background: white; }
 
-    /* === TOAST === */
+    /* === TOAST NOTIFICATION === */
     .venue-toast {
         display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
         background: #28a745; color: white; padding: 15px 25px; border-radius: 14px;
-        font-weight: 800; z-index: 10000; animation: slideUp 0.4s ease-out;
+        font-weight: 800; font-size: 14px; z-index: 10000; animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
-    @keyframes slideUp { from { bottom: -20px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+    .venue-toast.error { background: #E60026; }
+    @keyframes slideUpToast {
+        from { bottom: -20px; opacity: 0; transform: translateX(-50%) scale(0.9); }
+        to { bottom: 30px; opacity: 1; transform: translateX(-50%) scale(1); }
+    }
 </style>
 
 <div class="discover-wrapper">
@@ -118,17 +190,24 @@
             {% for venue in venues %}
             <div class="venue-card">
                 <div class="venue-img-wrapper">
-                    {% if venue.images %}
+                    {% if venue.images and venue.images|length > 0 %}
                         <img src="{{ venue.images[0] }}" alt="{{ venue.business_name }}" loading="lazy">
                     {% else %}
                         <div class="fallback-bg">🍽️</div>
                     {% endif %}
-                    <div class="discount-badge">Student Perk</div>
+                    <div class="discount-badge">{{ venue.conditions.split(',')[0][:15] | default('Student Perk') }}</div>
+                    <div class="verified-badge">✓ MMUST Verified</div>
                 </div>
                 
                 <div class="venue-info">
                     <h3>{{ venue.business_name }}</h3>
-                    <p style="color: #666; font-size: 13px; font-weight: 700; margin-bottom: 15px;">📍 {{ venue.location }}</p>
+                    <div class="location">📍 {{ venue.location }}</div>
+                    
+                    <div class="perk-box">
+                        <span style="font-size: 18px;">🎁</span> 
+                        <span>{{ venue.conditions | default('Show your MMUST profile for a special discount!') }}</span>
+                    </div>
+                    
                     <button class="btn-propose" 
                             data-id="{{ venue.id }}" 
                             data-name="{{ venue.business_name }}" 
@@ -138,16 +217,39 @@
                 </div>
             </div>
             {% endfor %}
+        {% else %}
+            <div style="padding: 40px; text-align: center; width: 100%; color: #888; font-weight: bold;">No active venues found right now. Check back later!</div>
         {% endif %}
+    </div>
+
+    <div class="b2b-banner">
+        <h2>Own a Restaurant in Kakamega?</h2>
+        <p>Partner with Delstarford Works. For just <strong>2,000 KSH/month</strong>, your business gets listed on this page, putting you directly in front of thousands of university students planning their next date.</p>
+        
+        <div class="stats-row">
+            <div class="stat-item">
+                <h4>100%</h4>
+                <span>Local Students</span>
+            </div>
+            <div class="stat-item">
+                <h4>0%</h4>
+                <span>Hidden Fees</span>
+            </div>
+            <div class="stat-item">
+                <h4>24/7</h4>
+                <span>Analytics</span>
+            </div>
+        </div>
+        
+        <a href="{{ url_for('auth.business_register') }}" class="btn-register-b2b">Register Your Business Now</a>
     </div>
 </div> 
 
-<!-- BOOKING MODAL -->
 <div class="modal-overlay" id="dateModal">
     <div class="modal-box">
-        <div class="modal-header" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-            <h3 style="margin:0; font-weight: 900; color: #720000;">Invite to <br><span id="modalVenueName" style="color: #111;">Venue</span></h3>
-            <button onclick="closeModal()" style="background:none; border:none; font-size: 24px; cursor:pointer;">&times;</button>
+        <div class="modal-header">
+            <h3>Invite to <br><span id="modalVenueName" style="color: #111;">Venue</span></h3>
+            <button type="button" class="close-btn" onclick="closeModal()">×</button>
         </div>
         
         <form id="proposalForm" onsubmit="submitProposal(event)">
@@ -174,6 +276,7 @@
             <div class="form-group">
                 <label>Day</label>
                 <select id="daySelect" required>
+                    <option value="" disabled selected>Select a Day...</option>
                     <option value="Today">Today</option>
                     <option value="Tomorrow">Tomorrow</option>
                     <option value="This Friday">This Friday</option>
@@ -183,7 +286,7 @@
             </div>
             
             <div class="form-group">
-                <label>Time</label>
+                <label>Time (8 AM - 10 PM)</label>
                 <input type="time" id="timeSelect" required min="08:00" max="22:00">
             </div>
             
@@ -196,7 +299,22 @@
 
 <script>
     const modal = document.getElementById('dateModal');
+    let toastTimeout;
 
+    function showToast(message, type = 'success') {
+        const toast = document.getElementById('venue-toast');
+        toast.innerText = message;
+        toast.className = `venue-toast ${type}`;
+        
+        // Reset animation trigger
+        toast.style.display = 'none';
+        void toast.offsetWidth; 
+        toast.style.display = 'block';
+        
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+    
     function openModal(venueId, venueName) {
         document.getElementById('venueIdInput').value = venueId;
         document.getElementById('venueNameInput').value = venueName;
@@ -206,7 +324,16 @@
     
     function closeModal() {
         modal.classList.remove('active');
+        setTimeout(() => { 
+            document.getElementById('proposalForm').reset(); 
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = "Send Invitation 💌";
+            btn.disabled = false;
+        }, 300);
     }
+    
+    // Close modal when clicking the dark background overlay
+    window.onclick = (e) => { if (e.target == modal) closeModal(); }
 
     function submitProposal(e) {
         e.preventDefault();
@@ -230,13 +357,20 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('venue-toast').style.display = 'block';
+                showToast("✨ Invitation sent perfectly!", "success");
+                modal.classList.remove('active');
                 setTimeout(() => { window.location.href = '/matches/' + payload.partner_id; }, 1500);
             } else {
-                alert(data.message);
+                showToast(data.message || "Error sending invitation.", "error");
                 btn.innerText = "Send Invitation 💌";
                 btn.disabled = false;
             }
+        })
+        .catch(err => {
+            console.error("Proposal Error:", err);
+            showToast("Network error. Please try again.", "error");
+            btn.innerText = "Send Invitation 💌";
+            btn.disabled = false;
         });
     }
 </script>

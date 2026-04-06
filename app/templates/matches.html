@@ -71,7 +71,7 @@
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
         display: flex; width: 100%; max-width: 1000px;
-        height: calc(100vh - var(--nav-height) - 40px); min-height: 500px;
+        height: calc(100vh - var(--nav-height, 70px) - 40px); min-height: 500px;
         background: white; border-radius: 20px; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
         overflow: hidden; margin: 20px auto; border: 1px solid #FFD6DD;
     }
@@ -126,7 +126,6 @@
         box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 10; position: relative;
     }
     
-    /* Mobile text-truncation classes */
     .chat-header-avatar {
         width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; 
         border: 2px solid white; flex-shrink: 0; object-fit: cover;
@@ -189,7 +188,7 @@
     .typing-dot:nth-child(2) { animation-delay: -0.16s; }
     @keyframes typingBounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-4px); opacity: 1; background: #E60026; } }
 
-    /* === CHAT INPUT === */
+    /* === CHAT INPUT & MAGIC BUTTON === */
     .chat-input-area { padding: 15px 20px; background: #f0f0f0; display: flex; gap: 12px; align-items: center; border-top: 1px solid #ddd; }
     .chat-input-area input { flex: 1; padding: 15px 20px; border: none; border-radius: 30px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; }
     .chat-input-area input:focus { box-shadow: 0 4px 15px rgba(230,0,38,0.15); }
@@ -197,6 +196,18 @@
     .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 10px rgba(0, 168, 132, 0.3); flex-shrink: 0;}
     .btn-send:hover { transform: scale(1.1) rotate(5deg); }
     .btn-send:active { transform: scale(0.9); }
+
+    .btn-magic {
+        background: linear-gradient(135deg, #6610f2, #e83e8c);
+        color: white; border: none; border-radius: 50%; width: 45px; height: 45px;
+        display: flex; justify-content: center; align-items: center; cursor: pointer;
+        font-size: 22px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 4px 10px rgba(102, 16, 242, 0.3); flex-shrink: 0;
+    }
+    .btn-magic:hover { transform: scale(1.1) rotate(10deg); box-shadow: 0 6px 15px rgba(102, 16, 242, 0.4); }
+    .btn-magic:active { transform: scale(0.9); }
+    .btn-magic.loading { animation: pulseMagic 1s infinite alternate; cursor: not-allowed; }
+    @keyframes pulseMagic { 0% { transform: scale(0.9); opacity: 0.7; } 100% { transform: scale(1.1); opacity: 1; } }
 
     /* === MOBILE RESPONSIVE TWEAKS === */
     .empty-chat-state {
@@ -207,30 +218,26 @@
         .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
         
-        .inbox-container { margin: 0; height: calc(100vh - var(--nav-height)); border-radius: 0; border: none; }
+        .inbox-container { margin: 0; height: calc(100vh - var(--nav-height, 70px)); border-radius: 0; border: none; }
         .matches-sidebar { width: 100%; display: flex; }
         .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; }
         .inbox-container.chat-active .matches-sidebar { display: none; }
         .inbox-container.chat-active .chat-area { display: flex; }
         
-        /* Chat Header Tightening */
         .chat-header { padding: 10px 15px; }
         .btn-back { display: block; margin-right: 10px; font-size: 24px; }
         .chat-header-avatar { width: 38px; height: 38px; margin-right: 10px; }
         .chat-partner-name { font-size: 16px; }
         .chat-partner-status { font-size: 11px; }
         
-        /* Mobile Modal Fixes */
-        .theme-modal { 
-            width: calc(100vw - 30px); max-width: 320px; 
-            right: 15px; top: 65px; padding: 15px;
-        }
+        .theme-modal { width: calc(100vw - 30px); max-width: 320px; right: 15px; top: 65px; padding: 15px; }
         .color-grid { gap: 6px; }
         .color-swatch { width: 28px; height: 28px; }
         .bg-swatch { height: 50px; }
 
         .chat-bubble { max-width: 88%; }
         .empty-chat-state { display: none; }
+        .btn-magic { width: 40px; height: 40px; font-size: 18px; }
     }
 </style>
 
@@ -317,6 +324,9 @@
                     <button onclick="toggleActionMenu(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; font-weight: bold;">⋮</button>
                     
                     <div id="action-menu" class="theme-modal" style="width: 200px; right: 0; top: 40px; padding: 10px;">
+                        <button onclick="triggerSafeWalk()" style="width: 100%; text-align: left; padding: 12px; background: #f8f9fa; border: none; color: #111; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
+                            <span style="font-size: 18px;">🛡️</span> Safe Walk
+                        </button>
                         <button onclick="openUnmatchModal()" style="width: 100%; text-align: left; padding: 12px; background: #FEF2F4; border: none; color: #E60026; font-weight: 900; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; transition: 0.2s;">
                             <span style="font-size: 18px;">🚫</span> Unmatch
                         </button>
@@ -377,6 +387,7 @@
         </div>
         
         <div class="chat-input-area">
+            <button class="btn-magic" id="btn-magic" onclick="generateIcebreakerInChat()" title="AI Wingman: Write an opener">🪄</button>
             <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
             <button class="btn-send" id="btn-send">➤</button>
         </div>
@@ -412,7 +423,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
     // ==========================================
-    // XSS SANITIZATION (CRITICAL SECURITY FIX)
+    // XSS SANITIZATION
     // ==========================================
     function escapeHTML(str) {
         if (!str) return '';
@@ -528,6 +539,21 @@
     document.addEventListener('DOMContentLoaded', initThemePicker);
 
     // ==========================================
+    // SAFE WALK LOGIC (FIXED JINJA VARIABLE)
+    // ==========================================
+    function triggerSafeWalk() {
+        const myName = "{{ session.get('user_name', 'Student').split(' ')[0] }}";
+        const dateName = "{{ active_partner.name if active_partner else 'my date' }}";
+        const restaurantName = "a partner restaurant";
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const message = `Hey! I'm going on a date via the MMUST Dating App. \n\n📍 I am meeting ${dateName} at ${restaurantName}.\n🕒 Time: ${time}.\n\nI am sharing my live location with you now. If I don't text you by 9 PM, please call me!`;
+        const encodedMessage = encodeURIComponent(message);
+        
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    }
+
+    // ==========================================
     // UNMATCH & REPORT LOGIC
     // ==========================================
     function toggleActionMenu(e) {
@@ -585,13 +611,11 @@
     let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
 
-    // Clear active partner's unread instantly
     if (activePartnerId !== 'none') {
         if (unreadMap[activePartnerId]) {
             delete unreadMap[activePartnerId];
             localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
         }
-        // Inject offline queue
         if (offlineQueue[activePartnerId] && offlineQueue[activePartnerId].length > 0) {
             const chatHistory = document.getElementById('chat-history');
             const typingIndicator = document.getElementById('typing-indicator');
@@ -614,9 +638,6 @@
             });
             delete offlineQueue[activePartnerId];
             localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
-            if (chatHistory) {
-                setTimeout(() => { chatHistory.scrollTop = chatHistory.scrollHeight; }, 100);
-            }
         }
     }
 
@@ -695,7 +716,7 @@
 
 
     // ==========================================
-    // REAL-TIME CHAT WEBSOCKETS
+    // REAL-TIME CHAT WEBSOCKETS & ICEBREAKER
     // ==========================================
     const socket = io();
     const chatHistory = document.getElementById('chat-history');
@@ -707,6 +728,42 @@
     function getCurrentTime() {
         const now = new Date();
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // MAGIC ICEBREAKER INTEGRATION
+    function generateIcebreakerInChat() {
+        if (activePartnerId === 'none' || activePartnerId === 'AI_COMPANION') return;
+        
+        const magicBtn = document.getElementById('btn-magic');
+        magicBtn.classList.add('loading');
+        magicBtn.disabled = true;
+        chatInput.placeholder = "AI is writing an opener...";
+        chatInput.value = "";
+        
+        fetch('/api/wingman_action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action: 'generate_icebreaker', partner_id: activePartnerId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                let cleanText = data.response.replace(/\*\*/g, '').replace(/^\d+\.\s*/gm, '').trim();
+                const lines = cleanText.split('\n').filter(line => line.trim().length > 0);
+                if (lines.length > 0) {
+                    chatInput.value = lines[0]; 
+                    chatInput.focus(); // Automatically focus the input so they can just press enter!
+                }
+            } else {
+                alert("AI Error: " + data.message);
+            }
+        })
+        .catch(err => console.error("Wingman error:", err))
+        .finally(() => {
+            magicBtn.classList.remove('loading');
+            magicBtn.disabled = false;
+            chatInput.placeholder = "Type a message...";
+        });
     }
 
     socket.on('status_change', function(data) {
@@ -722,7 +779,10 @@
 
     if (activePartnerId !== 'none') {
         window.onload = () => {
-            if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+            // Ensures the chat is always fully scrolled down when the page opens
+            setTimeout(() => {
+                if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
+            }, 150);
             if (window.innerWidth > 768 && chatInput) chatInput.focus();
         };
         

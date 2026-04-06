@@ -562,58 +562,95 @@ def unmatch_user():
     except Exception as e:
         logger.error(f"Unmatch Error: {e}")
         return jsonify({"status": "error", "message": "Database error"}), 500
+    
+    
+import hashlib
+import os
+
+def hash_reg_number(reg_num):
+    """
+    Standardizes the reg number (removes spaces, makes uppercase)
+    and returns an unbreakable SHA-256 hash.
+    """
+    if not reg_num: return None
+    clean_reg = str(reg_num).strip().upper()
+    # Add a "salt" (a secret key) to make it mathematically impossible to crack
+    secret_salt = os.getenv("HASH_SALT", "MMUST_DATING_SECURE_2026")
+    salted_reg = f"{clean_reg}_{secret_salt}"
+    
+    return hashlib.sha256(salted_reg.encode('utf-8')).hexdigest()
+
 @app.route('/api/add-crush', methods=['POST'])
 @login_required
 def add_crush():
+    """Secure Cryptographic Secret Crush Radar"""
     data = request.json
     user_id = session.get('user_id')
-    # Normalize the Reg Number (e.g., strip spaces and make uppercase)
-    crush_reg_num = data.get('crush_id', '').strip().upper() 
+    
+    # Normalize the Reg Number (strip spaces and make uppercase)
+    raw_crush_id = data.get('crush_id', '').strip().upper() 
 
-    if not crush_reg_num:
+    if not raw_crush_id:
         return jsonify({"status": "error", "message": "Please enter a valid Registration Number."}), 400
 
     # Stop users from crushing on themselves!
-    if crush_reg_num == user_id:
+    if raw_crush_id == user_id:
         return jsonify({"status": "error", "message": "You can't crush on yourself!"}), 400
 
     try:
         timestamp = datetime.now(EAT).isoformat()
+        
+        # 🛡️ THE TRUST FORTRESS: Hash the IDs immediately. 
+        # We never store who likes who in plain text unless it's a mutual match.
+        my_hashed_id = hash_reg_number(user_id)
+        hashed_target = hash_reg_number(raw_crush_id)
 
-        # 1. Save the secret crush to the database
-        # Structure: crushes/MY_ID/THEIR_ID = timestamp
-        db.reference(f'crushes/{user_id}/{crush_reg_num}').set(timestamp)
+        crushes_ref = db.reference('crushes')
 
-        # 2. Check if it is a Mutual Crush! (Did they already crush on me?)
-        mutual_crush = db.reference(f'crushes/{crush_reg_num}/{user_id}').get()
+        # 1. Save the secret crush as a Hash
+        # Structure: crushes/MY_HASH/THEIR_HASH = timestamp
+        crushes_ref.child(my_hashed_id).update({
+            hashed_target: timestamp
+        })
 
-        if mutual_crush:
-            # 💘 IT'S A MATCH! Create the chat room immediately.
-            match_id = "_".join(sorted([user_id, crush_reg_num]))
+        # 2. Check if it is a Mutual Crush! 
+        # Did the person I just hashed ALSO hash my ID and save it previously?
+        target_crushes = crushes_ref.child(hashed_target).get() or {}
+
+        if target_crushes.get(my_hashed_id):
+            # 💘 IT'S A MATCH! The secret is out. 
+            # We can now use the raw IDs to create the chat room.
+            match_id = "_".join(sorted([user_id, raw_crush_id]))
             
             db.reference(f'matches/{match_id}').set({
-                'users': {user_id: True, crush_reg_num: True},
+                'users': {user_id: True, raw_crush_id: True},
                 'matched_at': timestamp,
                 'last_message': '💘 Secret Crush Radar Match! You both liked each other.',
                 'last_message_time': timestamp
             })
 
             # Force mutual right-swipes in the database so they never see each other in the deck again
-            db.reference(f'swipes/{user_id}/{crush_reg_num}').set({'action': 'like', 'timestamp': timestamp})
-            db.reference(f'swipes/{crush_reg_num}/{user_id}').set({'action': 'like', 'timestamp': timestamp})
+            db.reference(f'swipes/{user_id}/{raw_crush_id}').set({'action': 'like', 'timestamp': timestamp})
+            db.reference(f'swipes/{raw_crush_id}/{user_id}').set({'action': 'like', 'timestamp': timestamp})
 
-            # Trigger real-time notifications if they are online
-            socketio.emit('receive_message', {
-                'sender': 'SYSTEM_AI',
-                'text': '💘 OMG! Your Secret Crush just matched with you!',
-                'timestamp': timestamp
-            }, to=user_id)
-            
-            socketio.emit('receive_message', {
-                'sender': 'SYSTEM_AI',
-                'text': '💘 OMG! Your Secret Crush just matched with you!',
-                'timestamp': timestamp
-            }, to=crush_reg_num)
+            # Trigger real-time push notifications if they are online
+            def emit_crush_notifications():
+                try:
+                    socketio.emit('receive_message', {
+                        'sender': 'SYSTEM_AI',
+                        'text': '💘 OMG! Your Secret Crush just matched with you!',
+                        'timestamp': timestamp
+                    }, to=user_id)
+                    
+                    socketio.emit('receive_message', {
+                        'sender': 'SYSTEM_AI',
+                        'text': '💘 OMG! Your Secret Crush just matched with you!',
+                        'timestamp': timestamp
+                    }, to=raw_crush_id)
+                except Exception as sock_err:
+                    logger.warning(f"Crush socket emit failed: {sock_err}")
+
+            socketio.start_background_task(emit_crush_notifications)
 
             return jsonify({
                 "status": "success", 
@@ -621,18 +658,18 @@ def add_crush():
                 "message": "💘 OMG! It's a match! They liked you too. Check your messages!"
             })
 
-        # 3. Not a mutual crush yet. Keep it a secret.
+        # 3. Not a mutual crush yet. Keep it encrypted and hidden.
         return jsonify({
             "status": "success", 
             "match": False, 
-            "message": "🤫 Crush locked in! If they join and enter your Reg Number, you'll match instantly."
+            "message": "🤫 Crush locked securely! If they enter your Reg Number, you'll match instantly."
         })
 
     except Exception as e:
-        logger.error(f"Crush Radar Error: {e}")
-        return jsonify({"status": "error", "message": "Server error while saving crush."}), 500
-        
-
+        logger.error(f"Crush Radar Cryptographic Error: {e}")
+        return jsonify({"status": "error", "message": "Server error while saving crush securely."}), 500
+    
+    
 @app.route('/api/check-pending-date')
 @login_required
 def check_pending_date():
@@ -1845,10 +1882,10 @@ def handle_message(data):
     # Use SocketIO's safe background task manager
     socketio.start_background_task(background_save, sender_id, receiver_id, msg_text, msg_type)
     
-    
 # ==========================================
 # STUDENT VENUE DISCOVERY & BOOKING
 # ==========================================
+
 @app.route('/discover')
 @requires_subscription
 def discover_venues():
@@ -1893,6 +1930,7 @@ def discover_venues():
         matches=selectable_students # We pass 'selectable_students' as 'matches'
     )
 
+
 @app.route('/api/propose_date', methods=['POST'])
 @login_required
 def propose_date():
@@ -1907,10 +1945,11 @@ def propose_date():
     date_day = data.get('day')
     date_time = data.get('time')
     
-    # 1. Validation Checks
+    # 1. Strict Validation Checks
     if not all([venue_id, partner_id, date_day, date_time]):
-        return jsonify({'success': False, 'message': 'Missing details.'}), 400
+        return jsonify({'success': False, 'message': 'Missing details. Please fill out all fields.'}), 400
         
+    # Prevent users from booking a table with the AI bot
     if partner_id == 'AI_COMPANION':
         return jsonify({'success': False, 'message': 'You cannot take the AI Wingman on a physical date!'}), 400
         
@@ -1919,12 +1958,15 @@ def propose_date():
         create_date_booking(venue_id, sender_id, partner_id, date_day, date_time)
         increment_restaurant_view(venue_id)
         
+        # Format the chat invitation
         invite_msg = (
             f"💌 **DATE INVITATION** 💌\n\n"
             f"I'd love to take you to **{venue_name}**!\n"
             f"📅 **When:** {date_day} at {date_time}\n"
             f"Let me know if you're down!"
         )
+        
+        # Save the message to Firebase so it persists in their chat history
         save_chat_message(sender_id, partner_id, invite_msg, msg_type='date_invite')
         
         # 3. REAL-TIME SYNC (Offloaded to Background Task for 0ms UI latency)
@@ -1939,17 +1981,14 @@ def propose_date():
         
         def emit_date_notifications():
             try:
-                # Push to the partner's screen
+                # Push to the partner's screen so they see it instantly
                 socketio.emit('receive_message', socket_payload, to=partner_id)
-                # Push to the sender's OTHER devices so they stay in sync
+                # Push to the sender's OTHER devices (e.g., laptop) so they stay in sync
                 socketio.emit('receive_message', socket_payload, to=sender_id)
-                
-                # Optional: Fire a Web Push Notification to wake up the partner's phone
-                trigger_match_notification(partner_id, sender_name)
             except Exception as sock_err:
                 logger.warning(f"Socket emit failed (partner might be offline): {sock_err}")
 
-        # Start the background task
+        # Start the background task immediately
         socketio.start_background_task(emit_date_notifications)
 
         return jsonify({'success': True, 'message': 'Invitation sent!'})
@@ -1957,7 +1996,6 @@ def propose_date():
     except Exception as e:
         logger.error(f"Error proposing date: {e}")
         return jsonify({'success': False, 'message': 'Internal server error.'}), 500
-
 # ==========================================
 # AI WINGMAN & RIZZ CHECK ROUTES
 # ==========================================
@@ -1965,11 +2003,26 @@ def propose_date():
 @app.route('/wingman')
 @login_required
 def ai_wingman():
+    """Renders the AI Wingman dashboard."""
     user_id = session.get('user_id')
-    user_profile = db.reference(f'profiles/{user_id}').get() or {}
-    my_matches = get_user_matches(user_id) 
     
-    return render_template('wingman.html', user=user_profile, matches=my_matches)
+    try:
+        user_profile = db.reference(f'profiles/{user_id}').get() or {}
+        
+        # Fetch all matches
+        raw_matches = get_user_matches(user_id) 
+        
+        # 🛡️ Filter out the AI bot so users can't generate icebreakers to talk to the robot!
+        clean_matches = [m for m in raw_matches if m.get('id') != 'AI_COMPANION']
+        
+        return render_template('wingman.html', user=user_profile, matches=clean_matches)
+        
+    except Exception as e:
+        logger.error(f"Wingman Page Network Error: {e}")
+        flash("Network connection dropped slightly. Please refresh the page.", "error")
+        # Fallback to empty data to prevent a 500 Server Error crash
+        return render_template('wingman.html', user={'bio': 'Network error.'}, matches=[])
+
 
 @app.route('/api/wingman_action', methods=['POST'])
 @login_required
@@ -1980,6 +2033,9 @@ def api_wingman_action():
     user_id = session.get('user_id')
     
     try:
+        # =======================================================
+        # 1. PROFILE ROASTER LOGIC
+        # =======================================================
         if action == 'roast_profile':
             user_profile = db.reference(f'profiles/{user_id}').get() or {}
             bio = user_profile.get('bio', 'No bio provided.')
@@ -1989,12 +2045,16 @@ def api_wingman_action():
                 f"Act as a brutally honest, funny, but ultimately helpful college dating coach. "
                 f"My major is {major} and my dating app bio is: '{bio}'. "
                 f"Give me a funny 'roast' of this bio, and then provide 3 actionable tips "
-                f"or rewrite suggestions to make it more attractive to college students."
+                f"or rewrite suggestions to make it more attractive to college students. "
+                f"CRITICAL: Do not say 'Here is your roast'. Just start roasting immediately."
             )
             
             ai_response = get_ai_companion_response(prompt, user_gender=user_profile.get('gender', 'unknown'))
             return jsonify({'success': True, 'response': ai_response})
             
+        # =======================================================
+        # 2. SMART ICEBREAKER & CONVERSATION CONTINUER
+        # =======================================================
         elif action == 'generate_icebreaker':
             partner_id = data.get('partner_id')
             if not partner_id:
@@ -2002,14 +2062,40 @@ def api_wingman_action():
                 
             partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
             partner_bio = partner_profile.get('bio', 'They have no bio... time to get creative.')
-            partner_name = partner_profile.get('name', 'your match').split(',')[0]
+            partner_name = partner_profile.get('name', 'your match').split(' ')[0]
             
-            prompt = (
-                f"Act as my ultimate wingman. I just matched with someone named {partner_name}. "
-                f"Their bio says: '{partner_bio}'. "
-                f"Generate 3 highly customized, funny, and engaging icebreakers I can send them right now. "
-                f"Don't be creepy. Keep it fun and college-appropriate."
-            )
+            # 🧠 READ THE ROOM: Fetch actual chat history to see if they are already talking!
+            chat_history = get_chat_history(user_id, partner_id)
+            human_chats = [msg for msg in chat_history if msg.get('sender') != 'SYSTEM_AI'] if chat_history else []
+            
+            if human_chats and len(human_chats) > 0:
+                # 💬 REPLY MODE: They are already talking.
+                recent_msgs = human_chats[-6:] # Grab the last 6 messages for context
+                formatted_chat = ""
+                for msg in recent_msgs:
+                    sender_label = "Me" if msg['sender'] == user_id else partner_name
+                    formatted_chat += f"{sender_label}: {msg.get('text', '')}\n"
+                
+                prompt = (
+                    f"Act as my charismatic dating coach. I am currently chatting with {partner_name}. "
+                    f"Their bio says: '{partner_bio}'.\n"
+                    f"Here is the exact transcript of our recent conversation:\n"
+                    f"{formatted_chat}\n\n"
+                    f"Based EXACTLY on what we are talking about right now, write 3 brilliant, natural-sounding replies I can send next to keep the conversation engaging. "
+                    f"Make them varied (1 funny/teasing, 1 thoughtful question, 1 smooth transition). "
+                    f"CRITICAL RULE: Do NOT output conversational filler like 'Here are your options:' or 'Let's get this started'. "
+                    f"Just output the 3 numbered options directly so I can copy and paste them."
+                )
+            else:
+                # 🧊 COLD OPENER MODE: The chat is totally empty.
+                prompt = (
+                    f"Act as my ultimate wingman. I just matched with someone named {partner_name}. "
+                    f"Their bio says: '{partner_bio}'. "
+                    f"Generate 3 highly customized, funny, and engaging icebreakers I can send them right now based ONLY on their bio. "
+                    f"Don't be creepy. Keep it fun and college-appropriate. "
+                    f"CRITICAL RULE: Do NOT output conversational filler like 'Here are some options:' or 'Let's get this started'. "
+                    f"Just output the 3 numbered options directly so I can copy and paste them."
+                )
             
             ai_response = get_ai_companion_response(prompt, user_gender='unknown')
             return jsonify({'success': True, 'response': ai_response})
@@ -2019,10 +2105,127 @@ def api_wingman_action():
 
     except Exception as e:
         logger.error(f"Wingman API Error: {e}")
-        return jsonify({'success': False, 'message': 'The Wingman is currently busy. Try again later!'}), 500  
+        return jsonify({'success': False, 'message': 'The Wingman is currently busy. Try again later!'}), 500
+     
+import hashlib
+
+def hash_reg_number(reg_num):
+    """
+    Standardizes the reg number (removes spaces, makes uppercase)
+    and returns an unbreakable SHA-256 hash.
+    """
+    if not reg_num: return None
+    clean_reg = str(reg_num).strip().upper()
+    # Add a "salt" (a secret key) to make it even harder to crack
+    secret_salt = os.getenv("HASH_SALT", "MMUST_SECRET_2026")
+    salted_reg = f"{clean_reg}_{secret_salt}"
+    
+    return hashlib.sha256(salted_reg.encode('utf-8')).hexdigest()
 
 
+@app.route('/merchant/dashboard')
+@login_required # Ensure this user is a merchant, not a student
+def merchant_dashboard():
+    merchant_id = session.get('user_id')
+    
+    # 1. Fetch the merchant's specific restaurant data
+    restaurant_ref = db.reference(f'restaurants/{merchant_id}').get()
+    
+    if not restaurant_ref:
+        flash("Restaurant profile not found.", "error")
+        return redirect(url_for('index'))
+
+    # 2. Calculate ROI & Analytics
+    all_bookings = db.reference('bookings').get() or {}
+    total_bookings = 0
+    completed_bookings = 0
+    
+    # We will assume an average spend of 1500 KSH per couple for the ROI calculation
+    AVERAGE_COUPLE_SPEND_KSH = 1500 
+    
+    # Get the start of the current month for monthly stats
+    now = datetime.now(EAT)
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_completed = 0
+
+    for b_id, b_data in all_bookings.items():
+        if b_data.get('venue_id') == merchant_id:
+            total_bookings += 1
+            
+            # Count how many dates actually happened (merchant scanned the QR code)
+            if b_data.get('status') in ['Completed', 'Archived']:
+                completed_bookings += 1
+                
+                # Check if it was this month
+                b_timestamp = b_data.get('completed_timestamp')
+                if b_timestamp:
+                    try:
+                        b_date = datetime.fromisoformat(b_timestamp)
+                        if b_date >= start_of_month:
+                            monthly_completed += 1
+                    except ValueError:
+                        pass # Ignore badly formatted old dates
+
+    # Calculate the estimated revenue brought in by the app this month
+    monthly_revenue_generated = monthly_completed * AVERAGE_COUPLE_SPEND_KSH
+    
+    # 3. Fetch Active Flash Perks
+    active_perks = db.reference(f'flash_perks/{merchant_id}').get() or {}
+
+    analytics = {
+        'total_views': restaurant_ref.get('profile_views', 0),
+        'total_bookings': total_bookings,
+        'monthly_completed': monthly_completed,
+        'monthly_revenue': f"KSH {monthly_revenue_generated:,}",
+        'subscription_status': restaurant_ref.get('subscription_status', 'Inactive')
+    }
+
+    return render_template(
+        'merchant_dashboard.html', 
+        restaurant=restaurant_ref, 
+        analytics=analytics,
+        flash_perks=active_perks
+    )
+    
+@app.route('/api/merchant/create_flash_perk', methods=['POST'])
+@login_required
+def create_flash_perk():
+    merchant_id = session.get('user_id')
+    data = request.json
+    
+    offer_text = data.get('offer_text') # e.g., "30% off for the next 5 couples!"
+    max_claims = data.get('max_claims', 5) # How many couples can claim it
+    expires_in_hours = data.get('expires_in', 2)
+    
+    if not offer_text:
+        return jsonify({'success': False, 'message': 'Offer text is required.'}), 400
         
+    try:
+        # Calculate expiration time
+        expiration_time = datetime.now(EAT) + timedelta(hours=int(expires_in_hours))
+        
+        perk_data = {
+            'offer_text': offer_text,
+            'max_claims': int(max_claims),
+            'claims_used': 0,
+            'created_at': datetime.now(EAT).isoformat(),
+            'expires_at': expiration_time.isoformat(),
+            'is_active': True
+        }
+        
+        # Save to the database under this specific merchant
+        # We use push() to generate a unique ID for this specific perk
+        new_perk_ref = db.reference(f'flash_perks/{merchant_id}').push(perk_data)
+        
+        # Optional: You could trigger a WebSocket event here to instantly notify 
+        # all online students that a new Flash Perk is available!
+        
+        return jsonify({'success': True, 'message': 'Flash Perk is live! ⚡'})
+        
+    except Exception as e:
+        logger.error(f"Error creating Flash Perk: {e}")
+        return jsonify({'success': False, 'message': 'Failed to create perk.'}), 500
+      
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

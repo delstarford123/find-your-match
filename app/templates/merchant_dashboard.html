@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .merchant-wrapper {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 40px 20px;
+    }
+    
+    .merchant-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+        border-top: 4px solid #720000;
+    }
+    .stat-card.highlight {
+        border-top: 4px solid #28a745;
+        background: #f8fff9;
+    }
+    
+    .stat-value {
+        font-size: 36px;
+        font-weight: 900;
+        color: #111;
+        margin: 10px 0 5px 0;
+    }
+    .stat-label {
+        font-size: 13px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+    }
+    
+    .flash-perk-section {
+        background: #111;
+        border-radius: 20px;
+        padding: 35px;
+        color: white;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    }
+    
+    .form-row {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .form-row input, .form-row select {
+        flex: 1;
+        padding: 15px;
+        border-radius: 10px;
+        border: none;
+        font-size: 15px;
+        font-weight: bold;
+    }
+    
+    .btn-flash {
+        background: #E60026;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 10px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-flash:hover { background: #ff1a40; transform: translateY(-2px); }
+</style>
+
+<div class="merchant-wrapper">
+    <div class="merchant-header">
+        <div>
+            <h1 style="margin:0; color:#720000; font-weight:900;">{{ restaurant.business_name }}</h1>
+            <p style="margin:5px 0 0 0; color:#666;">Merchant Partner Dashboard</p>
+        </div>
+        <div style="background: #e6f4ea; color: #28a745; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 13px;">
+            Status: {{ analytics.subscription_status }}
+        </div>
+    </div>
+
+    <h2 style="font-size: 18px; margin-bottom: 15px;">Your Performance This Month</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Profile Views</div>
+            <div class="stat-value">{{ analytics.total_views }} 👀</div>
+            <div style="font-size: 12px; color: #888;">Students looking at your venue</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Dates Hosted</div>
+            <div class="stat-value">{{ analytics.monthly_completed }} 🍽️</div>
+            <div style="font-size: 12px; color: #888;">Couples served this month</div>
+        </div>
+        <div class="stat-card highlight">
+            <div class="stat-label">Est. Revenue Generated</div>
+            <div class="stat-value" style="color: #28a745;">{{ analytics.monthly_revenue }}</div>
+            <div style="font-size: 12px; color: #888;">Based on avg. 1,500 KSH spend/couple</div>
+        </div>
+    </div>
+
+    <div class="flash-perk-section">
+        <h2 style="margin: 0 0 10px 0; display: flex; align-items: center; gap: 10px;">
+            ⚡ Create a Flash Perk
+        </h2>
+        <p style="color: #aaa; margin: 0 0 20px 0; font-size: 14px;">
+            Have empty tables right now? Push a live offer to all students on campus to drive immediate foot traffic.
+        </p>
+        
+        <form id="flashPerkForm" onsubmit="submitFlashPerk(event)">
+            <input type="text" id="offerText" placeholder="e.g. 30% off your bill if you book a date right now!" required style="width: 100%; padding: 15px; border-radius: 10px; border: none; font-size: 16px; font-weight: bold; box-sizing: border-box;">
+            
+            <div class="form-row">
+                <select id="maxClaims" required>
+                    <option value="" disabled selected>Max Couples?</option>
+                    <option value="3">First 3 Couples</option>
+                    <option value="5">First 5 Couples</option>
+                    <option value="10">First 10 Couples</option>
+                </select>
+                
+                <select id="expiresIn" required>
+                    <option value="" disabled selected>How long?</option>
+                    <option value="1">1 Hour</option>
+                    <option value="2">2 Hours</option>
+                    <option value="4">4 Hours</option>
+                </select>
+                
+                <button type="submit" class="btn-flash" id="btnSubmitPerk">Go Live 🚀</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function submitFlashPerk(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSubmitPerk');
+        btn.innerText = "Pushing... ⏳";
+        btn.disabled = true;
+
+        const payload = {
+            offer_text: document.getElementById('offerText').value,
+            max_claims: document.getElementById('maxClaims').value,
+            expires_in: document.getElementById('expiresIn').value
+        };
+
+        fetch('/api/merchant/create_flash_perk', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                alert(data.message);
+                document.getElementById('flashPerkForm').reset();
+            } else {
+                alert(data.message);
+            }
+        })
+        .finally(() => {
+            btn.innerText = "Go Live 🚀";
+            btn.disabled = false;
+        });
+    }
+</script>
+{% endblock %}
