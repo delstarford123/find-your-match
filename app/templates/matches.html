@@ -10,7 +10,7 @@
         --my-bubble-text: #111;
     }
 
-    /* === GLOBAL NOTIFICATION BELL (TOP RIGHT) === */
+    /* === GLOBAL NOTIFICATION BELL === */
     .floating-bell {
         position: fixed; top: 20px; right: 20px;
         background: white; border: 2px solid #FFD6DD; color: #720000;
@@ -63,11 +63,6 @@
         font-size: 11px; font-weight: 900; flex-shrink: 0;
     }
 
-    @media (max-width: 768px) {
-        .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
-        .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
-    }
-
     @keyframes popIn {
         0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
         100% { opacity: 1; transform: scale(1) translateY(0); }
@@ -107,7 +102,7 @@
         background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
         font-size: 9px; padding: 3px 8px; border-radius: 12px; font-weight: 900;
         letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(230, 0, 38, 0.3);
-        animation: pulseMatch 2s infinite; white-space: nowrap;
+        animation: pulseMatch 2s infinite; white-space: nowrap; flex-shrink: 0;
     }
     @keyframes pulseMatch { 
         0% { box-shadow: 0 0 0 0 rgba(230,0,38,0.4); } 
@@ -131,13 +126,27 @@
         box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 10; position: relative;
     }
     
-    .btn-back { display: none; background: none; border: none; color: white; font-size: 28px; margin-right: 15px; cursor: pointer; transition: 0.2s; }
+    /* Mobile text-truncation classes */
+    .chat-header-avatar {
+        width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; 
+        border: 2px solid white; flex-shrink: 0; object-fit: cover;
+    }
+    .chat-partner-name {
+        font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 6px; 
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .chat-partner-status {
+        font-size: 12px; opacity: 0.9; font-weight: 500; 
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    
+    .btn-back { display: none; background: none; border: none; color: white; font-size: 28px; margin-right: 15px; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
     .btn-back:active { transform: scale(0.9); }
 
     /* === THEME MODAL UI === */
     .theme-modal {
         position: absolute; top: 70px; right: 20px; background: white; padding: 20px; 
-        border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 100; 
+        border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 9999; 
         width: 320px; display: none; border: 1px solid #FFD6DD;
     }
     .theme-modal.active { display: block; animation: popIn 0.2s ease-out forwards; }
@@ -185,22 +194,41 @@
     .chat-input-area input { flex: 1; padding: 15px 20px; border: none; border-radius: 30px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; }
     .chat-input-area input:focus { box-shadow: 0 4px 15px rgba(230,0,38,0.15); }
     
-    .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 10px rgba(0, 168, 132, 0.3); }
+    .btn-send { background: #00A884; color: white; border: none; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; font-size: 20px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 4px 10px rgba(0, 168, 132, 0.3); flex-shrink: 0;}
     .btn-send:hover { transform: scale(1.1) rotate(5deg); }
     .btn-send:active { transform: scale(0.9); }
 
-    /* === MOBILE RESPONSIVE === */
+    /* === MOBILE RESPONSIVE TWEAKS === */
     .empty-chat-state {
         flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa;
     }
 
     @media (max-width: 768px) {
+        .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
+        .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
+        
         .inbox-container { margin: 0; height: calc(100vh - var(--nav-height)); border-radius: 0; border: none; }
         .matches-sidebar { width: 100%; display: flex; }
         .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; }
         .inbox-container.chat-active .matches-sidebar { display: none; }
         .inbox-container.chat-active .chat-area { display: flex; }
-        .btn-back { display: block; }
+        
+        /* Chat Header Tightening */
+        .chat-header { padding: 10px 15px; }
+        .btn-back { display: block; margin-right: 10px; font-size: 24px; }
+        .chat-header-avatar { width: 38px; height: 38px; margin-right: 10px; }
+        .chat-partner-name { font-size: 16px; }
+        .chat-partner-status { font-size: 11px; }
+        
+        /* Mobile Modal Fixes */
+        .theme-modal { 
+            width: calc(100vw - 30px); max-width: 320px; 
+            right: 15px; top: 65px; padding: 15px;
+        }
+        .color-grid { gap: 6px; }
+        .color-swatch { width: 28px; height: 28px; }
+        .bg-swatch { height: 50px; }
+
         .chat-bubble { max-width: 88%; }
         .empty-chat-state { display: none; }
     }
@@ -265,15 +293,16 @@
         {% if active_partner %}
         
         <div class="chat-header">
-            <div style="display: flex; align-items: center;">
+            <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
-                <img src="{{ active_partner.img }}" style="width:45px; height:45px; border-radius:50%; margin-right:15px; border: 2px solid white;">
-                <div style="display: flex; flex-direction: column;">
-                    <span style="font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 6px;">
+                <img src="{{ active_partner.img }}" class="chat-header-avatar">
+                
+                <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px;">
+                    <span class="chat-partner-name">
                         {{ active_partner.name }}
                         {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
                     </span>
-                    <span class="status-text" style="font-size: 12px; opacity: 0.9; font-weight: 500;">
+                    <span class="chat-partner-status">
                         {% if active_partner.id == 'AI_COMPANION' %}Always Online
                         {% elif active_partner.is_online %}Online
                         {% else %}Offline{% endif %}
@@ -281,7 +310,7 @@
                 </div>
             </div>
             
-            <div style="display: flex; gap: 15px; align-items: center;">
+            <div style="display: flex; gap: 15px; align-items: center; flex-shrink: 0;">
                 <button onclick="toggleThemeModal(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; transition: 0.2s;">🎨</button>
                 
                 <div style="position: relative;">

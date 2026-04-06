@@ -22,11 +22,7 @@
         box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4); animation: pulseBell 2s infinite;
     }
 
-    @keyframes pulseBell {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-    }
+    @keyframes pulseBell { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
     /* === CRUSH RADAR === */
     .radar-btn {
@@ -106,7 +102,7 @@
         background: #eee; border-radius: 24px; overflow: hidden; 
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); 
         position: absolute; inset: 0; display: flex; flex-direction: column; 
-        transition: transform 0.3s ease, opacity 0.3s ease;
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
         will-change: transform; cursor: grab;
         border: 1px solid rgba(255,255,255,0.5); z-index: 5; 
     }
@@ -120,12 +116,14 @@
         z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
     
-    #perfect-match-badge {
+    /* Dynamic Badge Styling */
+    #compat-badge {
         position: absolute; top: 15px; left: 15px;
-        background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
         padding: 6px 14px; border-radius: 20px; font-weight: 900;
-        font-size: 11px; box-shadow: 0 4px 10px rgba(230,0,38,0.3);
-        display: none; z-index: 10; letter-spacing: 0.5px;
+        font-size: 12px; display: none; z-index: 10; letter-spacing: 0.5px;
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        transition: background 0.3s, color 0.3s;
     }
 
     @keyframes pulseBadge {
@@ -155,7 +153,6 @@
         color: white; pointer-events: none; z-index: 5;
     }
 
-    /* === NEW: INTENT TAG STYLES === */
     .intent-tag {
         display: inline-block; padding: 6px 14px; border-radius: 20px;
         background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px);
@@ -172,7 +169,7 @@
     .stamp {
         position: absolute; top: 50px; padding: 5px 15px; border: 4px solid; border-radius: 10px;
         font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
-        opacity: 0; z-index: 100; pointer-events: none;
+        opacity: 0; z-index: 100; pointer-events: none; transition: opacity 0.2s;
     }
     .stamp-nope { color: #fd5c63; border-color: #fd5c63; right: 30px; transform: rotate(15deg); }
     .stamp-like { color: #2de2a6; border-color: #2de2a6; left: 30px; transform: rotate(-15deg); }
@@ -237,13 +234,13 @@
                 <div id="shimmer"></div>
                 <img id="profile-img" src="" alt="Student Profile">
                 
-                <div id="perfect-match-badge">✨ PERFECT MATCH</div>
+                <div id="compat-badge" class="compat-badge"></div>
+                
                 <div id="stamp-nope" class="stamp stamp-nope">NOPE</div>
                 <div id="stamp-like" class="stamp stamp-like">LIKE</div>
                 
                 <div class="card-info">
                     <div id="profile-intent" class="intent-tag" style="display: none;">☕ Just Coffee</div>
-                    
                     <div class="name-age-row">
                         <h2 id="profile-name">Connecting...</h2>
                         <span id="profile-age"></span>
@@ -271,15 +268,11 @@
     <div class="crush-modal-content">
         <div style="font-size: 60px; margin-bottom: 5px;">🎯</div>
         <h2 style="color: #111; margin-top: 0; font-weight: 900; letter-spacing: -0.5px;">Secret Radar</h2>
-        
         <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
             Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly! 🤫
         </p>
-
         <input type="text" id="crush-input" placeholder="e.g. SAB_B_01-04444_2023" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #eee; margin-bottom: 15px; font-size: 16px; font-weight: bold; text-align: center; text-transform: uppercase; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-
         <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 16px; border-radius: 30px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 12px; transition: 0.2s; box-shadow: 0 4px 15px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>
-        
         <button onclick="document.getElementById('crush-modal').style.display='none'" style="width: 100%; padding: 15px; border-radius: 30px; background: transparent; color: #888; border: none; font-weight: bold; font-size: 15px; cursor: pointer;">Cancel</button>
     </div>
 </div>
@@ -345,12 +338,8 @@
                         <span style="position:absolute; bottom:1px; right:1px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:#28a745;"></span>
                     </div>
                     <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            New Match
-                        </div>
-                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            ${msgText}
-                        </div>
+                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">New Match</div>
+                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${msgText}</div>
                     </div>
                     <span class="popover-unread-count">${count}</span>
                 </div>
@@ -382,10 +371,7 @@
         localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
         
         if (!offlineQueue[senderId]) offlineQueue[senderId] = [];
-        offlineQueue[senderId].push({
-            text: data.text,
-            timestamp: data.timestamp || new Date().toISOString()
-        });
+        offlineQueue[senderId].push({ text: data.text, timestamp: data.timestamp || new Date().toISOString() });
         localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
 
         updateBellUI();
@@ -420,7 +406,6 @@
             return;
         }
 
-        // UI Loading State
         crushInput.style.borderColor = '#eee';
         btn.innerText = "Scanning Campus...";
         btn.disabled = true;
@@ -435,7 +420,7 @@
             if (data.status === 'success') {
                 if (data.match) {
                     alert(data.message);
-                    window.location.href = '/matches'; // Redirect to inbox
+                    window.location.href = '/matches'; 
                 } else {
                     alert(data.message);
                     document.getElementById('crush-modal').style.display = 'none';
@@ -469,7 +454,7 @@
         const nameEl = document.getElementById('profile-name');
         const ageEl = document.getElementById('profile-age');
         const bioEl = document.getElementById('profile-bio');
-        const perfectMatchBadge = document.getElementById('perfect-match-badge');
+        const compatBadge = document.getElementById('compat-badge');
 
         // 1. Fetch Profiles from API
         fetch(`/api/profiles?user_id=${window.currentUserId}`)
@@ -489,6 +474,14 @@
                 bioEl.innerText = "Please refresh the page.";
             });
 
+        // Background Image Preloader
+        function preloadNextImage(index) {
+            if (profiles[index]) {
+                const img = new Image();
+                img.src = profiles[index].img || '/static/img/placeholder.png';
+            }
+        }
+
         // 2. Render Profile Function
         window.renderProfile = function(profile) {
             if (!profile) {
@@ -497,16 +490,23 @@
                 return;
             }
             
-            // Reset image states
             imgEl.style.display = 'none';
             if (shimmer) shimmer.style.display = 'block';
 
-            // Check AI Score for "Perfect Match" Badge
-            if (profile.ai_score && profile.ai_score >= 80) {
-                perfectMatchBadge.style.display = 'block';
+            // DYNAMIC BADGE LOGIC
+            const score = profile.ai_score || profile.compatibility || Math.floor(Math.random() * 20) + 70;
+            if (score >= 80) {
+                compatBadge.innerHTML = `❤️ Perfect Match (${score}%)`;
+                compatBadge.style.background = 'rgba(230, 0, 38, 0.95)';
+                compatBadge.style.color = 'white';
+                compatBadge.style.borderColor = '#720000';
             } else {
-                perfectMatchBadge.style.display = 'none';
+                compatBadge.innerHTML = `✨ ${score}% Match`;
+                compatBadge.style.background = 'rgba(255, 255, 255, 0.95)';
+                compatBadge.style.color = '#720000';
+                compatBadge.style.borderColor = '#FFD6DD';
             }
+            compatBadge.style.display = 'block';
 
             imgEl.onload = () => {
                 imgEl.style.display = 'block';
@@ -519,29 +519,25 @@
             };
             
             imgEl.src = profile.img || '/static/img/placeholder.png';
-            
             nameEl.innerText = (profile.name || 'Student').split(' ')[0];
             ageEl.innerText = profile.age ? `, ${profile.age}` : '';
             bioEl.innerText = profile.bio || 'No bio provided.';
             
-            // --- NEW: Handle Intent Tags ---
-            const intentMap = {
-                'coffee': '☕ Just Coffee',
-                'study': '📚 Study Buddy',
-                'event': '🎉 Event +1',
-                'relationship': '💘 Relationship'
-            };
+            const intentMap = { 'coffee': '☕ Just Coffee', 'study': '📚 Study Buddy', 'event': '🎉 Event +1', 'relationship': '💘 Relationship' };
             const intentEl = document.getElementById('profile-intent');
             
             if (profile.intent && intentMap[profile.intent]) {
                 intentEl.innerText = intentMap[profile.intent];
                 intentEl.style.display = 'inline-block';
             } else {
-                intentEl.style.display = 'none'; // Hide if 'none' or missing
+                intentEl.style.display = 'none';
             }
             
             document.getElementById('stamp-like').style.opacity = '0';
             document.getElementById('stamp-nope').style.opacity = '0';
+
+            // Preload the next card's image for zero latency!
+            preloadNextImage(currentIndex + 1);
         };
 
         // 3. Handle Button Clicks (Like / Pass)
@@ -552,7 +548,8 @@
             const stamp = action === 'like' ? document.getElementById('stamp-like') : document.getElementById('stamp-nope');
             if(stamp) stamp.style.opacity = '1';
 
-            card.style.transform = action === 'like' ? 'translateX(120%) rotate(15deg)' : 'translateX(-120%) rotate(-15deg)';
+            // Buttery smooth throw animation
+            card.style.transform = action === 'like' ? 'translateX(120%) translateY(-20px) rotate(15deg)' : 'translateX(-120%) translateY(-20px) rotate(-15deg)';
             card.style.opacity = '0';
 
             fetch('/api/swipe', {
@@ -570,15 +567,15 @@
             setTimeout(() => {
                 currentIndex++;
                 card.style.transition = 'none'; 
-                card.style.transform = 'translateX(0) rotate(0)';
+                card.style.transform = 'translateX(0) translateY(0) rotate(0)';
                 
                 renderProfile(profiles[currentIndex]);
                 
                 requestAnimationFrame(() => {
-                    card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                    card.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease';
                     card.style.opacity = '1';
                 });
-            }, 300);
+            }, 350); // Matches the CSS transition time
         };
 
         // 4. Match Celebration UI

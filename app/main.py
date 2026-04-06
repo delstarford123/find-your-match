@@ -22,6 +22,7 @@ from groq import Groq
 # 1. PATH SETUP & ENVIRONMENT
 # ==========================================
 load_dotenv()
+# 👇 This line tells Python where to find the 'app' folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Define East Africa Time (UTC+3) for accurate Kenyan timestamps
@@ -34,7 +35,9 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # 2. LOCAL APP IMPORTS
 # ==========================================
-# 🔥 FIX: Added get_user_matches and create_date_booking!
+#  NOW it is safe to import from 'app' because the path is set up above! 👇
+from app.email_service import send_date_approval_email
+
 from app.database import (
     db, get_all_profiles, save_schedule, update_user_bio, 
     save_chat_message, get_chat_history, save_swipe, save_date_feedback,
@@ -357,6 +360,8 @@ from flask import render_template, session, redirect, url_for, flash
 from flask import session, flash, redirect, url_for, render_template
 # Make sure your db is imported! e.g., from app.database import db
 
+import random
+
 @app.route('/swipe')
 @requires_subscription
 def swipe():
@@ -369,59 +374,153 @@ def swipe():
     # 1. Fallback Validation (Safety Net)
     if not user_id:
         flash("Your session expired. Please log in again.", "warning")
-        # Ensure 'auth.login' matches your actual login blueprint/route name
         return redirect(url_for('auth.login')) 
 
-    # 2. Fetch Fresh Data (The Source of Truth)
-    # Always pull from the DB for the swipe deck so settings/images are never stale
+    # 2. Fetch Current User Data & Swipes
     user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    user_swipes = db.reference(f'swipes/{user_id}').get() or {}
 
     # 3. Bundle Context for the Frontend
     current_user = {
         'id': user_id,
-        # Split by space to get just their First Name for a friendlier UI
         'name': user_profile.get('name', session.get('user_name', 'Student')).split(' ')[0], 
-        # Fallback to a placeholder if they haven't uploaded an image yet
         'img': user_profile.get('img') or url_for('static', filename='img/placeholder.png'),
-        # Grab their latest filter preferences
         'settings': user_profile.get('settings', {}) 
     }
 
+    # 4. Build the Discovery Deck
+    potential_matches = []
+    all_profiles = get_all_profiles() # Fetch everyone
+    
+    for p in all_profiles:
+        p_id = p.get('id')
+        
+        # SKIP CONDITIONS:
+        # - Don't show the user themselves
+        # - Don't show profiles that are hidden
+        # - Don't show people the user has already swiped on (liked/passed)
+        if p_id == user_id or not p.get('is_visible', True) or p_id in user_swipes:
+            continue
+            
+        # Retrieve AI score safely, default to a random high score if not calculated yet
+        ai_score = p.get('ai_score', random.randint(65, 95))
+        
+        potential_matches.append({
+            'id': p_id,
+            'name': p.get('name', 'Student').split(' ')[0],
+            'age': p.get('age', 18),
+            'major': p.get('major', 'MMUST Student'),
+            'bio': p.get('bio', 'Hey! I am using MMUST Dating AI.'),
+            'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+            'compatibility': ai_score,
+            'is_perfect_match': ai_score >= 80  # Flag for the frontend badge
+        })
+
+    # 5. Sort the deck: Show the Highest Compatibility matches first!
+    potential_matches.sort(key=lambda x: x['compatibility'], reverse=True)
+
     return render_template(
         'swipe.html', 
-        current_user=current_user
-    ) 
+        current_user=current_user,
+        potential_matches=potential_matches
+    )
+import random
+
 @app.route('/dashboard')
 @requires_subscription
 def dashboard():
-    # PROTECTED: Must be logged in AND paid
+    """THE MAIN STUDENT COMMAND CENTER (OPEN DIRECTORY MODE)"""
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
     
     my_matches = []
     
+    # 1. BLAZING FAST FETCH: Grab all profiles in one single network call
+    all_profiles_dict = db.reference('profiles').get() or {}
+    
     if ai_mode:
         my_matches.append({
             'id': 'AI_COMPANION',
-            'name': 'MMUST AI Companion 🤖',
-            'bio': 'Your personal AI wingman and friend. Ready to chat!',
-            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=MMUST&backgroundColor=ffccd5',
-            'compatibility': 100
+            'name': 'AI Wingman 🤖',
+            'bio': 'Your personal AI wingman. Ready to chat!',
+            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman&backgroundColor=e60026',
+            'compatibility': 100,
+            'is_perfect_match': True
         })
     else:
-        all_profiles = get_all_profiles()
-        for p in all_profiles:
-            if p['id'] != user_id and p.get('is_visible', True):
+        for p_id, p in all_profiles_dict.items():
+            if not isinstance(p, dict):
+                continue
+                
+            # Skip the user themselves and hidden profiles
+            if p_id != user_id and p.get('is_visible', True):
+                # Fetch or simulate compatibility score
+                ai_score = p.get('ai_score', random.randint(65, 95))
+                
                 my_matches.append({
-                    'id': p['id'],
-                    'name': p.get('name', 'Student').split(',')[0],
+                    'id': p_id,
+                    'name': p.get('name', 'Student').split(' ')[0], 
                     'bio': p.get('bio', 'MMUST Student'),
-                    'img': p.get('img', 'https://via.placeholder.com/150'),
-                    'compatibility': p.get('ai_score', 85)
+                    'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                    'compatibility': ai_score,
+                    'is_perfect_match': ai_score >= 80 # Triggers the ❤️ Perfect Match badge
+                })
+        
+        # 2. Sort by highest compatibility first
+        my_matches.sort(key=lambda x: x['compatibility'], reverse=True)
+
+        # 3. Always pin the AI Wingman to the front of the line
+        my_matches.insert(0, {
+            'id': 'AI_COMPANION',
+            'name': 'AI Wingman 🤖',
+            'bio': 'Need dating advice or an icebreaker? I am here to help!',
+            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman&backgroundColor=e60026',
+            'compatibility': 100,
+            'is_perfect_match': True
+        })
+
+    # 4. FETCH DATE BOOKINGS (Single network call)
+    all_bookings = db.reference('bookings').get() or {}
+    all_restaurants = db.reference('restaurants').get() or {}
+    
+    pending_dates_count = 0
+    upcoming_dates = []
+
+    for b_id, b_data in all_bookings.items():
+        if not isinstance(b_data, dict): 
+            continue
+        
+        if b_data.get('user_a_id') == user_id or b_data.get('user_b_id') == user_id:
+            status = b_data.get('status')
+            
+            if status == 'Pending':
+                pending_dates_count += 1
+            elif status == 'Approved':
+                partner_id = b_data.get('user_b_id') if b_data.get('user_a_id') == user_id else b_data.get('user_a_id')
+                partner_profile = all_profiles_dict.get(partner_id, {})
+                
+                venue_id = b_data.get('venue_id')
+                venue_data = all_restaurants.get(venue_id, {})
+                
+                upcoming_dates.append({
+                    'partner_name': partner_profile.get('name', 'Your Date').split(' ')[0],
+                    'partner_img': partner_profile.get('img') or '/static/img/placeholder.png',
+                    'restaurant_name': venue_data.get('business_name', 'Unknown Venue'),
+                    'location': venue_data.get('location', 'Kakamega CBD'),
+                    'day': b_data.get('day', 'TBD'),
+                    'time': b_data.get('time', 'TBD'),
+                    'perk': venue_data.get('conditions', '')
                 })
 
-    return render_template('dashboard.html', current_user=session.get('user_name'), matches=my_matches)
+    return render_template(
+        'dashboard.html', 
+        current_user=session.get('user_name', 'Student').split(' ')[0], 
+        matches=my_matches,
+        pending_dates_count=pending_dates_count,
+        upcoming_dates=upcoming_dates
+    )   
+       
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
 def unmatch_user():
@@ -771,79 +870,245 @@ def settings():
         current_user=session.get('user_name'),
         user=template_user_data
     )
-    
+
 # ==========================================
-# B2B PAGES (MERCHANTS)
+# 8. B2B PAGES (MERCHANTS)
 # ==========================================
+import uuid
+from werkzeug.security import generate_password_hash, check_password_hash
+
+@app.route('/business/register', methods=['GET', 'POST'])
+def business_register():
+    """HANDLES NEW MERCHANT SIGNUPS"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        business_name = request.form.get('business_name', '')
+
+        try:
+            # Check if email exists (Safe Python loop bypassing complex Firebase rules)
+            all_restaurants = db.reference('restaurants').get() or {}
+            for r_data in all_restaurants.values():
+                if isinstance(r_data, dict) and r_data.get('email') == email:
+                    flash('This email is already registered. Please log in.', 'warning')
+                    return redirect(url_for('business_login'))
+
+            # Generate secure IDs and Hashes
+            restaurant_id = str(uuid.uuid4())
+            hashed_password = generate_password_hash(password)
+            
+            # Create the data payload
+            new_merchant = {
+                'business_name': business_name,
+                'location': request.form.get('location'),
+                'owner_name': request.form.get('owner_name'),
+                'phone': request.form.get('phone'),
+                'email': email,  
+                'password': hashed_password, 
+                'conditions': request.form.get('conditions'),
+                'subscription_active': False,
+                'profile_views': 0,
+                'qr_scans': 0,
+                'hourly_stats': {}
+            }
+
+            # Save to Firebase
+            db.reference(f'restaurants/{restaurant_id}').set(new_merchant)
+            
+            # AUTO-LOGIN
+            session['user_id'] = restaurant_id
+            session['user_name'] = business_name
+            session['role'] = 'business'
+            
+            flash('Merchant account created successfully! Welcome to your dashboard.', 'success')
+            return redirect(url_for('business_dashboard'))
+            
+        except Exception as e:
+            logger.error(f"Registration Error: {e}") 
+            flash('Failed to create account. Please check your connection and try again.', 'error')
+            return redirect(url_for('business_register'))
+
+    return render_template('restaurant_signup.html')
+
+
+@app.route('/business-login', methods=['GET', 'POST'])
+def business_login():
+    """DEDICATED PORTAL FOR RESTAURANT OWNERS"""
+    if session.get('user_id') and session.get('role') == 'business':
+        return redirect(url_for('business_dashboard'))
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
+        try:
+            all_restaurants = db.reference('restaurants').get() or {}
+            matched_id = None
+            matched_data = None
+            
+            for r_id, r_data in all_restaurants.items():
+                if isinstance(r_data, dict) and r_data.get('email') == email:
+                    matched_id = r_id
+                    matched_data = r_data
+                    break
+            
+            if matched_data:
+                stored_password = matched_data.get('password', '')
+                is_valid_password = False
+                
+                # HYBRID CHECK: Supports old plain-text OR new hashed passwords
+                if stored_password == password:
+                    is_valid_password = True  
+                elif stored_password.startswith('scrypt:') or stored_password.startswith('pbkdf2:'):
+                    is_valid_password = check_password_hash(stored_password, password)
+
+                if is_valid_password:
+                    session['user_id'] = matched_id
+                    session['user_name'] = matched_data.get('business_name', 'Partner')
+                    session['role'] = 'business'
+                    
+                    flash("Welcome back to your Partner Dashboard!", "success")
+                    return redirect(url_for('business_dashboard'))
+            
+            flash("Invalid business email or password.", "error")
+            
+        except Exception as e:
+            logger.error(f"Business Login Error: {e}")
+            flash("Connection error. Please try again.", "error")
+
+    return render_template('b2b_login.html')
+
+
 @app.route('/business/dashboard')
 def business_dashboard():
-    if session.get('account_type') != 'business':
-        flash("Access Denied. This portal is for registered businesses only.", "error")
-        return redirect(url_for('home'))
+    """THE MERCHANT COMMAND CENTER"""
+    if not session.get('user_id') or session.get('role') != 'business':
+        flash("Access Denied. Please log in through the Merchant Portal.", "error")
+        return redirect(url_for('business_login'))
 
-    restaurant_id = session.get('business_id')
-    restaurant = get_restaurant(restaurant_id) or {}
+    restaurant_id = session.get('user_id')
     
-    # === THE FIX: Add default empty values for new restaurants ===
-    if 'hourly_stats' not in restaurant:
-        restaurant['hourly_stats'] = {}
-    if 'qr_scans' not in restaurant:
-        restaurant['qr_scans'] = 0
-    # =============================================================
+    try:
+        restaurant = get_restaurant(restaurant_id) or {}
+        bookings = get_restaurant_bookings(restaurant_id) or []
+    except Exception as e:
+        logger.error(f"Dashboard Data Fetch Error: {e}")
+        restaurant, bookings = {}, []
 
-    bookings = get_restaurant_bookings(restaurant_id)
-    
+    restaurant.setdefault('hourly_stats', {})
+    restaurant.setdefault('qr_scans', 0)
+    restaurant.setdefault('profile_views', 0)
+
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')
     approved_count = sum(1 for b in bookings if b.get('status') == 'Approved')
     
     for b in bookings:
-        b['user_a_name'] = "Student 1" 
-        b['user_b_name'] = "Student 2"
+        try:
+            user_a = db.reference(f"profiles/{b.get('user_a_id')}").get() or {}
+            user_b = db.reference(f"profiles/{b.get('user_b_id')}").get() or {}
+            
+            b['user_a_name'] = user_a.get('name', 'Student 1').split(' ')[0] if user_a.get('name') else 'Student 1'
+            b['user_b_name'] = user_b.get('name', 'Student 2').split(' ')[0] if user_b.get('name') else 'Student 2'
+        except Exception as e:
+            logger.warning(f"Failed to fetch student names for booking: {e}")
+            b['user_a_name'] = "Student 1" 
+            b['user_b_name'] = "Student 2"
 
     return render_template('business_dashboard.html', 
                            restaurant=restaurant, 
                            bookings=bookings,
-                           pending_count=pending_count,
+                           pending_count=pending_count, 
                            approved_count=approved_count)
-    
+                           
 @app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
-    if session.get('account_type') != 'business':
+    """ALLOWS RESTAURANTS TO ACCEPT/DECLINE RESERVATIONS AND NOTIFIES USERS"""
+    if session.get('role') != 'business': 
         return redirect(url_for('home'))
         
     status = 'Approved' if action == 'approve' else 'Declined'
-    update_booking_status(booking_id, status)
-    flash(f"Reservation successfully {status.lower()}!", "success")
+    
+    try:
+        # 1. Update the database
+        update_booking_status(booking_id, status)
+        
+        # 2. If Approved, fetch details and send emails in the background
+        if status == 'Approved':
+            # Fetch the specific booking from Firebase
+            booking = db.reference(f'bookings/{booking_id}').get()
+            
+            if booking:
+                # Fetch both users' profiles
+                user_a = db.reference(f"profiles/{booking.get('user_a_id')}").get() or {}
+                user_b = db.reference(f"profiles/{booking.get('user_b_id')}").get() or {}
+                
+                # Fetch the restaurant's profile
+                restaurant_id = session.get('user_id')
+                restaurant = db.reference(f"restaurants/{restaurant_id}").get() or {}
+                
+                # Prepare the variables
+                r_name = restaurant.get('business_name', 'Our Venue')
+                r_location = restaurant.get('location', 'Check app for details')
+                d_day = booking.get('day', 'your scheduled day')
+                d_time = booking.get('time', 'your scheduled time')
+
+                # We use threading so the Python server sends the emails in the background.
+                # This prevents the Merchant Dashboard from "freezing" for 3 seconds while emails send!
+                
+                if user_a.get('email'):
+                    user_a_name = user_a.get('name', 'Student').split(' ')[0]
+                    user_b_name = user_b.get('name', 'Your Date').split(' ')[0]
+                    
+                    threading.Thread(target=send_date_approval_email, args=(
+                        user_a['email'], user_a_name, user_b_name, r_name, d_day, d_time, r_location
+                    )).start()
+                    
+                if user_b.get('email'):
+                    user_b_name = user_b.get('name', 'Student').split(' ')[0]
+                    user_a_name = user_a.get('name', 'Your Date').split(' ')[0]
+                    
+                    threading.Thread(target=send_date_approval_email, args=(
+                        user_b['email'], user_b_name, user_a_name, r_name, d_day, d_time, r_location
+                    )).start()
+
+        flash(f"Reservation {status.lower()}! The couple has been notified via email.", "success")
+        
+    except Exception as e:
+        logger.error(f"Error updating booking {booking_id}: {e}")
+        flash("Failed to update reservation. Try again.", "error")
+        
     return redirect(url_for('business_dashboard'))
+
 
 @app.route('/business/qr')
 def merchant_qr():
-    if session.get('account_type') != 'business':
+    """GENERATES THE UNIQUE QR CODE FOR THE RESTAURANT"""
+    if session.get('role') != 'business': 
         return redirect(url_for('home'))
-
-    restaurant_id = session.get('business_id')
-    restaurant_name = session.get('business_name')
-
-    base_url = request.url_root.rstrip('/')
-    verify_url = f"{base_url}/verify_customer/{restaurant_id}"
+    
+    restaurant_id = session.get('user_id')
+    restaurant_name = session.get('user_name', 'Merchant')
+    
+    verify_url = f"{request.url_root.rstrip('/')}/verify_customer/{restaurant_id}"
 
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(verify_url)
     qr.make(fit=True)
-
-    img = qr.make_image(fill_color="#800000", back_color="white")
     
     buf = io.BytesIO()
-    img.save(buf)
+    qr.make_image(fill_color="#720000", back_color="white").save(buf)
     image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-
+    
     return render_template('merchant_qr.html', 
                            qr_code=image_base64, 
                            restaurant_name=restaurant_name)
 
+
 @app.route('/verify_customer/<restaurant_id>')
 def verify_customer(restaurant_id):
-    if 'user_id' not in session:
+    """THE PAGE STUDENTS SEE WHEN THEY SCAN A RESTAURANT'S QR CODE"""
+    if 'user_id' not in session: 
+        session['next_url'] = request.url 
         flash("Please log in to verify your student discount.", "warning")
         return redirect(url_for('auth.login'))
 
@@ -853,50 +1118,111 @@ def verify_customer(restaurant_id):
         user_data = db.reference(f'profiles/{user_id}').get()
         restaurant = db.reference(f'restaurants/{restaurant_id}').get()
     except Exception as e:
-        print(f"Firebase Fetch Error: {e}")
+        logger.error(f"Verification Fetch Error: {e}")
         flash("Database connection error. Please try again.", "error")
         return redirect(url_for('dashboard'))
 
-    if not restaurant:
+    if not restaurant: 
         flash("Invalid QR Code. This venue is not part of our network.", "error")
         return redirect(url_for('dashboard'))
 
     if not user_data or not user_data.get('is_paid'):
         status = "REJECTED"
-        message = "No active subscription found. Pay 20 KSH to unlock discounts."
-        color = "#ef4444"
+        message = "No active subscription found. Pay 20 KSH via M-Pesa to unlock exclusive campus discounts."
+        color = "#E60026"
     else:
         status = "VERIFIED"
         perk = restaurant.get('conditions', 'Standard Student Discount')
-        message = f"Valid Student Subscriber! Apply the '{perk}' discount."
-        color = "#10b981"
+        message = f"Valid Premium Student! Please apply the '{perk}' discount."
+        color = "#28a745"
         
         try:
             qr_ref = db.reference(f'restaurants/{restaurant_id}/qr_scans')
-            current_scans = qr_ref.get() or 0
-            qr_ref.set(current_scans + 1)
-
-            current_hour = datetime.now().hour
+            qr_ref.set((qr_ref.get() or 0) + 1)
+            
+            current_hour = str(datetime.now(EAT).hour)
             hour_ref = db.reference(f'restaurants/{restaurant_id}/hourly_stats/{current_hour}')
-            current_hour_count = hour_ref.get() or 0
-            hour_ref.set(current_hour_count + 1)
-
+            hour_ref.set((hour_ref.get() or 0) + 1)
+            
             alert_ref = db.reference(f'merchant_alerts/{restaurant_id}')
             alert_ref.set({
-                'student_name': user_data.get('name'),
-                'reg_number': user_data.get('reg_number'),
-                'timestamp': datetime.now().isoformat(),
+                'student_name': user_data.get('name', 'A Student').split(' ')[0],
+                'timestamp': datetime.now(EAT).isoformat(),
                 'status': 'new'
             })
-            
-        except Exception as e:
-            print(f"Error updating merchant analytics: {e}")
+        except Exception as e: 
+            logger.error(f"Error updating analytics: {e}")
 
     return render_template('verification_result.html', 
                            status=status, 
                            message=message, 
                            color=color,
-                           restaurant_name=restaurant.get('business_name'))
+                           restaurant_name=restaurant.get('business_name', 'This Venue'))
+import smtplib
+import os
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
+    """Sends a professional confirmation email to a student when a date is approved."""
+    
+    sender_email = os.getenv("MAIL_USERNAME")
+    sender_password = os.getenv("MAIL_PASSWORD") # Ensure this is an App Password if using Gmail
+    
+    if not sender_email or not sender_password:
+        print("⚠️ Email credentials missing. Cannot send approval email.")
+        return
+
+    subject = f"💌 Your Date at {restaurant_name} is Confirmed!"
+    
+    # Beautiful HTML Email Template
+    html_body = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #E60026; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                <h2 style="color: #720000; margin-top: 0;">Great news, {user_name}! 🎉</h2>
+                
+                <p style="color: #333; font-size: 16px; line-height: 1.5;">
+                    Your upcoming date with <strong>{partner_name}</strong> has been officially approved by the management at <strong>{restaurant_name}</strong>.
+                </p>
+                
+                <div style="background: #FEF2F4; padding: 20px; border-radius: 12px; margin: 25px 0;">
+                    <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px;">🍽️ Your Reservation Details</h3>
+                    <p style="margin: 5px 0; color: #4A0008;"><strong>When:</strong> {date_day} at {date_time}</p>
+                    <p style="margin: 5px 0; color: #4A0008;"><strong>Where:</strong> {restaurant_name} ({location})</p>
+                </div>
+                
+                <p style="color: #555; font-size: 15px; line-height: 1.5;">
+                    A special table has been specifically reserved for you. When you arrive, simply open your MMUST Dating App and scan the merchant's QR code at the counter to verify your student status and claim your table!
+                </p>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
+                    Have fun and stay safe! <br>
+                    <strong>- The MMUST Dating AI Powered Team</strong>
+                </p>
+            </div>
+        </body>
+    </html>
+    """
+
+    msg = MIMEMultipart()
+    msg['From'] = f"MMUST Dating App <{sender_email}>"
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html_body, 'html'))
+
+    try:
+        # Connecting to Gmail's SMTP server (adjust if using a different provider)
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        print(f"📧 Date Approval Email successfully sent to {to_email}")
+    except Exception as e:
+        print(f"❌ Failed to send approval email to {to_email}: {e}")
+        
+          
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -1250,19 +1576,21 @@ def mpesa_student_callback():
 
     # Always return 0 to Safaricom so they stop retrying the webhook
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
-
 # ==========================================
 # M-PESA B2B: MERCHANT SUBSCRIPTIONS
 # ==========================================
 
 @app.route('/api/pay_subscription', methods=['POST'])
 def pay_subscription():
-    if session.get('account_type') != 'business':
-        return jsonify({'error': 'Unauthorized'}), 403
+    # 🚨 CRITICAL FIX 1: Use 'role' instead of 'account_type'
+    if session.get('role') != 'business':
+        return jsonify({'error': 'Unauthorized. Please log in as a merchant.'}), 403
 
     data = request.json
     phone_number = data.get('phone_number')
-    restaurant_id = session.get('business_id')
+    
+    # 🚨 CRITICAL FIX 2: Use 'user_id' instead of 'business_id'
+    restaurant_id = session.get('user_id')
 
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
@@ -1270,18 +1598,20 @@ def pay_subscription():
     base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
     callback_url = f"{base_url}/api/mpesa/b2b_callback"
     
+    # Initiate the STK Push request to Safaricom
     response = initiate_stk_push(phone_number, 2000, restaurant_id, callback_url)
 
     if 'error' in response:
+        logger.error(f"STK Push Failed: {response.get('error')}")
         return jsonify({'success': False, 'message': 'Payment initiation failed. Try again.'})
     
     if 'CheckoutRequestID' in response:
         checkout_id = response['CheckoutRequestID']
-        # Securely link the transaction to the merchant
+        # Securely link the transaction to the merchant in Firebase
         db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
         return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
 
-    return jsonify({'success': False, 'message': 'Payment failed.'})
+    return jsonify({'success': False, 'message': 'Payment failed to initiate.'})
 
 
 @app.route('/api/mpesa/b2b_callback', methods=['POST'])
@@ -1302,13 +1632,16 @@ def mpesa_b2b_callback():
             receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             phone = next((item['Value'] for item in metadata if item['Name'] == 'PhoneNumber'), None)
             
+            # 🚨 CRITICAL FIX 3: Use EAT (East Africa Time) to ensure accurate Kenyan timestamps
+            current_time_eat = datetime.now(EAT).isoformat()
+
             # 1. Save to Financial Ledger
             db.reference('ledger').push({
                 'type': 'B2B',
                 'amount': amount,
                 'receipt': receipt,
                 'phone': phone,
-                'timestamp': datetime.now().isoformat(),
+                'timestamp': current_time_eat,
                 'status': 'Completed'
             })
             logger.info(f"💰 M-Pesa B2B Payment Received: {amount} KSH (Receipt: {receipt})")
@@ -1318,12 +1651,17 @@ def mpesa_b2b_callback():
             restaurant_id = pending_ref.get()
 
             if restaurant_id:
-                expiry_date = (datetime.now() + timedelta(days=30)).isoformat()
+                # Add exactly 30 days using the EAT timezone
+                expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
+                
                 db.reference(f'restaurants/{restaurant_id}').update({
                     'subscription_active': True,
+                    'subscription_start': current_time_eat, # Good to track when it started
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': receipt
                 })
+                
+                # Clean up the pending payment record
                 pending_ref.delete()
                 logger.info(f"✅ MERCHANT ACTIVATED: ID {restaurant_id}")
             else:
@@ -1333,6 +1671,7 @@ def mpesa_b2b_callback():
             fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
             logger.info(f"❌ M-Pesa B2B Payment Failed: {fail_reason}")
 
+        # Always return a 0 response to Safaricom so they stop retrying the webhook
         return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
     except Exception as e:
@@ -1505,22 +1844,54 @@ def handle_message(data):
 
     # Use SocketIO's safe background task manager
     socketio.start_background_task(background_save, sender_id, receiver_id, msg_text, msg_type)
+    
+    
 # ==========================================
 # STUDENT VENUE DISCOVERY & BOOKING
 # ==========================================
-
 @app.route('/discover')
-@login_required
+@requires_subscription
 def discover_venues():
+    """THE DISCOVERY DECK FOR DATE VENUES"""
     user_id = session.get('user_id')
     
-    # 1. Fetch only ACTIVE (paying) restaurants
-    venues = get_all_restaurants(active_only=True)
-    
-    # 2. Fetch the user's active matches for the dropdown
-    my_matches = get_user_matches(user_id) 
-    
-    return render_template('bookings.html', venues=venues, matches=my_matches)
+    try:
+        # 1. Fetch only ACTIVE (paying) restaurants
+        venues = get_all_restaurants(active_only=True)
+        
+        # 2. Fetch EVERY student profile to show in the dropdown
+        all_profiles_dict = db.reference('profiles').get() or {}
+        selectable_students = []
+
+        for p_id, p in all_profiles_dict.items():
+            # Skip conditions: Self, Hidden profiles, or the AI Wingman
+            if p_id == user_id or not p.get('is_visible', True) or p_id == 'AI_COMPANION':
+                continue
+            
+            # Calculate compatibility
+            ai_score = p.get('ai_score', random.randint(60, 95))
+            
+            selectable_students.append({
+                'id': p_id,
+                'name': p.get('name', 'Student').split(' ')[0],
+                'compatibility': ai_score,
+                'is_perfect_match': ai_score >= 80
+            })
+
+        # 3. Sort: Perfect Matches at the top, then by score
+        selectable_students.sort(key=lambda x: (x['is_perfect_match'], x['compatibility']), reverse=True)
+
+    except Exception as e:
+        logger.error(f"Error loading discovery data: {e}")
+        venues, selectable_students = [], []
+        flash("Error loading page. Please refresh.", "error")
+        
+    return render_template(
+        'bookings.html', 
+        current_user=session.get('user_name', 'Student').split(' ')[0],
+        venues=venues, 
+        matches=selectable_students # We pass 'selectable_students' as 'matches'
+    )
 
 @app.route('/api/propose_date', methods=['POST'])
 @login_required
@@ -1528,6 +1899,7 @@ def propose_date():
     """Handles the booking request and sends a real-time invite in the chat."""
     data = request.json
     sender_id = session.get('user_id')
+    sender_name = session.get('user_name', 'Your Match').split(' ')[0]
     
     venue_id = data.get('venue_id')
     venue_name = data.get('venue_name')
@@ -1535,17 +1907,18 @@ def propose_date():
     date_day = data.get('day')
     date_time = data.get('time')
     
+    # 1. Validation Checks
     if not all([venue_id, partner_id, date_day, date_time]):
         return jsonify({'success': False, 'message': 'Missing details.'}), 400
         
-    try:
-        # 1. Create the pending booking for the merchant
-        create_date_booking(venue_id, sender_id, partner_id, date_day, date_time)
+    if partner_id == 'AI_COMPANION':
+        return jsonify({'success': False, 'message': 'You cannot take the AI Wingman on a physical date!'}), 400
         
-        # 2. Increment venue profile views
+    try:
+        # 2. Database Writes (Synchronous to ensure they succeed before responding)
+        create_date_booking(venue_id, sender_id, partner_id, date_day, date_time)
         increment_restaurant_view(venue_id)
         
-        # 3. Format & Save the chat message
         invite_msg = (
             f"💌 **DATE INVITATION** 💌\n\n"
             f"I'd love to take you to **{venue_name}**!\n"
@@ -1554,27 +1927,36 @@ def propose_date():
         )
         save_chat_message(sender_id, partner_id, invite_msg, msg_type='date_invite')
         
-        # 4. REAL-TIME SYNC: Push the message instantly to the partner's screen
+        # 3. REAL-TIME SYNC (Offloaded to Background Task for 0ms UI latency)
         socket_payload = {
             'sender': sender_id,
             'receiver_id': partner_id,
             'type': 'date_invite',
             'text': invite_msg,
             'timestamp': datetime.now(EAT).isoformat(),
-            'temp_id': f"invite_{int(datetime.now().timestamp())}"
+            'temp_id': f"invite_{int(datetime.now(EAT).timestamp())}"
         }
         
-        try:
-            socketio.emit('receive_message', socket_payload, to=partner_id)
-        except Exception as sock_err:
-            logger.warning(f"Socket emit failed (partner might be offline): {sock_err}")
+        def emit_date_notifications():
+            try:
+                # Push to the partner's screen
+                socketio.emit('receive_message', socket_payload, to=partner_id)
+                # Push to the sender's OTHER devices so they stay in sync
+                socketio.emit('receive_message', socket_payload, to=sender_id)
+                
+                # Optional: Fire a Web Push Notification to wake up the partner's phone
+                trigger_match_notification(partner_id, sender_name)
+            except Exception as sock_err:
+                logger.warning(f"Socket emit failed (partner might be offline): {sock_err}")
+
+        # Start the background task
+        socketio.start_background_task(emit_date_notifications)
 
         return jsonify({'success': True, 'message': 'Invitation sent!'})
         
     except Exception as e:
         logger.error(f"Error proposing date: {e}")
         return jsonify({'success': False, 'message': 'Internal server error.'}), 500
-
 
 # ==========================================
 # AI WINGMAN & RIZZ CHECK ROUTES
@@ -1638,7 +2020,9 @@ def api_wingman_action():
     except Exception as e:
         logger.error(f"Wingman API Error: {e}")
         return jsonify({'success': False, 'message': 'The Wingman is currently busy. Try again later!'}), 500  
-         
+
+
+        
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

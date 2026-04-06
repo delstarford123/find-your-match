@@ -2,34 +2,60 @@
 
 {% block content %}
 <style>
-    /* === DASHBOARD HEADER (FLUID TYPOGRAPHY) === */
+    /* === DASHBOARD HEADER === */
     .dashboard-header {
         text-align: center;
         padding: clamp(20px, 4vw, 40px) 15px clamp(15px, 3vw, 30px);
     }
     .dashboard-header h1 {
         color: #720000;
-        font-size: clamp(26px, 5vw, 36px); /* Scales automatically */
-        font-weight: 800;
+        font-size: clamp(26px, 5vw, 36px);
+        font-weight: 900;
         margin-bottom: 10px;
         letter-spacing: -0.5px;
         line-height: 1.2;
     }
-    .dashboard-header p {
-        color: #E60026;
-        font-size: clamp(14px, 3vw, 16px);
+    
+    /* === ACTION CENTER (QUICK STATS) === */
+    .action-center {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-bottom: 30px;
+        padding: 0 15px;
+        flex-wrap: wrap;
+    }
+    .action-pill {
+        background: white;
+        border: 2px solid #FFD6DD;
+        padding: 10px 20px;
+        border-radius: 25px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
         font-weight: 800;
-        background: #FFD6DD;
-        display: inline-block;
-        padding: 6px 18px;
-        border-radius: 20px;
-        border: 1px solid #FFD6DD;
-        margin: 0;
+        color: #4A0008;
+        font-size: 14px;
+        box-shadow: 0 4px 10px rgba(114,0,0,0.05);
+        transition: 0.2s;
+        text-decoration: none;
+    }
+    .action-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(114,0,0,0.1); border-color: #E60026; }
+    .badge-count {
+        background: #E60026;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
     }
 
     /* === PWA INSTALL BANNER === */
     #install-container {
-        display: none; /* Hidden until triggered by JS */
+        display: none;
         max-width: 600px;
         margin: 0 auto 30px auto;
         padding: 0 15px;
@@ -53,28 +79,93 @@
     }
     .btn-install:active { transform: scale(0.98); }
 
-    /* === HORIZONTAL SCROLL GRID (THE FIX) === */
+    /* === UPCOMING DATES SECTION === */
+    .section-title {
+        color: #720000;
+        font-size: 22px;
+        font-weight: 900;
+        margin: 0 0 15px 15px;
+        max-width: 1000px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: 0 15px;
+    }
+
+    .dates-container {
+        max-width: 1030px;
+        margin: 0 auto 40px auto;
+        padding: 0 15px;
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .date-card {
+        background: linear-gradient(135deg, #ffffff 0%, #FEF2F4 100%);
+        border-radius: 20px;
+        border: 2px solid #E60026;
+        padding: 25px;
+        box-shadow: 0 10px 25px rgba(230,0,38,0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .date-card::before {
+        content: 'CONFIRMED';
+        position: absolute;
+        top: 20px;
+        right: -30px;
+        background: #28a745;
+        color: white;
+        font-size: 10px;
+        font-weight: 900;
+        padding: 5px 30px;
+        transform: rotate(45deg);
+        letter-spacing: 1px;
+    }
+
+    .date-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+    .date-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .date-info h3 { margin: 0 0 5px 0; color: #720000; font-size: 20px; font-weight: 900; }
+    .date-info p { margin: 0; color: #666; font-size: 14px; font-weight: 600; }
+
+    .date-details {
+        background: white;
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid #FFD6DD;
+        margin-bottom: 20px;
+    }
+    .detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; color: #333; font-weight: 600; line-height: 1.4; }
+    .detail-row:last-child { margin-bottom: 0; }
+    .detail-icon { font-size: 18px; flex-shrink: 0; }
+
+    .date-checklist {
+        background: #fff8e6;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        border-radius: 8px;
+    }
+    .date-checklist h4 { margin: 0 0 10px 0; color: #856404; font-size: 14px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; }
+    .date-checklist ul { margin: 0; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.5; }
+    .date-checklist li { margin-bottom: 5px; }
+
+    /* === HORIZONTAL SCROLL GRID (MATCHES) === */
     .matches-grid {
-        display: flex; /* Switched from grid to flex */
+        display: flex; 
         gap: clamp(15px, 4vw, 25px);
-        max-width: 1100px;
+        max-width: 1030px;
         margin: 0 auto 60px auto;
-        padding: 15px 15px 40px 15px; /* Extra padding so shadows and hover effects aren't cut off */
-        overflow-x: auto; /* Enable horizontal scrolling */
-        scroll-snap-type: x mandatory; /* Makes the cards snap smoothly */
-        scrollbar-width: none; /* Hide scrollbar for Firefox */
-        -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling for iOS */
+        padding: 15px 15px 40px 15px; 
+        overflow-x: auto; 
+        scroll-snap-type: x mandatory; 
+        scrollbar-width: none; 
+        -webkit-overflow-scrolling: touch; 
     }
+    .matches-grid::-webkit-scrollbar { display: none; }
 
-    /* Hide scrollbar for Chrome/Safari/Edge */
-    .matches-grid::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* === MATCH CARD === */
     .match-card {
-        flex: 0 0 85%; /* Shows 85% of card on mobile to peek the next one */
-        max-width: 320px; /* Limits max size */
+        flex: 0 0 85%;
+        max-width: 320px; 
         background: white;
         border-radius: 20px;
         overflow: hidden;
@@ -83,147 +174,80 @@
         border: 1px solid #FFD6DD;
         display: flex;
         flex-direction: column;
-        scroll-snap-align: center; /* Snaps card to center of screen */
+        scroll-snap-align: center; 
     }
 
-    /* Desktop Adjustments */
     @media (min-width: 768px) {
-        .match-card {
-            flex: 0 0 300px; /* Fixed width on desktop */
-            scroll-snap-align: start; /* Snaps to left edge on wider screens */
-        }
+        .match-card { flex: 0 0 280px; scroll-snap-align: start; }
+        .action-pill { padding: 12px 25px; font-size: 15px; }
     }
     
     @media (hover: hover) {
-        .match-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15);
-            border-color: #E60026;
-        }
+        .match-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border-color: #E60026; }
     }
 
-    .match-img-wrapper {
-        position: relative;
-        height: 240px;
-        width: 100%;
-        background: #FEF2F4;
-    }
-    .match-img-wrapper img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
+    .match-img-wrapper { position: relative; height: 260px; width: 100%; background: #FEF2F4; }
+    .match-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
     
-    /* Compatibility Badge */
     .compat-badge {
-        position: absolute;
-        bottom: 12px;
-        left: 12px;
-        background: rgba(255, 255, 255, 0.95);
-        color: #720000;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 900;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        border: 1px solid #FFD6DD;
-        backdrop-filter: blur(5px);
-        -webkit-backdrop-filter: blur(5px);
+        position: absolute; bottom: 12px; left: 12px; background: rgba(255, 255, 255, 0.95);
+        color: #720000; padding: 6px 14px; border-radius: 20px; font-size: 12px;
+        font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: 1px solid #FFD6DD;
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
     }
 
-    /* Card Details */
-    .match-info {
-        padding: 20px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-    }
-    .match-info h3 {
-        color: #720000;
-        margin: 0 0 8px 0;
-        font-size: 20px;
-        font-weight: 800;
-        line-height: 1.2;
-    }
-    .match-info p {
-        color: #555;
-        font-size: 14px;
-        line-height: 1.5;
-        margin: 0 0 20px 0;
-        flex: 1;
-        
-        /* Truncate long bios beautifully */
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
+    .match-info { padding: 20px; flex: 1; display: flex; flex-direction: column; }
+    .match-info h3 { color: #720000; margin: 0 0 8px 0; font-size: 20px; font-weight: 800; line-height: 1.2; }
+    .match-info p { color: #555; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-    /* Buttons */
     .btn-chat {
-        background: #FEF2F4;
-        color: #E60026;
-        border: 2px solid #FFD6DD;
-        padding: 12px;
-        border-radius: 12px;
-        text-align: center;
-        font-weight: 800;
-        text-decoration: none;
-        transition: all 0.2s;
-        display: block;
-        width: 100%;
+        background: #FEF2F4; color: #E60026; border: 2px solid #FFD6DD;
+        padding: 12px; border-radius: 12px; text-align: center; font-weight: 800;
+        text-decoration: none; transition: all 0.2s; display: block; width: 100%; box-sizing: border-box;
     }
-    
-    @media (hover: hover) {
-        .btn-chat:hover {
-            background: #E60026;
-            color: white;
-            border-color: #E60026;
-        }
-    }
+    @media (hover: hover) { .btn-chat:hover { background: #E60026; color: white; border-color: #E60026; } }
 
-    /* === EMPTY STATE === */
+    /* === EMPTY STATES === */
     .empty-state {
-        flex: 1 1 100%; /* Ensures empty state takes up full container width */
-        text-align: center;
-        padding: clamp(40px, 8vw, 60px) 20px;
-        background: white;
-        border-radius: 20px;
-        border: 2px dashed #FFD6DD;
+        flex: 1 1 100%; text-align: center; padding: clamp(40px, 8vw, 60px) 20px;
+        background: white; border-radius: 20px; border: 2px dashed #FFD6DD;
         box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05);
     }
-    .empty-state-icon { 
-        font-size: clamp(40px, 8vw, 60px); 
-        margin-bottom: 15px; 
-        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-    }
+    .empty-state-icon { font-size: clamp(40px, 8vw, 60px); margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
     .empty-state h2 { color: #720000; margin-bottom: 10px; font-size: clamp(20px, 4vw, 24px); }
     .empty-state p { color: #666; margin-bottom: 25px; font-size: clamp(14px, 3vw, 16px); max-width: 400px; margin-left: auto; margin-right: auto; }
 
     /* === MODAL BUTTONS === */
     .btn-milestone {
-        width: 100%; 
-        padding: 14px; 
-        margin-bottom: 10px; 
-        border: none; 
-        border-radius: 12px;
-        font-weight: 800; 
-        font-size: 14px; 
-        cursor: pointer; 
-        transition: 0.2s; 
-        color: white;
+        width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 12px;
+        font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s; color: white;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
     .btn-milestone:active { transform: translateY(2px); box-shadow: none; }
-    
-    @media (hover: hover) {
-        .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
-    }
+    @media (hover: hover) { .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); } }
 </style>
 
 <div class="dashboard-header">
     <h1>Welcome back, {{ current_user }}!</h1>
-    <p>You have {{ matches|length }} connection{% if matches|length != 1 %}s{% endif %}</p>
+</div>
+
+<div class="action-center">
+    <a href="/matches" class="action-pill">
+        💬 Unread Chats
+        {% if unread_chats_count and unread_chats_count > 0 %}
+            <div class="badge-count">{{ unread_chats_count }}</div>
+        {% else %}
+            <div class="badge-count" style="background: #ccc;">0</div>
+        {% endif %}
+    </a>
+    <a href="/discover" class="action-pill">
+        📅 Pending Dates
+        {% if pending_dates_count and pending_dates_count > 0 %}
+            <div class="badge-count" style="background: #f39c12;">{{ pending_dates_count }}</div>
+        {% else %}
+            <div class="badge-count" style="background: #ccc;">0</div>
+        {% endif %}
+    </a>
 </div>
 
 <div id="install-container">
@@ -232,6 +256,50 @@
     </button>
 </div>
 
+{% if upcoming_dates and upcoming_dates|length > 0 %}
+<h2 class="section-title">✨ Your Upcoming Dates</h2>
+<div class="dates-container">
+    {% for date in upcoming_dates %}
+    <div class="date-card">
+        <div class="date-header">
+            <img src="{{ date.partner_img or '/static/img/placeholder.png' }}" class="date-avatar" alt="Date Partner">
+            <div class="date-info">
+                <h3>{{ date.partner_name }}</h3>
+                <p>It's a date!</p>
+            </div>
+        </div>
+
+        <div class="date-details">
+            <div class="detail-row">
+                <span class="detail-icon">📍</span>
+                <span><strong>{{ date.restaurant_name }}</strong><br><span style="font-size: 12px; color: #666;">{{ date.location }}</span></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-icon">📅</span>
+                <span>{{ date.day }} at {{ date.time }}</span>
+            </div>
+            {% if date.perk %}
+            <div class="detail-row">
+                <span class="detail-icon">🎁</span>
+                <span style="color: #28a745; font-weight: 800;">{{ date.perk }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="date-checklist">
+            <h4>What you need to know:</h4>
+            <ul>
+                <li><strong>Bring your Student ID:</strong> Prove you are an MMUST student.</li>
+                <li><strong>Scan the QR Code:</strong> When you arrive, scan the restaurant's QR code using the app to unlock your table and discounts.</li>
+                <li><strong>Be Safe:</strong> Share your location with a friend. Read our <a href="/safety" style="color: #E60026; font-weight: bold;">safety guidelines</a>.</li>
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h2 class="section-title">🔥 Discover Students</h2>
 <div class="matches-grid">
     {% if matches %}
         {% for match in matches %}
@@ -239,7 +307,17 @@
             <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
                 <div class="match-img-wrapper">
                     <img src="{{ match.img }}" alt="{{ match.name }}">
-                    <div class="compat-badge">🔥 {{ match.compatibility }}% Match</div>
+                    
+                    {% if match.is_perfect_match %}
+                        <div class="compat-badge" style="background: rgba(230, 0, 38, 0.95); color: white; border: 1px solid #720000;">
+                            ❤️ Perfect Match
+                        </div>
+                    {% else %}
+                        <div class="compat-badge">
+                            ✨ {{ match.compatibility }}% Match
+                        </div>
+                    {% endif %}
+                    
                 </div>
             </a>
             
@@ -248,7 +326,7 @@
                     <h3>{{ match.name }}</h3>
                 </a>
                 <p>{{ match.bio }}</p>
-                <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Chat Now</a>
+                <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Message</a>
             </div>
         </div>
         {% endfor %}
@@ -256,10 +334,7 @@
         <div class="empty-state">
             <div class="empty-state-icon">👀</div>
             <h2>It's quiet here...</h2>
-            <p>You don't have any matches yet. Head over to the Swipe Deck to discover other MMUST students!</p>
-            <button onclick="window.location.href='/swipe'" class="btn-chat" style="max-width: 250px; margin: 0 auto; background: #E60026; color: white;">
-                Go to Swipe Deck
-            </button>
+            <p>You don't have any students visible right now. Check back later!</p>
         </div>
     {% endif %}
 </div>
@@ -300,6 +375,29 @@
                 }
             })
             .catch(err => console.error("Milestone Check Error:", err));
+            
+        // Calculate Unread Chats from LocalStorage (Frontend calculation)
+        try {
+            let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
+            let totalUnread = 0;
+            for (const uid in unreadMap) {
+                if (typeof unreadMap[uid] === 'object') {
+                    totalUnread += (unreadMap[uid].count || 0);
+                } else if (typeof unreadMap[uid] === 'number') {
+                    totalUnread += unreadMap[uid];
+                }
+            }
+            
+            if (totalUnread > 0) {
+                const unreadBadge = document.querySelector('a[href="/matches"] .badge-count');
+                if (unreadBadge) {
+                    unreadBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+                    unreadBadge.style.background = '#E60026';
+                }
+            }
+        } catch(e) {
+            console.error("Error reading unread counts from local storage", e);
+        }
     });
 
     function submitMilestone(status) {

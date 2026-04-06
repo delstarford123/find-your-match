@@ -34,14 +34,17 @@ _token_cache = {
 
 def format_phone_number(phone: str) -> str:
     """Ensures the phone number is strictly in the 254XXXXXXXXX format."""
+    # Strip any +, spaces, or dashes
     phone = ''.join(filter(str.isdigit, str(phone)))
-    if phone.startswith('0'):
+    
+    if phone.startswith('0') and len(phone) == 10:
         return '254' + phone[1:]
-    if phone.startswith('254'):
+    if phone.startswith('254') and len(phone) == 12:
         return phone
     if len(phone) == 9:
         return '254' + phone
-    return phone
+        
+    return phone # Fallback, let Daraja reject it if it's completely invalid
 
 def get_access_token():
     """Generates or retrieves a valid OAuth token required by Safaricom."""
@@ -77,9 +80,15 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
     Triggers the PIN prompt on the user's phone.
     Returns a dictionary containing the 'CheckoutRequestID' to track the payment.
     """
+    # 🚨 LOCALHOST SAFEGUARD: Stop bad requests before they hit Safaricom
+    if "127.0.0.1" in callback_url or "localhost" in callback_url:
+        logger.error("❌ CRITICAL: Safaricom Daraja API blocks localhost/127.0.0.1 CallBackURLs.")
+        logger.error("👉 FIX: You must use Ngrok to expose your local server, and set BASE_URL in your .env file.")
+        return {"error": "Local network URL detected. Use Ngrok for testing M-Pesa!"}
+
     token = get_access_token()
     if not token:
-        return {"error": "Failed to authenticate with M-Pesa."}
+        return {"error": "Failed to authenticate with M-Pesa Servers."}
 
     formatted_phone = format_phone_number(phone_number)
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -108,11 +117,20 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         response = requests.post(STK_PUSH_URL, json=payload, headers=headers, timeout=15)
         response.raise_for_status()
         return response.json() 
+        
     except requests.exceptions.RequestException as e:
         logger.error(f"❌ STK Push Error: {e}")
-        # FIX: Use e.response to prevent UnboundLocalError if the connection drops
-        if e.response is not None:
-            logger.error(f"Safaricom Response: {e.response.text}")
+        
+        # Safely extract Safaricom's specific JSON error message if available
+        if getattr(e, 'response', None) is not None:
+            try:
+                safaricom_error = e.response.json()
+                error_msg = safaricom_error.get('errorMessage', str(e))
+                logger.error(f"Safaricom Exact Response: {error_msg}")
+                return {"error": f"Safaricom: {error_msg}"}
+            except Exception:
+                return {"error": f"Safaricom returned an error: {e.response.text}"}
+                
         return {"error": str(e)}
 
 def check_payment_status(checkout_request_id):
@@ -154,5 +172,13 @@ def check_payment_status(checkout_request_id):
             return {"status": "FAILED", "data": data}
             
     except requests.exceptions.RequestException as e:
-        # A 400 error from Daraja Query usually means the user hasn't entered their PIN yet
+        # A 400 or 500 error from Daraja Query often means the user hasn't entered their PIN yet
+        if getattr(e, 'response', None) is not None:
+            try:
+                error_data = e.response.json()
+                if "invalid" in error_data.get('errorMessage', '').lower() or "not found" in error_data.get('errorMessage', '').lower():
+                    return {"status": "PENDING"}
+            except Exception:
+                pass
+                
         return {"status": "PENDING"}

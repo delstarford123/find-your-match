@@ -1,8 +1,10 @@
 import re
 import hashlib
 import random
+import uuid
+from werkzeug.security import generate_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from app.database import db, delete_user_account, register_restaurant
+from app.database import db, delete_user_account
 
 # Import your email service
 from app.email_service import send_verification_email
@@ -206,34 +208,61 @@ def delete_account():
         return redirect(url_for('settings'))
 
 
+# ==========================================
+# FIXED B2B REGISTRATION ROUTE
+# ==========================================
 @auth_bp.route('/business/register', methods=['GET', 'POST'])
 def business_register():
     if request.method == 'POST':
-        owner_name = request.form.get('owner_name')
-        email = request.form.get('email')
-        business_name = request.form.get('business_name')
-        location = request.form.get('location')
-        conditions = request.form.get('conditions')
-        
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        business_name = request.form.get('business_name', '')
+
         try:
-            restaurant_id = register_restaurant(owner_name, email, business_name, location, conditions)
+            # Check if email exists
+            all_restaurants = db.reference('restaurants').get() or {}
+            for r_data in all_restaurants.values():
+                if isinstance(r_data, dict) and r_data.get('email') == email:
+                    flash('This email is already registered. Please log in.', 'warning')
+                    return redirect(url_for('business_login'))
+
+            # Generate secure IDs and Hashes
+            restaurant_id = str(uuid.uuid4())
+            hashed_password = generate_password_hash(password)
             
-            session['business_id'] = restaurant_id
-            session['business_name'] = business_name
-            session['account_type'] = 'business'
+            # Create the data payload bypassing the old register_restaurant logic
+            new_merchant = {
+                'business_name': business_name,
+                'location': request.form.get('location'),
+                'owner_name': request.form.get('owner_name'),
+                'phone': request.form.get('phone'),
+                'email': email,  
+                'password': hashed_password,  # Hashed securely
+                'conditions': request.form.get('conditions'),
+                'subscription_active': False,
+                'profile_views': 0,
+                'qr_scans': 0,
+                'hourly_stats': {}
+            }
+
+            # Save directly to Firebase
+            db.reference(f'restaurants/{restaurant_id}').set(new_merchant)
             
-            flash(f"Merchant account created for {business_name}! Please activate your subscription to go live.", "success")
-            return redirect(url_for('business_dashboard'))
+            # UNIFIED AUTO-LOGIN
+            session['user_id'] = restaurant_id
+            session['user_name'] = business_name
+            session['role'] = 'business'
+            
+            flash('Merchant account created successfully! Welcome to your dashboard.', 'success')
+            return redirect(url_for('business_dashboard')) # Redirects perfectly to main.py
             
         except Exception as e:
-            flash("Registration failed. Please try again.", "error")
+            print(f"Registration Error: {e}") 
+            flash('Failed to create account. Please check your connection and try again.', 'error')
             return redirect(url_for('auth.business_register'))
-            
+
     return render_template('restaurant_signup.html')
 
-import random
-# Ensure you have 'db' imported at the top of your file if it isn't already!
-# from app.database import db
 
 @auth_bp.route('/resend_otp', methods=['POST'])
 def resend_otp():
@@ -250,12 +279,10 @@ def resend_otp():
     
     try:
         # 3. Save the new OTP to Firebase
-        # Firebase keys cannot contain periods, so we replace them with commas
         email_safe_key = email.replace('.', ',')
         db.reference(f'unverified_users/{email_safe_key}/otp').set(new_otp)
         
         # 4. Fire your email sending function here!
-        # If you have an email function, call it here. For now, we will print it to the terminal so you can test it locally.
         print(f"📧 NEW OTP SENT TO {email}: {new_otp}")
         
         flash("A new 6-digit code has been sent to your email.", "success")
@@ -264,7 +291,6 @@ def resend_otp():
         print(f"Error resending OTP: {e}")
         flash("Failed to resend code. Please try again.", "error")
         
-    # Redirect right back to the verification page
     return redirect(url_for('auth.verify_email'))
 
 @auth_bp.route('/logout')
