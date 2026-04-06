@@ -4,12 +4,12 @@
 <style>
     /* === SCREEN LAYOUT === */
     .qr-wrapper {
-        min-height: calc(100vh - var(--nav-height, 70px) - 40px);
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px);
         display: flex;
         align-items: center;
         justify-content: center;
         padding: clamp(20px, 5vw, 40px) 15px;
-        background-color: #FEF2F4;
+        background-color: var(--bg-color, #FEF2F4);
     }
 
     .qr-container { 
@@ -17,10 +17,10 @@
         max-width: 480px; 
         text-align: center; 
         background: white; 
-        padding: clamp(30px, 8vw, 50px) 20px; 
-        border-radius: 24px; 
-        border: 2px solid #FFD6DD; 
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
+        padding: clamp(30px, 8vw, 45px) clamp(20px, 5vw, 35px); 
+        border-radius: 28px; 
+        border: 1px solid #FFD6DD; 
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.08);
         position: relative;
         overflow: hidden;
         animation: fadeUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
@@ -38,24 +38,32 @@
         background: linear-gradient(90deg, #720000 0%, #E60026 100%);
     }
 
+    .nav-back {
+        display: inline-flex; align-items: center; gap: 8px;
+        color: #666; font-size: 14px; font-weight: 800;
+        text-decoration: none; margin-bottom: 20px; transition: 0.2s;
+    }
+    .nav-back:hover { color: #E60026; transform: translateX(-3px); }
+
     .qr-title {
         color: #720000; font-size: clamp(24px, 6vw, 32px);
         font-weight: 900; margin: 0 0 5px 0; line-height: 1.2; letter-spacing: -0.5px;
     }
     .qr-subtitle {
-        color: #666; font-size: 15px; font-weight: 800;
-        margin: 0 0 25px 0; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #666; font-size: 13px; font-weight: 900;
+        margin: 0 0 25px 0; text-transform: uppercase; letter-spacing: 1px;
     }
 
     .qr-img-wrapper {
-        background: white; padding: 15px; border-radius: 20px;
-        display: inline-block; border: 4px solid #FEF2F4;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin-bottom: 25px;
+        background: white; padding: 20px; border-radius: 24px;
+        display: inline-block; border: 3px solid #FEF2F4;
+        box-shadow: 0 15px 35px rgba(230,0,38,0.1); margin-bottom: 25px;
     }
     .qr-img { 
         width: clamp(180px, 50vw, 250px); 
         height: clamp(180px, 50vw, 250px); 
         display: block;
+        image-rendering: pixelated; /* Keeps QR code mathematically sharp when scaled */
     }
 
     .staff-instructions {
@@ -63,17 +71,17 @@
         border: 1px solid #FFD6DD; text-align: left;
     }
     .staff-instructions h4 {
-        color: #720000; margin: 0 0 8px 0; font-size: 14px;
-        font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;
+        color: #720000; margin: 0 0 8px 0; font-size: 13px;
+        font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px;
     }
     .staff-instructions p {
-        color: #4A0008; font-size: 14px; margin: 0; line-height: 1.5; font-weight: 500;
+        color: #4A0008; font-size: 14px; margin: 0; line-height: 1.5; font-weight: 600;
     }
 
     /* === BUTTONS === */
     .button-group {
         display: flex; gap: 15px; margin-top: 30px;
-        flex-direction: column; /* Stacks on mobile */
+        flex-direction: column; /* Stacks seamlessly on mobile */
     }
     
     @media (min-width: 480px) {
@@ -81,68 +89,73 @@
     }
 
     .btn-action { 
-        flex: 1; padding: 16px 20px; border-radius: 16px; border: none; 
-        cursor: pointer; font-weight: 800; font-size: 15px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        flex: 1; padding: 16px 20px; border-radius: 14px; border: none; 
+        cursor: pointer; font-weight: 900; font-size: 15px;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
         display: flex; align-items: center; justify-content: center; gap: 8px;
+        min-height: 52px; /* Apple HIG standard touch target */
     }
-    .btn-print { background: #E60026; color: white; box-shadow: 0 8px 20px rgba(230,0,38,0.2); }
+    .btn-print { background: linear-gradient(135deg, #E60026 0%, #ff4b2b 100%); color: white; box-shadow: 0 8px 20px rgba(230,0,38,0.25); }
     .btn-download { background: white; color: #720000; border: 2px solid #FFD6DD; }
     
     @media (hover: hover) {
-        .btn-print:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230,0,38,0.3); background: #720000; }
-        .btn-download:hover { transform: translateY(-2px); background: #FEF2F4; border-color: #E60026; }
+        .btn-print:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230,0,38,0.35); }
+        .btn-download:hover { transform: translateY(-2px); background: #FEF2F4; border-color: #E60026; box-shadow: 0 8px 20px rgba(230,0,38,0.1); }
     }
-    .btn-action:active { transform: scale(0.98); }
+    .btn-action:active { transform: scale(0.97); }
 
     /* === PRINT LAYOUT === */
     @media print { 
-        @page { margin: 0; } /* Removes default browser headers/footers in many browsers */
+        @page { margin: 0; size: portrait; } 
         
-        body { background: white; padding: 20px; display: flex; justify-content: center; align-items: flex-start; }
+        body { background: white; padding: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         
-        /* Hide UI elements */
-        nav, footer, .button-group, .navbar { display: none !important; } 
+        /* Hide all digital UI elements */
+        nav, footer, .button-group, .navbar, .nav-back, .toast-container { display: none !important; } 
         
-        .qr-wrapper { padding: 0; min-height: auto; background: white; display: block; }
+        .qr-wrapper { padding: 20px; min-height: auto; background: white; display: block; width: 100%; align-items: center; justify-content: center;}
 
         .qr-container { 
-            border: 2px dashed #999; /* Creates a "Cut Here" line */
-            margin: 0 auto; box-shadow: none; padding: 60px 40px;
-            max-width: 600px; border-radius: 0; animation: none;
+            border: 2px dashed #999; 
+            margin: 0 auto; box-shadow: none; padding: 40px 30px;
+            max-width: 400px; border-radius: 0; animation: none;
+            position: relative;
         }
         
-        .qr-container::before { display: none; } /* Hide color gradient bar */
+        .qr-container::before { display: none; } 
         
-        .qr-img-wrapper { border: none; padding: 0; box-shadow: none; }
-        .qr-img { width: 300px; height: 300px; }
+        .qr-img-wrapper { border: 2px solid #000; padding: 10px; box-shadow: none; border-radius: 0; margin-bottom: 20px;}
+        .qr-img { width: 250px; height: 250px; }
         
-        .qr-title { font-size: 40px; color: black; }
-        .qr-subtitle { font-size: 20px; margin-bottom: 40px; color: #333; }
+        .qr-title { font-size: 28px; color: black; }
+        .qr-subtitle { font-size: 16px; margin-bottom: 30px; color: #333; }
         
         .staff-instructions { 
             border: 2px solid #000; background: white !important; 
-            -webkit-print-color-adjust: exact; padding: 25px;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 20px;
+            border-radius: 0; margin-top: 20px;
         }
-        .staff-instructions h4 { font-size: 16px; color: black; }
-        .staff-instructions p { font-size: 14px; color: black; }
+        .staff-instructions h4 { font-size: 14px; color: black; }
+        .staff-instructions p { font-size: 13px; color: black; }
         
-        /* Add a "Cut along dotted line" text at the top */
         .qr-container::after {
             content: '✂️ Cut along dotted line to display at register';
-            position: absolute; top: -30px; left: 0; width: 100%;
-            text-align: center; font-size: 12px; color: #666;
+            position: absolute; top: -25px; left: 0; width: 100%;
+            text-align: center; font-size: 12px; color: #666; font-style: italic;
         }
     }
 </style>
 
 <div class="qr-wrapper">
     <div class="qr-container">
+        
+        <a href="{{ url_for('merchant_dashboard') }}" class="nav-back">← Back to Dashboard</a>
+        
         <h1 class="qr-title">{{ restaurant_name }}</h1>
         <p class="qr-subtitle">Student Discount Verification</p>
         
         <div class="qr-img-wrapper">
-            <img id="qr-code-img" src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="{{ restaurant_name }} QR Code">
+            <img id="qr-code-img" src="data:image/png;base64,{{ qr_code }}" class="qr-img" alt="{{ restaurant_name }} QR Code" loading="eager">
         </div>
         
         <div class="staff-instructions">
@@ -152,11 +165,11 @@
 
         <div class="button-group">
             <button class="btn-action btn-download" onclick="downloadQR()">
-                <span style="font-size: 18px;">⬇️</span> Download Image
+                <span style="font-size: 20px;">⬇️</span> Download Image
             </button>
             
             <button class="btn-action btn-print" onclick="window.print()">
-                <span style="font-size: 18px;">🖨️</span> Print Card
+                <span style="font-size: 20px;">🖨️</span> Print Card
             </button>
         </div>
     </div>

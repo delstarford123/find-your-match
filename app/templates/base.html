@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
     <meta name="google-site-verification" content="o-FuWsUbs8Yoz8wQZSzgAoPlr_Pr-P5l4qCaEsZ-iw0" />
     <title>FIND YOUR MATCH - MMUST AI Powered Dating</title>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#720000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +21,7 @@
     <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
     <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
     <style>
-        /* === GLOBAL CSS VARIABLES (THE ROMANTIC PALETTE) === */
+        /* === GLOBAL CSS VARIABLES === */
         :root {
             --primary: #E60026;
             --primary-light: #FFD6DD;
@@ -28,9 +30,20 @@
             --text-dark: var(--secondary-dark);
             --bg-color: #FEF2F4;
             --nav-height: 70px;
+            /* Safe area variables for iPhone notches and home bars */
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            -webkit-tap-highlight-color: transparent; 
+            overscroll-behavior-y: none; 
+            -webkit-text-size-adjust: 100%; /* Locks text scaling on rotation */
+        }
 
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
@@ -38,41 +51,51 @@
             color: var(--text-dark);
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            /* Fallback for older browsers, overridden by dvh if supported */
+            min-height: 100vh; 
+            min-height: 100dvh; 
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden; 
         }
+
+        /* PREMIUM APP SCROLLBARS */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(114, 0, 0, 0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(114, 0, 0, 0.4); }
+
+        /* Prevents iOS from auto-zooming on inputs */
+        input, select, textarea { font-size: 16px !important; }
 
         /* === PREMIUM GLASSMORPHISM NAVBAR === */
         .navbar {
             position: fixed; top: 0; left: 0; right: 0;
-            height: var(--nav-height);
+            height: calc(var(--nav-height) + var(--safe-top));
+            padding-top: var(--safe-top);
             background: linear-gradient(135deg, rgba(114, 0, 0, 0.95) 0%, rgba(230, 0, 38, 0.95) 100%);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 clamp(15px, 5vw, 5%); z-index: 2000;
-            box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); 
+            padding-left: clamp(15px, 5vw, 5%); padding-right: clamp(15px, 5vw, 5%);
+            z-index: 2000; box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
         .nav-left-group { display: flex; align-items: center; gap: clamp(15px, 3vw, 40px); }
         
         .logo {
-            font-weight: 900; 
-            font-size: clamp(18px, 4vw, 22px); 
-            color: white; 
-            text-decoration: none; 
-            letter-spacing: -0.5px;
+            font-weight: 900; font-size: clamp(18px, 4vw, 22px); 
+            color: white; text-decoration: none; letter-spacing: -0.5px;
             display: flex; align-items: center; gap: 8px;
             text-shadow: 0 2px 4px rgba(74, 0, 8, 0.4); 
-            z-index: 2002;
-            white-space: nowrap;
+            z-index: 2002; white-space: nowrap;
         }
         
         .nav-links { display: flex; align-items: center; gap: 25px; }
         .nav-links > a {
             text-decoration: none; color: rgba(255, 255, 255, 0.9);
             font-weight: 600; font-size: 15px; transition: all 0.2s;
+            padding: 5px 0; /* Better touch target */
         }
         .nav-links > a:hover { color: white; transform: translateY(-1px); }
         
@@ -81,8 +104,7 @@
         .dropbtn {
             background: none; border: none; cursor: pointer;
             color: rgba(255, 255, 255, 0.9); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
-            display: flex; align-items: center; gap: 5px; transition: 0.2s;
-            padding: 0;
+            display: flex; align-items: center; gap: 5px; transition: 0.2s; padding: 5px 0;
         }
         
         @media (hover: hover) {
@@ -96,8 +118,7 @@
             box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15);
             border-radius: 16px; z-index: 10; overflow: hidden;
             border: 1px solid var(--primary-light); 
-            animation: fadeIn 0.2s ease-out;
-            margin-top: 15px;
+            animation: fadeIn 0.2s ease-out; margin-top: 15px;
         }
         .dropdown-content a {
             color: var(--text-dark) !important; padding: 14px 20px;
@@ -127,13 +148,20 @@
             color: var(--primary) !important;
         }
 
-        /* === MOBILE MENU TOGGLE === */
+        /* === MOBILE MENU TOGGLE & OVERLAY === */
         .mobile-menu-btn {
             display: none; font-size: 26px; background: none; border: none; 
             color: white; cursor: pointer; z-index: 2003; 
-            transition: transform 0.3s; width: 40px; height: 40px;
+            transition: transform 0.3s; width: 44px; height: 44px; /* iOS standard touch target */
             align-items: center; justify-content: center;
         }
+        
+        .mobile-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 1998; opacity: 0; visibility: hidden; transition: 0.3s;
+        }
+        .mobile-overlay.active { opacity: 1; visibility: visible; }
 
         /* === MOBILE MENU STYLES === */
         @media (max-width: 900px) {
@@ -142,63 +170,48 @@
             .nav-right-actions { display: none; }
             
             .nav-links {
-                position: fixed; top: var(--nav-height); left: 0; right: 0;
-                background: white;
-                flex-direction: column; 
-                padding: 10px 25px 40px; 
-                box-shadow: 0 10px 25px rgba(114, 0, 0, 0.15);
+                position: fixed; top: calc(var(--nav-height) + var(--safe-top)); left: 0; right: 0;
+                background: white; flex-direction: column; 
+                padding: 10px 25px max(40px, var(--safe-bottom)); 
+                box-shadow: 0 15px 30px rgba(114, 0, 0, 0.2);
                 transform: translateY(-150%);
                 transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 z-index: 1999; align-items: flex-start; 
-                overflow-y: auto; max-height: calc(100vh - var(--nav-height));
-                opacity: 0; visibility: hidden;
+                overflow-y: auto; max-height: calc(100dvh - var(--nav-height) - var(--safe-top));
+                border-bottom-left-radius: 24px; border-bottom-right-radius: 24px;
             }
-            .nav-links.active { 
-                transform: translateY(0); 
-                opacity: 1; visibility: visible;
-            }
+            .nav-links.active { transform: translateY(0); }
             
-            .nav-links > a, .dropdown { 
-                width: 100%; 
-                border-bottom: 1px solid #f0f0f0; 
-            }
+            .nav-links > a, .dropdown { width: 100%; border-bottom: 1px solid #f0f0f0; }
             
             .nav-links > a, .dropbtn {
-                color: var(--text-dark) !important; 
-                text-align: left; 
-                padding: 18px 0; 
-                font-size: 17px; 
-                display: flex; 
-                justify-content: space-between;
-                width: 100%;
+                color: var(--text-dark) !important; text-align: left; 
+                padding: 18px 0; font-size: 17px; display: flex; 
+                justify-content: space-between; width: 100%;
             }
             
             .dropdown-content {
                 position: static; box-shadow: none; border: none; padding-left: 15px;
-                display: none; border-radius: 0;
-                background: var(--bg-color); margin-top: 0; width: 100%; animation: none;
-                margin-bottom: 10px; border-radius: 12px;
+                display: none; border-radius: 0; background: var(--bg-color); 
+                margin-top: 0; width: 100%; animation: none; margin-bottom: 10px; border-radius: 12px;
             }
-            .dropdown-content a { 
-                padding: 14px 15px; font-size: 15px; border-bottom: 1px solid rgba(0,0,0,0.05); 
-            }
+            .dropdown-content a { padding: 14px 15px; font-size: 15px; border-bottom: 1px solid rgba(0,0,0,0.05); }
             .dropdown-content a:last-child { border-bottom: none; }
             .dropdown.active .dropdown-content { display: block; }
             
             .mobile-auth-btn { 
                 background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%) !important; 
-                color: white !important; 
-                text-align: center !important; border-radius: 14px; margin-top: 25px; 
-                border: none !important; justify-content: center !important;
+                color: white !important; text-align: center !important; border-radius: 14px; 
+                margin-top: 25px; border: none !important; justify-content: center !important;
                 padding: 16px !important; font-weight: 800; font-size: 16px;
-                box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
+                box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2); display: none;
             }
-            .mobile-only-link { border-bottom: none !important; color: var(--primary) !important; font-weight: 800 !important; padding-bottom: 0 !important; }
+            .mobile-only-link { border-bottom: none !important; color: var(--primary) !important; font-weight: 800 !important; padding-bottom: 0 !important; display: none; }
         }
 
         /* === FLOATING TOAST NOTIFICATIONS === */
         .toast-container { 
-            position: fixed; top: calc(var(--nav-height) + 15px); right: 15px; left: 15px; 
+            position: fixed; top: calc(var(--nav-height) + var(--safe-top) + 15px); right: 15px; left: 15px; 
             z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; 
         }
         @media (min-width: 600px) { .toast-container { left: auto; max-width: 400px; right: 20px; } }
@@ -206,26 +219,30 @@
         .alert {
             padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
             box-shadow: 0 10px 30px rgba(74, 0, 8, 0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            display: flex; align-items: center; justify-content: space-between; pointer-events: auto;
-            line-height: 1.4;
+            display: flex; align-items: center; justify-content: space-between; pointer-events: auto; line-height: 1.4;
         }
         .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
         .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid var(--primary); }
         .alert-warning { background: white; color: #856404; border-left: 6px solid #ffc107; }
         .alert-info { background: white; color: #0c5460; border-left: 6px solid #17a2b8; }
         
-        .close-toast { background: none; border: none; font-size: 22px; cursor: pointer; color: inherit; opacity: 0.4; margin-left: 15px; padding: 0 5px;}
+        .close-toast { background: none; border: none; font-size: 22px; cursor: pointer; color: inherit; opacity: 0.4; margin-left: 15px; padding: 0 5px; min-width: 30px; min-height: 30px; display: flex; align-items: center; justify-content: center;}
         .close-toast:hover { opacity: 1; }
 
         @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
         /* === MAIN CONTENT === */
-        .container { flex: 1; width: 100%; max-width: 1200px; margin: var(--nav-height) auto 0; padding: 0; position: relative; z-index: 10; }
+        .container { 
+            flex: 1; width: 100%; max-width: 1200px; 
+            margin: calc(var(--nav-height) + var(--safe-top)) auto 0; 
+            padding: 0 var(--safe-left) 0 var(--safe-right); 
+            position: relative; z-index: 10; 
+        }
 
         /* === APP INSTALL BANNER === */
         .pwa-banner {
-            display: none; position: fixed; bottom: 30px; left: 15px; right: 15px; 
+            display: none; position: fixed; bottom: max(30px, var(--safe-bottom)); left: 15px; right: 15px; 
             background: white; padding: 20px; border-radius: 16px; 
             box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 9999; 
             border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; 
@@ -238,7 +255,11 @@
         @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         /* === FOOTER === */
-        footer { background: var(--secondary-dark); color: white; text-align: center; padding: 40px 20px; margin-top: auto; position: relative; z-index: 10;}
+        footer { 
+            background: var(--secondary-dark); color: white; text-align: center; 
+            padding: 40px 20px calc(40px + var(--safe-bottom)); 
+            margin-top: auto; position: relative; z-index: 10;
+        }
         footer p { font-size: 14px; opacity: 0.9; margin: 0; }
         .footer-partner-link {
             display: inline-block; color: var(--primary-light); text-decoration: none;
@@ -272,11 +293,11 @@
                     </div>
                 {% endif %}
 
-                {% if session.get('account_type') == 'business' %}
+                {% if session.get('role') == 'business' %}
                     <a href="{{ url_for('business_dashboard') }}">Merchant Portal</a>
-                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn" style="display: none;">Log Out</a>
+                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
                 
-                {% elif session.get('user_email') %}
+                {% elif session.get('user_id') %}
                     <div class="dropdown">
                         <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
                         <div class="dropdown-content">
@@ -305,15 +326,15 @@
                         </div>
                     </div>
                     
-                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn" style="display: none;">Log Out</a>
+                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
                 {% else %}
-                    <a href="{{ url_for('auth.login') }}" style="display: none;" class="mobile-only-link">Log In</a>
-                    <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn" style="display: none;">Sign Up</a>
+                    <a href="{{ url_for('auth.login') }}" class="mobile-only-link">Log In</a>
+                    <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn">Sign Up</a>
                 {% endif %}
             </div>
 
             <div class="nav-right-actions">
-                {% if session.get('user_email') or session.get('account_type') == 'business' or session.get('is_super_admin') %}
+                {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
                     <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
                 {% else %}
                     <a href="{{ url_for('auth.login') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
@@ -321,6 +342,8 @@
                 {% endif %}
             </div>
         </nav>
+        
+        <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
     </header>
 
     <div class="toast-container" id="toast-container">
@@ -360,7 +383,7 @@
             <a href="{{ url_for('terms') }}" style="color: #FFD6DD; text-decoration: none; opacity: 0.9; transition: 0.2s;">Terms of Service</a>
         </div>
         
-        {% if session.get('account_type') != 'business' and not session.get('is_super_admin') %}
+        {% if session.get('role') != 'business' and not session.get('is_super_admin') %}
         <a href="{{ url_for('auth.business_register') }}" class="footer-partner-link">
             Are you a Restaurant Owner? Partner with us.
         </a>
@@ -368,21 +391,26 @@
     </footer>
 
     <script>
-        document.getElementById('current-year').textContent = new Date().getFullYear();
+        // Update year safely
+        const yearSpan = document.getElementById('current-year');
+        if(yearSpan) yearSpan.textContent = new Date().getFullYear();
 
         /* === NAVBAR LOGIC === */
         function toggleMenu() {
             const nav = document.getElementById('nav-links');
             const btn = document.getElementById('menu-btn');
+            const overlay = document.getElementById('mobile-overlay');
             
             nav.classList.toggle('active');
             
             if (nav.classList.contains('active')) {
                 btn.innerHTML = '✕'; 
+                overlay.classList.add('active');
                 document.body.style.overflow = 'hidden';
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'flex'; });
             } else {
                 btn.innerHTML = '☰';
+                overlay.classList.remove('active');
                 document.body.style.overflow = ''; 
                 document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'none'; });

@@ -4,63 +4,86 @@
 <style>
     /* === LAYOUT === */
     .b2b-container { 
-        max-width: 1050px; 
-        margin: 30px auto; 
-        padding: 0 20px; 
+        max-width: 1100px; 
+        margin: clamp(20px, 4vw, 40px) auto; 
+        padding: 0 clamp(15px, 4vw, 25px); 
+        animation: fadeSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
     
-    /* Header */
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Header & Actions */
     .b2b-header { 
         display: flex; 
         flex-wrap: wrap;
         justify-content: space-between; 
         align-items: center; 
         gap: 15px;
-        margin-bottom: 25px; 
+        margin-bottom: 30px; 
         padding-bottom: 20px;
         border-bottom: 2px solid #FFD6DD;
     }
     .b2b-header h1 { 
         color: #720000; 
         margin: 0; 
-        font-size: clamp(24px, 4vw, 32px); 
+        font-size: clamp(22px, 4vw, 32px); 
         font-weight: 900;
         letter-spacing: -0.5px;
     }
     
+    .header-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-analytics {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        text-decoration: none;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 14px;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.2);
+        display: flex; align-items: center; gap: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        white-space: nowrap;
+    }
+    .btn-analytics:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(230,0,38,0.3); }
+
     .btn-logout {
         background: white; 
         color: #720000;
         border: 2px solid #FFD6DD; 
-        padding: 10px 24px; 
+        padding: 10px 20px; 
         border-radius: 12px; 
         cursor: pointer; 
-        font-weight: 800; 
+        font-weight: 800; font-size: 14px;
         transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         box-shadow: 0 4px 10px rgba(0,0,0,0.03);
     }
-    .btn-logout:hover {
-        background: #FEF2F4;
-        border-color: #E60026;
-        transform: translateY(-2px);
-    }
+    .btn-logout:hover { background: #FEF2F4; border-color: #E60026; transform: translateY(-2px); }
 
     /* === FLASH MESSAGES === */
     .dash-alert {
-        padding: 15px 20px; border-radius: 12px; margin-bottom: 25px; 
-        font-size: 15px; font-weight: bold; display: flex; align-items: center; gap: 10px;
-        animation: slideDown 0.3s ease-out;
+        padding: 16px 20px; border-radius: 14px; margin-bottom: 25px; 
+        font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 12px;
+        animation: slideDown 0.3s ease-out; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
     }
-    .dash-alert-success { background: #d4edda; color: #155724; border-left: 5px solid #28a745; }
-    .dash-alert-error { background: #f8d7da; color: #721c24; border-left: 5px solid #dc3545; }
+    .dash-alert-success { background: #f0fff4; color: #155724; border-left: 5px solid #28a745; }
+    .dash-alert-error { background: #FEF2F4; color: #E60026; border-left: 5px solid #E60026; }
     .dash-alert-warning { background: #fff8e6; color: #856404; border-left: 5px solid #ffc107; }
-    
     @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
     /* === SUBSCRIPTION BANNERS === */
     .sub-banner { 
-        padding: 25px; 
-        border-radius: 16px; 
+        padding: clamp(20px, 4vw, 30px); 
+        border-radius: 18px; 
         display: flex; 
         flex-wrap: wrap;
         gap: 20px;
@@ -69,7 +92,7 @@
         margin-bottom: 35px; 
         font-weight: 600; 
         line-height: 1.5;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.04);
     }
     .sub-inactive { background: #fff8e6; color: #856404; border: 1px solid #ffeeba; }
     .sub-active { background: #f0fff4; color: #155724; border: 1px solid #c3e6cb; }
@@ -77,18 +100,18 @@
     /* M-Pesa Payment Box */
     .payment-box {
         display: flex; flex-wrap: wrap; gap: 10px; width: 100%; max-width: 500px; 
-        background: white; padding: 15px; border-radius: 12px; border: 1px solid #ffeeba;
+        background: white; padding: 15px; border-radius: 14px; border: 1px solid #ffeeba;
     }
     .mpesa-input {
         flex: 1; min-width: 200px; padding: 14px; border: 2px solid #eee; 
-        border-radius: 8px; font-weight: bold; outline: none; font-size: 16px;
-        transition: 0.2s; color: #333;
+        border-radius: 10px; font-weight: 800; outline: none; font-size: 16px;
+        transition: 0.2s; color: #111; -webkit-appearance: none;
     }
-    .mpesa-input:focus { border-color: #28a745; box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1); }
+    .mpesa-input:focus { border-color: #28a745; box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1); }
     
     .btn-pay {
         background: #28a745; color: white; border: none; padding: 14px 25px; 
-        border-radius: 8px; font-weight: 900; font-size: 16px; cursor: pointer; 
+        border-radius: 10px; font-weight: 900; font-size: 16px; cursor: pointer; 
         transition: 0.2s; white-space: nowrap; flex: 1; min-width: 150px;
         box-shadow: 0 4px 10px rgba(40, 167, 69, 0.3);
     }
@@ -99,7 +122,7 @@
     .stats-grid { 
         display: grid; 
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-        gap: 25px; 
+        gap: 20px; 
         margin-bottom: 35px; 
     }
     .stat-card { 
@@ -107,10 +130,10 @@
         box-shadow: 0 10px 25px rgba(114,0,0,0.05); 
         border: 1px solid #FFD6DD; text-align: center; 
         display: flex; flex-direction: column; justify-content: center;
-        transition: transform 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
-    .stat-card:hover { transform: translateY(-5px); }
-    .stat-value { font-size: 42px; font-weight: 900; color: #E60026; margin: 10px 0; line-height: 1; letter-spacing: -1px; }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 15px 35px rgba(114,0,0,0.08); }
+    .stat-value { font-size: clamp(36px, 6vw, 46px); font-weight: 900; color: #E60026; margin: 10px 0; line-height: 1; letter-spacing: -1px; }
     .stat-label { color: #888; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }
 
     /* Container for sections */
@@ -119,13 +142,19 @@
         border-radius: 24px; box-shadow: 0 10px 30px rgba(114,0,0,0.06); 
         border: 1px solid #FFD6DD; margin-bottom: 35px;
     }
-    .b2b-section h2 { color: #720000; margin-top: 0; margin-bottom: 25px; font-weight: 900; font-size: 22px;}
+    .b2b-section h2 { color: #720000; margin-top: 0; margin-bottom: 25px; font-weight: 900; font-size: clamp(18px, 4vw, 22px);}
     
     /* === HEATMAP === */
+    .heatmap-scroll-area {
+        width: 100%; overflow-x: auto; padding-bottom: 15px; -webkit-overflow-scrolling: touch;
+    }
+    .heatmap-scroll-area::-webkit-scrollbar { height: 6px; }
+    .heatmap-scroll-area::-webkit-scrollbar-track { background: transparent; }
+    .heatmap-scroll-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+
     .heatmap-container {
         display: flex; align-items: flex-end; gap: 6px; height: 180px; 
-        padding-top: 20px; border-bottom: 2px solid #f0f0f0; overflow-x: auto; 
-        padding-bottom: 10px;
+        padding-top: 20px; border-bottom: 2px solid #f0f0f0; min-width: 600px;
     }
     .heat-bar-wrapper {
         flex: 1; min-width: 25px; display: flex; flex-direction: column; 
@@ -138,31 +167,33 @@
     .heat-bar:hover { filter: brightness(0.8); }
     
     /* === RESPONSIVE TABLE === */
-    .table-responsive { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-responsive::-webkit-scrollbar { height: 6px; }
+    .table-responsive::-webkit-scrollbar-track { background: transparent; }
+    .table-responsive::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+
+    table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 600px; }
     th, td { padding: 18px 15px; text-align: left; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; }
     th { color: #888; font-size: 12px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; background: #fafafa; }
     th:first-child { border-radius: 12px 0 0 12px; }
     th:last-child { border-radius: 0 12px 12px 0; }
     td { color: #4A0008; font-size: 15px; font-weight: 600; }
     
-    /* Desktop Hover Effect */
-    @media (min-width: 769px) {
-        tbody tr:hover td { background: #FEF2F4; }
-    }
+    @media (min-width: 769px) { tbody tr:hover td { background: #FEF2F4; } }
     
     /* Mobile Table -> Cards Conversion */
     @media (max-width: 768px) {
+        table { min-width: 100%; }
         table, thead, tbody, th, td, tr { display: block; }
         thead tr { position: absolute; top: -9999px; left: -9999px; }
         tr { 
             border: 1px solid #FFD6DD; border-radius: 16px; margin-bottom: 20px; 
             padding: 15px; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.04); 
         }
-        td { border: none; position: relative; padding-left: 40%; text-align: left; padding-bottom: 12px; }
+        td { border: none; position: relative; padding-left: 40%; text-align: left; padding-bottom: 12px; font-size: 14px;}
         td:before { 
             position: absolute; top: 0; left: 0; width: 35%; padding-right: 10px; 
-            white-space: nowrap; font-weight: 900; font-size: 12px; color: #888; text-transform: uppercase; 
+            white-space: nowrap; font-weight: 900; font-size: 11px; color: #888; text-transform: uppercase; 
         }
         td:nth-of-type(1):before { content: "Couple"; }
         td:nth-of-type(2):before { content: "Date Day"; }
@@ -171,7 +202,7 @@
         td:nth-of-type(5):before { content: "Actions"; }
         
         .action-flex { justify-content: flex-start; flex-direction: column; width: 100%; }
-        .action-flex button { width: 100%; margin-bottom: 8px; }
+        .action-flex button { width: 100%; margin-bottom: 8px; padding: 14px; font-size: 14px;}
     }
 
     .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; }
@@ -192,7 +223,7 @@
     /* Promo / Action Banner */
     .action-banner {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%); 
-        padding: 30px; border-radius: 20px; margin-bottom: 35px; 
+        padding: clamp(25px, 5vw, 40px); border-radius: 20px; margin-bottom: 35px; 
         box-shadow: 0 15px 30px rgba(230, 0, 38, 0.2); 
         display: flex; flex-wrap: wrap; gap: 20px;
         align-items: center; justify-content: space-between;
@@ -206,7 +237,7 @@
     }
     .btn-qr:hover { transform: scale(1.05); }
 
-    /* === TOAST ANIMATION & STYLES === */
+    /* === TOAST ANIMATION === */
     .toast-alert {
         display: none; position: fixed; bottom: 30px; right: 30px; 
         background: white; border: 2px solid #E60026; padding: 20px; 
@@ -214,6 +245,7 @@
         z-index: 9999; width: 90%; max-width: 350px; 
         animation: popUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
+    @media (max-width: 600px) { .toast-alert { right: 5%; bottom: env(safe-area-inset-bottom, 20px); } }
     @keyframes popUp { from { transform: translateY(100px) scale(0.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
 
     /* Empty State */
@@ -226,10 +258,15 @@
 <div class="b2b-container">
     
     <div class="b2b-header">
-        <h1>{{ restaurant.business_name | default('Merchant') }} Dashboard</h1>
-        <form action="{{ url_for('auth.logout') }}" method="GET" style="margin: 0;">
-            <button type="submit" class="btn-logout">Log Out</button>
-        </form>
+        <h1>{{ restaurant.business_name | default('Merchant') }}</h1>
+        <div class="header-actions">
+            <a href="{{ url_for('merchant_dashboard') }}" class="btn-analytics">
+                <span>📊</span> Analytics
+            </a>
+            <form action="{{ url_for('auth.logout') }}" method="GET" style="margin: 0;">
+                <button type="submit" class="btn-logout">Log Out</button>
+            </form>
+        </div>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -301,24 +338,26 @@
             <span style="font-size: 12px; color: #666; background: #f0f0f0; padding: 6px 12px; border-radius: 12px; font-weight: 800;">LAST 24 HOURS</span>
         </div>
 
-        <div class="heatmap-container">
-            {% for hour in range(7, 22) %}
-                {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
-                {% set raw_height = (count * 15) %}
-                {% set height = raw_height if raw_height > 4 else 4 %}
-                {% set height = height if height < 150 else 150 %}
-                
-                <div class="heat-bar-wrapper">
-                    <div class="heat-bar" 
-                         style="height: {{ height }}px; background: {% if count > 5 %}#E60026{% elif count > 0 %}#FFD6DD{% else %}#eee{% endif %};" 
-                         title="{{ count }} scans at {{ hour }}:00">
+        <div class="heatmap-scroll-area">
+            <div class="heatmap-container">
+                {% for hour in range(7, 22) %}
+                    {% set count = restaurant.hourly_stats[hour|string] | default(0) %}
+                    {% set raw_height = (count * 15) %}
+                    {% set height = raw_height if raw_height > 4 else 4 %}
+                    {% set height = height if height < 150 else 150 %}
+                    
+                    <div class="heat-bar-wrapper">
+                        <div class="heat-bar" 
+                             style="height: {{ height }}px; background: {% if count > 5 %}#E60026{% elif count > 0 %}#FFD6DD{% else %}#eee{% endif %};" 
+                             title="{{ count }} scans at {{ hour }}:00">
+                        </div>
+                        <span style="font-size: 11px; color: #888; font-weight: 800;">{{ hour }}h</span>
                     </div>
-                    <span style="font-size: 11px; color: #888; font-weight: 800;">{{ hour }}h</span>
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
         
-        <div style="margin-top: 20px; display: flex; gap: 20px; justify-content: center;">
+        <div style="margin-top: 20px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; font-weight: 800;">
                 <div style="width: 14px; height: 14px; background: #E60026; border-radius: 3px;"></div> Peak
             </div>
@@ -333,7 +372,7 @@
     
     <div class="action-banner">
         <div style="flex: 1; min-width: 250px;">
-            <h3 style="color: white; margin-top: 0; margin-bottom: 8px; font-size: 22px; font-weight: 900;">In-Store Marketing</h3>
+            <h3 style="color: white; margin-top: 0; margin-bottom: 8px; font-size: clamp(20px, 4vw, 22px); font-weight: 900;">In-Store Marketing</h3>
             <p style="color: #FFD6DD; font-size: 15px; margin: 0; line-height: 1.5; font-weight: 500;">Print your unique QR code and place it at tables to verify student discounts seamlessly.</p>
         </div>
         <a href="{{ url_for('merchant_qr') }}" class="btn-qr">
@@ -397,31 +436,17 @@
 <div id="live-alert-toast" class="toast-alert">
     <div style="display: flex; align-items: center; gap: 15px; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="font-size: 24px; background: #FEF2F4; color: #E60026; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 10px rgba(230,0,38,0.2);">⚡</div>
+            <div style="font-size: 24px; background: #FEF2F4; color: #E60026; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 4px 10px rgba(230,0,38,0.2); flex-shrink: 0;">⚡</div>
             <div>
                 <div style="font-weight: 900; font-size: 11px; text-transform: uppercase; color: #E60026; letter-spacing: 0.5px;">New Discount Scan!</div>
-                <div id="alert-student-name" style="font-size: 18px; font-weight: 900; line-height: 1.2; color: #111;">Student Name</div>
+                <div id="alert-student-name" style="font-size: 18px; font-weight: 900; line-height: 1.2; color: #111; word-break: break-all;">Student Name</div>
             </div>
         </div>
-        <button onclick="document.getElementById('live-alert-toast').style.display='none'" style="background: none; border: none; font-size: 20px; color: #aaa; cursor: pointer;">&times;</button>
+        <button onclick="document.getElementById('live-alert-toast').style.display='none'" style="background: none; border: none; font-size: 24px; color: #aaa; cursor: pointer; padding: 0 5px; flex-shrink: 0;">&times;</button>
     </div>
 </div>
-<a href="{{ url_for('merchant_dashboard') }}" style="
-    display: inline-block;
-    background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-    color: white;
-    text-decoration: none;
-    padding: 15px 30px;
-    border-radius: 12px;
-    font-weight: 900;
-    font-size: 15px;
-    box-shadow: 0 4px 15px rgba(230,0,38,0.2);
-    text-align: center;
-    transition: transform 0.2s, box-shadow 0.2s;
-">
-    📊 Open Analytics Dashboard
-</a>
-<audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/1008/1008-preview.mp3" preload="auto"></audio>
+
+<audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/1008/1008-preview.mp3" preload="auto" style="display: none;"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -441,7 +466,6 @@
     };
     if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 
-    // 🚨 CRITICAL FIX: Ensure JS uses the correct Session Variable
     const restaurantId = "{{ session.get('user_id') }}";
     
     if(restaurantId && restaurantId !== "None") {

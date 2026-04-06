@@ -5,15 +5,21 @@
     /* === DASHBOARD HEADER === */
     .dashboard-header {
         text-align: center;
-        padding: clamp(20px, 4vw, 40px) 15px clamp(15px, 3vw, 30px);
+        padding: clamp(20px, 4vw, 40px) clamp(15px, 5vw, 30px) clamp(15px, 3vw, 25px);
+        animation: fadeInDown 0.4s ease-out;
     }
     .dashboard-header h1 {
         color: #720000;
-        font-size: clamp(26px, 5vw, 36px);
+        font-size: clamp(24px, 6vw, 36px);
         font-weight: 900;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         letter-spacing: -0.5px;
         line-height: 1.2;
+    }
+    
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-15px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     
     /* === ACTION CENTER (QUICK STATS) === */
@@ -22,223 +28,205 @@
         justify-content: center;
         gap: 15px;
         margin-bottom: 30px;
-        padding: 0 15px;
+        padding: 0 clamp(15px, 5vw, 30px);
         flex-wrap: wrap;
     }
     .action-pill {
         background: white;
         border: 2px solid #FFD6DD;
-        padding: 10px 20px;
-        border-radius: 25px;
+        padding: 12px 24px;
+        border-radius: 30px;
         display: flex;
         align-items: center;
         gap: 10px;
         font-weight: 800;
         color: #4A0008;
         font-size: 14px;
-        box-shadow: 0 4px 10px rgba(114,0,0,0.05);
-        transition: 0.2s;
+        box-shadow: 0 4px 15px rgba(114,0,0,0.05);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
         text-decoration: none;
+        user-select: none;
     }
-    .action-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(114,0,0,0.1); border-color: #E60026; }
+    .action-pill:active { transform: scale(0.95); }
+    @media (hover: hover) {
+        .action-pill:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(114,0,0,0.1); border-color: #E60026; }
+    }
+    
     .badge-count {
-        background: #E60026;
-        color: white;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
+        background: #E60026; color: white;
+        width: 24px; height: 24px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 900;
+        box-shadow: 0 2px 8px rgba(230,0,38,0.3);
     }
 
-    /* === PWA INSTALL BANNER === */
+    /* === PWA INSTALL BANNER (INLINE) === */
     #install-container {
         display: none;
         max-width: 600px;
-        margin: 0 auto 30px auto;
-        padding: 0 15px;
+        margin: 0 auto 35px auto;
+        padding: 0 clamp(15px, 5vw, 30px);
     }
     .btn-install {
         width: 100%;
-        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
-        color: white;
-        border: none;
-        padding: 14px;
-        border-radius: 12px;
-        font-size: 15px;
-        font-weight: 800;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        box-shadow: 0 4px 15px rgba(230,0,38,0.25);
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; border: none; padding: 16px; border-radius: 16px;
+        font-size: 16px; font-weight: 900; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.25);
         transition: transform 0.2s;
     }
     .btn-install:active { transform: scale(0.98); }
 
     /* === UPCOMING DATES SECTION === */
     .section-title {
-        color: #720000;
-        font-size: 22px;
-        font-weight: 900;
-        margin: 0 0 15px 15px;
-        max-width: 1000px;
-        margin-left: auto;
-        margin-right: auto;
-        padding: 0 15px;
+        color: #720000; font-size: clamp(20px, 5vw, 24px); font-weight: 900;
+        margin: 0 auto 15px auto; max-width: 1030px;
+        padding: 0 clamp(15px, 5vw, 30px);
+        display: flex; align-items: center; gap: 8px;
     }
 
     .dates-container {
-        max-width: 1030px;
-        margin: 0 auto 40px auto;
-        padding: 0 15px;
-        display: grid;
-        gap: 20px;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        max-width: 1060px; margin: 0 auto 45px auto;
+        padding: 0 clamp(15px, 5vw, 30px);
+        display: grid; gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     }
 
     .date-card {
         background: linear-gradient(135deg, #ffffff 0%, #FEF2F4 100%);
-        border-radius: 20px;
-        border: 2px solid #E60026;
-        padding: 25px;
-        box-shadow: 0 10px 25px rgba(230,0,38,0.15);
-        position: relative;
-        overflow: hidden;
+        border-radius: 20px; border: 2px solid #E60026; padding: 25px;
+        box-shadow: 0 10px 30px rgba(230,0,38,0.12);
+        position: relative; overflow: hidden;
     }
     .date-card::before {
-        content: 'CONFIRMED';
-        position: absolute;
-        top: 20px;
-        right: -30px;
-        background: #28a745;
-        color: white;
-        font-size: 10px;
-        font-weight: 900;
-        padding: 5px 30px;
-        transform: rotate(45deg);
-        letter-spacing: 1px;
+        content: 'CONFIRMED'; position: absolute; top: 22px; right: -35px;
+        background: #28a745; color: white; font-size: 10px; font-weight: 900;
+        padding: 6px 40px; transform: rotate(45deg); letter-spacing: 1px;
+        box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
     }
 
     .date-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
     .date-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    .date-info h3 { margin: 0 0 5px 0; color: #720000; font-size: 20px; font-weight: 900; }
+    .date-info h3 { margin: 0 0 5px 0; color: #720000; font-size: 20px; font-weight: 900; line-height: 1.2;}
     .date-info p { margin: 0; color: #666; font-size: 14px; font-weight: 600; }
 
     .date-details {
-        background: white;
-        padding: 15px;
-        border-radius: 12px;
-        border: 1px solid #FFD6DD;
-        margin-bottom: 20px;
+        background: white; padding: 18px; border-radius: 14px;
+        border: 1px solid #FFD6DD; margin-bottom: 20px;
     }
-    .detail-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; color: #333; font-weight: 600; line-height: 1.4; }
+    .detail-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 14px; color: #111; font-weight: 600; line-height: 1.4; }
     .detail-row:last-child { margin-bottom: 0; }
-    .detail-icon { font-size: 18px; flex-shrink: 0; }
+    .detail-icon { font-size: 18px; flex-shrink: 0; margin-top: -2px;}
 
-    .date-checklist {
-        background: #fff8e6;
-        border-left: 4px solid #ffc107;
-        padding: 15px;
-        border-radius: 8px;
-    }
-    .date-checklist h4 { margin: 0 0 10px 0; color: #856404; font-size: 14px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; }
-    .date-checklist ul { margin: 0; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.5; }
-    .date-checklist li { margin-bottom: 5px; }
+    .date-checklist { background: #fff8e6; border-left: 4px solid #ffc107; padding: 15px; border-radius: 10px; }
+    .date-checklist h4 { margin: 0 0 8px 0; color: #856404; font-size: 13px; text-transform: uppercase; font-weight: 900; letter-spacing: 0.5px; }
+    .date-checklist ul { margin: 0; padding-left: 20px; color: #666; font-size: 13px; line-height: 1.6; }
+    .date-checklist li { margin-bottom: 4px; }
 
     /* === HORIZONTAL SCROLL GRID (MATCHES) === */
     .matches-grid {
-        display: flex; 
-        gap: clamp(15px, 4vw, 25px);
-        max-width: 1030px;
+        display: flex; gap: clamp(15px, 4vw, 25px); max-width: 1060px;
         margin: 0 auto 60px auto;
-        padding: 15px 15px 40px 15px; 
-        overflow-x: auto; 
-        scroll-snap-type: x mandatory; 
-        scrollbar-width: none; 
-        -webkit-overflow-scrolling: touch; 
+        padding: 10px clamp(15px, 5vw, 30px) 40px; 
+        overflow-x: auto; scroll-snap-type: x mandatory; 
+        /* scroll-padding ensures the card snaps with proper margin on the left */
+        scroll-padding-left: clamp(15px, 5vw, 30px); 
+        scrollbar-width: none; -webkit-overflow-scrolling: touch; 
     }
     .matches-grid::-webkit-scrollbar { display: none; }
 
     .match-card {
-        flex: 0 0 85%;
-        max-width: 320px; 
-        background: white;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.08);
+        flex: 0 0 85%; max-width: 300px; 
+        background: white; border-radius: 20px; overflow: hidden;
+        box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08);
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: 1px solid #FFD6DD;
-        display: flex;
-        flex-direction: column;
-        scroll-snap-align: center; 
+        border: 1px solid #FFD6DD; display: flex; flex-direction: column;
+        scroll-snap-align: start; 
     }
 
     @media (min-width: 768px) {
-        .match-card { flex: 0 0 280px; scroll-snap-align: start; }
-        .action-pill { padding: 12px 25px; font-size: 15px; }
+        .match-card { flex: 0 0 280px; }
     }
     
     @media (hover: hover) {
         .match-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border-color: #E60026; }
     }
 
-    .match-img-wrapper { position: relative; height: 260px; width: 100%; background: #FEF2F4; }
+    .match-img-wrapper { position: relative; height: 280px; width: 100%; background: #eee; }
     .match-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    .match-img-wrapper::after {
+        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
+        background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+    }
     
     .compat-badge {
-        position: absolute; bottom: 12px; left: 12px; background: rgba(255, 255, 255, 0.95);
+        position: absolute; bottom: 15px; left: 15px; background: rgba(255, 255, 255, 0.95);
         color: #720000; padding: 6px 14px; border-radius: 20px; font-size: 12px;
-        font-weight: 900; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: 1px solid #FFD6DD;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+        font-weight: 900; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #FFD6DD;
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 2;
+    }
+    .perfect-match-badge {
+        background: #E60026; color: white; border-color: white;
     }
 
     .match-info { padding: 20px; flex: 1; display: flex; flex-direction: column; }
-    .match-info h3 { color: #720000; margin: 0 0 8px 0; font-size: 20px; font-weight: 800; line-height: 1.2; }
+    .match-info h3 { color: #720000; margin: 0 0 8px 0; font-size: 22px; font-weight: 900; line-height: 1.2; }
     .match-info p { color: #555; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
     .btn-chat {
         background: #FEF2F4; color: #E60026; border: 2px solid #FFD6DD;
-        padding: 12px; border-radius: 12px; text-align: center; font-weight: 800;
+        padding: 14px; border-radius: 14px; text-align: center; font-weight: 900; font-size: 15px;
         text-decoration: none; transition: all 0.2s; display: block; width: 100%; box-sizing: border-box;
     }
+    .btn-chat:active { transform: scale(0.97); }
     @media (hover: hover) { .btn-chat:hover { background: #E60026; color: white; border-color: #E60026; } }
 
     /* === EMPTY STATES === */
     .empty-state {
         flex: 1 1 100%; text-align: center; padding: clamp(40px, 8vw, 60px) 20px;
-        background: white; border-radius: 20px; border: 2px dashed #FFD6DD;
-        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05);
+        background: white; border-radius: 24px; border: 2px dashed #FFD6DD;
+        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05); margin: 0 clamp(15px, 5vw, 30px);
     }
     .empty-state-icon { font-size: clamp(40px, 8vw, 60px); margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
-    .empty-state h2 { color: #720000; margin-bottom: 10px; font-size: clamp(20px, 4vw, 24px); }
-    .empty-state p { color: #666; margin-bottom: 25px; font-size: clamp(14px, 3vw, 16px); max-width: 400px; margin-left: auto; margin-right: auto; }
+    .empty-state h2 { color: #720000; margin-bottom: 10px; font-weight: 900; font-size: clamp(20px, 4vw, 24px); }
+    .empty-state p { color: #666; margin-bottom: 0; font-size: clamp(14px, 3vw, 15px); max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.5;}
 
-    /* === MODAL BUTTONS === */
-    .btn-milestone {
-        width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 12px;
-        font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s; color: white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    /* === MILESTONE MODAL FIXES === */
+    .modal {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+        z-index: 10000; display: flex; align-items: center; justify-content: center;
+        padding: 20px; opacity: 1; visibility: visible; transition: 0.3s;
     }
-    .btn-milestone:active { transform: translateY(2px); box-shadow: none; }
-    @media (hover: hover) { .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); } }
+    .modal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    
+    .modal-content {
+        background: white; border-radius: 24px; padding: 35px 25px;
+        width: 100%; max-width: 360px; text-align: center;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+        border-top: 8px solid #E60026;
+        transform: scale(1) translateY(0); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .modal.hidden .modal-content { transform: scale(0.9) translateY(20px); }
+
+    .btn-milestone {
+        width: 100%; padding: 16px; margin-bottom: 12px; border: none; border-radius: 14px;
+        font-weight: 900; font-size: 14px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; 
+        color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-milestone:active { transform: scale(0.97); box-shadow: none; }
+    @media (hover: hover) { .btn-milestone:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.2); } }
 </style>
 
 <div class="dashboard-header">
-    <h1>Welcome back, {{ current_user }}!</h1>
+    <h1>Welcome back, {{ current_user }}! 👋</h1>
 </div>
 
 <div class="action-center">
     <a href="/matches" class="action-pill">
         💬 Unread Chats
-        {% if unread_chats_count and unread_chats_count > 0 %}
-            <div class="badge-count">{{ unread_chats_count }}</div>
-        {% else %}
-            <div class="badge-count" style="background: #ccc;">0</div>
-        {% endif %}
+        <div class="badge-count" id="dash-unread-badge" style="background: #ccc;">0</div>
     </a>
     <a href="/discover" class="action-pill">
         📅 Pending Dates
@@ -252,7 +240,7 @@
 
 <div id="install-container">
     <button id="btn-install" class="btn-install">
-        <span style="font-size: 20px;">📲</span> Install MMUST Match App
+        <span style="font-size: 22px;">📲</span> Install App for Full Experience
     </button>
 </div>
 
@@ -272,7 +260,7 @@
         <div class="date-details">
             <div class="detail-row">
                 <span class="detail-icon">📍</span>
-                <span><strong>{{ date.restaurant_name }}</strong><br><span style="font-size: 12px; color: #666;">{{ date.location }}</span></span>
+                <span><strong>{{ date.restaurant_name }}</strong><br><span style="font-size: 13px; color: #666;">{{ date.location }}</span></span>
             </div>
             <div class="detail-row">
                 <span class="detail-icon">📅</span>
@@ -289,9 +277,9 @@
         <div class="date-checklist">
             <h4>What you need to know:</h4>
             <ul>
-                <li><strong>Bring your Student ID:</strong> Prove you are an MMUST student.</li>
-                <li><strong>Scan the QR Code:</strong> When you arrive, scan the restaurant's QR code using the app to unlock your table and discounts.</li>
-                <li><strong>Be Safe:</strong> Share your location with a friend. Read our <a href="/safety" style="color: #E60026; font-weight: bold;">safety guidelines</a>.</li>
+                <li><strong>Bring Student ID:</strong> Verify you are an MMUST student.</li>
+                <li><strong>Scan QR Code:</strong> When you arrive, scan the restaurant's app QR code to claim your table & discounts.</li>
+                <li><strong>Stay Safe:</strong> Read our <a href="{{ url_for('safety') }}" style="color: #E60026; font-weight: bold;">safety guidelines</a>.</li>
             </ul>
         </div>
     </div>
@@ -300,64 +288,59 @@
 {% endif %}
 
 <h2 class="section-title">🔥 Discover Students</h2>
+{% if matches %}
 <div class="matches-grid">
-    {% if matches %}
-        {% for match in matches %}
-        <div class="match-card">
-            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
-                <div class="match-img-wrapper">
-                    <img src="{{ match.img }}" alt="{{ match.name }}">
-                    
-                    {% if match.is_perfect_match %}
-                        <div class="compat-badge" style="background: rgba(230, 0, 38, 0.95); color: white; border: 1px solid #720000;">
-                            ❤️ Perfect Match
-                        </div>
-                    {% else %}
-                        <div class="compat-badge">
-                            ✨ {{ match.compatibility }}% Match
-                        </div>
-                    {% endif %}
-                    
-                </div>
-            </a>
-            
-            <div class="match-info">
-                <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
-                    <h3>{{ match.name }}</h3>
-                </a>
-                <p>{{ match.bio }}</p>
-                <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Message</a>
+    {% for match in matches %}
+    <div class="match-card">
+        <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
+            <div class="match-img-wrapper">
+                <img src="{{ match.img }}" alt="{{ match.name }}" loading="lazy">
+                
+                {% if match.is_perfect_match %}
+                    <div class="compat-badge perfect-match-badge">❤️ Perfect Match</div>
+                {% else %}
+                    <div class="compat-badge">✨ {{ match.compatibility }}% Match</div>
+                {% endif %}
             </div>
+        </a>
+        
+        <div class="match-info">
+            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
+                <h3>{{ match.name }}</h3>
+            </a>
+            <p>{{ match.bio }}</p>
+            <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Message</a>
         </div>
-        {% endfor %}
-    {% else %}
-        <div class="empty-state">
-            <div class="empty-state-icon">👀</div>
-            <h2>It's quiet here...</h2>
-            <p>You don't have any students visible right now. Check back later!</p>
-        </div>
-    {% endif %}
+    </div>
+    {% endfor %}
 </div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">👀</div>
+    <h2>It's quiet here...</h2>
+    <p>You don't have any new students visible right now. Adjust your filters or check back later!</p>
+</div>
+{% endif %}
 
 <div id="milestone-modal" class="modal hidden">
-    <div class="modal-content" style="text-align: center; border-top: 6px solid #E60026; border-radius: 20px; padding: 30px 20px; max-width: 350px;">
-        <h2 style="color: #720000; margin-bottom: 10px; font-size: 24px;">Happy Anniversary! 🎉</h2>
-        <p style="color: #555; font-size: 14px; margin-bottom: 25px; line-height: 1.5;">
+    <div class="modal-content">
+        <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! 🎉</h2>
+        <p style="color: #555; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
             It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#E60026;">Them</strong>. Our AI wants to know how your connection is going!
         </p>
         
         <div style="display: flex; flex-direction: column;">
-            <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(90deg, #720000 0%, #E60026 100%);">
-                💍 We are Married / Engaged!
+            <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%);">
+                <span>💍</span> We are Married / Engaged!
             </button>
             <button onclick="submitMilestone('serious')" class="btn-milestone" style="background: #28a745;">
-                ❤️ We are in a serious relationship
+                <span>❤️</span> In a serious relationship
             </button>
             <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
-                ☕ Still casually dating
+                <span>☕</span> Still casually dating
             </button>
             <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #4A0008; border: 2px solid #FFD6DD; box-shadow: none;">
-                💔 It didn't work out
+                <span>💔</span> It didn't work out
             </button>
         </div>
     </div>
@@ -365,7 +348,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Check for milestones when the dashboard loads
+        // Milestone Check
         fetch('/api/check_milestone')
             .then(res => res.json())
             .then(data => {
@@ -376,7 +359,7 @@
             })
             .catch(err => console.error("Milestone Check Error:", err));
             
-        // Calculate Unread Chats from LocalStorage (Frontend calculation)
+        // Calculate Unread Chats from LocalStorage
         try {
             let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
             let totalUnread = 0;
@@ -389,10 +372,11 @@
             }
             
             if (totalUnread > 0) {
-                const unreadBadge = document.querySelector('a[href="/matches"] .badge-count');
+                const unreadBadge = document.getElementById('dash-unread-badge');
                 if (unreadBadge) {
                     unreadBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
                     unreadBadge.style.background = '#E60026';
+                    unreadBadge.style.color = 'white';
                 }
             }
         } catch(e) {
@@ -421,28 +405,19 @@
     const btnInstall = document.getElementById('btn-install');
 
     window.addEventListener('beforeinstallprompt', (e) => {
-        // Prevent the default browser mini-infobar from appearing
         e.preventDefault();
-        // Stash the event so it can be triggered later.
         deferredPrompt = e;
-        // Update UI notify the user they can install the PWA
         installContainer.style.display = 'block';
     });
 
-    btnInstall.addEventListener('click', (e) => {
-        // Hide the app provided install promotion
-        installContainer.style.display = 'none';
-        // Show the install prompt
-        deferredPrompt.prompt();
-        // Wait for the user to respond to the prompt
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-                console.log('User accepted the install prompt');
-            } else {
-                console.log('User dismissed the install prompt');
-            }
+    btnInstall.addEventListener('click', async () => {
+        if (deferredPrompt) {
+            installContainer.style.display = 'none';
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User ${outcome === 'accepted' ? 'accepted' : 'dismissed'} the install prompt`);
             deferredPrompt = null;
-        });
+        }
     });
 </script>
 {% endblock %}

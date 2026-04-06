@@ -7,200 +7,145 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        /* Using dvh for perfect mobile centering, preventing browser UI jump */
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px);
         padding: clamp(20px, 5vw, 40px) 15px;
     }
 
     .pay-card {
         background: white;
-        border-radius: 24px;
-        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
+        border-radius: 28px;
+        padding: clamp(30px, 8vw, 45px) clamp(20px, 6vw, 35px);
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.1);
         border: 1px solid #FFD6DD;
         position: relative;
         overflow: hidden;
         width: 100%;
-        max-width: 450px;
+        max-width: 420px;
         text-align: center;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-sizing: border-box;
+    }
+
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     /* Premium Glow Effect */
     .pay-card::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(230,0,38,0.05) 0%, transparent 70%);
-        pointer-events: none;
+        content: ''; position: absolute; top: -50%; left: -50%;
+        width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(230,0,38,0.06) 0%, transparent 60%);
+        pointer-events: none; z-index: 0;
     }
 
     /* === TYPOGRAPHY === */
     .price-badge {
-        background: #FEF2F4;
-        color: #E60026;
-        display: inline-block;
-        padding: 8px 20px;
-        border-radius: 50px;
-        font-weight: 900;
-        font-size: 14px;
-        margin-bottom: 20px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        border: 1px solid #FFD6DD;
+        background: #FEF2F4; color: #E60026;
+        display: inline-block; padding: 8px 20px;
+        border-radius: 50px; font-weight: 900; font-size: 13px;
+        margin-bottom: 20px; text-transform: uppercase;
+        letter-spacing: 1px; border: 1px solid #FFD6DD;
+        position: relative; z-index: 2;
     }
 
     .pay-title {
-        color: #720000;
-        font-size: clamp(26px, 6vw, 32px);
-        font-weight: 900;
-        margin: 0 0 10px 0;
-        line-height: 1.2;
-        letter-spacing: -0.5px;
+        color: #720000; font-size: clamp(26px, 6vw, 32px);
+        font-weight: 900; margin: 0 0 10px 0; line-height: 1.2;
+        letter-spacing: -0.5px; position: relative; z-index: 2;
     }
 
     .pay-subtitle {
-        color: #666;
-        font-size: 15px;
-        margin-bottom: 30px;
-        line-height: 1.5;
+        color: #666; font-size: 15px; font-weight: 500;
+        margin-bottom: 30px; line-height: 1.5;
+        position: relative; z-index: 2;
     }
 
     /* === BENEFITS LIST === */
     .benefits-list {
-        text-align: left;
-        margin-bottom: 35px;
-        padding: 0;
-        list-style: none;
+        text-align: left; margin-bottom: 35px; padding: 0;
+        list-style: none; position: relative; z-index: 2;
     }
 
     .benefits-list li {
-        margin-bottom: 15px;
-        color: #4A0008;
-        font-size: 15px;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 12px;
+        margin-bottom: 16px; color: #111; font-size: 15px;
+        font-weight: 600; display: flex; align-items: center; gap: 14px;
     }
 
     .check-icon {
-        color: #28a745;
-        font-weight: 900;
-        background: #d4edda;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-size: 12px;
+        color: #28a745; font-weight: 900; background: #d4edda;
+        width: 26px; height: 26px; display: flex; align-items: center;
+        justify-content: center; border-radius: 50%; font-size: 12px;
+        flex-shrink: 0; box-shadow: 0 2px 8px rgba(40,167,69,0.2);
     }
 
     /* === M-PESA FORM === */
     .mpesa-input-group {
-        background: #fafafa;
-        padding: 20px;
-        border-radius: 16px;
-        border: 1px solid #eee;
-        margin-bottom: 20px;
-        transition: 0.3s opacity;
-        text-align: left;
+        background: #fafafa; padding: 20px; border-radius: 18px;
+        border: 2px solid #f0f0f0; margin-bottom: 20px;
+        transition: 0.3s ease; text-align: left;
+        position: relative; z-index: 2; box-sizing: border-box;
+    }
+    
+    /* Focus state turns M-Pesa Green for trust */
+    .mpesa-input-group:focus-within {
+        border-color: #28a745; background: white;
+        box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
     }
 
     .mpesa-input-group label {
-        display: block;
-        font-size: 12px;
-        font-weight: 800;
-        color: #888;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        display: block; font-size: 11px; font-weight: 900; color: #888;
+        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;
     }
 
     .mpesa-input-group input {
-        width: 100%;
-        border: none;
-        background: transparent;
-        font-size: 20px; /* Larger font for easy reading on mobile */
-        font-weight: 800;
-        color: #333;
-        outline: none;
-        letter-spacing: 1px;
-        -webkit-appearance: none;
+        width: 100%; border: none; background: transparent;
+        font-size: 22px; font-weight: 900; color: #111; outline: none;
+        letter-spacing: 2px; -webkit-appearance: none; font-family: inherit;
     }
+    .mpesa-input-group input::placeholder { color: #ccc; font-weight: 600; letter-spacing: 1px;}
 
     .btn-unlock {
-        width: 100%;
-        background: linear-gradient(135deg, #E60026 0%, #720000 100%);
-        color: white;
-        border: none;
-        padding: 18px;
-        border-radius: 14px;
-        font-size: 16px;
-        font-weight: 800;
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s, background 0.3s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
+        width: 100%; background: linear-gradient(135deg, #E60026 0%, #720000 100%);
+        color: white; border: none; padding: 18px; border-radius: 16px;
+        font-size: 16px; font-weight: 900; cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s, background 0.3s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
+        display: flex; justify-content: center; align-items: center; gap: 12px;
+        position: relative; z-index: 2; min-height: 58px;
     }
+    .btn-unlock:active { transform: scale(0.97); }
 
     @media (hover: hover) {
-        .btn-unlock:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3);
+        .btn-unlock:not(:disabled):hover {
+            transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3);
         }
     }
     
-    .btn-unlock:disabled {
-        transform: none;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
+    .btn-unlock:disabled { transform: none; cursor: not-allowed; box-shadow: none; opacity: 0.9; }
 
     .security-note {
-        margin-top: 25px;
-        font-size: 12px;
-        color: #888;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        font-weight: 600;
+        margin-top: 25px; font-size: 13px; color: #888;
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        font-weight: 700; position: relative; z-index: 2;
     }
 
     /* === ANIMATIONS & STATES === */
     .spinner {
-        display: none;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255,255,255,0.3);
-        border-radius: 50%;
-        border-top-color: white;
-        animation: spin 1s linear infinite;
+        display: none; width: 22px; height: 22px;
+        border: 3px solid rgba(255,255,255,0.3); border-radius: 50%;
+        border-top-color: white; animation: spin 1s linear infinite;
+        flex-shrink: 0;
     }
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     
     .waiting-text {
-        font-size: 14px;
-        color: #E60026;
-        font-weight: 800;
-        margin-top: 15px;
-        display: none;
-        animation: pulse 1.5s infinite;
-        line-height: 1.4;
+        font-size: 14px; color: #E60026; font-weight: 800;
+        margin-top: 15px; display: none; animation: pulse 1.5s infinite;
+        line-height: 1.5; position: relative; z-index: 2;
     }
-    @keyframes pulse {
-        0% { opacity: 0.5; }
-        50% { opacity: 1; }
-        100% { opacity: 0.5; }
-    }
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
 </style>
 
 <div class="paywall-wrapper">
@@ -218,7 +163,7 @@
 
         <div class="mpesa-input-group" id="input-container">
             <label for="student-phone">M-Pesa Number</label>
-            <input type="tel" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12" autocomplete="tel">
+            <input type="tel" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12" autocomplete="tel" inputmode="numeric" pattern="[0-9]*">
         </div>
 
         <button id="btn-pay-student" onclick="payStudentFee()" class="btn-unlock">

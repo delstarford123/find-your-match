@@ -1,31 +1,55 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Weekly Performance Report</title>
+    
     <style type="text/css">
         /* Client-specific resets */
         body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-spacing: 0; border-collapse: collapse; }
-        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; border-collapse: collapse; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; display: block; }
         
         /* Global Styles */
-        body { margin: 0; padding: 0; background-color: #f4f4f4; -webkit-font-smoothing: antialiased; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
+        body { margin: 0; padding: 0; width: 100% !important; background-color: #f4f4f4; -webkit-font-smoothing: antialiased; font-family: 'Inter', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif; }
         .wrapper { width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 10px; }
-        .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(114, 0, 0, 0.1); border: 1px solid #FFD6DD; }
+        .main-table { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(114, 0, 0, 0.1); border: 1px solid #FFD6DD; }
+        
+        /* Typography */
+        p, h1, h2, h3, a { color: #4A0008; font-family: 'Inter', -apple-system, Helvetica, Arial, sans-serif; }
         
         /* Interactive styles */
         .btn-primary:hover { background-color: #720000 !important; }
         
         /* Mobile overrides */
         @media screen and (max-width: 600px) {
-            .wrapper { padding: 20px 5px !important; }
+            .wrapper { padding: 20px 10px !important; }
             .content-padding { padding: 25px 20px !important; }
-            .metric-box { padding: 20px 10px !important; }
+            
+            /* Stack columns on mobile */
+            .mobile-stack { display: block !important; width: 100% !important; box-sizing: border-box !important; }
+            .metric-box-container { padding-bottom: 15px !important; }
+            
             .metric-value { font-size: 32px !important; }
             .h1-text { font-size: 24px !important; }
+        }
+        
+        /* Dark Mode overrides for Apple Mail and others */
+        @media (prefers-color-scheme: dark) {
+            body, .wrapper { background-color: #111111 !important; }
+            .main-table { background-color: #1a1a1a !important; border-color: #333333 !important; box-shadow: none !important;}
+            .content-padding { color: #eeeeee !important; }
+            p, h3 { color: #eeeeee !important; }
+            .metric-box { background-color: #2a2a2a !important; border-color: #444444 !important; }
+            .metric-value { color: #ffffff !important; }
+            .metric-label { color: #ff6b81 !important; }
+            .border-line { border-bottom-color: #333333 !important; }
+            .booking-text { color: #cccccc !important; border-bottom-color: #333333 !important;}
+            .booking-highlight { color: #ff6b81 !important; }
         }
     </style>
 </head>
@@ -33,70 +57,84 @@
 
     <center class="wrapper" style="width: 100%; table-layout: fixed; background-color: #f4f4f4; padding: 40px 10px;">
         
-        <table class="main" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; overflow: hidden; border: 1px solid #FFD6DD;">
+        <table class="main-table" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; border: 1px solid #FFD6DD;">
             
             <tr>
-                <td style="background-color: #E60026; background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 35px 20px; text-align: center;">
-                    <h1 class="h1-text" style="margin: 0; color: #ffffff; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">Weekly Venue Report</h1>
-                    <p style="margin: 8px 0 0 0; color: #FFD6DD; font-size: 15px; font-weight: 500;">{{ restaurant_name }}</p>
+                <td style="background-color: #E60026; background-image: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 40px 20px; text-align: center; border-top-left-radius: 16px; border-top-right-radius: 16px;">
+                    <h1 class="h1-text" style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Weekly Venue Report</h1>
+                    <p style="margin: 8px 0 0 0; color: #FFD6DD; font-size: 16px; font-weight: 500;">{{ restaurant_name }}</p>
                 </td>
             </tr>
 
             <tr>
-                <td class="content-padding" style="padding: 35px 30px; color: #4A0008;">
+                <td class="content-padding" style="padding: 40px 30px; color: #4A0008;">
                     
-                    <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: 600;">Hello {{ owner_name }},</p>
-                    <p style="margin: 0 0 25px 0; font-size: 15px; line-height: 1.6; color: #555555;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px; font-weight: 700;">Hello {{ owner_name }},</p>
+                    <p style="margin: 0 0 30px 0; font-size: 15px; line-height: 1.6; color: #555555;">
                         Here is how the <strong>FIND YOUR MATCH AI</strong> drove foot traffic to your venue this past week ({{ report_start_date }} - {{ report_end_date }}):
                     </p>
 
                     <table width="100%" cellpadding="0" cellspacing="0" border="0">
                         <tr>
-                            <td width="48%" align="center" class="metric-box" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
-                                <div class="metric-value" style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ profile_views }}</div>
-                                <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Discovery Views</div>
+                            <td class="mobile-stack metric-box-container" width="48%" valign="top">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td class="metric-box" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 14px; border: 1px solid #FFD6DD;">
+                                            <div class="metric-value" style="font-size: 42px; font-weight: 900; color: #720000; margin-bottom: 8px; line-height: 1;">{{ profile_views }}</div>
+                                            <div class="metric-label" style="font-size: 12px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">Discovery Views</div>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                             
-                            <td width="4%"></td>
+                            <td class="mobile-stack" width="4%" style="font-size: 1px; line-height: 1px;">&nbsp;</td>
                             
-                            <td width="48%" align="center" class="metric-box" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 12px; border: 1px solid #FFD6DD;">
-                                <div class="metric-value" style="font-size: 38px; font-weight: 900; color: #720000; margin-bottom: 5px; line-height: 1;">{{ qr_scans }}</div>
-                                <div style="font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">QR Redemptions</div>
+                            <td class="mobile-stack" width="48%" valign="top">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td class="metric-box" align="center" style="background-color: #FEF2F4; padding: 25px 15px; border-radius: 14px; border: 1px solid #FFD6DD;">
+                                            <div class="metric-value" style="font-size: 42px; font-weight: 900; color: #720000; margin-bottom: 8px; line-height: 1;">{{ qr_scans }}</div>
+                                            <div class="metric-label" style="font-size: 12px; color: #E60026; text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">QR Redemptions</div>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                     </table>
 
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 35px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 40px;">
                         <tr>
-                            <td style="border-bottom: 2px solid #FEF2F4; padding-bottom: 10px; margin-bottom: 15px;">
-                                <h3 style="margin: 0; color: #720000; font-size: 18px;">Recent Campus Matches Hosted</h3>
+                            <td class="border-line" style="border-bottom: 2px solid #FEF2F4; padding-bottom: 12px; margin-bottom: 15px;">
+                                <h3 style="margin: 0; color: #720000; font-size: 18px; font-weight: 800;">Recent Campus Matches Hosted</h3>
                             </td>
                         </tr>
                         
                         {% for booking in recent_bookings %}
                         <tr>
-                            <td style="padding: 14px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #4A0008;">
-                                <span style="font-weight: bold; color: #E60026;">{{ booking.couple }}</span> scheduled a date on <strong>{{ booking.day }}</strong> at <strong>{{ booking.time }}</strong>
+                            <td class="booking-text" style="padding: 16px 0; border-bottom: 1px solid #f0f0f0; font-size: 15px; color: #4A0008; line-height: 1.5;">
+                                <span class="booking-highlight" style="font-weight: 800; color: #E60026;">{{ booking.couple }}</span> scheduled a date on <strong>{{ booking.day }}</strong> at <strong>{{ booking.time }}</strong>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td style="padding: 20px 0; text-align: center; color: #888888; font-size: 14px; font-style: italic;">
+                            <td style="padding: 25px 0; text-align: center; color: #888888; font-size: 15px; font-style: italic; line-height: 1.5;">
                                 No bookings this week. <br><strong style="color: #4A0008; font-style: normal;">AI Tip:</strong> Add a free drink offer to your 'Student Perk' to attract more MMUST couples!
                             </td>
                         </tr>
                         {% endfor %}
                     </table>
 
-                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 35px; text-align: center;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 45px; text-align: center;">
                         <tr>
                             <td align="center">
-                                <p style="margin: 0 0 15px 0; font-size: 14px; color: #666666;">Want to update your venue profile or see deeper analytics?</p>
+                                <p style="margin: 0 0 20px 0; font-size: 15px; color: #666666; font-weight: 500;">Want to update your venue profile or see deeper analytics?</p>
                                 
-                                <a href="https://delstarford-works.vercel.app/login" class="btn-primary" style="display: inline-block; background-color: #E60026; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: bold; padding: 14px 30px; border-radius: 30px; transition: background-color 0.3s; mso-padding-alt: 0;">
+                                <div>
+                                    <a href="https://delstarford-works.vercel.app/login" class="btn-primary" style="display: inline-block; background-color: #E60026; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 800; padding: 16px 35px; border-radius: 30px; transition: background-color 0.3s;">
                                         Open Merchant Dashboard
                                     </a>
-                                </td>
+                                    </div>
+                            </td>
                         </tr>
                     </table>
 
@@ -104,10 +142,11 @@
             </tr>
 
             <tr>
-                <td style="background-color: #4A0008; padding: 25px; text-align: center;">
-                    <p style="margin: 0; color: #FFD6DD; font-size: 12px; font-weight: 500;">&copy; 2026 Delstarford Works AI Solutions</p>
-                    <p style="margin: 5px 0 0 0; color: rgba(255, 214, 221, 0.6); font-size: 11px;">
-                        Kakamega, Kenya | <a href="#" style="color: rgba(255, 214, 221, 0.8); text-decoration: underline;">Unsubscribe</a>
+                <td style="background-color: #4A0008; padding: 30px 20px; text-align: center; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px;">
+                    <p style="margin: 0; color: #FFD6DD; font-size: 13px; font-weight: 600;">&copy; 2026 Delstarford Works AI Solutions</p>
+                    <p style="margin: 8px 0 0 0; color: rgba(255, 214, 221, 0.7); font-size: 12px; line-height: 1.5;">
+                        Kakamega, Kenya <br>
+                        <a href="#" style="color: rgba(255, 214, 221, 0.9); text-decoration: underline;">Unsubscribe</a> from weekly reports.
                     </p>
                 </td>
             </tr>

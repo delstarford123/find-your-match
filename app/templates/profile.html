@@ -7,10 +7,16 @@
         display: flex;
         flex-wrap: wrap-reverse; /* Stacks preview on TOP of edit form on mobile */
         gap: clamp(20px, 4vw, 40px);
-        max-width: 1000px;
+        max-width: 1050px;
         margin: clamp(20px, 4vw, 40px) auto;
-        padding: 0 15px;
+        padding: 0 clamp(15px, 4vw, 25px);
         align-items: flex-start; /* Prevents stretching */
+        animation: fadeSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     /* Left Column: Edit Form */
@@ -18,43 +24,46 @@
         flex: 1 1 60%;
         min-width: 300px;
         background: white;
-        padding: clamp(20px, 5vw, 35px);
-        border-radius: 20px;
-        box-shadow: 0 10px 25px rgba(114, 0, 0, 0.05);
+        padding: clamp(25px, 5vw, 40px);
+        border-radius: 24px;
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.05);
         border: 1px solid #FFD6DD;
     }
     
     .edit-section h2 { 
         color: #720000; 
         margin: 0 0 25px 0; 
-        font-size: clamp(22px, 5vw, 28px); 
+        font-size: clamp(24px, 5vw, 30px); 
         font-weight: 900;
         letter-spacing: -0.5px;
+        line-height: 1.2;
     }
     .section-title { 
         color: #720000; 
-        margin: 30px 0 15px 0; 
+        margin: 35px 0 20px 0; 
         font-size: 18px; 
-        font-weight: 800;
+        font-weight: 900;
         border-bottom: 2px solid #FEF2F4; 
-        padding-bottom: 8px; 
+        padding-bottom: 10px; 
     }
     .edit-section .section-title:first-of-type { margin-top: 0; }
 
     /* === FORMS & INPUTS === */
     .input-group { margin-bottom: 20px; }
     .input-group label {
-        display: block; font-size: 12px; font-weight: 800;
-        color: #4A0008; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+        display: block; font-size: 12px; font-weight: 900;
+        color: #4A0008; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px;
     }
 
+    /* 16px is required to prevent iOS Safari auto-zoom */
     .input-group input[type="text"], 
     .input-group input[type="number"], 
     .input-group select, 
     .input-group textarea {
-        width: 100%; padding: 14px 15px; border: 2px solid #f0f0f0;
-        border-radius: 12px; font-family: inherit; font-size: 16px; 
+        width: 100%; padding: 15px 18px; border: 2px solid #f0f0f0;
+        border-radius: 14px; font-family: inherit; font-size: 16px; font-weight: 600;
         background: #fafafa; transition: all 0.3s ease; -webkit-appearance: none;
+        color: #111; box-sizing: border-box;
     }
     
     .input-group select {
@@ -67,21 +76,22 @@
         border-color: #E60026; background: white; outline: none;
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
+    .input-group textarea { resize: vertical; min-height: 100px; }
 
-    .flex-row { display: flex; gap: 15px; margin-bottom: 20px; }
+    .flex-row { display: flex; gap: clamp(15px, 3vw, 25px); margin-bottom: 20px; }
 
-    /* === TOGGLE SWITCHES (Restored) === */
+    /* === TOGGLE SWITCHES === */
     .toggle-wrapper { 
         display: flex; justify-content: space-between; align-items: center; 
-        gap: 15px; padding: 18px 20px; border-radius: 16px; margin-bottom: 15px;
+        gap: 15px; padding: 20px; border-radius: 16px; margin-bottom: 15px;
     }
     .toggle-wrapper.strict { background: #fafafa; border: 2px solid #f0f0f0; }
     .toggle-wrapper.ai-mode { background: #FEF2F4; border: 2px dashed #E60026; }
     
-    .toggle-text h4 { margin: 0 0 5px 0; font-size: 16px; font-weight: 800; }
+    .toggle-text h4 { margin: 0 0 5px 0; font-size: 16px; font-weight: 900; }
     .toggle-wrapper.strict .toggle-text h4 { color: #333; }
     .toggle-wrapper.ai-mode .toggle-text h4 { color: #720000; }
-    .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.4; }
+    .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.5; font-weight: 500;}
     .toggle-wrapper.ai-mode .toggle-text p { color: #4A0008; }
     
     .switch { position: relative; display: inline-block; width: 56px; height: 30px; flex-shrink: 0; }
@@ -93,87 +103,92 @@
 
     /* === DYNAMIC SCHEDULE === */
     .schedule-row { 
-        display: flex; flex-wrap: wrap; gap: 10px; align-items: center; 
-        margin-bottom: 15px; background: #fafafa; padding: 10px;
-        border-radius: 12px; border: 1px solid #eee;
+        display: flex; flex-wrap: wrap; gap: 12px; align-items: center; 
+        margin-bottom: 15px; background: #fafafa; padding: 12px;
+        border-radius: 14px; border: 1px solid #eee;
     }
     
     .schedule-input {
-        padding: 12px; border-radius: 8px; border: 2px solid #f0f0f0; 
-        font-family: inherit; font-size: 15px; flex: 1; min-width: 100px; background: white; outline: none;
+        padding: 14px; border-radius: 10px; border: 2px solid #f0f0f0; 
+        font-family: inherit; font-size: 16px; font-weight: 600; flex: 1; 
+        min-width: 100px; background: white; outline: none; color: #111;
+        -webkit-appearance: none; box-sizing: border-box;
     }
-    .schedule-input:focus { border-color: #E60026; }
+    .schedule-input:focus { border-color: #E60026; box-shadow: 0 0 0 3px rgba(230,0,38,0.1); }
     
     .btn-remove-row { 
-        background: #FFD6DD; border: none; color: #720000; width: 34px; height: 34px; border-radius: 50%;
-        font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        background: #FFD6DD; border: none; color: #720000; width: 40px; height: 40px; border-radius: 50%;
+        font-size: 24px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;
     }
-    .btn-remove-row:hover { background: #E60026; color: white; }
+    .btn-remove-row:active { transform: scale(0.9); }
+    @media (hover: hover) { .btn-remove-row:hover { background: #E60026; color: white; } }
 
     .btn-add {
-        width: 100%; border: 2px dashed #E60026; background: #FEF2F4; color: #E60026; font-weight: 800; font-size: 15px;
-        margin: 10px 0 30px; padding: 14px; border-radius: 12px; cursor: pointer; transition: all 0.2s;
+        width: 100%; border: 2px dashed #E60026; background: #FEF2F4; color: #E60026; font-weight: 900; font-size: 15px;
+        margin: 10px 0 35px; padding: 16px; border-radius: 14px; cursor: pointer; transition: all 0.2s;
     }
-    .btn-add:hover { background: #FFD6DD; color: #720000; }
+    .btn-add:active { transform: scale(0.98); }
+    @media (hover: hover) { .btn-add:hover { background: #FFD6DD; color: #720000; } }
 
     /* === BUTTONS === */
     .btn-save {
         width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; border: none; padding: 16px; border-radius: 12px;
-        font-size: 16px; font-weight: 800; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
+        color: white; border: none; padding: 18px; border-radius: 14px;
+        font-size: 16px; font-weight: 900; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
     }
     .btn-save:active { transform: scale(0.98); }
+    @media (hover: hover) { .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); } }
     
     .btn-delete {
         width: 100%; background: white; color: #dc3545; border: 2px solid #dc3545; 
-        padding: 14px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; margin-top: 15px;
+        padding: 16px; border-radius: 14px; font-weight: 800; font-size: 15px; cursor: pointer; transition: all 0.2s; margin-top: 15px;
     }
-    
-    @media (hover: hover) { 
-        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); } 
-        .btn-delete:hover { background: #fff5f5; }
-    }
+    .btn-delete:active { transform: scale(0.98); }
+    @media (hover: hover) { .btn-delete:hover { background: #fff5f5; } }
 
     /* Custom File Upload Button */
     .file-upload-wrapper { position: relative; margin-top: 20px; }
     .file-upload-wrapper input[type="file"] { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2; }
-    .btn-photo { background: white; border: 2px solid #FFD6DD; color: #E60026; padding: 14px 20px; border-radius: 12px; font-weight: 800; font-size: 15px; text-align: center; display: block; transition: 0.2s; width: 100%; }
+    .btn-photo { background: white; border: 2px solid #FFD6DD; color: #E60026; padding: 16px 20px; border-radius: 14px; font-weight: 900; font-size: 15px; text-align: center; display: block; transition: 0.2s; width: 100%; box-sizing: border-box;}
     .file-upload-wrapper:hover .btn-photo { border-color: #E60026; background: #FEF2F4; }
 
     /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
-        flex: 1 1 35%; min-width: 300px; display: flex; flex-direction: column; align-items: center; position: sticky; top: calc(var(--nav-height, 70px) + 20px);
+        flex: 1 1 35%; min-width: 300px; display: flex; flex-direction: column; align-items: center; 
+        /* Sticky keeps it in view on desktop as you scroll the form */
+        position: sticky; top: calc(var(--nav-height, 70px) + 20px);
     }
 
     .preview-title {
-        color: #E60026; font-size: 13px; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 15px; background: #FEF2F4; padding: 6px 16px; border-radius: 20px;
+        color: #E60026; font-size: 13px; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; margin-bottom: 15px; background: #FEF2F4; padding: 8px 18px; border-radius: 20px; border: 1px solid #FFD6DD;
     }
 
     .preview-card {
-        width: 100%; max-width: 350px; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border: 1px solid #FFD6DD;
+        width: 100%; max-width: 360px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114, 0, 0, 0.15); border: 1px solid #FFD6DD;
     }
 
-    .preview-card img { width: 100%; height: 350px; object-fit: cover; background: #eee; }
-    .preview-info { padding: 20px; position: relative; }
-    .preview-info h3 { color: #720000; font-size: 24px; font-weight: 900; margin: 0 0 8px 0; display: flex; align-items: center; gap: 10px; }
-    .preview-info p { color: #555; font-size: 15px; line-height: 1.5; margin: 0; word-wrap: break-word; }
+    .preview-card img { width: 100%; height: 360px; object-fit: cover; background: #eee; }
+    .preview-info { padding: 25px 20px; position: relative; }
+    .preview-info h3 { color: #720000; font-size: 26px; font-weight: 900; margin: 0 0 10px 0; display: flex; align-items: center; gap: 10px; line-height: 1.2;}
+    .preview-info p { color: #555; font-size: 15px; line-height: 1.6; margin: 0; word-wrap: break-word; font-weight: 500;}
     
-    .age-badge { background: #FEF2F4; color: #E60026; font-size: 13px; padding: 4px 10px; border-radius: 15px; font-weight: 900; }
+    .age-badge { background: #FEF2F4; color: #E60026; font-size: 14px; padding: 5px 12px; border-radius: 15px; font-weight: 900; border: 1px solid #FFD6DD;}
     
     .intent-tag-preview {
-        display: inline-block; padding: 5px 12px; border-radius: 15px;
+        display: inline-block; padding: 6px 14px; border-radius: 15px;
         background: #fff0f2; border: 1px solid #FFD6DD; color: #E60026;
-        font-size: 12px; font-weight: 900; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(230,0,38,0.1);
+        font-size: 13px; font-weight: 900; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(230,0,38,0.05);
     }
 
     /* === RESPONSIVE FIXES === */
     @media (max-width: 768px) {
         .flex-row { flex-direction: column; gap: 0; }
-        .schedule-row { flex-direction: column; align-items: stretch; }
+        .schedule-row { flex-direction: column; align-items: stretch; padding: 15px;}
         .schedule-input { width: 100%; }
         .time-group { display: flex; gap: 10px; align-items: center; }
         .btn-remove-row { align-self: flex-end; margin-top: 5px; }
-        .preview-section { position: relative; top: 0; } /* Disables sticky on mobile */
+        /* Disable sticky on mobile so it doesn't block the screen */
+        .preview-section { position: relative; top: 0; margin-bottom: 20px;} 
     }
 </style>
 
@@ -189,7 +204,7 @@
             <div class="input-group">
                 <label for="bio">Your Bio</label>
                 <textarea id="bio" name="bio" rows="4" required placeholder="Tell MMUST about yourself...">{{ user.bio }}</textarea>
-                <small style="color: #888; font-size: 12px; margin-top: 6px; display: block; font-weight: 500;">Include your major and hobbies to get better AI matches!</small>
+                <small style="color: #888; font-size: 13px; margin-top: 8px; display: block; font-weight: 600;">Include your major and hobbies to get better AI matches!</small>
             </div>
 
             <div class="flex-row">
@@ -215,7 +230,7 @@
             </div>
 
             <h4 class="section-title">Class Schedule</h4>
-            <p style="font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.5;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.5; font-weight: 500;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
             
             <div id="schedule-container">
                 {% if user.schedule and user.schedule|length > 0 %}
@@ -267,7 +282,7 @@
             <button type="submit" class="btn-save">Save Profile Details</button>
         </form>
 
-        <form action="{{ url_for('settings') }}" method="POST" style="margin-top: 40px;">
+        <form action="{{ url_for('settings') }}" method="POST" style="margin-top: 50px;">
             <h4 class="section-title">Discovery Preferences</h4>
             
             <div class="input-group">
@@ -328,14 +343,14 @@
             <button type="submit" class="btn-save" style="margin-top: 10px;">Save Match Preferences</button>
         </form>
 
-        <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 35px 0;">
+        <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 40px 0;">
         
         <div style="padding-top: 10px;">
-            <p style="font-size: 13px; color: #4A0008; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px;">Account Details</p>
-            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Name:</strong> {{ user.name }}</p>
-            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
-            <p style="font-size: 14px; color: #666; margin-bottom: 8px;"><strong>Gender:</strong> {{ user.gender }}</p>
-            <small style="color: #888; font-size: 12px; display: block; margin-top: 15px; font-weight: 500;">Core details cannot be changed after signup.</small>
+            <p style="font-size: 13px; color: #4A0008; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.8px;">Account Details</p>
+            <p style="font-size: 15px; color: #555; margin-bottom: 10px; font-weight: 600;"><strong>Name:</strong> {{ user.name }}</p>
+            <p style="font-size: 15px; color: #555; margin-bottom: 10px; font-weight: 600;"><strong>Reg No:</strong> {{ user.reg_number }}</p>
+            <p style="font-size: 15px; color: #555; margin-bottom: 10px; font-weight: 600;"><strong>Gender:</strong> {{ user.gender }}</p>
+            <small style="color: #888; font-size: 13px; display: block; margin-top: 15px; font-weight: 500;">Core details cannot be changed after signup.</small>
             
             <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
                 <button type="submit" class="btn-delete">Delete Account Permanently</button>

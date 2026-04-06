@@ -7,7 +7,7 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: clamp(10px, 3vw, 20px) 0;
-        min-height: calc(100vh - var(--nav-height, 70px) - 40px);
+        min-height: calc(100dvh - var(--nav-height, 70px) - 40px);
     }
 
     /* === HERO SECTION === */
@@ -26,6 +26,7 @@
         font-weight: 900;
         margin: 0 0 15px 0;
         letter-spacing: -1px;
+        line-height: 1.2;
     }
     .venue-hero p {
         color: #4A0008;
@@ -37,7 +38,7 @@
         opacity: 0.9;
     }
 
-    /* === VENUE GRID === */
+    /* === VENUE GRID (SNAP SCROLLING) === */
     .venue-grid {
         display: flex; 
         gap: clamp(15px, 4vw, 25px);
@@ -46,6 +47,7 @@
         padding: 10px 15px 30px 15px; 
         overflow-x: auto; 
         scroll-snap-type: x mandatory; 
+        scroll-padding-left: 15px; /* Helps the snap align nicely */
         scrollbar-width: none; 
         -webkit-overflow-scrolling: touch; 
     }
@@ -62,11 +64,17 @@
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
         display: flex;
         flex-direction: column;
-        scroll-snap-align: center; 
+        scroll-snap-align: center; /* Snaps the card to the center on mobile */
     }
 
-    @media (min-width: 768px) { .venue-card { flex: 0 0 300px; scroll-snap-align: start; } }
-    @media (hover: hover) { .venue-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15); border-color: #E60026; } }
+    @media (min-width: 768px) { 
+        .venue-card { flex: 0 0 300px; scroll-snap-align: start; } 
+        .venue-grid { scroll-padding-left: 0; justify-content: center; flex-wrap: wrap; overflow-x: visible; }
+    }
+    
+    @media (hover: hover) { 
+        .venue-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15); border-color: #E60026; } 
+    }
     
     .venue-img-wrapper { height: 200px; position: relative; background: #eee; }
     .venue-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
@@ -145,24 +153,34 @@
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         display: none; align-items: center; justify-content: center; z-index: 9999;
         opacity: 0; transition: opacity 0.3s ease;
+        padding: 15px; /* Ensures modal doesn't touch screen edges on tiny phones */
     }
     .modal-overlay.active { display: flex; opacity: 1; }
     .modal-box {
-        background: white; width: 90%; max-width: 420px;
+        background: white; width: 100%; max-width: 420px;
         border-radius: 28px; padding: 35px 30px; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
         transform: scale(0.9) translateY(20px); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        max-height: 90dvh; overflow-y: auto; /* Prevents overflow on short screens */
     }
     .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
+    
     .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; }
-    .modal-header h3 { margin: 0; color: #720000; font-weight: 900; font-size: 22px; }
-    .close-btn { background: #f0f0f0; border: none; font-size: 20px; cursor: pointer; color: #666; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+    .modal-header h3 { margin: 0; color: #720000; font-weight: 900; font-size: 22px; line-height: 1.3;}
+    .close-btn { 
+        background: #f0f0f0; border: none; font-size: 20px; cursor: pointer; color: #666; 
+        width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; 
+        justify-content: center; transition: 0.2s; flex-shrink: 0;
+    }
     .close-btn:hover { background: #e0e0e0; color: #111; }
 
     .form-group { margin-bottom: 20px; }
     .form-group label { display: block; font-size: 11px; font-weight: 900; color: #E60026; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* font-size: 16px is required on inputs to prevent iOS auto-zoom */
     .form-group select, .form-group input {
         width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 12px;
-        font-size: 15px; font-weight: 700; outline: none; background: #fafafa; box-sizing: border-box;
+        font-size: 16px; font-weight: 700; outline: none; background: #fafafa; box-sizing: border-box;
+        -webkit-appearance: none; /* Removes native OS styling for selects */
     }
     .form-group select:focus, .form-group input:focus { border-color: #E60026; background: white; }
 
@@ -171,6 +189,7 @@
         display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
         background: #28a745; color: white; padding: 15px 25px; border-radius: 14px;
         font-weight: 800; font-size: 14px; z-index: 10000; animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: max-content; max-width: 90%;
     }
     .venue-toast.error { background: #E60026; }
     @keyframes slideUpToast {
@@ -306,7 +325,7 @@
         toast.innerText = message;
         toast.className = `venue-toast ${type}`;
         
-        // Reset animation trigger
+        // Reset animation trigger safely
         toast.style.display = 'none';
         void toast.offsetWidth; 
         toast.style.display = 'block';
@@ -320,10 +339,12 @@
         document.getElementById('venueNameInput').value = venueName;
         document.getElementById('modalVenueName').innerText = venueName;
         modal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Stop background scrolling
     }
     
     function closeModal() {
         modal.classList.remove('active');
+        document.body.style.overflow = ''; // Restore background scrolling
         setTimeout(() => { 
             document.getElementById('proposalForm').reset(); 
             const btn = document.getElementById('submitBtn');
@@ -359,6 +380,7 @@
             if (data.success) {
                 showToast("✨ Invitation sent perfectly!", "success");
                 modal.classList.remove('active');
+                document.body.style.overflow = '';
                 setTimeout(() => { window.location.href = '/matches/' + payload.partner_id; }, 1500);
             } else {
                 showToast(data.message || "Error sending invitation.", "error");

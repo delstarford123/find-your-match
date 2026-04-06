@@ -12,98 +12,138 @@
         50% { transform: translateY(-15px); }
         100% { transform: translateY(0px); }
     }
-    @keyframes pulse {
+    @keyframes pulseLike {
         0% { transform: scale(1); box-shadow: 0 4px 10px rgba(230, 0, 38, 0.4); }
-        50% { transform: scale(1.05); box-shadow: 0 8px 20px rgba(230, 0, 38, 0.6); }
+        50% { transform: scale(1.1); box-shadow: 0 8px 20px rgba(230, 0, 38, 0.6); }
         100% { transform: scale(1); box-shadow: 0 4px 10px rgba(230, 0, 38, 0.4); }
+    }
+    @keyframes moveGrid {
+        from { background-position: 0 0; }
+        to { background-position: 50px 50px; }
     }
 
     .animate-up {
         animation: fadeInUp 0.8s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
         opacity: 0;
     }
-    .delay-1 { animation-delay: 0.1s; }
-    .delay-2 { animation-delay: 0.2s; }
-    .delay-3 { animation-delay: 0.3s; }
+    .delay-1 { animation-delay: 0.15s; }
+    .delay-2 { animation-delay: 0.3s; }
+    .delay-3 { animation-delay: 0.45s; }
 
     /* === HERO SECTION === */
+    .hero-wrapper {
+        position: relative;
+        overflow: hidden;
+        /* Subtle animated grid background for that "Tech/AI" vibe */
+        background-color: var(--bg-color);
+        background-image: linear-gradient(rgba(230, 0, 38, 0.05) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(230, 0, 38, 0.05) 1px, transparent 1px);
+        background-size: 50px 50px;
+        animation: moveGrid 3s linear infinite;
+        border-bottom: 1px solid #FFD6DD;
+    }
+
     .hero-section {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        min-height: calc(100vh - var(--nav-height) - 40px);
-        padding: 40px 15px;
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - 40px);
+        padding: clamp(40px, 8vw, 80px) clamp(15px, 5vw, 40px);
         gap: clamp(30px, 5vw, 60px);
         max-width: 1200px;
         margin: 0 auto;
+        position: relative;
+        z-index: 2;
     }
+    
     .hero-text {
         flex: 1;
         max-width: 600px;
     }
     .hero-tag {
-        background: #FFD6DD;
+        background: white;
         color: #E60026;
-        padding: 8px 16px;
+        padding: 8px 18px;
         border-radius: 20px;
-        font-size: 13px;
-        font-weight: 800;
+        font-size: 12px;
+        font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 1px;
-        display: inline-block;
-        margin-bottom: 20px;
-        border: 1px solid #FFD6DD;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 25px;
+        border: 2px solid #FFD6DD;
+        box-shadow: 0 4px 15px rgba(230,0,38,0.1);
     }
+    
     .hero-text h1 {
-        /* Fluid typography: auto-scales from 36px on mobile to 64px on large desktops */
-        font-size: clamp(36px, 6vw, 64px);
+        font-size: clamp(40px, 7vw, 72px);
         font-weight: 900;
         color: #720000;
-        line-height: 1.1;
+        line-height: 1.05;
         margin-bottom: 20px;
         letter-spacing: -1.5px;
     }
     .hero-text h1 span {
-        color: #E60026;
+        background: linear-gradient(90deg, #E60026 0%, #ff4b2b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         position: relative;
     }
+    
     .hero-text p {
-        font-size: clamp(16px, 2vw, 18px);
+        font-size: clamp(16px, 2.5vw, 18px);
         color: #555;
         line-height: 1.6;
-        margin-bottom: 30px;
+        margin-bottom: 35px;
+        font-weight: 500;
     }
+    
     .hero-buttons {
         display: flex; 
         gap: 15px; 
         align-items: center;
-        flex-wrap: wrap; /* Allows buttons to stack on tiny screens */
+        flex-wrap: wrap; 
     }
+    
     .btn-hero-primary {
-        background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white;
-        padding: 16px 35px;
-        font-size: 18px;
-        font-weight: 800;
+        padding: 18px 35px;
+        font-size: 16px;
+        font-weight: 900;
         border-radius: 30px;
         text-decoration: none;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 4px 15px rgba(230, 0, 38, 0.3);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 25px rgba(230, 0, 38, 0.25);
         text-align: center;
+        display: flex; justify-content: center; align-items: center; gap: 8px;
     }
-    .btn-hero-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(230, 0, 38, 0.4);
+    @media (hover: hover) {
+        .btn-hero-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(230, 0, 38, 0.35);
+        }
     }
+    .btn-hero-primary:active { transform: scale(0.97); }
+    
     .btn-hero-secondary {
         color: #720000;
         font-weight: 800;
         text-decoration: none;
-        padding: 16px 20px;
-        font-size: 18px;
-        transition: color 0.2s;
+        padding: 18px 25px;
+        font-size: 16px;
+        transition: color 0.2s, background 0.2s;
+        border-radius: 30px;
+        text-align: center;
     }
-    .btn-hero-secondary:hover { color: #E60026; }
+    @media (hover: hover) {
+        .btn-hero-secondary:hover { 
+            color: #E60026; 
+            background: rgba(230,0,38,0.05);
+        }
+    }
 
     /* === HERO VISUAL (MOCK CARDS) === */
     .hero-visual {
@@ -112,14 +152,14 @@
         justify-content: center;
         position: relative;
         width: 100%;
-        max-width: 400px;
+        max-width: 420px;
     }
     
     .floating-card {
         background: white;
-        border-radius: 20px;
+        border-radius: 24px;
         padding: 20px;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15);
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.15);
         border: 1px solid #FFD6DD;
         animation: float 6s ease-in-out infinite;
         position: relative;
@@ -129,78 +169,84 @@
     }
     .floating-card.bg {
         position: absolute;
-        top: 20px;
-        right: -20px;
+        top: -15px;
+        right: -30px;
         z-index: 1;
-        opacity: 0.6;
+        opacity: 0.5;
         transform: scale(0.9) rotate(8deg);
         animation: float 7s ease-in-out infinite reverse;
     }
+    
     .card-mock-img {
         width: 100%;
-        height: 250px;
-        background: linear-gradient(135deg, #FFD6DD, #E60026);
-        border-radius: 12px;
+        height: 300px;
+        background: linear-gradient(135deg, #FFD6DD 0%, #ff99aa 100%);
+        border-radius: 16px;
         margin-bottom: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 80px;
+        font-size: 90px;
+        box-shadow: inset 0 0 20px rgba(230,0,38,0.1);
     }
+    
     .card-mock-text {
-        height: 12px;
+        height: 14px;
         background: #f0f0f0;
         border-radius: 8px;
         margin-bottom: 12px;
     }
+    
     .card-actions {
         display: flex;
         justify-content: space-between;
-        margin-top: 20px;
-        padding: 0 10px;
+        margin-top: 25px;
+        padding: 0 15px;
     }
     .mock-btn {
-        width: 50px;
-        height: 50px;
+        width: 55px;
+        height: 55px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        font-size: 20px;
+        font-size: 24px;
     }
     .mock-pass {
         border: 2px solid #FFD6DD;
         color: #E60026;
+        background: white;
     }
     .mock-like {
-        background: #E60026;
+        background: linear-gradient(135deg, #E60026 0%, #ff4b2b 100%);
         color: white;
-        animation: pulse 2s infinite;
+        animation: pulseLike 2s infinite;
     }
 
     /* === FEATURES SECTION === */
     .features-section {
-        padding: clamp(60px, 10vw, 100px) 15px;
+        padding: clamp(60px, 10vw, 100px) clamp(15px, 5vw, 30px);
         text-align: center;
         max-width: 1200px;
         margin: 0 auto;
     }
     .section-title {
-        font-size: clamp(28px, 5vw, 36px);
+        font-size: clamp(32px, 5vw, 42px);
         color: #720000;
         margin-bottom: 15px;
         font-weight: 900;
-        letter-spacing: -0.5px;
+        letter-spacing: -1px;
     }
     .section-subtitle {
         color: #666;
         font-size: clamp(16px, 3vw, 18px);
-        margin-bottom: 50px;
-        max-width: 600px;
+        margin-bottom: 60px;
+        max-width: 650px;
         margin-left: auto;
         margin-right: auto;
         line-height: 1.6;
+        font-weight: 500;
     }
     .features-grid {
         display: grid;
@@ -211,9 +257,9 @@
         background: white;
         padding: 40px 30px;
         border-radius: 24px;
-        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.05);
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.06);
         border: 1px solid #FFD6DD;
-        transition: transform 0.3s, border-color 0.3s;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -223,6 +269,7 @@
         .feature-card:hover {
             transform: translateY(-10px);
             border-color: #E60026;
+            box-shadow: 0 25px 45px rgba(114, 0, 0, 0.1);
         }
     }
     
@@ -232,34 +279,46 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #FEF2F4;
+        background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%);
         color: #E60026;
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        box-shadow: 0 4px 15px rgba(230,0,38,0.1);
+        width: 85px;
+        height: 85px;
+        border-radius: 24px;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.15);
+        transform: rotate(-5deg);
     }
-    .feature-card h3 { color: #720000; margin-bottom: 15px; font-size: 22px; font-weight: 800; }
-    .feature-card p { color: #555; line-height: 1.6; font-size: 15px; margin: 0; }
+    .feature-card h3 { color: #720000; margin-bottom: 15px; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;}
+    .feature-card p { color: #555; line-height: 1.6; font-size: 15px; margin: 0; font-weight: 500;}
 
     /* === PRICING / TRUST SECTION === */
     .pricing-banner {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        border-radius: 24px;
-        padding: clamp(40px, 8vw, 80px) 20px;
+        border-radius: 30px;
+        padding: clamp(50px, 8vw, 80px) clamp(20px, 5vw, 40px);
         color: white;
         text-align: center;
-        margin: 60px 15px 100px 15px;
-        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.25);
+        margin: 40px clamp(15px, 5vw, 30px) 100px clamp(15px, 5vw, 30px);
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.25);
         max-width: 1100px;
         margin-left: auto;
         margin-right: auto;
+        position: relative;
+        overflow: hidden;
     }
+    
+    /* Decorative shine effect on pricing banner */
+    .pricing-banner::before {
+        content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
     .pricing-banner h2 { 
-        font-size: clamp(28px, 5vw, 42px); 
+        font-size: clamp(32px, 5vw, 46px); 
         margin-bottom: 20px; 
         font-weight: 900;
-        letter-spacing: -0.5px;
+        letter-spacing: -1px;
+        position: relative; z-index: 2;
     }
     .pricing-banner p { 
         font-size: clamp(16px, 3vw, 18px); 
@@ -267,32 +326,39 @@
         margin: 0 auto 40px; 
         opacity: 0.95; 
         line-height: 1.6;
+        font-weight: 500;
+        position: relative; z-index: 2;
     }
     .price-tag { 
-        font-size: clamp(40px, 8vw, 56px); 
+        font-size: clamp(48px, 8vw, 64px); 
         font-weight: 900; 
-        margin-bottom: 25px; 
+        margin-bottom: 30px; 
         display: block; 
-        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        text-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        position: relative; z-index: 2;
+        letter-spacing: -2px;
     }
     
     .btn-white {
         background: white;
         color: #E60026;
-        padding: 18px 45px;
+        padding: 20px 50px;
         font-size: 18px;
         font-weight: 900;
-        border-radius: 30px;
+        border-radius: 40px;
         text-decoration: none;
-        display: inline-block;
-        transition: transform 0.3s, box-shadow 0.3s;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        display: inline-flex;
+        align-items: center; gap: 10px;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        position: relative; z-index: 2;
     }
+    .btn-white:active { transform: scale(0.95); }
     
     @media (hover: hover) {
         .btn-white:hover {
-            transform: scale(1.05);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             color: #720000;
         }
     }
@@ -302,50 +368,52 @@
         .hero-section { 
             flex-direction: column; 
             text-align: center; 
-            padding-top: 40px;
+            padding-top: 50px;
             justify-content: center;
         }
+        .hero-tag { margin: 0 auto 25px auto; }
         .hero-buttons {
             justify-content: center;
             flex-direction: column;
             width: 100%;
         }
-        .btn-hero-primary {
+        .btn-hero-primary, .btn-hero-secondary {
             width: 100%;
-            max-width: 300px;
+            max-width: 320px;
         }
-        .floating-card.bg { 
-            display: none; /* Hides the background mock card on small screens to save space */
-        }
+        .hero-visual { margin-top: 20px; }
+        .floating-card.bg { display: none; }
     }
 </style>
 
-<div class="hero-section">
-    <div class="hero-text animate-up">
-        <div class="hero-tag">Exclusive to MMUST Students</div>
-        <h1>Stop Guessing.<br>Start <span>Connecting.</span></h1>
-        <p>We use cutting-edge Artificial Intelligence to analyze your schedule, photo aesthetics, and personality. No more random swiping, ghosting, or awkward silences—just smart, verified campus connections.</p>
+<div class="hero-wrapper">
+    <div class="hero-section">
+        <div class="hero-text animate-up">
+            <div class="hero-tag"><span>✨</span> Exclusive to MMUST Students</div>
+            <h1>Stop Guessing.<br>Start <span>Connecting.</span></h1>
+            <p>We use cutting-edge Artificial Intelligence to analyze your schedule, photo aesthetics, and personality. No more random swiping, ghosting, or awkward silences—just smart, verified campus connections.</p>
+            
+            <div class="hero-buttons">
+                <a href="{{ url_for('auth.signup') }}" class="btn-hero-primary">Find My Match 🚀</a>
+                <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary">Log In to Account</a>
+            </div>
+        </div>
         
-        <div class="hero-buttons">
-            <a href="{{ url_for('auth.signup') }}" class="btn-hero-primary">Find My Match</a>
-            <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary">Log In</a>
-        </div>
-    </div>
-    
-    <div class="hero-visual animate-up delay-1">
-        <div class="floating-card bg">
-            <div class="card-mock-img" style="background: #e0e0e0;"></div>
-            <div class="card-mock-text" style="width: 80%;"></div>
-            <div class="card-mock-text" style="width: 60%;"></div>
-        </div>
-        <div class="floating-card">
-            <div class="card-mock-img">👩‍🎓</div>
-            <div class="card-mock-text" style="width: 70%; background: #720000;"></div>
-            <div class="card-mock-text" style="width: 90%;"></div>
-            <div class="card-mock-text" style="width: 50%;"></div>
-            <div class="card-actions">
-                <div class="mock-btn mock-pass">✕</div>
-                <div class="mock-btn mock-like">❤</div>
+        <div class="hero-visual animate-up delay-1">
+            <div class="floating-card bg">
+                <div class="card-mock-img" style="background: #e0e0e0;"></div>
+                <div class="card-mock-text" style="width: 80%;"></div>
+                <div class="card-mock-text" style="width: 60%;"></div>
+            </div>
+            <div class="floating-card">
+                <div class="card-mock-img">👩‍🎓</div>
+                <div class="card-mock-text" style="width: 70%; background: #720000;"></div>
+                <div class="card-mock-text" style="width: 90%;"></div>
+                <div class="card-mock-text" style="width: 50%;"></div>
+                <div class="card-actions">
+                    <div class="mock-btn mock-pass">✕</div>
+                    <div class="mock-btn mock-like">❤</div>
+                </div>
             </div>
         </div>
     </div>
@@ -357,17 +425,17 @@
     
     <div class="features-grid">
         <div class="feature-card">
-            <div class="feature-icon">T</div>
+            <div class="feature-icon">📅</div>
             <h3>Smart Schedule Sync</h3>
             <p>Tired of hearing "I have a class"? Our algorithm scans both your timetables to only recommend students who share your exact 30-minute free windows.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">V</div>
+            <div class="feature-icon">📸</div>
             <h3>Visual Vibe Match</h3>
             <p>Our Neural Network analyzes your profile photos to pair you with students who share your aesthetic—whether you're outdoorsy, artsy, or a gym rat.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">M</div>
+            <div class="feature-icon">🔥</div>
             <h3>Hot Take Alignment</h3>
             <p>Our NLP Sentiment Engine analyzes your opinions on campus life to ensure your personalities clash in a fun way, not an awkward one.</p>
         </div>
@@ -378,7 +446,7 @@
     <h2>Premium Dating, Student Budget.</h2>
     <span class="price-tag">20 KSH <span style="font-size: clamp(16px, 3vw, 24px); font-weight: 600; opacity: 0.8;">/ month</span></span>
     <p>We charge a tiny entry fee to keep bots, fake profiles, and unserious people off the platform. Plus, your subscription unlocks exclusive discounts at Kakamega's best date spots like Savoury Classic and the Golf Hotel!</p>
-    <a href="{{ url_for('auth.signup') }}" class="btn-white">Join the Community</a>
+    <a href="{{ url_for('auth.signup') }}" class="btn-white">Join the Community ⚡</a>
 </div>
 
 {% endblock %}

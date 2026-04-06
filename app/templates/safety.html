@@ -4,54 +4,67 @@
 <style>
     /* === LAYOUT === */
     .safety-wrapper {
-        padding: clamp(20px, 5vw, 40px) 15px;
+        padding: clamp(20px, 5vw, 40px) clamp(15px, 4vw, 25px);
         max-width: 1100px;
         margin: 0 auto;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px);
     }
+
+    /* === ANIMATIONS === */
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(25px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-card {
+        opacity: 0;
+        animation: fadeSlideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    .delay-1 { animation-delay: 0.1s; }
+    .delay-2 { animation-delay: 0.2s; }
+    .delay-3 { animation-delay: 0.3s; }
 
     /* === HEADER === */
     .safety-header { 
         text-align: center; 
-        margin-bottom: clamp(40px, 8vw, 60px); 
+        margin-bottom: clamp(35px, 8vw, 60px); 
         position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .header-top-bar {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 20px;
     }
     
     .btn-back-safety {
-        position: absolute;
-        top: 0;
-        left: 0;
-        color: #720000;
-        text-decoration: none;
-        font-weight: 800;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 14px;
-        background: #FEF2F4;
-        padding: 8px 16px;
-        border-radius: 20px;
-        transition: background 0.2s;
+        color: #720000; text-decoration: none; font-weight: 800;
+        display: inline-flex; align-items: center; gap: 8px; font-size: 15px;
+        background: #FEF2F4; padding: 10px 20px; border-radius: 20px;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: 1px solid #FFD6DD;
+        /* Ensure minimum touch target size */
+        min-height: 44px;
     }
     
+    .btn-back-safety:active { transform: scale(0.95); }
     @media (hover: hover) {
-        .btn-back-safety:hover { background: #FFD6DD; }
+        .btn-back-safety:hover { background: #FFD6DD; transform: translateX(-4px); }
     }
 
     .safety-header h1 { 
-        color: #720000; 
-        font-size: clamp(28px, 6vw, 42px); 
-        font-weight: 900; 
-        margin-bottom: 15px; 
-        letter-spacing: -0.5px;
-        margin-top: 40px; /* Space for the back button on mobile */
+        color: #720000; font-size: clamp(28px, 6vw, 42px); 
+        font-weight: 900; margin-bottom: 15px; letter-spacing: -0.5px;
+        line-height: 1.2; animation: fadeSlideUp 0.5s ease-out forwards;
     }
     .safety-header p { 
-        color: #555; 
-        font-size: clamp(15px, 3vw, 18px); 
-        max-width: 650px; 
-        margin: 0 auto; 
-        line-height: 1.6; 
+        color: #555; font-size: clamp(15px, 3vw, 18px); 
+        max-width: 650px; margin: 0 auto; line-height: 1.6; font-weight: 500;
+        animation: fadeSlideUp 0.5s ease-out 0.1s forwards; opacity: 0;
     }
     
     /* === GRID & CARDS === */
@@ -63,113 +76,98 @@
     }
     
     .safety-card {
-        background: white; 
-        border-radius: 24px; 
-        padding: clamp(25px, 5vw, 40px) 25px;
-        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.05); 
+        background: white; border-radius: 24px; 
+        padding: clamp(30px, 6vw, 45px) clamp(20px, 5vw, 30px);
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.06); 
         border: 1px solid #FFD6DD;
-        transition: transform 0.3s, border-color 0.3s;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s, border-color 0.3s;
+        display: flex; flex-direction: column; align-items: center; text-align: center;
     }
     
     @media (hover: hover) {
         .safety-card:hover { 
-            transform: translateY(-8px); 
-            border-color: #E60026; 
-            box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
+            transform: translateY(-8px); border-color: #E60026; 
+            box-shadow: 0 20px 45px rgba(114, 0, 0, 0.12);
         }
     }
     
     .icon-wrapper {
-        width: 80px; 
-        height: 80px; 
-        border-radius: 50%;
-        display: flex; 
-        align-items: center; 
-        justify-content: center;
-        font-size: 36px; 
-        margin-bottom: 20px; 
-        background: #FEF2F4; 
-        color: #E60026;
-        box-shadow: 0 4px 15px rgba(230,0,38,0.1);
+        width: 85px; height: 85px; border-radius: 24px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 40px; margin-bottom: 25px; 
+        background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); 
+        color: #E60026; box-shadow: 0 8px 20px rgba(230,0,38,0.15);
+        transform: rotate(-5deg);
     }
     
     .safety-card h3 { 
-        color: #720000; 
-        margin-bottom: 15px; 
-        font-size: 22px; 
-        font-weight: 900;
+        color: #720000; margin-bottom: 15px; font-size: 22px; font-weight: 900; line-height: 1.3;
     }
     .safety-card p { 
-        color: #555; 
-        line-height: 1.6; 
-        font-size: 15px; 
-        margin: 0;
+        color: #555; line-height: 1.6; font-size: 15px; margin: 0; font-weight: 500;
     }
     
     /* === EMERGENCY BANNER === */
     .emergency-banner {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; 
-        border-radius: 24px; 
-        padding: clamp(40px, 6vw, 60px) clamp(20px, 5vw, 40px); 
-        text-align: center;
-        max-width: 900px; 
-        margin: 0 auto; 
-        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.25);
+        color: white; border-radius: 28px; 
+        padding: clamp(40px, 8vw, 70px) clamp(20px, 5vw, 40px); 
+        text-align: center; max-width: 950px; margin: 0 auto; 
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.25);
+        position: relative; overflow: hidden;
+        animation: fadeSlideUp 0.6s ease-out 0.4s forwards; opacity: 0;
     }
+    
+    /* Decorative shine */
+    .emergency-banner::before {
+        content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        pointer-events: none; z-index: 0;
+    }
+
     .emergency-banner h2 { 
-        margin-bottom: 15px; 
-        font-size: clamp(24px, 5vw, 36px); 
-        font-weight: 900;
-        letter-spacing: -0.5px;
+        margin-bottom: 15px; font-size: clamp(26px, 5vw, 38px); 
+        font-weight: 900; letter-spacing: -0.5px; position: relative; z-index: 2; line-height: 1.2;
     }
     .emergency-banner p { 
-        font-size: clamp(15px, 3vw, 18px); 
-        opacity: 0.95; 
-        margin-bottom: 30px; 
-        max-width: 600px; 
-        margin-left: auto; 
-        margin-right: auto;
-        line-height: 1.6;
+        font-size: clamp(15px, 3vw, 18px); opacity: 0.95; 
+        margin-bottom: 35px; max-width: 650px; margin-left: auto; margin-right: auto;
+        line-height: 1.6; font-weight: 500; position: relative; z-index: 2;
     }
     .security-badge { 
-        background: white; 
-        color: #E60026; 
-        display: inline-block; 
-        padding: 15px 35px; 
-        border-radius: 30px; 
-        font-weight: 900; 
-        font-size: clamp(16px, 3vw, 20px);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        background: white; color: #E60026; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        padding: 16px 35px; border-radius: 30px; font-weight: 900; 
+        font-size: clamp(16px, 3vw, 20px); box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        position: relative; z-index: 2; transition: transform 0.2s;
     }
+    .security-badge:active { transform: scale(0.95); }
+    @media (hover: hover) { .security-badge:hover { transform: scale(1.05); } }
 </style>
 
 <div class="safety-wrapper">
     <div class="safety-header">
-        <a href="javascript:history.back()" class="btn-back-safety">← Back</a>
+        <div class="header-top-bar">
+            <a href="javascript:history.back()" class="btn-back-safety"><span>←</span> Back</a>
+        </div>
         
         <h1>Your Safety is Our Priority</h1>
         <p>FIND YOUR MATCH is an exclusive community for MMUST students. We combine cutting-edge AI with strict community guidelines to ensure you can date with confidence.</p>
     </div>
 
     <div class="safety-grid">
-        <div class="safety-card">
+        <div class="safety-card animate-card delay-1">
             <div class="icon-wrapper">🤖</div>
             <h3>AI Moderation Engine</h3>
             <p>Our proprietary AI model reads chat messages in real-time. It instantly flags and blocks toxic language, harassment, and hidden phone numbers before they even reach your inbox.</p>
         </div>
         
-        <div class="safety-card">
+        <div class="safety-card animate-card delay-2">
             <div class="icon-wrapper">🛡️</div>
             <h3>Safe-Mate Check-In</h3>
             <p>When you propose a date, our platform generates a one-click "Safe-Mate" message containing your date's name, venue, and time. Instantly forward it to your best friend via WhatsApp before you leave.</p>
         </div>
         
-        <div class="safety-card">
+        <div class="safety-card animate-card delay-3">
             <div class="icon-wrapper">🎓</div>
             <h3>Verified MMUST Network</h3>
             <p>By requiring a small subscription fee and monitoring location data, we actively keep out bots, fake profiles, and non-students. You are always talking to a real peer.</p>
@@ -182,7 +180,7 @@
             Always meet in public, well-lit areas for your first date. We highly recommend our approved Partner Venues or on-campus locations like the Student Center or MCU.
         </p>
         <div class="security-badge">
-             MMUST Security Desk: 07XX XXX XXX
+            <span>🚨</span> MMUST Security Desk: 07XX XXX XXX
         </div>
     </div>
 </div>

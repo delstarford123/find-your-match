@@ -4,109 +4,122 @@
 <style>
     /* === LAYOUT === */
     .legal-wrapper {
-        min-height: calc(100vh - var(--nav-height));
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px);
         display: flex;
         justify-content: center;
-        padding: clamp(20px, 5vw, 40px) 15px;
-        background-color: #FEF2F4;
+        padding: clamp(20px, 5vw, 40px) clamp(15px, 4vw, 25px);
+        background-color: var(--bg-color, #FEF2F4);
     }
 
     .legal-container {
         width: 100%;
-        max-width: 800px;
+        max-width: 850px;
         background: white;
         padding: clamp(30px, 6vw, 60px) clamp(20px, 5vw, 50px);
-        border-radius: 24px;
-        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.05);
+        border-radius: 28px;
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.08);
         border: 1px solid #FFD6DD;
         margin: 0 auto;
+        animation: fadeSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
 
-    /* === TYPOGRAPHY === */
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* === TYPOGRAPHY & HEADER === */
     .legal-header { 
         text-align: center; 
         margin-bottom: clamp(30px, 6vw, 50px); 
-        border-bottom: 2px solid #FEF2F4; 
+        border-bottom: 2px solid #FFD6DD; 
         padding-bottom: clamp(20px, 5vw, 30px); 
-        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .header-top-bar {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 20px;
     }
     
     .btn-back-legal {
-        position: absolute;
-        top: 0;
-        left: 0;
-        color: #720000;
-        text-decoration: none;
-        font-weight: 800;
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 14px;
-        background: #FEF2F4;
-        padding: 8px 16px;
-        border-radius: 20px;
-        transition: background 0.2s;
+        color: #720000; text-decoration: none; font-weight: 800;
+        display: inline-flex; align-items: center; gap: 8px; font-size: 15px;
+        background: #FEF2F4; padding: 10px 20px; border-radius: 20px;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: 1px solid #FFD6DD; min-height: 44px; /* Apple HIG Touch Target */
     }
     
+    .btn-back-legal:active { transform: scale(0.95); }
     @media (hover: hover) {
-        .btn-back-legal:hover { background: #FFD6DD; }
+        .btn-back-legal:hover { background: #FFD6DD; transform: translateX(-4px); }
     }
 
     .legal-header h1 { 
         color: #720000; 
         font-size: clamp(28px, 6vw, 42px); 
         font-weight: 900; 
-        margin: 40px 0 10px 0; /* Margin top to clear the back button on mobile */
+        margin: 0 0 12px 0; 
         letter-spacing: -0.5px;
+        line-height: 1.2;
     }
     .legal-header p { 
         color: #888; 
-        font-size: clamp(13px, 3vw, 15px); 
-        font-weight: 500;
+        font-size: clamp(13px, 3.5vw, 15px); 
+        font-weight: 600;
         margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
+    /* === CONTENT STYLING === */
     .legal-content h2 { 
         color: #720000; 
-        font-size: clamp(20px, 4vw, 24px); 
-        margin: 40px 0 15px; 
-        font-weight: 800;
+        font-size: clamp(20px, 5vw, 24px); 
+        margin: 45px 0 18px; 
+        font-weight: 900;
+        letter-spacing: -0.5px;
+        line-height: 1.3;
     }
     
     /* Ensure the first H2 doesn't have massive top margin */
     .legal-content h2:first-of-type { margin-top: 0; }
     
     .legal-content p { 
-        color: #4A0008; 
+        color: #333; 
         line-height: 1.8; 
-        font-size: clamp(15px, 3vw, 16px); 
-        margin-bottom: 20px; 
+        font-size: clamp(15px, 4vw, 16px); 
+        margin-bottom: 25px; 
+        font-weight: 500;
     }
     
     .legal-content ul { 
-        margin-bottom: 30px; 
-        padding-left: 20px; 
-        color: #4A0008; 
+        margin-bottom: 35px; 
+        padding-left: 25px; 
+        color: #333; 
         line-height: 1.8; 
-        font-size: clamp(15px, 3vw, 16px); 
+        font-size: clamp(15px, 4vw, 16px); 
     }
     .legal-content li { 
-        margin-bottom: 12px; 
+        margin-bottom: 15px; 
+        font-weight: 500;
     }
     .legal-content li strong {
         color: #720000;
-    }
-    
-    /* === RESPONSIVE TWEAKS === */
-    @media (max-width: 600px) {
-        .legal-header h1 { margin-top: 50px; } /* More space for the back button on tiny screens */
+        font-weight: 800;
     }
 </style>
 
 <div class="legal-wrapper">
     <div class="legal-container">
         <div class="legal-header">
-            <a href="javascript:history.back()" class="btn-back-legal">← Back</a>
+            <div class="header-top-bar">
+                <a href="javascript:history.back()" class="btn-back-legal"><span>←</span> Back</a>
+            </div>
             
             <h1>Terms of Service</h1>
             <p>Effective Date: March 2026 | Delstarford Works</p>

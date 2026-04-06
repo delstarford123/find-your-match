@@ -13,8 +13,8 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        /* Takes up full height minus navbar/footer, with fallback */
-        min-height: calc(100vh - 150px); 
+        /* Using dvh for perfect mobile centering, preventing browser UI jump */
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px); 
         padding: clamp(20px, 5vw, 40px) 15px;
     }
     
@@ -22,12 +22,13 @@
         background: white;
         /* Fluid padding: smaller on phones, larger on desktop */
         padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        border-radius: 24px;
-        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.08); /* Tinted maroon shadow */
+        border-radius: 28px;
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1); 
         border: 1px solid #FFD6DD;
         width: 100%;
-        max-width: 450px;
-        animation: slideUpFade 0.5s ease-out forwards;
+        max-width: 420px;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-sizing: border-box;
     }
     
     /* === TYPOGRAPHY === */
@@ -41,36 +42,43 @@
         font-weight: 900; 
         margin-bottom: 8px; 
         letter-spacing: -0.5px; 
+        line-height: 1.2;
     }
     .auth-subtitle { 
         color: #666; 
         font-size: 15px; 
+        font-weight: 500;
+        margin: 0;
     }
 
     /* === FORM INPUTS === */
     .input-group { 
         margin-bottom: 20px; 
+        width: 100%;
     }
     .input-group label {
         display: block; 
-        font-size: 12px; 
-        font-weight: 800; 
-        color: #4A0008;
+        font-size: 11px; 
+        font-weight: 900; 
+        color: #E60026;
         margin-bottom: 8px; 
         text-transform: uppercase; 
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
     }
     .input-group input {
         width: 100%; 
-        padding: 15px; 
+        padding: 16px; 
         border: 2px solid #f0f0f0; 
-        border-radius: 12px;
+        border-radius: 14px;
         /* 16px is REQUIRED to stop iOS Safari from auto-zooming into the page */
         font-size: 16px; 
         background: #fafafa; 
         transition: all 0.3s ease;
         font-family: inherit; 
         outline: none;
+        color: #111;
+        font-weight: 600;
+        box-sizing: border-box;
         -webkit-appearance: none; /* Removes default iOS styling */
     }
     .input-group input:focus {
@@ -79,7 +87,8 @@
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
     .input-group input::placeholder {
-        color: #aaa;
+        color: #bbb;
+        font-weight: 400;
     }
 
     /* === BUTTONS & LINKS === */
@@ -88,35 +97,41 @@
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white; 
         border: none; 
-        padding: 16px; 
-        border-radius: 12px;
+        padding: 18px; 
+        border-radius: 14px;
         font-size: 16px; 
-        font-weight: 800; 
+        font-weight: 900; 
         cursor: pointer; 
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
         margin-top: 10px;
     }
     .btn-submit:active {
-        transform: scale(0.98);
+        transform: scale(0.97);
+    }
+    .btn-submit.loading {
+        background: #888; cursor: not-allowed; box-shadow: none; transform: none;
     }
     
     @media (hover: hover) {
-        .btn-submit:hover { 
+        .btn-submit:not(.loading):hover { 
             transform: translateY(-2px); 
-            box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); 
+            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
         }
     }
     
     .auth-footer { 
         text-align: center; 
-        margin-top: 25px; 
+        margin-top: 30px; 
         font-size: 14px; 
         color: #666; 
+        border-top: 1px solid #f0f0f0;
+        padding-top: 25px;
+        line-height: 1.6;
     }
     .auth-footer a { 
         color: #E60026; 
-        font-weight: 800; 
+        font-weight: 900; 
         text-decoration: none; 
         transition: color 0.2s;
     }
@@ -129,27 +144,37 @@
 <div class="auth-wrapper">
     <div class="auth-card">
         <div class="auth-header">
-            <div style="font-size: 45px; margin-bottom: 10px; display: flex; justify-content: center;">
-                <div style="background: #FEF2F4; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(230,0,38,0.1);">
-                    
+            <div style="margin-bottom: 20px; display: flex; justify-content: center;">
+                <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 70px; height: 70px; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 32px; border: 2px solid white;">
+                    🔒
                 </div>
             </div>
             <h1 class="auth-title">Welcome Back</h1>
             <p class="auth-subtitle">Log in to view your newest matches.</p>
         </div>
 
-        <form action="{{ url_for('auth.login') }}" method="POST">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div style="padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;">
+                  ⚠️ {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('auth.login') }}" method="POST" id="studentLoginForm" onsubmit="showLoading()">
             <div class="input-group">
                 <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" required placeholder="e.g. del@gmail.com">
+                <input type="email" id="email" name="email" required placeholder="e.g. del@gmail.com" autocomplete="email">
             </div>
             
             <div class="input-group">
                 <label for="reg_number">Registration Number</label>
-                <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023">
+                <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" autocomplete="username">
             </div>
 
-            <button type="submit" class="btn-submit">Secure Log In</button>
+            <button type="submit" class="btn-submit" id="submitBtn">Secure Log In</button>
         </form>
         
         <div class="auth-footer">
@@ -157,4 +182,12 @@
         </div>
     </div>
 </div>
+
+<script>
+    function showLoading() {
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Authenticating... ⏳";
+        btn.classList.add('loading');
+    }
+</script>
 {% endblock %}

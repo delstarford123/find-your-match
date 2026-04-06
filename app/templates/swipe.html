@@ -4,80 +4,95 @@
 <style>
     /* === GLOBAL NOTIFICATION BELL === */
     .floating-bell {
-        position: fixed; top: 20px; right: 20px;
+        position: fixed; 
+        top: calc(20px + env(safe-area-inset-top, 0px)); 
+        right: 20px;
         background: white; border: 2px solid #FFD6DD; color: #720000;
         width: 50px; height: 50px; border-radius: 50%;
         display: flex; justify-content: center; align-items: center;
         font-size: 22px; cursor: pointer; box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
         z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .floating-bell:hover { transform: scale(1.1); }
     .floating-bell:active { transform: scale(0.9); }
+    @media (hover: hover) { .floating-bell:hover { transform: scale(1.1); } }
 
     .bell-badge {
-        position: absolute; top: -6px; right: -6px; background: #E60026;
+        position: absolute; top: -4px; right: -4px; background: #E60026;
         color: white; font-size: 11px; font-weight: 900; min-width: 22px;
         height: 22px; border-radius: 11px; padding: 0 4px; display: none; 
         justify-content: center; align-items: center; border: 2px solid white;
         box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4); animation: pulseBell 2s infinite;
+        box-sizing: border-box;
     }
 
-    @keyframes pulseBell { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    @keyframes pulseBell { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
     /* === CRUSH RADAR === */
     .radar-btn {
-        position: fixed; top: 20px; left: 20px;
+        position: fixed; 
+        top: calc(20px + env(safe-area-inset-top, 0px)); 
+        left: 20px;
         background: linear-gradient(135deg, #6610f2, #e83e8c); color: white;
         border: none; padding: 12px 20px; border-radius: 30px;
-        font-weight: 900; font-size: 15px; cursor: pointer;
-        box-shadow: 0 4px 15px rgba(102, 16, 242, 0.4); z-index: 9999;
-        display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        font-weight: 900; font-size: 14px; cursor: pointer;
+        box-shadow: 0 6px 20px rgba(102, 16, 242, 0.3); z-index: 9999;
+        display: flex; align-items: center; gap: 8px; transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .radar-btn:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 6px 20px rgba(102, 16, 242, 0.6); }
     .radar-btn:active { transform: scale(0.95); }
+    @media (hover: hover) { .radar-btn:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 8px 25px rgba(102, 16, 242, 0.4); } }
 
     .crush-modal {
         display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
         z-index: 10001; justify-content: center; align-items: center; padding: 20px;
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
     .crush-modal-content {
-        background: white; border-radius: 24px; padding: 30px; width: 100%;
-        max-width: 360px; text-align: center; box-shadow: 0 20px 50px rgba(230,0,38,0.2);
-        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        background: white; border-radius: 28px; padding: clamp(25px, 6vw, 35px); width: 100%;
+        max-width: 380px; text-align: center; box-shadow: 0 25px 50px rgba(230,0,38,0.25);
+        animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-sizing: border-box;
     }
+    
+    .crush-input {
+        width: 100%; padding: 16px; border-radius: 14px; border: 2px solid #eee; 
+        margin-bottom: 15px; font-size: 16px; /* Prevents iOS Zoom */ 
+        font-weight: 900; text-align: center; text-transform: uppercase; 
+        box-sizing: border-box; outline: none; transition: border-color 0.2s;
+        -webkit-appearance: none; color: #111; letter-spacing: 1px;
+    }
+    .crush-input:focus { border-color: #6610f2; box-shadow: 0 0 0 3px rgba(102, 16, 242, 0.1); }
 
     /* === NOTIFICATION POPOVER MENU === */
     .bell-popover {
-        position: fixed; top: 80px; right: 20px; background: white; border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
+        position: fixed; top: calc(80px + env(safe-area-inset-top, 0px)); right: 20px; 
+        background: white; border-radius: 20px;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
         border: 1px solid #FFD6DD; display: none; flex-direction: column;
-        overflow: hidden; transform-origin: top right; animation: popIn 0.2s ease-out forwards;
+        overflow: hidden; transform-origin: top right; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
     .bell-popover.active { display: flex; }
 
     .popover-header {
-        padding: 15px; background: linear-gradient(90deg, #720000 0%, #E60026 100%);
+        padding: 16px 20px; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white; font-weight: 900; font-size: 15px; display: flex;
-        justify-content: space-between; align-items: center;
+        justify-content: space-between; align-items: center; letter-spacing: 0.5px;
     }
-    .popover-list { max-height: 350px; overflow-y: auto; }
+    .popover-list { max-height: 350px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .popover-item {
-        padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+        padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer;
         border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white;
     }
-    .popover-item:hover { background: #FEF2F4; }
+    @media (hover: hover) { .popover-item:hover { background: #FEF2F4; } }
     .popover-item:last-child { border-bottom: none; }
 
     .popover-unread-count {
-        background: #E60026; color: white; border-radius: 10px;
-        padding: 2px 8px; font-size: 11px; font-weight: 900; flex-shrink: 0;
+        background: #E60026; color: white; border-radius: 12px;
+        padding: 4px 10px; font-size: 11px; font-weight: 900; flex-shrink: 0;
     }
 
     @media (max-width: 768px) {
-        .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
-        .radar-btn { top: 15px; left: 15px; padding: 10px 16px; font-size: 13px; }
-        .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
+        .floating-bell { top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; width: 45px; height: 45px; font-size: 20px; }
+        .radar-btn { top: calc(15px + env(safe-area-inset-top, 0px)); left: 15px; padding: 10px 16px; font-size: 13px; }
+        .bell-popover { top: calc(70px + env(safe-area-inset-top, 0px)); right: 15px; width: calc(100vw - 30px); max-width: 320px; }
     }
 
     @keyframes popIn {
@@ -88,23 +103,25 @@
     /* === CORE LAYOUT & SWIPE CARD === */
     .deck-wrapper {
         display: flex; justify-content: center; align-items: center;
-        height: calc(100vh - var(--nav-height, 70px) - 20px); 
+        /* dvh secures the height perfectly on mobile browsers */
+        height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); 
         width: 100%; padding: 10px; perspective: 1000px; 
         overflow: hidden; background: #f4f6f8; 
+        box-sizing: border-box;
     }
     
     .deck-container { 
-        position: relative; width: 95vw; max-width: 400px; 
-        height: 75vh; max-height: 650px; min-height: 500px;
+        position: relative; width: 100%; max-width: 420px; 
+        height: 75dvh; max-height: 680px; min-height: 480px;
     }
     
     .card { 
-        background: #eee; border-radius: 24px; overflow: hidden; 
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12); 
+        background: white; border-radius: 28px; overflow: hidden; 
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15); 
         position: absolute; inset: 0; display: flex; flex-direction: column; 
         transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
         will-change: transform; cursor: grab;
-        border: 1px solid rgba(255,255,255,0.5); z-index: 5; 
+        border: 1px solid rgba(255,255,255,0.8); z-index: 5; 
     }
     .card:active { cursor: grabbing; }
     
@@ -112,17 +129,17 @@
         position: absolute; top: 25px; right: 25px;
         background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: white;
         padding: 8px 16px; border-radius: 30px; font-weight: 900;
-        font-size: 13px; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(230, 0, 38, 0.4);
+        font-size: 13px; letter-spacing: 1px; box-shadow: 0 8px 20px rgba(230, 0, 38, 0.4);
         z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
     
     /* Dynamic Badge Styling */
     #compat-badge {
-        position: absolute; top: 15px; left: 15px;
+        position: absolute; top: 20px; left: 20px;
         padding: 6px 14px; border-radius: 20px; font-weight: 900;
         font-size: 12px; display: none; z-index: 10; letter-spacing: 0.5px;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
         transition: background 0.3s, color 0.3s;
     }
 
@@ -143,13 +160,13 @@
 
     #profile-img { 
         position: absolute; inset: 0; width: 100%; height: 100%; 
-        object-fit: cover; z-index: 2; display: none; 
+        object-fit: cover; object-position: center top; z-index: 2; display: none; 
     }
     
     .card-info { 
         position: absolute; bottom: 0; left: 0; right: 0; 
-        padding: 120px 20px 100px; 
-        background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%); 
+        padding: 120px 25px 110px; /* Leaves space for bottom buttons */
+        background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 30%, transparent 100%); 
         color: white; pointer-events: none; z-index: 5;
     }
 
@@ -161,47 +178,69 @@
         box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
-    .name-age-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
-    #profile-name { font-size: 32px; font-weight: 800; text-shadow: 0 2px 5px rgba(0,0,0,0.5); margin: 0; }
-    #profile-age { font-size: 24px; font-weight: 400; opacity: 0.9; }
-    #profile-bio { margin: 5px 0 0; font-size: 15px; line-height: 1.4; opacity: 0.9; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .name-age-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    #profile-name { font-size: clamp(32px, 8vw, 42px); font-weight: 900; text-shadow: 0 2px 8px rgba(0,0,0,0.5); margin: 0; letter-spacing: -1px; line-height: 1.1;}
+    #profile-age { font-size: clamp(22px, 5vw, 26px); font-weight: 500; opacity: 0.9; text-shadow: 0 2px 8px rgba(0,0,0,0.5);}
+    #profile-bio { margin: 8px 0 0; font-size: 16px; line-height: 1.5; opacity: 0.95; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 1px 4px rgba(0,0,0,0.5);}
 
     .stamp {
-        position: absolute; top: 50px; padding: 5px 15px; border: 4px solid; border-radius: 10px;
-        font-size: 36px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+        position: absolute; top: 60px; padding: 8px 20px; border: 5px solid; border-radius: 12px;
+        font-size: 42px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
         opacity: 0; z-index: 100; pointer-events: none; transition: opacity 0.2s;
     }
-    .stamp-nope { color: #fd5c63; border-color: #fd5c63; right: 30px; transform: rotate(15deg); }
-    .stamp-like { color: #2de2a6; border-color: #2de2a6; left: 30px; transform: rotate(-15deg); }
+    .stamp-nope { color: #fd5c63; border-color: #fd5c63; right: 30px; transform: rotate(15deg); box-shadow: inset 0 0 10px rgba(253,92,99,0.3), 0 0 10px rgba(253,92,99,0.3);}
+    .stamp-like { color: #2de2a6; border-color: #2de2a6; left: 30px; transform: rotate(-15deg); box-shadow: inset 0 0 10px rgba(45,226,166,0.3), 0 0 10px rgba(45,226,166,0.3);}
     
     .action-buttons { 
         position: absolute; bottom: 25px; left: 0; right: 0; 
-        display: flex; justify-content: center; align-items: center; gap: 30px; 
+        display: flex; justify-content: center; align-items: center; gap: clamp(30px, 8vw, 40px); 
         z-index: 20; padding: 0 20px;
     }
     .btn-action { 
-        width: 65px; height: 65px; border-radius: 50%; border: none; 
-        font-size: 30px; display: flex; align-items: center; justify-content: center; 
+        width: 70px; height: 70px; border-radius: 50%; border: none; 
+        font-size: 32px; display: flex; align-items: center; justify-content: center; 
         cursor: pointer; background: white; 
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        box-shadow: 0 15px 35px rgba(0,0,0,0.25); transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
     }
     .btn-action.pass { color: #fd5c63; }
     .btn-action.like { color: #2de2a6; }
-    .btn-action:hover { transform: scale(1.15); box-shadow: 0 15px 30px rgba(0,0,0,0.3); }
+    
+    @media (hover: hover) {
+        .btn-action:hover { transform: scale(1.15); box-shadow: 0 20px 40px rgba(0,0,0,0.35); }
+    }
+    .btn-action:active { transform: scale(0.9); }
 
     /* === MATCH OVERLAY === */
     #match-overlay { 
         display: none; position: fixed; inset: 0; 
-        background: rgba(0, 0, 0, 0.9); z-index: 10000; 
+        background: rgba(0, 0, 0, 0.85); z-index: 10000; 
         flex-direction: column; align-items: center; justify-content: center; 
-        text-align: center; color: white; padding: 20px; backdrop-filter: blur(10px);
+        text-align: center; color: white; padding: 20px; 
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .match-title { font-size: 60px; font-weight: 900; color: #2de2a6; font-style: italic; margin-bottom: 0; }
-    .match-avatars { display: flex; justify-content: center; gap: -20px; margin: 40px 0; }
-    .match-avatar { width: 140px; height: 140px; border-radius: 50%; border: 4px solid white; object-fit: cover; }
+    .match-title { font-size: clamp(48px, 12vw, 70px); font-weight: 900; color: #2de2a6; font-style: italic; margin-bottom: 5px; letter-spacing: -1px; text-shadow: 0 10px 30px rgba(45,226,166,0.3);}
+    .match-subtitle { font-size: clamp(16px, 4vw, 20px); font-weight: 500; opacity: 0.9; margin-bottom: 40px;}
+    
+    .match-avatars { display: flex; justify-content: center; margin-bottom: 40px; }
+    .match-avatar { 
+        width: clamp(120px, 30vw, 160px); height: clamp(120px, 30vw, 160px); 
+        border-radius: 50%; border: 4px solid white; object-fit: cover; 
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .avatar-left { transform: translateX(20px); z-index: 2; animation: slideRight 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .avatar-right { transform: translateX(-20px); z-index: 1; animation: slideLeft 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    
+    @keyframes slideRight { from { transform: translateX(-50px); opacity: 0; } to { transform: translateX(20px); opacity: 1; } }
+    @keyframes slideLeft { from { transform: translateX(50px); opacity: 0; } to { transform: translateX(-20px); opacity: 1; } }
 
-    .ice-bubble { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 20px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; font-size: 15px; text-align: left; }
-    .ice-bubble:hover { background: white; color: black; }
+    .ice-bubble { 
+        background: rgba(255,255,255,0.15); padding: 16px 20px; border-radius: 20px; 
+        margin-bottom: 12px; cursor: pointer; transition: 0.2s; font-size: 15px; 
+        text-align: left; font-weight: 500; border: 1px solid rgba(255,255,255,0.1);
+    }
+    @media (hover: hover) { .ice-bubble:hover { background: white; color: black; transform: translateY(-2px); } }
+    .ice-bubble:active { transform: scale(0.98); background: white; color: black; }
     
     .hidden { display: none !important; }
 </style>
@@ -218,10 +257,10 @@
 <div class="bell-popover" id="bell-popover">
     <div class="popover-header">
         <span>💬 New Messages</span>
-        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">×</button>
+        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; line-height: 1;">&times;</button>
     </div>
     <div class="popover-list" id="bell-popover-list">
-        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px;">No new messages</div>
+        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px; font-weight: 600;">No new messages</div>
     </div>
 </div>
 
@@ -232,7 +271,7 @@
         <div id="profile-card" class="card">
             <div class="image-container">
                 <div id="shimmer"></div>
-                <img id="profile-img" src="" alt="Student Profile">
+                <img id="profile-img" src="" alt="Student Profile" loading="eager">
                 
                 <div id="compat-badge" class="compat-badge"></div>
                 
@@ -255,41 +294,41 @@
             </div>
         </div>
 
-        <div id="empty-state" class="hidden" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
-            <div style="font-size: 60px;">📡</div>
-            <h2 style="color: #111; font-weight: 800;">No one new nearby.</h2>
-            <p style="color: #666; margin-bottom: 20px;">Try expanding your discovery settings, or wait for new students to sign up!</p>
-            <button onclick="window.location.href='/settings'" style="padding: 12px 25px; border-radius: 25px; background: #E60026; color: white; border: none; font-weight: bold; cursor: pointer;">Adjust Filters</button>
+        <div id="empty-state" class="hidden" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;">
+            <div style="font-size: 70px; margin-bottom: 10px;">📡</div>
+            <h2 style="color: #111; font-weight: 900; margin-bottom: 10px; font-size: 28px;">No one new nearby.</h2>
+            <p style="color: #666; margin-bottom: 30px; font-size: 16px; line-height: 1.5;">Try expanding your discovery settings, or wait for new students to sign up!</p>
+            <button onclick="window.location.href='/settings'" style="padding: 16px 30px; border-radius: 30px; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 10px 25px rgba(230,0,38,0.25);">Adjust Filters</button>
         </div>
     </div>
 </div>
 
 <div id="crush-modal" class="crush-modal">
     <div class="crush-modal-content">
-        <div style="font-size: 60px; margin-bottom: 5px;">🎯</div>
-        <h2 style="color: #111; margin-top: 0; font-weight: 900; letter-spacing: -0.5px;">Secret Radar</h2>
-        <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
+        <div style="font-size: 65px; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));">🎯</div>
+        <h2 style="color: #111; margin-top: 0; font-weight: 900; font-size: 28px; letter-spacing: -0.5px;">Secret Radar</h2>
+        <p style="color: #666; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
             Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly! 🤫
         </p>
-        <input type="text" id="crush-input" placeholder="e.g. SAB_B_01-04444_2023" style="width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #eee; margin-bottom: 15px; font-size: 16px; font-weight: bold; text-align: center; text-transform: uppercase; box-sizing: border-box; outline: none; transition: border-color 0.2s;">
-        <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 16px; border-radius: 30px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 12px; transition: 0.2s; box-shadow: 0 4px 15px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>
-        <button onclick="document.getElementById('crush-modal').style.display='none'" style="width: 100%; padding: 15px; border-radius: 30px; background: transparent; color: #888; border: none; font-weight: bold; font-size: 15px; cursor: pointer;">Cancel</button>
+        <input type="text" id="crush-input" class="crush-input" placeholder="e.g. SAB/B/01-044/2023" autocapitalize="characters">
+        <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 8px 25px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>
+        <button onclick="document.getElementById('crush-modal').style.display='none'" style="width: 100%; padding: 15px; border-radius: 16px; background: transparent; color: #888; border: none; font-weight: 800; font-size: 15px; cursor: pointer; transition: 0.2s;">Cancel</button>
     </div>
 </div>
 
 <div id="match-overlay">
     <h1 class="match-title">IT'S A MATCH!</h1>
-    <p>You and <span id="match-name-celeb" style="font-weight: bold;"></span> liked each other.</p>
+    <p class="match-subtitle">You and <span id="match-name-celeb" style="font-weight: 900;"></span> liked each other.</p>
     
     <div class="match-avatars">
-        <img src="{{ current_user.img }}" class="match-avatar" style="transform: translateX(15px);">
-        <img id="match-avatar-celeb" src="" class="match-avatar" style="transform: translateX(-15px);">
+        <img src="{{ current_user.img }}" class="match-avatar avatar-left">
+        <img id="match-avatar-celeb" src="" class="match-avatar avatar-right">
     </div>
 
-    <div id="icebreaker-container" style="width: 100%; max-width: 350px;"></div>
+    <div id="icebreaker-container" style="width: 100%; max-width: 380px;"></div>
 
-    <button id="btn-send-msg" class="btn-action" style="background:#2de2a6; color:white; width:100%; max-width:300px; border-radius:30px; font-size:16px; height:auto; padding:18px; margin-top: 20px;">SEND MESSAGE</button>
-    <button onclick="closeMatchOverlay()" style="background:transparent; color:white; border:none; margin-top:15px; cursor:pointer; opacity:0.7;">KEEP SWIPING</button>
+    <button id="btn-send-msg" style="background: linear-gradient(135deg, #2de2a6, #20b080); color:white; width:100%; max-width:340px; border-radius:18px; border:none; font-weight: 900; font-size:16px; padding:20px; margin-top: 25px; box-shadow: 0 10px 30px rgba(45,226,166,0.3); cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'">SEND MESSAGE</button>
+    <button onclick="closeMatchOverlay()" style="background:transparent; color:white; border:none; margin-top:20px; cursor:pointer; opacity:0.7; font-weight: 800; font-size: 14px; letter-spacing: 1px; padding: 10px;">KEEP SWIPING</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
@@ -334,12 +373,12 @@
             popoverHtml += `
                 <div class="popover-item" onclick="window.location.href='/matches/${uid}'">
                     <div style="position:relative; flex-shrink:0;">
-                        <img src="/static/img/placeholder.png" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-                        <span style="position:absolute; bottom:1px; right:1px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:#28a745;"></span>
+                        <img src="/static/img/placeholder.png" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                        <span style="position:absolute; bottom:1px; right:1px; width:14px; height:14px; border-radius:50%; border:2px solid white; background:#28a745;"></span>
                     </div>
                     <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">New Match</div>
-                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${msgText}</div>
+                        <div style="font-weight:900; font-size:15px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom: 2px;">New Match</div>
+                        <div style="font-size:13px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${msgText}</div>
                     </div>
                     <span class="popover-unread-count">${count}</span>
                 </div>
@@ -352,7 +391,7 @@
             list.innerHTML = popoverHtml;
         } else {
             badge.style.display = 'none';
-            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">No new messages</div>';
+            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:14px;font-weight:600;">No new messages</div>';
         }
     }
 
@@ -377,8 +416,8 @@
         updateBellUI();
         
         const bell = document.getElementById('global-bell');
-        bell.style.transform = 'scale(1.15) rotate(10deg)';
-        setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
+        bell.style.transform = 'scale(1.2) rotate(15deg)';
+        setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 400);
     });
 
     window.addEventListener('click', function(e) {
@@ -407,7 +446,7 @@
         }
 
         crushInput.style.borderColor = '#eee';
-        btn.innerText = "Scanning Campus...";
+        btn.innerText = "Scanning Campus... 📡";
         btn.disabled = true;
 
         fetch('/api/add-crush', {
@@ -419,20 +458,20 @@
         .then(data => {
             if (data.status === 'success') {
                 if (data.match) {
-                    alert(data.message);
+                    alert("🎯 " + data.message);
                     window.location.href = '/matches'; 
                 } else {
-                    alert(data.message);
+                    alert("📡 " + data.message);
                     document.getElementById('crush-modal').style.display = 'none';
                     crushInput.value = '';
                 }
             } else {
-                alert(data.message);
+                alert("⚠️ " + data.message);
             }
         })
         .catch(err => {
             console.error(err);
-            alert("Campus Wi-Fi dropped. Try again!");
+            alert("⚠️ Campus Wi-Fi dropped. Try again!");
         })
         .finally(() => {
             btn.innerText = "Lock it in 🔒";
@@ -499,12 +538,12 @@
                 compatBadge.innerHTML = `❤️ Perfect Match (${score}%)`;
                 compatBadge.style.background = 'rgba(230, 0, 38, 0.95)';
                 compatBadge.style.color = 'white';
-                compatBadge.style.borderColor = '#720000';
+                compatBadge.style.border = '1px solid #720000';
             } else {
                 compatBadge.innerHTML = `✨ ${score}% Match`;
                 compatBadge.style.background = 'rgba(255, 255, 255, 0.95)';
                 compatBadge.style.color = '#720000';
-                compatBadge.style.borderColor = '#FFD6DD';
+                compatBadge.style.border = '1px solid #FFD6DD';
             }
             compatBadge.style.display = 'block';
 
@@ -549,7 +588,7 @@
             if(stamp) stamp.style.opacity = '1';
 
             // Buttery smooth throw animation
-            card.style.transform = action === 'like' ? 'translateX(120%) translateY(-20px) rotate(15deg)' : 'translateX(-120%) translateY(-20px) rotate(-15deg)';
+            card.style.transform = action === 'like' ? 'translateX(130%) translateY(-30px) rotate(20deg)' : 'translateX(-130%) translateY(-30px) rotate(-20deg)';
             card.style.opacity = '0';
 
             fetch('/api/swipe', {
@@ -587,7 +626,7 @@
             document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
 
             const container = document.getElementById('icebreaker-container');
-            container.innerHTML = '<p style="font-size:11px; color:rgba(255,255,255,0.6); margin-bottom: 10px;">AI SUGGESTED ICEBREAKERS</p>';
+            container.innerHTML = '<p style="font-size:12px; color:rgba(255,255,255,0.7); margin-bottom: 15px; font-weight: 800; letter-spacing: 1px;">AI SUGGESTED ICEBREAKERS</p>';
             
             fetch('/api/icebreakers', {
                 method: 'POST',
@@ -604,7 +643,7 @@
                     div.innerText = text.replace(/^\d+\.\s*/, '');
                     div.onclick = () => {
                         navigator.clipboard.writeText(div.innerText);
-                        div.innerText = " Copied!";
+                        div.innerText = "✨ Copied to clipboard!";
                         setTimeout(() => div.innerText = text, 2000);
                     };
                     container.appendChild(div);

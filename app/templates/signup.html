@@ -2,28 +2,32 @@
 
 {% block content %}
 <style>
+    /* === ANIMATIONS === */
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
     /* === LAYOUT === */
     .auth-wrapper {
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        /* Using dvh for perfect mobile centering */
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px); 
         padding: clamp(20px, 5vw, 40px) 15px;
     }
+    
     .auth-card {
         background: white;
-        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        border-radius: 24px;
-        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.08); /* Soft maroon shadow */
+        padding: clamp(30px, 6vw, 45px) clamp(20px, 5vw, 35px);
+        border-radius: 28px;
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.08); 
         border: 1px solid #FFD6DD;
         width: 100%;
         max-width: 550px;
-        animation: slideUpFade 0.5s ease-out forwards;
-    }
-
-    @keyframes slideUpFade {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-sizing: border-box;
     }
 
     /* === TYPOGRAPHY === */
@@ -33,45 +37,47 @@
     }
     .auth-title { 
         color: #720000; 
-        font-size: clamp(26px, 6vw, 32px); 
+        font-size: clamp(24px, 6vw, 32px); 
         font-weight: 900; 
         margin-bottom: 8px; 
         letter-spacing: -0.5px; 
+        line-height: 1.2;
     }
     .auth-subtitle { 
         color: #666; 
         font-size: 15px; 
-        margin: 0;
+        margin: 0; font-weight: 500;
+        line-height: 1.5;
     }
 
     /* === FORM INPUTS === */
     .input-group { margin-bottom: 20px; width: 100%; }
     .input-group label {
         display: block; 
-        font-size: 12px; 
-        font-weight: 800; 
-        color: #4A0008;
+        font-size: 11px; 
+        font-weight: 900; 
+        color: #E60026;
         margin-bottom: 8px; 
         text-transform: uppercase; 
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
     }
     .input-group input[type="text"], 
     .input-group input[type="email"], 
     .input-group input[type="number"], 
     .input-group select {
         width: 100%; 
-        padding: 15px; 
+        padding: 16px; 
         border: 2px solid #f0f0f0; 
-        border-radius: 12px;
+        border-radius: 14px;
         font-size: 16px; /* REQUIRED: prevents iOS auto-zoom */
         background: #fafafa; 
         transition: all 0.3s ease;
-        font-family: inherit; 
+        font-family: inherit; font-weight: 600;
         outline: none;
-        color: #333;
-        -webkit-appearance: none;
+        color: #111;
+        -webkit-appearance: none; box-sizing: border-box;
     }
-    .input-group input::placeholder { color: #aaa; }
+    .input-group input::placeholder { color: #bbb; font-weight: 400;}
     
     /* Custom drop arrow for selects */
     .input-group select {
@@ -83,8 +89,7 @@
     }
 
     .input-group input:focus, .input-group select:focus {
-        border-color: #E60026; 
-        background: white; 
+        border-color: #E60026; background: white; 
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
 
@@ -94,118 +99,71 @@
     @media (max-width: 600px) {
         .flex-row { flex-direction: column; gap: 0; }
         .flex-row .input-group { margin-bottom: 20px; }
-        .flex-row.kinship-inputs .input-group { margin-bottom: 10px; }
+        .flex-row.kinship-inputs .input-group { margin-bottom: 15px; }
         .flex-row.kinship-inputs .input-group:last-child { margin-bottom: 0; }
     }
 
     /* === KINSHIP FILTER === */
     .kinship-box {
         background: linear-gradient(135deg, #FEF2F4 0%, #ffffff 100%);
-        padding: 20px; 
-        border-radius: 16px; 
-        border: 1px dashed #FFD6DD;
-        margin-bottom: 25px;
+        padding: 20px 25px; border-radius: 18px; 
+        border: 1px dashed #FFD6DD; margin-bottom: 25px;
     }
     .kinship-header {
-        font-size: 14px; 
-        color: #720000; 
-        font-weight: 800;
-        margin-bottom: 8px; 
-        display: flex; 
-        align-items: center; 
-        gap: 8px;
+        font-size: 14px; color: #720000; font-weight: 900;
+        margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
     }
     .kinship-badge {
-        font-size: 10px; 
-        background: #E60026; 
-        color: white; 
-        padding: 3px 8px; 
-        border-radius: 12px; 
-        font-weight: 900; 
-        margin-left: 5px;
-        letter-spacing: 0.5px;
+        font-size: 10px; background: #E60026; color: white; 
+        padding: 4px 10px; border-radius: 12px; font-weight: 900; 
+        margin-left: 5px; letter-spacing: 0.5px;
     }
     .kinship-desc { 
-        font-size: 13px; 
-        color: #555; 
-        margin-bottom: 15px; 
-        line-height: 1.5; 
+        font-size: 13px; color: #555; margin-bottom: 18px; 
+        line-height: 1.5; font-weight: 500;
     }
 
     /* === CHECKBOXES === */
     .checkbox-group {
-        display: flex; 
-        align-items: center; 
-        gap: 12px; 
-        margin-bottom: 25px;
-        background: #fafafa; 
-        padding: 15px; 
-        border-radius: 12px; 
-        border: 1px solid #f0f0f0;
-        cursor: pointer;
+        display: flex; align-items: center; gap: 12px; margin-bottom: 25px;
+        background: #fafafa; padding: 15px; border-radius: 14px; 
+        border: 1px solid #f0f0f0; cursor: pointer; transition: 0.2s;
     }
-    .checkbox-group input { 
-        width: 20px; 
-        height: 20px; 
-        accent-color: #E60026; 
-        cursor: pointer; 
-    }
-    .checkbox-group label { 
-        font-size: 14px; 
-        color: #4A0008; 
-        cursor: pointer; 
-        margin: 0; 
-        font-weight: 600; 
-        width: 100%;
-    }
+    .checkbox-group:hover { background: #FEF2F4; border-color: #FFD6DD; }
+    .checkbox-group input { width: 22px; height: 22px; accent-color: #E60026; cursor: pointer; flex-shrink: 0;}
+    .checkbox-group label { font-size: 14px; color: #111; cursor: pointer; margin: 0; font-weight: 700; width: 100%;}
 
     /* === BUTTONS & LINKS === */
     .btn-submit {
-        width: 100%; 
-        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; 
-        border: none; 
-        padding: 16px; 
-        border-radius: 12px;
-        font-size: 16px; 
-        font-weight: 900; 
-        cursor: pointer; 
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
+        width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; border: none; padding: 18px; border-radius: 14px;
+        font-size: 16px; font-weight: 900; cursor: pointer; 
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
     }
-    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:active { transform: scale(0.97); }
+    .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; transform: none; }
     
     @media (hover: hover) {
-        .btn-submit:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
+        .btn-submit:not(.loading):hover { 
+            transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.35); 
         }
     }
     
-    .auth-footer { 
-        text-align: center; 
-        margin-top: 25px; 
-        font-size: 14px; 
-        color: #666; 
-    }
-    .auth-footer a { 
-        color: #E60026; 
-        font-weight: 800; 
-        text-decoration: none; 
-        transition: color 0.2s;
-    }
-    .auth-footer a:hover { 
-        color: #720000; 
-        text-decoration: underline; 
-    }
+    .auth-footer { text-align: center; margin-top: 30px; font-size: 14px; color: #666; border-top: 1px solid #f0f0f0; padding-top: 25px; }
+    .auth-footer a { color: #E60026; font-weight: 900; text-decoration: none; transition: color 0.2s; }
+    .auth-footer a:hover { color: #720000; text-decoration: underline; }
+    
+    /* Flash messages for error handling */
+    .flash-msg { padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;}
 </style>
 
 <div class="auth-wrapper">
     <div class="auth-card">
         
         <div class="auth-header">
-            <div style="font-size: 45px; margin-bottom: 10px; display: flex; justify-content: center;">
-                <div style="background: #FEF2F4; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(230,0,38,0.1);">
+            <div style="margin-bottom: 20px; display: flex; justify-content: center;">
+                <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 75px; height: 75px; border-radius: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 35px; border: 2px solid white; transform: rotate(-5deg);">
                     ✨
                 </div>
             </div>
@@ -213,28 +171,38 @@
             <p class="auth-subtitle">Create your verified MMUST Dating profile.</p>
         </div>
 
-        <form action="{{ url_for('auth.signup') }}" method="POST">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-msg">
+                  ⚠️ {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" onsubmit="showLoading()">
             
             <div class="flex-row">
                 <div class="input-group">
                     <label for="name">First Name</label>
-                    <input type="text" id="name" name="name" required placeholder="e.g., Ochieng">
+                    <input type="text" id="name" name="name" required placeholder="e.g., Ochieng" autocomplete="given-name" autocapitalize="words">
                 </div>
                 <div class="input-group">
                     <label for="reg_number">Reg Number</label>
-                    <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023">
+                    <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" autocapitalize="characters">
                 </div>
             </div>
 
             <div class="input-group">
-                <label for="email">Email Address <span style="color:#E60026; font-weight:normal;">(Requires Verification)</span></label>
-                <input type="email" id="email" name="email" required placeholder="e.g. name@example.com">
+                <label for="email">Email Address <span style="color:#E60026; font-weight:normal; text-transform:none;">(Requires Verification)</span></label>
+                <input type="email" id="email" name="email" required placeholder="e.g. name@example.com" autocomplete="email">
             </div>
             
             <div class="flex-row">
                 <div class="input-group">
                     <label for="age">Age</label>
-                    <input type="number" id="age" name="age" required min="18" max="40" placeholder="18+">
+                    <input type="number" id="age" name="age" required min="18" max="40" placeholder="18+" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <div class="input-group">
                     <label for="gender">Gender</label>
@@ -246,7 +214,7 @@
                 </div>
                 <div class="input-group">
                     <label for="religion">Religion</label>
-                    <select id="religion" name="religion">
+                    <select id="religion" name="religion" required>
                         <option value="Christian">Christian</option>
                         <option value="Muslim">Muslim</option>
                         <option value="Hindu">Hindu</option>
@@ -264,10 +232,10 @@
                 </p>
                 <div class="flex-row kinship-inputs" style="margin-bottom: 0;">
                     <div class="input-group" style="margin-bottom: 0;">
-                        <input type="text" id="father_surname" name="father_surname" placeholder="Father's Surname">
+                        <input type="text" id="father_surname" name="father_surname" placeholder="Father's Surname" autocapitalize="words">
                     </div>
                     <div class="input-group" style="margin-bottom: 0;">
-                        <input type="text" id="mother_maiden" name="mother_maiden" placeholder="Mother's Maiden Name">
+                        <input type="text" id="mother_maiden" name="mother_maiden" placeholder="Mother's Maiden Name" autocapitalize="words">
                     </div>
                 </div>
             </div>
@@ -277,7 +245,7 @@
                 <span>Skip adding a profile picture for now</span>
             </label>
 
-            <button type="submit" class="btn-submit">Create Account</button>
+            <button type="submit" class="btn-submit" id="submitBtn">Create Account</button>
         </form>
         
         <div class="auth-footer">
@@ -286,4 +254,12 @@
         
     </div>
 </div>
+
+<script>
+    function showLoading() {
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Creating Account... ⏳";
+        btn.classList.add('loading');
+    }
+</script>
 {% endblock %}

@@ -4,7 +4,7 @@
 <style>
     /* === LAYOUT === */
     .settings-wrapper {
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 40px);
         display: flex;
         justify-content: center;
         padding: clamp(20px, 5vw, 40px) 15px;
@@ -12,101 +12,136 @@
 
     .settings-container { 
         width: 100%;
-        max-width: 600px; 
+        max-width: 550px; 
         background: white; 
-        padding: clamp(30px, 6vw, 40px); 
-        border-radius: 24px; 
-        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.08); 
+        padding: clamp(30px, 6vw, 45px) clamp(20px, 5vw, 35px); 
+        border-radius: 28px; 
+        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.08); 
         border: 1px solid #FFD6DD; 
-        align-self: flex-start; /* Prevents stretching */
+        align-self: flex-start;
+        box-sizing: border-box;
+        animation: fadeSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
+
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .nav-back {
+        display: inline-flex; align-items: center; gap: 8px;
+        color: #666; font-size: 14px; font-weight: 800;
+        text-decoration: none; margin-bottom: 20px; transition: 0.2s;
+    }
+    .nav-back:hover { color: #E60026; transform: translateX(-3px); }
     
     .settings-container h2 { 
         color: #720000; 
         margin: 0 0 30px 0; 
-        font-size: clamp(24px, 5vw, 28px); 
+        font-size: clamp(26px, 6vw, 32px); 
         font-weight: 900;
-        text-align: center; 
         letter-spacing: -0.5px;
+        line-height: 1.2;
     }
     
     .settings-group { margin-bottom: 25px; }
     .settings-group label.field-label { 
-        display: block; font-weight: 800; color: #4A0008; 
-        margin-bottom: 10px; font-size: 12px; 
-        text-transform: uppercase; letter-spacing: 0.5px;
+        display: block; font-weight: 900; color: #E60026; 
+        margin-bottom: 10px; font-size: 11px; 
+        text-transform: uppercase; letter-spacing: 0.8px;
     }
     
     /* === SELECT INPUTS === */
     .settings-group select { 
-        width: 100%; padding: 15px; border: 2px solid #f0f0f0; 
-        border-radius: 12px; font-family: inherit; font-size: 16px; 
-        background-color: #fafafa; color: #333; font-weight: 500;
+        width: 100%; padding: 16px 20px; border: 2px solid #f0f0f0; 
+        border-radius: 14px; font-family: inherit; font-size: 16px; 
+        background-color: #fafafa; color: #111; font-weight: 700;
         transition: all 0.3s ease; -webkit-appearance: none;
+        box-sizing: border-box; outline: none;
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-        background-repeat: no-repeat; background-position: right 15px top 50%;
-        background-size: 12px auto; padding-right: 40px;
+        background-repeat: no-repeat; background-position: right 18px top 50%;
+        background-size: 12px auto; padding-right: 45px;
     }
     .settings-group select:focus {
-        border-color: #E60026; background-color: white; outline: none;
+        border-color: #E60026; background-color: white; 
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
     
     /* === TOGGLE SWITCHES === */
     .toggle-wrapper { 
         display: flex; justify-content: space-between; align-items: center; 
-        gap: 15px; padding: 18px 20px; border-radius: 16px; 
+        gap: 15px; padding: 20px; border-radius: 16px; margin-bottom: 15px;
     }
     .toggle-wrapper.strict { background: #fafafa; border: 2px solid #f0f0f0; }
     .toggle-wrapper.ai-mode { background: #FEF2F4; border: 2px dashed #E60026; }
     
-    .toggle-text h4 { margin: 0 0 5px 0; font-size: 16px; font-weight: 800; }
-    .toggle-wrapper.strict .toggle-text h4 { color: #333; }
+    .toggle-text h4 { margin: 0 0 6px 0; font-size: 16px; font-weight: 900; }
+    .toggle-wrapper.strict .toggle-text h4 { color: #111; }
     .toggle-wrapper.ai-mode .toggle-text h4 { color: #720000; }
     
-    .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.4; }
+    .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.5; font-weight: 500;}
     .toggle-wrapper.ai-mode .toggle-text p { color: #4A0008; }
     
     /* Custom Checkbox as an iOS-style switch */
-    .switch { position: relative; display: inline-block; width: 56px; height: 30px; flex-shrink: 0; }
+    .switch { position: relative; display: inline-block; width: 56px; height: 32px; flex-shrink: 0; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider { 
         position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
-        background-color: #ccc; transition: .3s; border-radius: 30px; 
+        background-color: #d1d1d1; transition: .3s; border-radius: 32px; 
     }
     .slider:before { 
-        position: absolute; content: ""; height: 24px; width: 24px; left: 3px; bottom: 3px; 
-        background-color: white; transition: .3s; border-radius: 50%; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        position: absolute; content: ""; height: 26px; width: 26px; left: 3px; bottom: 3px; 
+        background-color: white; transition: .3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border-radius: 50%; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     input:checked + .slider { background-color: #E60026; }
-    input:checked + .slider:before { transform: translateX(26px); }
+    input:checked + .slider:before { transform: translateX(24px); }
 
     /* === ACTION BUTTONS === */
     .btn-save {
         width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; border: none; padding: 16px; border-radius: 12px;
+        color: white; border: none; padding: 18px; border-radius: 14px;
         font-size: 16px; font-weight: 900; cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2); margin-top: 10px;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25); margin-top: 15px;
+        min-height: 54px; /* Apple HIG Touch Target */
     }
-    .btn-save:active { transform: scale(0.98); }
+    .btn-save:active { transform: scale(0.97); }
     
     .btn-delete {
         width: 100%; background: white; color: #dc3545; border: 2px solid #dc3545; 
-        padding: 14px; border-radius: 12px; font-weight: 800; font-size: 15px;
-        cursor: pointer; transition: all 0.2s;
+        padding: 16px; border-radius: 14px; font-weight: 800; font-size: 15px;
+        cursor: pointer; transition: all 0.2s; margin-top: 15px;
+        min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px;
     }
+    .btn-delete:active { transform: scale(0.97); }
     
     @media (hover: hover) {
-        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.3); }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(230, 0, 38, 0.35); }
         .btn-delete:hover { background: #fff5f5; }
     }
+    
+    /* Flash messages for setting saves */
+    .flash-msg { padding: 14px 16px; border-radius: 10px; margin-bottom: 25px; font-size: 14px; font-weight: 700; background: #f0fff4; color: #155724; border-left: 4px solid #28a745;}
+    .flash-msg.error { background: #FEF2F4; color: #E60026; border-left-4px solid #E60026;}
 </style>
 
 <div class="settings-wrapper">
     <div class="settings-container">
+        
+        <a href="javascript:history.back()" class="nav-back">← Back</a>
+        
         <h2>Discovery Settings</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-msg {% if category == 'error' %}error{% endif %}">
+                  {% if category == 'error' %}⚠️{% else %}✅{% endif %} {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
         
         <form action="{{ url_for('settings') }}" method="POST">
             
@@ -170,15 +205,15 @@
             </div>
 
             <button type="submit" class="btn-save">
-                Save Settings
+                Save Match Preferences
             </button>
         </form>
         
-        <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 35px 0;">
+        <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 40px 0;">
         
         <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
             <button type="submit" class="btn-delete">
-                Delete Account Permanently
+                <span>⚠️</span> Delete Account Permanently
             </button>
         </form>
     </div>

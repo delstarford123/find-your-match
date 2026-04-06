@@ -7,19 +7,20 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        /* Using dvh for perfect mobile centering, preventing browser UI jump */
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px);
         padding: clamp(20px, 5vw, 40px) 15px;
     }
     
     .b2b-card {
         background: white;
-        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        border-radius: 24px;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.08);
+        padding: clamp(25px, 6vw, 45px) clamp(20px, 5vw, 40px);
+        border-radius: 28px;
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.08);
         border: 1px solid #FFD6DD;
         width: 100%;
         max-width: 650px;
-        animation: slideUpFade 0.5s ease-out forwards;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         box-sizing: border-box;
     }
 
@@ -31,78 +32,79 @@
     /* === TYPOGRAPHY === */
     .b2b-header { 
         text-align: center; 
-        margin-bottom: clamp(25px, 6vw, 35px); 
+        margin-bottom: clamp(25px, 6vw, 30px); 
     }
+    
+    .icon-container {
+        display: flex; justify-content: center; margin-bottom: 20px;
+    }
+    .store-icon {
+        background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%);
+        width: 75px; height: 75px; border-radius: 22px; 
+        display: flex; align-items: center; justify-content: center; 
+        box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 35px;
+        border: 2px solid white; transform: rotate(-5deg);
+    }
+
     .b2b-title { 
         color: #720000; 
-        font-size: clamp(26px, 6vw, 36px); 
+        font-size: clamp(24px, 6vw, 32px); 
         font-weight: 900; 
-        margin-bottom: 10px; 
+        margin-bottom: 8px; 
         letter-spacing: -0.5px; 
+        line-height: 1.2;
     }
     .b2b-subtitle { 
         color: #666; 
-        font-size: clamp(14px, 3vw, 16px); 
-        line-height: 1.6; 
-        margin: 0;
+        font-size: clamp(14px, 3.5vw, 15px); 
+        line-height: 1.5; 
+        margin: 0; font-weight: 500;
     }
 
     /* === PREMIUM SALES PITCH BOX === */
     .b2b-pitch {
         background: linear-gradient(135deg, #FEF2F4 0%, #ffffff 100%);
         border: 1px solid #FFD6DD;
-        padding: 25px;
-        border-radius: 16px;
-        margin-bottom: 35px;
+        padding: 20px 25px;
+        border-radius: 18px;
+        margin-bottom: 30px;
         box-shadow: 0 4px 15px rgba(230,0,38,0.05);
     }
     .b2b-pitch-title { 
-        color: #720000; 
-        font-weight: 900; 
-        font-size: 18px; 
-        margin-bottom: 20px; 
-        display: flex; 
-        flex-wrap: wrap; 
-        justify-content: space-between; 
-        align-items: center;
-        gap: 10px;
-        border-bottom: 2px dashed #FFD6DD;
-        padding-bottom: 15px;
+        color: #720000; font-weight: 900; font-size: 16px; margin-bottom: 15px; 
+        display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+        gap: 10px; border-bottom: 2px dashed #FFD6DD; padding-bottom: 15px;
     }
     .b2b-pitch-price { 
-        background: #E60026; 
-        color: white; 
-        padding: 6px 12px; 
-        border-radius: 8px; 
-        font-size: 13px; 
-        font-weight: 800; 
-        letter-spacing: 0.5px;
+        background: #E60026; color: white; padding: 6px 12px; 
+        border-radius: 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px;
     }
     .b2b-pitch ul { list-style: none; padding: 0; margin: 0; }
     .b2b-pitch li { 
-        font-size: 14px; color: #4A0008; margin-bottom: 12px; 
-        display: flex; gap: 12px; align-items: flex-start; 
-        font-weight: 600; line-height: 1.4;
+        font-size: 14px; color: #4A0008; margin-bottom: 10px; 
+        display: flex; gap: 10px; align-items: flex-start; font-weight: 600; line-height: 1.4;
     }
     .b2b-pitch li:last-child { margin-bottom: 0; }
     .check-icon {
-        background: #28a745; color: white; border-radius: 50%;
-        width: 18px; height: 18px; display: flex; align-items: center; 
-        justify-content: center; font-size: 10px; font-weight: bold; flex-shrink: 0; margin-top: 1px;
+        background: #28a745; color: white; border-radius: 50%; width: 18px; height: 18px; 
+        display: flex; align-items: center; justify-content: center; font-size: 10px; 
+        font-weight: bold; flex-shrink: 0; margin-top: 1px; box-shadow: 0 2px 5px rgba(40,167,69,0.3);
     }
 
     /* === FORM FIELDS === */
     .input-group { margin-bottom: 20px; width: 100%; position: relative; }
     .input-group label {
-        display: block; font-size: 12px; font-weight: 800; color: #4A0008;
-        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+        display: block; font-size: 11px; font-weight: 900; color: #E60026;
+        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.8px;
     }
+    /* 16px is REQUIRED to prevent iOS Safari auto-zoom */
     .input-group input, .input-group textarea {
-        width: 100%; padding: 15px; border: 2px solid #f0f0f0; border-radius: 12px;
+        width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px;
         font-size: 16px; background: #fafafa; transition: all 0.3s ease;
-        font-family: inherit; outline: none; color: #333; -webkit-appearance: none; box-sizing: border-box;
+        font-family: inherit; outline: none; color: #111; font-weight: 600;
+        -webkit-appearance: none; box-sizing: border-box;
     }
-    .input-group input::placeholder, .input-group textarea::placeholder { color: #aaa; font-weight: 500; }
+    .input-group input::placeholder, .input-group textarea::placeholder { color: #bbb; font-weight: 500; }
     .input-group input:focus, .input-group textarea:focus {
         border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
@@ -110,56 +112,62 @@
 
     /* Password Input & Toggle Icon Fixes */
     .password-container { position: relative; width: 100%; }
-    .password-container input { padding-right: 50px; } /* Prevents text from hiding under the eye icon */
+    .password-container input { padding-right: 50px; } 
     .toggle-password {
-        position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
         background: none; border: none; cursor: pointer; font-size: 18px; color: #888; 
-        padding: 10px; outline: none; height: 100%; display: flex; align-items: center;
+        padding: 10px; outline: none; display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; transition: 0.2s;
     }
+    .toggle-password:hover { background: #f0f0f0; }
 
     .flex-row { display: flex; gap: 20px; }
     .flex-row .input-group { flex: 1; margin-bottom: 0; }
 
     /* Terms Checkbox */
     .terms-group { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 25px; margin-top: 10px; }
-    .terms-group input[type="checkbox"] { width: 18px; height: 18px; margin-top: 3px; cursor: pointer; accent-color: #E60026; flex-shrink: 0; }
+    .terms-group input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: #E60026; flex-shrink: 0; margin-left: 0; }
     .terms-group label { font-size: 13px; color: #666; line-height: 1.5; font-weight: 500; margin: 0; }
-    .terms-group a { color: #E60026; font-weight: bold; text-decoration: none; }
-    .terms-group a:hover { text-decoration: underline; }
+    .terms-group a { color: #E60026; font-weight: 800; text-decoration: none; transition: 0.2s;}
+    .terms-group a:hover { text-decoration: underline; color: #720000;}
 
     /* === BUTTONS & LINKS === */
     .btn-submit {
         width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; border: none; padding: 18px; border-radius: 12px;
-        font-size: 16px; font-weight: 900; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2); 
+        color: white; border: none; padding: 18px; border-radius: 14px;
+        font-size: 16px; font-weight: 900; cursor: pointer; 
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25); 
     }
-    .btn-submit:active { transform: scale(0.98); }
+    .btn-submit:active { transform: scale(0.97); }
     .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; transform: none; }
     
     @media (hover: hover) { .btn-submit:not(.loading):hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); } }
     
     /* Flash Messages */
-    .flash-msg { padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; font-weight: bold; }
+    .flash-msg { padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
     .flash-error { background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026; }
     .flash-success { background: #f0fff4; color: #28a745; border-left: 4px solid #28a745; }
     .flash-warning { background: #fff8e6; color: #d39e00; border-left: 4px solid #ffc107; }
 
-    .auth-footer { text-align: center; margin-top: 25px; font-size: 14px; color: #666; border-top: 1px solid #f0f0f0; padding-top: 25px; }
+    .auth-footer { text-align: center; margin-top: 30px; font-size: 14px; color: #666; border-top: 1px solid #f0f0f0; padding-top: 25px; line-height: 1.6;}
     .auth-footer a { color: #E60026; font-weight: 800; text-decoration: none; transition: color 0.2s; }
     .auth-footer a:hover { color: #720000; text-decoration: underline; }
+    
+    .divider-dot { display: inline-block; margin: 10px 0; color: #ddd; font-size: 12px; }
 
-    @media (max-width: 600px) { .flex-row { flex-direction: column; gap: 20px; } }
+    /* Responsive Stacking for inputs */
+    @media (max-width: 768px) { 
+        .flex-row { flex-direction: column; gap: 20px; } 
+    }
 </style>
 
 <div class="b2b-wrapper">
     <div class="b2b-card">
         
         <div class="b2b-header">
-            <div style="font-size: 40px; margin-bottom: 15px; display: flex; justify-content: center;">
-                <div style="background: #FEF2F4; width: 80px; height: 80px; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); transform: rotate(-5deg);">
-                    🏪
-                </div>
+            <div class="icon-container">
+                <div class="store-icon">🏪</div>
             </div>
             <h1 class="b2b-title">Partner Portal</h1>
             <p class="b2b-subtitle">List your venue on the largest student dating network in Kakamega. Access your dashboard instantly.</p>
@@ -180,7 +188,10 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+              <div class="flash-msg flash-{{ category }}">
+                  {% if category == 'error' %}⚠️{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+                  {{ message }}
+              </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
@@ -231,8 +242,8 @@
                 </div>
             </div>
             
-            <div id="password-error" style="color: #E60026; font-size: 13px; font-weight: bold; margin-bottom: 15px; display: none; padding: 10px; background: #FEF2F4; border-radius: 8px; border-left: 4px solid #E60026;">
-                ⚠️ Passwords do not match. Please try again.
+            <div id="password-error" style="color: #E60026; font-size: 13px; font-weight: bold; margin-bottom: 20px; display: none; padding: 12px; background: #FEF2F4; border-radius: 10px; border-left: 4px solid #E60026; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">⚠️</span> Passwords do not match. Please try again.
             </div>
 
             <div class="input-group">
@@ -249,18 +260,28 @@
         </form>
         
         <div class="auth-footer">
-            Already a partner? <a href="{{ url_for('business_login') }}">Log in to Dashboard</a><br><br>
-            <span style="color: #aaa;">|</span><br><br>
-            Are you a student looking for a date? <a href="{{ url_for('auth.signup') }}">Sign up here</a>
+            <div>Already a partner? <a href="{{ url_for('business_login') }}">Log in to Dashboard</a></div>
+            <span class="divider-dot">●</span>
+            <div>Are you a student looking for a date? <a href="{{ url_for('auth.signup') }}">Sign up here</a></div>
         </div>
 
     </div>
 </div>
 
 <script>
+    // Force CSS to hide the error block immediately on page load
+    document.getElementById('password-error').style.display = 'none';
+
     function toggleVisibility(fieldId) {
         const input = document.getElementById(fieldId);
-        input.type = input.type === "password" ? "text" : "password";
+        const toggleBtn = input.nextElementSibling;
+        if (input.type === "password") {
+            input.type = "text";
+            toggleBtn.innerHTML = "👁️‍🗨️";
+        } else {
+            input.type = "password";
+            toggleBtn.innerHTML = "👁️";
+        }
     }
 
     function validateAndSubmit() {
@@ -270,7 +291,7 @@
         const submitBtn = document.getElementById('submit-btn');
         
         if (password !== confirmPassword) {
-            errorDiv.style.display = 'block';
+            errorDiv.style.display = 'flex'; // Changed to flex to align icon and text
             return false; 
         }
         

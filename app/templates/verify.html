@@ -7,165 +7,121 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: calc(100vh - var(--nav-height) - 40px);
+        /* Using dvh for perfect mobile centering */
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px);
         padding: clamp(20px, 5vw, 40px) 15px;
     }
     
     .verify-card {
         background: white; 
-        border-radius: 24px; 
-        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.08); 
+        border-radius: 28px; 
+        padding: clamp(35px, 8vw, 55px) clamp(25px, 6vw, 45px);
+        box-shadow: 0 25px 50px rgba(114, 0, 0, 0.1); 
         border: 1px solid #FFD6DD;
         width: 100%;
-        max-width: 450px;
+        max-width: 480px;
         text-align: center;
-        animation: slideUpFade 0.5s ease-out forwards;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-sizing: border-box;
     }
 
     @keyframes slideUpFade {
-        from { opacity: 0; transform: translateY(20px); }
+        from { opacity: 0; transform: translateY(25px); }
         to { opacity: 1; transform: translateY(0); }
     }
     
     /* === ANIMATED ICON === */
     @keyframes float { 
-        0%, 100% { transform: translateY(0); } 
-        50% { transform: translateY(-10px); } 
+        0%, 100% { transform: translateY(0); box-shadow: 0 10px 20px rgba(230,0,38,0.15); } 
+        50% { transform: translateY(-12px); box-shadow: 0 20px 30px rgba(230,0,38,0.1); } 
     }
     .verify-icon-wrapper {
-        width: 80px;
-        height: 80px;
-        background: #FEF2F4;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 25px auto;
-        box-shadow: 0 10px 20px rgba(230,0,38,0.1);
-        animation: float 4s infinite ease-in-out;
+        width: 85px; height: 85px; background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%);
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 30px auto; animation: float 4s infinite ease-in-out;
+        border: 2px solid white;
     }
-    .verify-icon { 
-        font-size: 40px; 
-        line-height: 1;
-    }
+    .verify-icon { font-size: 40px; line-height: 1; }
     
     /* === TYPOGRAPHY === */
     .verify-title { 
-        color: #720000; 
-        font-size: clamp(26px, 6vw, 32px); 
-        font-weight: 900; 
-        margin-bottom: 12px; 
-        letter-spacing: -0.5px;
+        color: #720000; font-size: clamp(28px, 6vw, 36px); 
+        font-weight: 900; margin-bottom: 12px; letter-spacing: -0.5px;
+        line-height: 1.2;
     }
     .verify-subtitle { 
-        color: #666; 
-        font-size: 15px; 
-        margin-bottom: 35px; 
-        line-height: 1.6; 
+        color: #666; font-size: 15px; margin-bottom: 40px; 
+        line-height: 1.6; font-weight: 500;
     }
-    .verify-subtitle strong {
-        color: #E60026;
-        font-weight: 800;
-    }
+    .verify-subtitle strong { color: #E60026; font-weight: 900; }
     
-    /* === OTP INPUT === */
-    .otp-container {
-        position: relative;
-        margin-bottom: 30px;
-    }
+    /* === OTP INPUT (The Hack) === */
+    .otp-container { position: relative; margin-bottom: 35px; width: 100%; max-width: 380px; margin-left: auto; margin-right: auto;}
     
+    /* The actual invisible input that handles typing and native suggestions */
     .otp-input {
-        width: 100%; 
-        text-align: center; 
-        font-size: 28px; 
-        letter-spacing: clamp(15px, 4vw, 25px);
-        padding: 15px 0; 
-        border: none;
-        background: transparent; 
-        color: #720000; 
+        width: 100%; text-align: left; 
+        padding: 15px 0 15px clamp(20px, 5.5vw, 24px); 
+        border: none; background: transparent; outline: none;
+        
+        font-family: 'Courier New', Courier, monospace;
+        font-size: clamp(26px, 6vw, 32px); 
         font-weight: 900; 
-        outline: none;
-        font-family: monospace;
-        position: relative;
-        z-index: 2;
-        color: transparent;
-        text-shadow: 0 0 0 #720000;
+        letter-spacing: clamp(38px, 10vw, 42px); /* Tightly tuned to align with boxes */
+        
+        position: relative; z-index: 2; box-sizing: border-box;
+        
+        /* Magic CSS to hide caret but show text shadow over boxes */
+        color: transparent; text-shadow: 0 0 0 #111; caret-color: #E60026;
     }
     
+    /* The visual boxes sitting behind the input */
     .otp-background {
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        display: flex;
-        justify-content: space-between;
-        z-index: 1;
-        pointer-events: none;
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        display: flex; justify-content: space-between; gap: clamp(6px, 2vw, 12px);
+        z-index: 1; pointer-events: none;
     }
     
     .otp-box {
-        width: clamp(40px, 12%, 50px);
-        height: 100%;
-        background: #fafafa;
-        border: 2px solid #FFD6DD;
-        border-radius: 12px;
-        transition: 0.2s;
+        flex: 1; height: 100%; background: #fafafa;
+        border: 2px solid #FFD6DD; border-radius: 14px;
+        transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     
+    /* Glow effect when user is typing */
     .otp-input:focus ~ .otp-background .otp-box {
-        border-color: #E60026;
-        background: white;
-        box-shadow: 0 4px 10px rgba(230,0,38,0.1);
+        border-color: #E60026; background: white;
+        box-shadow: 0 6px 15px rgba(230,0,38,0.12);
     }
 
     /* === BUTTONS === */
     .btn-verify {
-        width: 100%; 
-        padding: 18px; 
-        border-radius: 14px; 
-        font-size: 16px; 
-        background: linear-gradient(135deg, #E60026 0%, #720000 100%); 
-        color: white; 
-        border: none; 
-        font-weight: 900; 
-        cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
+        width: 100%; padding: 18px; border-radius: 16px; font-size: 16px; 
+        background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; 
+        border: none; font-weight: 900; cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 25px rgba(230, 0, 38, 0.25);
     }
-    
-    .btn-verify:active { transform: scale(0.98); }
+    .btn-verify:active { transform: scale(0.97); }
     @media (hover: hover) {
-        .btn-verify:hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
-        }
+        .btn-verify:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(230, 0, 38, 0.35); }
     }
     
     .resend-text {
-        margin-top: 25px; 
-        font-size: 14px; 
-        color: #888;
-        font-weight: 500;
+        margin-top: 30px; font-size: 14px; color: #888; font-weight: 600; line-height: 1.5;
     }
 
-    /* NEW: Resend Button Styling */
     .btn-resend {
-        background: transparent;
-        border: none;
-        color: #E60026;
-        font-weight: 900;
-        font-size: 14px;
-        cursor: pointer;
-        transition: 0.2s;
-        padding: 5px 10px;
-        border-radius: 8px;
+        background: transparent; border: none; color: #E60026;
+        font-weight: 900; font-size: 14px; cursor: pointer;
+        transition: 0.2s; padding: 6px 12px; border-radius: 10px;
     }
-    .btn-resend:disabled {
-        color: #aaa;
-        cursor: not-allowed;
-    }
-    .btn-resend:not(:disabled):hover {
-        background: #FEF2F4;
-    }
+    .btn-resend:disabled { color: #aaa; cursor: not-allowed; }
+    .btn-resend:not(:disabled):active { transform: scale(0.95); }
+    @media (hover: hover) { .btn-resend:not(:disabled):hover { background: #FEF2F4; color: #720000;} }
+    
+    /* Flash Messages */
+    .flash-msg { padding: 14px 16px; border-radius: 12px; margin-bottom: 25px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026; text-align: left;}
 </style>
 
 <div class="verify-wrapper">
@@ -175,7 +131,17 @@
         </div>
         
         <h1 class="verify-title">Check Your Email</h1>
-        <p class="verify-subtitle">We sent a 6-digit verification code to <br><strong>{{ email }}</strong>.</p>
+        <p class="verify-subtitle">We sent a 6-digit verification code to <br><strong style="word-break: break-all;">{{ email }}</strong>.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-msg">
+                  ⚠️ {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
         <form method="POST" action="{{ url_for('auth.verify_email') }}">
             <div class="otp-container">
@@ -191,7 +157,7 @@
                 </div>
             </div>
             
-            <button type="submit" class="btn-verify">Verify Account</button>
+            <button type="submit" class="btn-verify" id="verifyBtn" onclick="this.innerHTML='Verifying... ⏳'; this.style.opacity='0.8';">Verify Account</button>
         </form>
         
         <div class="resend-text">
@@ -209,20 +175,23 @@
 <script>
     // --- 60-Second Countdown Timer Logic ---
     document.addEventListener("DOMContentLoaded", () => {
-        let timeLeft = 60; // 60 seconds
+        let timeLeft = 60; 
         const btnResend = document.getElementById('btn-resend');
         const timerText = document.getElementById('timer-text');
 
-        const countdown = setInterval(() => {
-            timeLeft--;
-            timerText.innerText = `(${timeLeft}s)`;
-            
-            if (timeLeft <= 0) {
-                clearInterval(countdown);
-                btnResend.disabled = false;
-                timerText.innerText = "";
-            }
-        }, 1000);
+        // Only start timer if the button exists and is disabled
+        if(btnResend && btnResend.disabled) {
+            const countdown = setInterval(() => {
+                timeLeft--;
+                timerText.innerText = `(${timeLeft}s)`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    btnResend.disabled = false;
+                    timerText.innerText = "";
+                }
+            }, 1000);
+        }
     });
 </script>
 {% endblock %}
