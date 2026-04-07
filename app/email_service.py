@@ -149,9 +149,9 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
             </p>
             
             <div style="background: #FEF2F4; padding: 25px; border-radius: 12px; border: 1px solid #FFD6DD; margin: 25px 0;">
-                <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px; font-weight: 900;">🍽️ Your Reservation Details</h3>
-                <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📅 When:</strong> {date_day} at {date_time}</p>
-                <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📍 Where:</strong> {restaurant_name} ({location})</p>
+                <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px; font-weight: 900;">Your Reservation Details</h3>
+                <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong> When:</strong> {date_day} at {date_time}</p>
+                <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong> Where:</strong> {restaurant_name} ({location})</p>
             </div>
             
             <p style="color: #555; font-size: 15px; line-height: 1.6;">
@@ -175,8 +175,8 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
             server.login(sender_email, sender_password)
             server.send_message(msg)
             
-        logger.info(f"✅ Date Approval Email successfully sent to {to_email}")
+        logger.info(f" Date Approval Email successfully sent to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"❌ Failed to send approval email to {to_email}: {e}")
+        logger.error(f"Failed to send approval email to {to_email}: {e}")
         return False

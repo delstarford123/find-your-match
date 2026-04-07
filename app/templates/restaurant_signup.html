@@ -167,7 +167,7 @@
         
         <div class="b2b-header">
             <div class="icon-container">
-                <div class="store-icon">🏪</div>
+                <div class="store-icon"></div>
             </div>
             <h1 class="b2b-title">Partner Portal</h1>
             <p class="b2b-subtitle">List your venue on the largest student dating network in Kakamega. Access your dashboard instantly.</p>
@@ -189,7 +189,7 @@
           {% if messages %}
             {% for category, message in messages %}
               <div class="flash-msg flash-{{ category }}">
-                  {% if category == 'error' %}⚠️{% elif category == 'success' %}✅{% else %}ℹ️{% endif %}
+                  {% if category == 'error' %}{% elif category == 'success' %}{% else %}ℹ{% endif %}
                   {{ message }}
               </div>
             {% endfor %}

@@ -227,13 +227,13 @@
     
     <div class="tools-column">
         <div style="margin-bottom: 10px;">
-            <h1 style="color: #720000; font-weight: 900; font-size: clamp(28px, 6vw, 36px); margin: 0 0 8px 0; letter-spacing: -0.5px; line-height: 1.1;">AI Wingman 🕶️</h1>
+            <h1 style="color: #720000; font-weight: 900; font-size: clamp(28px, 6vw, 36px); margin: 0 0 8px 0; letter-spacing: -0.5px; line-height: 1.1;">AI Wingman</h1>
             <p style="color: #666; margin: 0; font-size: 15px; font-weight: 600;">Your personal dating coach. Let's optimize your game.</p>
         </div>
 
         <div class="tool-card">
             <div class="tool-header">
-                <div class="tool-icon">🔥</div>
+                <div class="tool-icon"></div>
                 <div>
                     <h3 class="tool-title">Profile Roaster</h3>
                     <p class="tool-desc">Get brutally honest feedback on your bio.</p>
@@ -251,7 +251,7 @@
 
         <div class="tool-card">
             <div class="tool-header">
-                <div class="tool-icon">🧊</div>
+                <div class="tool-icon"></div>
                 <div>
                     <h3 class="tool-title">The Icebreaker</h3>
                     <p class="tool-desc">Click a student to generate custom openers based on their profile.</p>
@@ -268,10 +268,10 @@
                                 <div class="match-name">
                                     {{ match.name }}
                                     {% if match.is_perfect_match %}
-                                        <span class="perfect-badge">❤️ Perfect Match</span>
+                                        <span class="perfect-badge">Perfect Match</span>
                                     {% endif %}
                                 </div>
-                                <div class="match-score">✨ {{ match.compatibility }}% Compatibility</div>
+                                <div class="match-score">{{ match.compatibility }}% Compatibility</div>
                             </div>
                         </div>
                         {% endif %}
@@ -282,7 +282,7 @@
             </div>
             
             <button class="btn-action" id="btn-icebreaker" onclick="triggerWingman('generate_icebreaker', this)" style="background: #111; color: white; border: 1px solid #333; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">
-                Regenerate Openers ⚡
+                Regenerate Openers 
             </button>
         </div>
     </div>
@@ -293,11 +293,11 @@
             <span style="font-weight: 900; font-size: 14px; letter-spacing: 1.5px; color: #888;">WINGMAN_OS v2.0</span>
         </div>
         
-        <button id="copy-btn" class="btn-copy" onclick="copyTerminalText()">Copy Text 📋</button>
+        <button id="copy-btn" class="btn-copy" onclick="copyTerminalText()">Copy Text</button>
         
         <div class="terminal-content" id="terminal-output">
             <div class="placeholder-state" id="terminal-placeholder">
-                <div style="font-size: 55px; margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">🤖</div>
+                <div style="font-size: 55px; margin-bottom: 15px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));"></div>
                 <h3 style="color: #fff; margin: 0 0 8px 0; font-weight: 900; font-size: 22px;">Awaiting Target...</h3>
                 <p style="margin: 0; color: #888; font-weight: 500;">Click on a student's card to run the analysis.</p>
             </div>

@@ -223,7 +223,7 @@
                 {% if venue.images and venue.images|length > 0 %}
                     <img src="{{ venue.images[0] }}" alt="{{ venue.business_name }}" loading="lazy">
                 {% else %}
-                    <div class="fallback-bg">🍽️</div>
+                    <div class="fallback-bg"></div>
                 {% endif %}
                 
                 <div class="discount-badge">Active Perks</div>
@@ -232,10 +232,10 @@
             
             <div class="venue-info">
                 <h3>{{ venue.business_name }}</h3>
-                <div class="location">📍 {{ venue.location }}</div>
+                <div class="location">{{ venue.location }}</div>
                 
                 <div class="perk-box">
-                    <span style="font-size: 16px;">🎁</span> 
+                    <span style="font-size: 16px;"></span> 
                     <span>{{ venue.conditions }}</span>
                 </div>
                 
@@ -253,9 +253,9 @@
             </div>
             <div class="venue-info">
                 <h3>Savoury Classic</h3>
-                <div class="location">📍 Kakamega CBD</div>
+                <div class="location">Kakamega CBD</div>
                 <div class="perk-box">
-                    <span style="font-size: 16px;">🎁</span> 
+                    <span style="font-size: 16px;"></span> 
                     <span>Show profile for 10% off all coffees and pastries on your first date.</span>
                 </div>
                 <a href="{{ url_for('dashboard') }}" class="btn-propose">Find a Match to Visit</a>
@@ -270,9 +270,9 @@
             </div>
             <div class="venue-info">
                 <h3>Golf Hotel Kakamega</h3>
-                <div class="location">📍 Near State Lodge</div>
+                <div class="location"> Near State Lodge</div>
                 <div class="perk-box">
-                    <span style="font-size: 16px;">🎁</span> 
+                    <span style="font-size: 16px;"></span> 
                     <span>Free dessert to share when you book a dinner table through our app.</span>
                 </div>
                 <a href="{{ url_for('dashboard') }}" class="btn-propose">Find a Match to Visit</a>

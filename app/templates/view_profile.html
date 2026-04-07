@@ -199,7 +199,7 @@
         </div>
         
         <div class="profile-view-details">
-            <div class="major-tag">🏫 {{ student.major | default('MMUST Student') }}</div>
+            <div class="major-tag"> {{ student.major | default('MMUST Student') }}</div>
             
             <h1 class="profile-view-name">
                 <div style="display: flex; align-items: center;">
@@ -210,7 +210,7 @@
             </h1>
             
             <div class="ai-insight">
-                <div style="font-size: 28px;">✨</div>
+                <div style="font-size: 28px;"></div>
                 <div>
                     <div style="font-weight: 900; font-size: 12px; color: #720000; letter-spacing: 0.5px; margin-bottom: 3px;">AI COMPATIBILITY</div>
                     <div style="font-size: 14px; color: #555; font-weight: 600;">You share similar hobbies and interests!</div>
@@ -225,7 +225,7 @@
             <div class="action-bar">
                 <a href="javascript:history.back()" class="btn-back">Back</a>
                 <a href="{{ url_for('matches', partner_id=student.id) }}" class="btn-chat-primary">
-                    <span style="font-size: 20px;">💬</span> Chat with {{ student.name.split(' ')[0] }}
+                    <span style="font-size: 20px;"></span> Chat with {{ student.name.split(' ')[0] }}
                 </a>
             </div>
         </div>

@@ -283,7 +283,7 @@
     {% if not restaurant.subscription_active %}
     <div class="sub-banner sub-inactive" style="flex-direction: column; align-items: flex-start;">
         <div style="margin-bottom: 10px;">
-            <span style="font-size: 20px; margin-right: 10px;">⚠️</span>
+            <span style="font-size: 20px; margin-right: 10px;"></span>
             <strong style="font-size: 18px;">Action Required</strong><br>
             Your venue is currently HIDDEN from MMUST students. Activate your account to start receiving dates.
         </div>
@@ -299,7 +299,7 @@
     {% else %}
     <div class="sub-banner sub-active">
         <div>
-            <span style="font-size: 20px; margin-right: 10px;">✅</span>
+            <span style="font-size: 20px; margin-right: 10px;"></span>
             Your venue is <strong>ACTIVE</strong> and being recommended to students by the AI.
         </div>
         <span style="background: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: #155724;">Renews in 28 Days</span>
@@ -334,7 +334,7 @@
 
     <div class="b2b-section">
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px;">
-            <h2 style="margin: 0;">🕒 Student Traffic Heatmap</h2>
+            <h2 style="margin: 0;"> Student Traffic Heatmap</h2>
             <span style="font-size: 12px; color: #666; background: #f0f0f0; padding: 6px 12px; border-radius: 12px; font-weight: 800;">LAST 24 HOURS</span>
         </div>
 
@@ -376,7 +376,7 @@
             <p style="color: #FFD6DD; font-size: 15px; margin: 0; line-height: 1.5; font-weight: 500;">Print your unique QR code and place it at tables to verify student discounts seamlessly.</p>
         </div>
         <a href="{{ url_for('merchant_qr') }}" class="btn-qr">
-            <span style="font-size: 22px;">📱</span> Generate QR Code
+            <span style="font-size: 22px;"></span> Generate QR Code
         </a>
     </div>
 
@@ -424,7 +424,7 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <div style="font-size: 50px; margin-bottom: 15px;">🍽️</div>
+            <div style="font-size: 50px; margin-bottom: 15px;"></div>
             <h3 style="color: #4A0008; margin-bottom: 5px; font-weight: 900;">No reservations yet</h3>
             <p style="color: #888; font-size: 15px; margin: 0; max-width: 300px; margin: 0 auto;">Ensure your subscription is active to start receiving table bookings from students.</p>
         </div>

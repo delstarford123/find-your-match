@@ -310,11 +310,11 @@
             <div class="input-group">
                 <label class="field-label">What are you looking for?</label>
                 <select name="intent" id="intent-select">
-                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}>🤫 Keep it mysterious</option>
-                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}>☕ Just Coffee</option>
-                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>📚 Study Buddy</option>
-                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>🎉 Event +1</option>
-                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>💘 Looking for a Relationship</option>
+                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}> Keep it mysterious</option>
+                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}> Just Coffee</option>
+                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>Study Buddy</option>
+                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>Event +1</option>
+                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>Looking for a Relationship</option>
                 </select>
             </div>
 
@@ -331,7 +331,7 @@
 
             <div class="toggle-wrapper ai-mode">
                 <div class="toggle-text">
-                    <h4>🤖 AI Companion Mode</h4>
+                    <h4>AI Companion Mode</h4>
                     <p>Hide my profile from real people and chat with a supportive AI partner instead.</p>
                 </div>
                 <label class="switch">
@@ -360,17 +360,17 @@
     </div>
 
     <div class="preview-section">
-        <div class="preview-title">👁️ Live Profile Preview</div>
+        <div class="preview-title">Live Profile Preview</div>
         
         <div class="preview-card">
             <img id="live-preview-img" src="{{ user.img or '/static/img/placeholder.png' }}" alt="Profile Picture">
             
             <div class="preview-info">
                 <div id="preview-intent-tag" class="intent-tag-preview" {% if user.intent == 'none' or not user.intent %}style="display: none;"{% endif %}>
-                    {% if user.intent == 'coffee' %}☕ Just Coffee
-                    {% elif user.intent == 'study' %}📚 Study Buddy
-                    {% elif user.intent == 'event' %}🎉 Event +1
-                    {% elif user.intent == 'relationship' %}💘 Relationship
+                    {% if user.intent == 'coffee' %}Just Coffee
+                    {% elif user.intent == 'study' %}Study Buddy
+                    {% elif user.intent == 'event' %}Event +1
+                    {% elif user.intent == 'relationship' %}Relationship
                     {% endif %}
                 </div>
                 
@@ -379,9 +379,9 @@
                     <span class="age-badge" id="preview-age-badge">{{ user.age }}</span>
                 </h3>
                 
-                {% if user.bio and ('🕒' in user.bio or '✨' in user.bio) %}
+                {% if user.bio and ('' in user.bio or '' in user.bio) %}
                 <span style="background: #E60026; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 900; display: inline-block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    ✨ AI Optimized
+                    AI Optimized
                 </span>
                 {% endif %}
                 

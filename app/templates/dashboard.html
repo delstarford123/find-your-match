@@ -225,11 +225,11 @@
 
 <div class="action-center">
     <a href="/matches" class="action-pill">
-        💬 Unread Chats
+        Unread Chats
         <div class="badge-count" id="dash-unread-badge" style="background: #ccc;">0</div>
     </a>
     <a href="/discover" class="action-pill">
-        📅 Pending Dates
+        Pending Dates
         {% if pending_dates_count and pending_dates_count > 0 %}
             <div class="badge-count" style="background: #f39c12;">{{ pending_dates_count }}</div>
         {% else %}
@@ -245,7 +245,7 @@
 </div>
 
 {% if upcoming_dates and upcoming_dates|length > 0 %}
-<h2 class="section-title">✨ Your Upcoming Dates</h2>
+<h2 class="section-title"> Your Upcoming Dates</h2>
 <div class="dates-container">
     {% for date in upcoming_dates %}
     <div class="date-card">
@@ -259,16 +259,16 @@
 
         <div class="date-details">
             <div class="detail-row">
-                <span class="detail-icon">📍</span>
+                <span class="detail-icon"></span>
                 <span><strong>{{ date.restaurant_name }}</strong><br><span style="font-size: 13px; color: #666;">{{ date.location }}</span></span>
             </div>
             <div class="detail-row">
-                <span class="detail-icon">📅</span>
+                <span class="detail-icon"></span>
                 <span>{{ date.day }} at {{ date.time }}</span>
             </div>
             {% if date.perk %}
             <div class="detail-row">
-                <span class="detail-icon">🎁</span>
+                <span class="detail-icon"></span>
                 <span style="color: #28a745; font-weight: 800;">{{ date.perk }}</span>
             </div>
             {% endif %}
@@ -287,7 +287,7 @@
 </div>
 {% endif %}
 
-<h2 class="section-title">🔥 Discover Students</h2>
+<h2 class="section-title">Discover Students</h2>
 {% if matches %}
 <div class="matches-grid">
     {% for match in matches %}
@@ -299,7 +299,7 @@
                 {% if match.is_perfect_match %}
                     <div class="compat-badge perfect-match-badge">❤️ Perfect Match</div>
                 {% else %}
-                    <div class="compat-badge">✨ {{ match.compatibility }}% Match</div>
+                    <div class="compat-badge">{{ match.compatibility }}% Match</div>
                 {% endif %}
             </div>
         </a>
@@ -316,7 +316,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-    <div class="empty-state-icon">👀</div>
+    <div class="empty-state-icon"></div>
     <h2>It's quiet here...</h2>
     <p>You don't have any new students visible right now. Adjust your filters or check back later!</p>
 </div>
@@ -324,23 +324,23 @@
 
 <div id="milestone-modal" class="modal hidden">
     <div class="modal-content">
-        <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! 🎉</h2>
+        <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! </h2>
         <p style="color: #555; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
             It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#E60026;">Them</strong>. Our AI wants to know how your connection is going!
         </p>
         
         <div style="display: flex; flex-direction: column;">
             <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%);">
-                <span>💍</span> We are Married / Engaged!
+                <span></span> We are Married / Engaged!
             </button>
             <button onclick="submitMilestone('serious')" class="btn-milestone" style="background: #28a745;">
-                <span>❤️</span> In a serious relationship
+                <span></span> In a serious relationship
             </button>
             <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
-                <span>☕</span> Still casually dating
+                <span></span> Still casually dating
             </button>
             <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #4A0008; border: 2px solid #FFD6DD; box-shadow: none;">
-                <span>💔</span> It didn't work out
+                <span></span> It didn't work out
             </button>
         </div>
     </div>
