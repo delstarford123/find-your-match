@@ -20,6 +20,7 @@
     
     <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
     <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
+    
     <style>
         /* === GLOBAL CSS VARIABLES === */
         :root {
@@ -212,7 +213,8 @@
         /* === FLOATING TOAST NOTIFICATIONS === */
         .toast-container { 
             position: fixed; top: calc(var(--nav-height) + var(--safe-top) + 15px); right: 15px; left: 15px; 
-            z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; 
+            z-index: 2005; /* Ensures it sits above everything */
+            display: flex; flex-direction: column; gap: 10px; pointer-events: none; 
         }
         @media (min-width: 600px) { .toast-container { left: auto; max-width: 400px; right: 20px; } }
         
@@ -244,7 +246,7 @@
         .pwa-banner {
             display: none; position: fixed; bottom: max(30px, var(--safe-bottom)); left: 15px; right: 15px; 
             background: white; padding: 20px; border-radius: 16px; 
-            box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 9999; 
+            box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 2004; 
             border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; 
             animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -267,6 +269,40 @@
             padding: 12px 25px; border-radius: 30px; margin-top: 25px; transition: all 0.3s;
         }
         .footer-partner-link:hover { background: white; border-color: white; color: var(--secondary); transform: translateY(-2px); }
+
+        /* ========================================== */
+        /* MOBILE PERFORMANCE MASTER PATCH */
+        /* ========================================== */
+        
+        /* 1. Force Hardware (GPU) Acceleration on all heavy elements */
+        .card, .btn-action, .crush-modal-content, .referral-card, .bell-popover {
+            will-change: transform, opacity;
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* 2. Optimize Glassmorphism (Blurs kill mobile battery/FPS) */
+        @media (max-width: 768px) {
+            #match-overlay, .crush-modal {
+                /* Drop the blur from 15px to 5px on mobile, or use a solid fallback */
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+                background: rgba(0, 0, 0, 0.92) !important;
+            }
+            
+            /* Disable heavy box-shadow animations during swipe/touch */
+            .card * {
+                box-shadow: none !important;
+            }
+        }
+
+        /* 3. Stop ghost-clicks on overlays */
+        #shimmer, .img-gradient {
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -524,6 +560,34 @@
         window.addEventListener('appinstalled', () => {
             installBanner.style.display = 'none';
             console.log('App was successfully installed!');
+        });
+
+        // ==========================================
+        // MOBILE MEMORY OPTIMIZER
+        // ==========================================
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1. Force all images (except the very first ones) to lazy load
+            const allImages = document.querySelectorAll('img:not([loading="eager"])');
+            allImages.forEach(img => {
+                img.setAttribute('loading', 'lazy');
+                // Decode images asynchronously off the main thread
+                img.setAttribute('decoding', 'async'); 
+            });
+
+            // 2. Cleanup Socket.IO memory leaks on mobile screen lock/sleep
+            document.addEventListener("visibilitychange", () => {
+                if (document.visibilityState === 'hidden') {
+                    // User locked phone or switched apps. Pause heavy processes.
+                    if (typeof socket !== 'undefined' && socket.connected) {
+                        socket.disconnect();
+                    }
+                } else {
+                    // User came back. Reconnect silently.
+                    if (typeof socket !== 'undefined' && !socket.connected) {
+                        socket.connect();
+                    }
+                }
+            });
         });
     </script>
 

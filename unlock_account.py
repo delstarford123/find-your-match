@@ -41,7 +41,7 @@ def grant_vip_access(email_address):
                 
                 # Flip the switch!
                 db.reference(f'profiles/{uid}').update({'is_paid': True})
-                
+                d
                 print(f"👤 Found User: {name} (ID: {uid})")
                 print(f"✅ SUCCESS: Account bypassed paywall! 'is_paid' is now True.")
         else:
