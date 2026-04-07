@@ -2121,6 +2121,47 @@ def hash_reg_number(reg_num):
     salted_reg = f"{clean_reg}_{secret_salt}"
     
     return hashlib.sha256(salted_reg.encode('utf-8')).hexdigest()
+import string
+import random
+
+@app.route('/referrals')
+def referrals():
+    # 1. Check if the user is actually logged in
+    if 'user_id' not in session:
+        flash("Please log in to view your VIP Referral Dashboard.", "error")
+        return redirect(url_for('auth.login')) 
+    
+    user_id = session['user_id']
+    
+    # 2. Fetch the user's current data from Firebase (Using Firebase Admin syntax)
+    user_ref = db.reference(f'profiles/{user_id}')
+    user_data = user_ref.get()
+    
+    if not user_data:
+        flash("Profile not found. Please log in again.", "error")
+        session.pop('user_id', None)
+        return redirect(url_for('auth.login'))
+        
+    # 3. Failsafe: Generate a unique referral code if they don't have one yet
+    if 'referral_code' not in user_data:
+        # Create a cool code using their name and some random characters
+        first_name = user_data.get('name', 'VIP').split(' ')[0].upper()
+        # Strip any weird characters just in case
+        clean_name = ''.join(e for e in first_name if e.isalnum())[:5] 
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        
+        new_ref_code = f"MMUST-{clean_name}-{random_suffix}"
+        
+        # Save the new code back to Firebase
+        user_ref.update({'referral_code': new_ref_code})
+        user_data['referral_code'] = new_ref_code
+        
+    # 4. Ensure the stats default to 0 so the HTML template doesn't crash
+    user_data['referrals_count'] = user_data.get('referrals_count', 0)
+    user_data['free_weeks_earned'] = user_data.get('free_weeks_earned', 0)
+
+    # 5. Render the beautifully polished HTML page
+    return render_template('referrals.html', user=user_data)
 
 
 @app.route('/merchant/dashboard')

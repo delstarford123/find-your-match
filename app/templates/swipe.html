@@ -243,6 +243,59 @@
     .ice-bubble:active { transform: scale(0.98); background: white; color: black; }
     
     .hidden { display: none !important; }
+
+    /* === NEW EMPTY STATE === */
+    .empty-state-container {
+        position: absolute; inset: 0; display: flex; flex-direction: column; 
+        align-items: center; justify-content: center; text-align: center; 
+        padding: clamp(20px, 5vw, 30px); background: #f4f6f8; z-index: 10; 
+        border-radius: 28px; overflow-y: auto; /* Allows scrolling on very short screens */
+        box-sizing: border-box;
+    }
+    
+    .empty-icon {
+        font-size: clamp(60px, 15vw, 80px); margin-bottom: 10px; 
+        filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1)); 
+        animation: floatIcon 3s ease-in-out infinite;
+    }
+    
+    @keyframes floatIcon {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    .empty-title {
+        color: #111; font-weight: 900; margin: 0 0 10px 0; 
+        font-size: clamp(24px, 6vw, 32px); letter-spacing: -0.5px; line-height: 1.2;
+    }
+    
+    .empty-subtitle {
+        color: #666; margin: 0 0 30px 0; font-size: clamp(14px, 4vw, 16px); 
+        line-height: 1.5; max-width: 320px; font-weight: 500;
+    }
+    
+    .empty-btn-group {
+        display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 300px;
+    }
+    
+    .empty-btn {
+        padding: 16px; border-radius: 16px; text-decoration: none; 
+        font-weight: 900; font-size: 15px; display: flex; align-items: center; 
+        justify-content: center; gap: 10px; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        min-height: 54px; /* Apple HIG Touch Target */
+    }
+    
+    .empty-btn:active { transform: scale(0.96); }
+    
+    .btn-wingman { background: linear-gradient(135deg, #111, #333); color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .btn-whatsapp-invite { background: linear-gradient(135deg, #25D366, #128C7E); color: white; box-shadow: 0 10px 25px rgba(37, 211, 102, 0.3); }
+    .btn-settings-adj { background: white; color: #720000; border: 2px solid #FFD6DD; }
+    
+    @media (hover: hover) {
+        .btn-wingman:hover { box-shadow: 0 15px 30px rgba(0,0,0,0.3); transform: translateY(-2px); }
+        .btn-whatsapp-invite:hover { box-shadow: 0 15px 30px rgba(37, 211, 102, 0.4); transform: translateY(-2px); }
+        .btn-settings-adj:hover { background: #FEF2F4; border-color: #E60026; transform: translateY(-2px); }
+    }
 </style>
 
 <button class="radar-btn" onclick="document.getElementById('crush-modal').style.display='flex'">
@@ -250,7 +303,7 @@
 </button>
 
 <div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
-    
+    🔔
     <div class="bell-badge" id="bell-badge">0</div>
 </div>
 
@@ -294,21 +347,37 @@
             </div>
         </div>
 
-        <div id="empty-state" class="hidden" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px;">
-            <div style="font-size: 70px; margin-bottom: 10px;">📡</div>
-            <h2 style="color: #111; font-weight: 900; margin-bottom: 10px; font-size: 28px;">No one new nearby.</h2>
-            <p style="color: #666; margin-bottom: 30px; font-size: 16px; line-height: 1.5;">Try expanding your discovery settings, or wait for new students to sign up!</p>
-            <button onclick="window.location.href='/settings'" style="padding: 16px 30px; border-radius: 30px; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 10px 25px rgba(230,0,38,0.25);">Adjust Filters</button>
+        <div id="empty-state" class="hidden empty-state-container">
+            <div class="empty-icon"></div>
+            
+            <h2 class="empty-title">You're out of profiles!</h2>
+            <p class="empty-subtitle">
+                Don't let the algorithm stop you. Improve your chances or bring more singles to the yard.
+            </p>
+
+            <div class="empty-btn-group">
+                <a href="{{ url_for('ai_wingman') }}" class="empty-btn btn-wingman">
+                    <span style="font-size: 20px;"></span> Roast My Profile
+                </a>
+                
+                <a href="{{ url_for('referrals') }}" class="empty-btn btn-whatsapp-invite">
+                    <span style="font-size: 20px;"></span> Invite via WhatsApp
+                </a>
+                
+                <a href="{{ url_for('settings') }}" class="empty-btn btn-settings-adj">
+                    Adjust Discovery Filters
+                </a>
+            </div>
         </div>
     </div>
 </div>
 
 <div id="crush-modal" class="crush-modal">
     <div class="crush-modal-content">
-        <div style="font-size: 65px; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));">🎯</div>
+        <div style="font-size: 65px; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));"></div>
         <h2 style="color: #111; margin-top: 0; font-weight: 900; font-size: 28px; letter-spacing: -0.5px;">Secret Radar</h2>
         <p style="color: #666; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
-            Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly! 🤫
+            Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly!
         </p>
         <input type="text" id="crush-input" class="crush-input" placeholder="e.g. SAB/B/01-044/2023" autocapitalize="characters">
         <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 8px 25px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>

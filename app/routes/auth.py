@@ -31,6 +31,9 @@ def signup():
         reg_number = request.form.get('reg_number')
         bio = request.form.get('bio', 'Hey! I am using MMUST Dating AI.')
         
+        # --- NEW: Capture the Referral Code ---
+        ref_code = request.form.get('ref_code', '').strip()
+        
         # Expanded Fields
         age = int(request.form.get('age', 18))
         gender = request.form.get('gender')
@@ -83,7 +86,8 @@ def signup():
                 'bio': bio,
                 'vibe_vector': [0.0, 0.0, 0.0, 0.0],
                 'is_verified': False,            # User must verify via code
-                'verification_code': str(otp_code) # Store code as string for exact matching
+                'verification_code': str(otp_code), # Store code as string for exact matching
+                'referred_by': ref_code          # <--- NEW: Saves who invited them!
             })
             
             # Send the Email 
@@ -101,7 +105,6 @@ def signup():
             return redirect(url_for('auth.signup'))
 
     return render_template('signup.html')
-
 
 @auth_bp.route('/verify', methods=['GET', 'POST'])
 def verify_email():

@@ -108,11 +108,11 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
     sender_password = os.getenv("MAIL_PASSWORD")
     
     if not sender_email or not sender_password:
-        logger.error("⚠️ Email credentials missing. Cannot send approval email.")
+        logger.error(" Email credentials missing. Cannot send approval email.")
         return False
 
     msg = MIMEMultipart("alternative")
-    msg['Subject'] = f"💌 Your Date at {restaurant_name} is Confirmed!"
+    msg['Subject'] = f" Your Date at {restaurant_name} is Confirmed!"
     msg['From'] = formataddr(('MMUST Dating AI', sender_email))
     msg['To'] = to_email
 
