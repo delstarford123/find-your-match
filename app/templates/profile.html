@@ -146,11 +146,42 @@
     .btn-delete:active { transform: scale(0.98); }
     @media (hover: hover) { .btn-delete:hover { background: #fff5f5; } }
 
-    /* Custom File Upload Button */
+    /* === AVATAR & PHOTO UPLOAD === */
     .file-upload-wrapper { position: relative; margin-top: 20px; }
     .file-upload-wrapper input[type="file"] { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2; }
     .btn-photo { background: white; border: 2px solid #FFD6DD; color: #E60026; padding: 16px 20px; border-radius: 14px; font-weight: 900; font-size: 15px; text-align: center; display: block; transition: 0.2s; width: 100%; box-sizing: border-box;}
     .file-upload-wrapper:hover .btn-photo { border-color: #E60026; background: #FEF2F4; }
+
+    .avatar-section {
+        background: #fafafa;
+        padding: 20px;
+        border-radius: 16px;
+        border: 2px dashed #e0e0e0;
+        margin-top: 20px;
+    }
+    .avatar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+        gap: 12px;
+        max-height: 280px; /* Increased height so they can see more at once */
+        overflow-y: auto;
+        padding: 5px;
+    }
+    .avatar-grid::-webkit-scrollbar { width: 6px; }
+    .avatar-grid::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+    
+    .avatar-option {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 3px solid transparent;
+        transition: all 0.2s ease;
+        background: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .avatar-option:hover { transform: scale(1.1); box-shadow: 0 6px 15px rgba(230,0,38,0.15); }
+    .avatar-option.selected { border-color: #E60026; transform: scale(1.1); }
 
     /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
@@ -224,9 +255,18 @@
                 </div>
             </div>
 
+            <h4 class="section-title">Profile Picture</h4>
             <div class="file-upload-wrapper">
                 <input type="file" id="image-upload" name="profile_image" accept="image/png, image/jpeg, image/webp">
-                <div class="btn-photo" id="upload-text">📷 Upload New Profile Picture</div>
+                <div class="btn-photo" id="upload-text">📷 Upload Real Photo</div>
+            </div>
+
+            <div style="text-align: center; margin: 15px 0; color: #aaa; font-weight: 900; font-size: 11px; text-transform: uppercase; letter-spacing: 2px;">— OR CHOOSE AN AVATAR —</div>
+
+            <div class="avatar-section">
+                <input type="hidden" name="avatar" id="selected_avatar_input" value="{{ user.img }}">
+                <div class="avatar-grid" id="avatar_grid">
+                    </div>
             </div>
 
             <h4 class="section-title">Class Schedule</h4>
@@ -393,18 +433,65 @@
 </div>
 
 <script>
-    // Live Text Preview for Bio
+    // --- 50 REAL-CHARACTER AVATAR GENERATOR ---
+    const avatarGrid = document.getElementById('avatar_grid');
+    const hiddenInput = document.getElementById('selected_avatar_input');
+    const previewImg = document.getElementById('live-preview-img');
+    const uploadText = document.getElementById('upload-text');
+
+    // Replaced robots and blobs with highly expressive, human, and character-driven styles
+    const avatarStyles = ['micah', 'lorelei', 'notionists', 'avataaars', 'personas', 'adventurer', 'fun-emoji'];
+    let avatarHtml = '';
+
+    // Warm, romantic, and inviting background colors (pinks, peaches, warm yellows, soft purples)
+    const romanticColors = "ffccd5,ffdfbf,fce1e4,fcf4dd,e8eaf6,f8bbd0,ffe0b2,ffcdd2";
+
+    // Loop 50 times to generate 50 distinct characters
+    for(let i = 1; i <= 50; i++) {
+        let style = avatarStyles[i % avatarStyles.length];
+        
+        // Generate the URL with our new styles and warmer backgrounds
+        let url = `https://api.dicebear.com/7.x/${style}/svg?seed=LoveDatingMMUST${i}&backgroundColor=${romanticColors}`;
+        
+        // Highlight it if it matches their current saved avatar
+        let isSelected = hiddenInput.value === url ? 'selected' : '';
+        
+        avatarHtml += `
+            <img src="${url}" 
+                 onclick="selectAvatar('${url}', this)" 
+                 class="avatar-option ${isSelected}"
+                 loading="lazy"
+                 title="Avatar ${i}">
+        `;
+    }
+    avatarGrid.innerHTML = avatarHtml;
+
+    // Handles picking an avatar
+    window.selectAvatar = function(url, element) {
+        hiddenInput.value = url; // Save to hidden form input
+        
+        // Update selection borders
+        document.querySelectorAll('.avatar-option').forEach(img => img.classList.remove('selected'));
+        element.classList.add('selected');
+
+        // Instantly update the big live preview image
+        previewImg.src = url;
+        
+        // Reset the file upload box in case they had selected a real photo previously
+        uploadText.innerText = "📷 Upload Real Photo";
+        document.getElementById('image-upload').value = ""; 
+    };
+
+    // --- OTHER LIVE PREVIEWS ---
     document.getElementById('bio').addEventListener('input', function() {
         document.getElementById('preview-bio').innerText = this.value || "Tell MMUST about yourself...";
     });
     
-    // Live Preview for Age
     document.getElementById('age').addEventListener('input', function() {
         const badge = document.getElementById('preview-age-badge');
         if(badge) badge.innerText = this.value || "18";
     });
 
-    // Live Preview for Intent Tag
     document.getElementById('intent-select').addEventListener('change', function() {
         const intentMap = {
             'none': '',
@@ -422,32 +509,33 @@
         }
     });
 
-    // Live Image Preview before uploading
+    // Handle real photo uploads
     document.getElementById('image-upload').addEventListener('change', function(event) {
         const file = event.target.files[0];
         if (file) {
-            document.getElementById('upload-text').innerText = "✅ " + file.name;
+            uploadText.innerText = "✅ " + file.name;
+            
+            // Un-select avatars if a real photo is chosen
+            document.querySelectorAll('.avatar-option').forEach(img => img.classList.remove('selected'));
+            hiddenInput.value = ""; // Clear avatar input so backend prefers the file
+
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById('live-preview-img').src = e.target.result;
+                previewImg.src = e.target.result;
             }
             reader.readAsDataURL(file);
         }
     });
 
-    // Dynamic Schedule Rows
+    // --- DYNAMIC SCHEDULE LOGIC ---
     document.getElementById('btn-add-schedule').addEventListener('click', function() {
         const container = document.getElementById('schedule-container');
         const firstWrapper = container.querySelector('.schedule-wrapper');
         
-        // Clone it
         const newWrapper = firstWrapper.cloneNode(true);
-        
-        // Clear out the cloned inputs
         newWrapper.querySelectorAll('select').forEach(select => select.value = '');
         newWrapper.querySelectorAll('input[type="time"]').forEach(input => input.value = '');
         
-        // Ensure "Remove" button is visible and works
         const removeBtn = newWrapper.querySelector('.btn-remove-row');
         removeBtn.style.display = 'flex';
         removeBtn.onclick = function() { newWrapper.remove(); };

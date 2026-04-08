@@ -786,7 +786,6 @@ def matches(partner_id=None):
                            my_matches=my_matches,
                            active_partner=active_partner,
                            chat_history=history)   
-             
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -796,39 +795,53 @@ def profile():
     user_data = user_ref.get()
 
     if not user_data:
-        flash("Profile not found.", "error")
+        flash("Profile not found. Please log in again.", "error")
         return redirect(url_for('auth.login'))
 
     if request.method == 'POST':
+        # 1. Grab raw form data
         new_bio = request.form.get('bio')
         new_age = request.form.get('age')
         new_religion = request.form.get('religion')
+        new_avatar = request.form.get('avatar') # For the new 20 avatars feature!
 
         try:
-            user_ref.update({
-                'bio': new_bio if new_bio else user_data.get('bio'),
-                'age': int(new_age) if new_age else user_data.get('age'),
-                'religion': new_religion if new_religion else user_data.get('religion')
-            })
+            # 2. Build an update dictionary dynamically (Cleaner & Safer)
+            update_data = {}
+            if new_bio: update_data['bio'] = new_bio.strip()
+            if new_religion: update_data['religion'] = new_religion.strip()
+            if new_avatar: update_data['img'] = new_avatar.strip()
+            
+            # Prevent crashes by ensuring 'age' is actually a number before casting to int
+            if new_age and new_age.isdigit():
+                update_data['age'] = int(new_age)
+
+            # 3. Only ping the database if there is actually something to update
+            if update_data:
+                user_ref.update(update_data)
             
             if new_religion:
                 session['user_religion'] = new_religion
 
+            # 4. Handle Schedule Updates (Using Python's 'zip' makes this much cleaner)
             days = request.form.getlist('day_of_week[]')
             starts = request.form.getlist('start_time[]')
             ends = request.form.getlist('end_time[]')
             
-            for i in range(len(days)):
-                if days[i] and starts[i] and ends[i]:
-                    save_schedule(user_id, days[i], starts[i], ends[i])
+            for day, start, end in zip(days, starts, ends):
+                if day and start and end:
+                    save_schedule(user_id, day, start, end)
             
             flash("Profile and Free Time Schedule updated successfully!", "success")
             return redirect(url_for('profile'))
             
         except Exception as e:
+            # Better error logging so you can track bugs in Render
+            logger.error(f"Profile Update Error for user {user_id}: {e}")
             flash("Error updating profile. Please try again.", "error")
 
     return render_template('profile.html', current_user=session.get('user_name'), user=user_data)
+
 
 @app.route('/student/<target_id>')
 @requires_subscription
@@ -1270,7 +1283,6 @@ logger = logging.getLogger('god_mode')
 
 # Define East Africa Time (UTC+3) for accurate Kenyan timestamps
 EAT = timezone(timedelta(hours=3))
-
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
@@ -1294,37 +1306,57 @@ def super_admin():
         return redirect(url_for('super_admin'))
         
     if not session.get('is_super_admin'):
-        # FIXED: Pointing to super_admin.html
         return render_template('super_admin.html', logged_in=False)
 
     try:
-        # Fetch Data
+        # Fetch Core Data
         all_profiles = db.reference('profiles').get() or {}
         all_restaurants = db.reference('restaurants').get() or {}
         alerts_dict = db.reference('admin_alerts').get() or {}
         
-        # Calculate Revenue
-        student_revenue = sum(20 for p in all_profiles.values() if p.get('is_paid'))
-        b2b_revenue = sum(2000 for r in all_restaurants.values() if r.get('subscription_active'))
+        # Fetch Support System Data
+        feedbacks_dict = db.reference('feedbacks').get() or {}
+        call_requests_dict = db.reference('call_requests').get() or {}
+        
+        # Calculate Revenue (Safely checking if it's a dict to prevent Firebase type errors)
+        student_revenue = sum(20 for p in all_profiles.values() if isinstance(p, dict) and p.get('is_paid'))
+        b2b_revenue = sum(2000 for r in all_restaurants.values() if isinstance(r, dict) and r.get('subscription_active'))
         total_revenue = student_revenue + b2b_revenue
 
-        # Format and Sort Alerts (Newest First)
-        alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items()]
+        # Format and Sort AI Alerts (Newest First)
+        alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items() if isinstance(v, dict)]
         alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        # Format and Sort Feedbacks (Combine Suggestions & Tickets)
+        feedbacks = []
+        suggestions = feedbacks_dict.get('suggestion', {})
+        tickets = feedbacks_dict.get('ticket', {})
+        
+        if isinstance(suggestions, dict):
+            feedbacks.extend([{'id': k, 'type': 'suggestion', **v} for k, v in suggestions.items() if isinstance(v, dict)])
+        if isinstance(tickets, dict):
+            feedbacks.extend([{'id': k, 'type': 'ticket', **v} for k, v in tickets.items() if isinstance(v, dict)])
+            
+        feedbacks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+
+        # Format and Sort Call Requests
+        call_requests = [{'id': k, **v} for k, v in call_requests_dict.items() if isinstance(v, dict)]
+        call_requests.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
         # Filter Pending Businesses
         pending_businesses = [
             {'id': k, **v} for k, v in all_restaurants.items() 
-            if not v.get('subscription_active')
+            if isinstance(v, dict) and not v.get('subscription_active')
         ]
 
-        # FIXED: Pointing to super_admin.html
         return render_template('super_admin.html', 
                                logged_in=True,
                                total_revenue=total_revenue,
                                student_revenue=student_revenue,
                                b2b_revenue=b2b_revenue,
                                alerts=alerts,
+                               feedbacks=feedbacks,          # Passed to frontend
+                               call_requests=call_requests,  # Passed to frontend
                                pending_businesses=pending_businesses)
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
@@ -1361,6 +1393,17 @@ def admin_action():
         elif action == 'dismiss_alert':
             db.reference(f'admin_alerts/{target_id}').delete()
             
+        # --- NEW ACTIONS FOR SUPPORT SYSTEM ---
+        elif action == 'resolve_feedback':
+            # We mapped the 'type' (suggestion or ticket) to the alert_id parameter in JS
+            feedback_type = data.get('alert_id') 
+            if feedback_type and target_id:
+                db.reference(f'feedbacks/{feedback_type}/{target_id}').delete()
+                
+        elif action == 'resolve_call':
+            if target_id:
+                db.reference(f'call_requests/{target_id}').delete()
+            
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Admin Action Error ({action}): {e}")
@@ -1375,10 +1418,10 @@ def admin_ledger():
         profiles = db.reference('profiles').get() or {}
         restaurants = db.reference('restaurants').get() or {}
         
-        paid_students = [p for p in profiles.values() if p.get('is_paid')]
+        paid_students = [p for p in profiles.values() if isinstance(p, dict) and p.get('is_paid')]
         student_revenue = len(paid_students) * 20
         
-        active_merchants = [r for r in restaurants.values() if r.get('subscription_active')]
+        active_merchants = [r for r in restaurants.values() if isinstance(r, dict) and r.get('subscription_active')]
         merchant_revenue = len(active_merchants) * 2000
         
         total_revenue = student_revenue + merchant_revenue
@@ -2278,7 +2321,67 @@ def create_flash_perk():
     except Exception as e:
         logger.error(f"Error creating Flash Perk: {e}")
         return jsonify({'success': False, 'message': 'Failed to create perk.'}), 500
-      
+    
+# ==========================================
+# SUPPORT, SUGGESTIONS & CALL REQUESTS
+# ==========================================
+
+@app.route('/api/submit_feedback', methods=['POST'])
+@login_required
+def submit_feedback():
+    """Handles both System Suggestions and Support Tickets."""
+    data = request.json
+    user_id = session.get('user_id')
+    
+    # 'suggestion' or 'ticket'
+    feedback_type = data.get('type', 'suggestion') 
+    message = data.get('message', '').strip()
+    
+    if not message:
+        return jsonify({'success': False, 'message': 'Message cannot be empty.'}), 400
+        
+    try:
+        # Save to Firebase under a 'feedbacks' node
+        db.reference(f'feedbacks/{feedback_type}').push({
+            'user_id': user_id,
+            'user_name': session.get('user_name', 'Student'),
+            'message': message,
+            'timestamp': datetime.now(EAT).isoformat(),
+            'status': 'open' # Admins can mark this as 'resolved' later
+        })
+        
+        return jsonify({'success': True, 'message': 'Successfully submitted! Thank you.'})
+    except Exception as e:
+        logger.error(f"Feedback Submission Error: {e}")
+        return jsonify({'success': False, 'message': 'Failed to submit. Please try again.'}), 500
+
+@app.route('/api/request_call', methods=['POST'])
+@login_required
+def request_call():
+    """Allows users to request a phone call from the Support Team."""
+    data = request.json
+    user_id = session.get('user_id')
+    phone_number = data.get('phone_number')
+    reason = data.get('reason', 'General Support')
+
+    if not phone_number:
+        return jsonify({'success': False, 'message': 'Phone number is required.'}), 400
+
+    try:
+        db.reference('call_requests').push({
+            'user_id': user_id,
+            'user_name': session.get('user_name', 'Student'),
+            'phone_number': phone_number,
+            'reason': reason,
+            'timestamp': datetime.now(EAT).isoformat(),
+            'status': 'pending'
+        })
+        return jsonify({'success': True, 'message': 'Call request received! An admin will call you shortly.'})
+    except Exception as e:
+        logger.error(f"Call Request Error: {e}")
+        return jsonify({'success': False, 'message': 'Failed to request call.'}), 500
+    
+    
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

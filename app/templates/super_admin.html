@@ -171,12 +171,30 @@
         padding: 6px 12px; border-radius: 8px; font-size: 12px;
         display: inline-block; border: 1px solid rgba(234, 179, 8, 0.2);
     }
+    .flag-blue { 
+        color: #38bdf8; font-weight: 800; background: rgba(56, 189, 248, 0.15); 
+        padding: 6px 12px; border-radius: 8px; font-size: 12px;
+        display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .flag-purple { 
+        color: #a855f7; font-weight: 800; background: rgba(168, 85, 247, 0.15); 
+        padding: 6px 12px; border-radius: 8px; font-size: 12px;
+        display: inline-block; border: 1px solid rgba(168, 85, 247, 0.2);
+    }
     
     /* Message Bubble */
     .alert-message {
         color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; 
         padding: 18px; border-radius: 12px; border-left: 4px solid #ef4444;
         line-height: 1.6; word-break: break-word; font-style: italic; font-weight: 500;
+    }
+    .feedback-message {
+        color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; 
+        padding: 18px; border-radius: 12px; border-left: 4px solid #38bdf8;
+        line-height: 1.6; word-break: break-word; font-weight: 500;
+    }
+    .ticket-message {
+        border-left: 4px solid #a855f7;
     }
     
     /* Action Buttons */
@@ -219,7 +237,7 @@
         .action-group { width: 100%; flex-direction: column; gap: 10px;}
         .btn-admin { width: 100%; text-align: center; }
         .list-item { flex-direction: column; padding: 20px;}
-        .alert-message { font-size: 14px; padding: 15px; }
+        .alert-message, .feedback-message { font-size: 14px; padding: 15px; }
     }
 </style>
 
@@ -249,7 +267,7 @@
                 <div class="status-dot"></div>
                 System Online
             </div>
-            <a href="{{ url_for('auth.logout') }}" class="btn-lock">🔒 Lock Terminal</a>
+            <a href="{{ url_for('admin_logout') }}" class="btn-lock">🔒 Lock Terminal</a>
         </div>
     </div>
 
@@ -267,6 +285,69 @@
             <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
         </div>
     </div>
+
+    <h3 class="section-title animate-up delay-3">User Suggestions & Support Tickets</h3>
+    <div class="admin-list animate-up delay-3" id="feedback-list">
+        {% if feedbacks %}
+            {% for f in feedbacks %}
+            <div class="list-item" id="feedback-{{ f.id }}">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
+                        {% if f.type == 'suggestion' %}
+                            <span class="flag-blue">💡 SUGGESTION</span>
+                        {% else %}
+                            <span class="flag-purple">⚠️ ERROR TICKET</span>
+                        {% endif %}
+                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ f.timestamp[:10] if f.timestamp else 'Recent' }}</span>
+                    </div>
+                    
+                    <div class="feedback-message {% if f.type == 'ticket' %}ticket-message{% endif %}">"{{ f.message }}"</div>
+                    
+                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Submitted by: <strong style="color: #cbd5e1;">{{ f.user_name }}</strong> ({{ f.user_id }})</div>
+                </div>
+                
+                <div class="action-group">
+                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_feedback', '{{ f.id }}', '{{ f.type }}')">Mark as Resolved</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
+                <div style="font-size: 16px; color: #94a3b8;">No new suggestions or tickets.</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <h3 class="section-title animate-up delay-3">Callback Requests</h3>
+    <div class="admin-list animate-up delay-3" id="call-list">
+        {% if call_requests %}
+            {% for call in call_requests %}
+            <div class="list-item" id="call-{{ call.id }}">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
+                        <span class="flag-yellow">📞 URGENT CALLBACK</span>
+                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
+                    </div>
+                    
+                    <h4 style="color: white; margin: 15px 0 5px 0; font-size: 20px; font-weight: 900;">{{ call.phone_number }}</h4>
+                    <div style="font-size: 14px; color: #94a3b8; font-weight: 500; margin-bottom: 10px;">Reason: {{ call.reason }}</div>
+                    
+                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Requested by: <strong style="color: #cbd5e1;">{{ call.user_name }}</strong> ({{ call.user_id }})</div>
+                </div>
+                
+                <div class="action-group">
+                    <a href="tel:{{ call.phone_number }}" class="btn-admin btn-approve" style="text-decoration: none;">Call Now</a>
+                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark as Handled</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
+                <div style="font-size: 16px; color: #94a3b8;">No pending call requests.</div>
+            </div>
+        {% endif %}
+    </div>
+
 
     <h3 class="section-title animate-up delay-3">AI Moderation Queue (Requires Action)</h3>
     <div class="admin-list animate-up delay-3" id="moderation-list">
@@ -370,7 +451,12 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    const removeId = (actionType === 'approve_business') ? 'biz-' + targetId : 'alert-' + (alertId || targetId);
+                    let removeId = '';
+                    if (actionType === 'approve_business') removeId = 'biz-' + targetId;
+                    else if (actionType === 'resolve_feedback') removeId = 'feedback-' + targetId;
+                    else if (actionType === 'resolve_call') removeId = 'call-' + targetId;
+                    else removeId = 'alert-' + (alertId || targetId);
+
                     const elementToRemove = document.getElementById(removeId);
                     
                     if (elementToRemove) {
@@ -384,6 +470,8 @@
                     if (actionType === 'dismiss_alert') msg = "Alert dismissed.";
                     if (actionType === 'ban_user') msg = "User permanently banned.";
                     if (actionType === 'approve_business') msg = "Business approved and activated!";
+                    if (actionType === 'resolve_feedback') msg = "Feedback marked as resolved.";
+                    if (actionType === 'resolve_call') msg = "Call request closed.";
                     
                     showToast(msg);
                 } else {
