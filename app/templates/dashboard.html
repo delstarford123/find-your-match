@@ -126,18 +126,29 @@
 
     /* === HORIZONTAL SCROLL GRID (MATCHES) === */
     .matches-grid {
-        display: flex; gap: clamp(15px, 4vw, 25px); max-width: 1060px;
+        display: flex; 
+        gap: clamp(15px, 4vw, 25px); 
+        max-width: 1060px;
         margin: 0 auto 60px auto;
-        padding: 10px clamp(15px, 5vw, 30px) 40px; 
-        overflow-x: auto; scroll-snap-type: x mandatory; 
-        /* scroll-padding ensures the card snaps with proper margin on the left */
+        padding: 10px clamp(15px, 5vw, 30px) 40px clamp(15px, 5vw, 30px); 
+        overflow-x: auto; 
+        scroll-snap-type: x mandatory; 
         scroll-padding-left: clamp(15px, 5vw, 30px); 
-        scrollbar-width: none; -webkit-overflow-scrolling: touch; 
+        scrollbar-width: none; 
+        -webkit-overflow-scrolling: touch; 
     }
     .matches-grid::-webkit-scrollbar { display: none; }
 
+    /* THE FIX: Forces browser to render the right padding on the last item */
+    .matches-grid::after {
+        content: '';
+        flex: 0 0 1px;
+        width: 1px;
+    }
+
     .match-card {
-        flex: 0 0 85%; max-width: 300px; 
+        flex: 0 0 85%; 
+        max-width: 300px; 
         background: white; border-radius: 20px; overflow: hidden;
         box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08);
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
@@ -145,8 +156,16 @@
         scroll-snap-align: start; 
     }
 
+    /* THE DESKTOP UPGRADE: Wrap cards beautifully on big screens */
     @media (min-width: 768px) {
-        .match-card { flex: 0 0 280px; }
+        .matches-grid {
+            flex-wrap: wrap;
+            justify-content: center;
+            overflow-x: visible;
+            padding-bottom: 20px;
+        }
+        .matches-grid::after { display: none; } /* Remove padding fix on desktop */
+        .match-card { flex: 0 0 280px; scroll-snap-align: none; }
     }
     
     @media (hover: hover) {
@@ -259,16 +278,16 @@
 
         <div class="date-details">
             <div class="detail-row">
-                <span class="detail-icon"></span>
+                <span class="detail-icon">🍽️</span>
                 <span><strong>{{ date.restaurant_name }}</strong><br><span style="font-size: 13px; color: #666;">{{ date.location }}</span></span>
             </div>
             <div class="detail-row">
-                <span class="detail-icon"></span>
+                <span class="detail-icon">⏰</span>
                 <span>{{ date.day }} at {{ date.time }}</span>
             </div>
             {% if date.perk %}
             <div class="detail-row">
-                <span class="detail-icon"></span>
+                <span class="detail-icon">🎁</span>
                 <span style="color: #28a745; font-weight: 800;">{{ date.perk }}</span>
             </div>
             {% endif %}
@@ -316,7 +335,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-    <div class="empty-state-icon"></div>
+    <div class="empty-state-icon">👀</div>
     <h2>It's quiet here...</h2>
     <p>You don't have any new students visible right now. Adjust your filters or check back later!</p>
 </div>
@@ -324,23 +343,23 @@
 
 <div id="milestone-modal" class="modal hidden">
     <div class="modal-content">
-        <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! </h2>
+        <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! 🥳</h2>
         <p style="color: #555; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
             It's been exactly 30 days since you matched with <strong id="milestone-partner" style="color:#E60026;">Them</strong>. Our AI wants to know how your connection is going!
         </p>
         
         <div style="display: flex; flex-direction: column;">
             <button onclick="submitMilestone('married')" class="btn-milestone" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%);">
-                <span></span> We are Married / Engaged!
+                💍 We are Married / Engaged!
             </button>
             <button onclick="submitMilestone('serious')" class="btn-milestone" style="background: #28a745;">
-                <span></span> In a serious relationship
+                💘 In a serious relationship
             </button>
             <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
-                <span></span> Still casually dating
+                ☕ Still casually dating
             </button>
             <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #4A0008; border: 2px solid #FFD6DD; box-shadow: none;">
-                <span></span> It didn't work out
+                ❌ It didn't work out
             </button>
         </div>
     </div>
