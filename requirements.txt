@@ -9,7 +9,7 @@ firebase-admin
 psycopg2-binary
 python-dotenv
 
-# Utilities (Push Notifications & QR Codes)
+# Utilities
 pywebpush
 qrcode
 Pillow
