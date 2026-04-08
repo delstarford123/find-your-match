@@ -1,29 +1,19 @@
 # Web Framework & Server
-Flask
-Flask-SocketIO
-gunicorn
-eventlet
+Flask==3.0.2
+Flask-SocketIO==5.3.6
+gunicorn==21.2.0
+eventlet==0.35.2
+werkzeug==3.0.1
 
 # Database & Environment
-firebase-admin
-psycopg2-binary
-python-dotenv
+firebase-admin==6.5.0
+python-dotenv==1.0.1
+requests==2.31.0
 
 # Utilities
-pywebpush
-qrcode
-Pillow
-
-# Data Science & Machine Learning
-pandas
-numpy
-scikit-learn
+pywebpush==1.14.0
+qrcode==7.4.2
+Pillow==10.2.0
 
 # AI & External APIs
-groq
-requests
-torch
-torchvision
-transformers
-sentence-transformers
-huggingface_hub
+groq==0.4.2
