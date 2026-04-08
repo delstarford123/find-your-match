@@ -147,7 +147,7 @@
         <div style="text-align: left;">
             <label class="link-label" style="color: #E60026;">Your VIP Invite Link</label>
             <div class="link-container">
-                <input type="text" id="ref-link" class="link-input" value="{{ base_url }}/join?ref={{ user.referral_code | default('MMUST-VIP-26') }}" readonly>
+                <input type="text" id="ref-link" class="link-input" value="https://www.findyourmatch.co.ke/join?ref={{ user.referral_code | default('MMUST-VIP-26') }}" readonly>
                 <button class="btn-copy" onclick="copyLink('ref-link')">Copy</button>
             </div>
         </div>
@@ -178,7 +178,7 @@
         <div style="text-align: left;">
             <label class="link-label" style="color: #7e22ce;">Your Wingman Profile Link</label>
             <div class="link-container">
-                <input type="text" id="wingman-link" class="link-input" value="{{ base_url }}/bestie/{{ user.wingman_code }}" readonly>
+                <input type="text" id="wingman-link" class="link-input" value="https://www.findyourmatch.co.ke/bestie/{{ user.wingman_code }}" readonly>
                 <button class="btn-copy" onclick="copyLink('wingman-link')">Copy</button>
             </div>
         </div>
@@ -215,7 +215,7 @@
 
     function shareWingman() {
         const link = document.getElementById('wingman-link').value;
-        const text = `Hey bestie!  I just made a profile on the new MMUST Dating app. Can you check it out and tell me if it's giving 'Catch' or 'Red Flag'? Be honest! 😂👇\n\n${link}`;
+        const text = `Hey bestie! 👀 I just made a profile on the new MMUST Dating app. Can you check it out and tell me if it's giving 'Catch' or 'Red Flag'? Be honest! 😂👇\n\n${link}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
 </script>
