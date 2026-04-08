@@ -2124,6 +2124,18 @@ def hash_reg_number(reg_num):
 import string
 import random
 
+# Handle 404 Page Not Found errors globally
+@app.errorhandler(404)
+def page_not_found(e):
+    # Renders your beautiful new 404 template, returning a 404 status code
+    return render_template('404.html'), 404
+
+# Optional: Handle 500 Internal Server Errors (if your code crashes)
+@app.errorhandler(500)
+def internal_server_error(e):
+    # You can reuse the 404 template, or create a specific 500.html later
+    return render_template('404.html'), 500
+
 @app.route('/referrals')
 def referrals():
     # 1. Check if the user is actually logged in

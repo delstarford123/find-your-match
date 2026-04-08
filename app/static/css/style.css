@@ -2,13 +2,19 @@
    GLOBAL VARIABLES & BASE RESET
    ========================================= */
 :root {
-    --primary-red: #E60026;
-    --maroon-deep: #720000;
-    --maroon-darker: #4A0008;
-    --blush-bg: #FEF2F4;
-    --pink-soft: #FFD6DD;
-    --white: #ffffff;
+    --primary: #E60026;
+    --primary-light: #FFD6DD;
+    --secondary: #720000;
+    --secondary-dark: #4A0008;
+    --bg-color: #f4f6f8;
+    --surface: #ffffff;
     --nav-height: 70px;
+    
+    /* Apple/Android Safe Area Insets for Edge-to-Edge displays */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
 }
 
 *, *::before, *::after {
@@ -17,88 +23,65 @@
     padding: 0;
 }
 
+/* NATIVE APP SCROLLING FIX */
 html, body {
-    overflow-x: hidden; /* Prevent horizontal scrolling on mobile */
-    width: 100%;
+    -webkit-tap-highlight-color: transparent; 
+    -webkit-text-size-adjust: 100%; 
+    touch-action: auto; /* Guarantees 1-finger scrolling */
 }
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--blush-bg);
-    color: var(--maroon-darker);
+    background-color: var(--bg-color);
+    color: var(--secondary-dark);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    min-height: 100dvh; /* Perfect mobile height */
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden; 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch; /* Buttery smooth iOS momentum scrolling */
 }
+
+/* PREMIUM APP SCROLLBARS */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(114, 0, 0, 0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(114, 0, 0, 0.4); }
 
 /* =========================================
-   NAVIGATION (RESPONSIVE)
+   GLOBAL FORM & INPUT STYLES (ANTI-ZOOM)
    ========================================= */
-.navbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 clamp(1rem, 5vw, 5%); /* Fluid padding */
-    height: var(--nav-height);
-    background: linear-gradient(90deg, var(--maroon-deep) 0%, var(--primary-red) 100%);
-    color: var(--white);
-    box-shadow: 0 4px 15px rgba(114, 0, 0, 0.4);
-    position: sticky;
-    top: 0;
-    z-index: 9999; /* Boosted to guarantee it stays above modals/cards */
+/* Locking font-size to 16px stops iOS Safari from zooming in on focus */
+input, select, textarea { 
+    font-size: 16px !important; 
+    font-family: inherit;
+    width: 100%;
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 2px solid #eaeaea;
+    background: var(--surface);
+    color: #111;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none; /* Removes native mobile styling */
 }
 
-.navbar .logo {
-    font-size: clamp(1.1rem, 4vw, 1.25rem); /* Fluid typography */
+input:focus, select:focus, textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
+}
+
+label {
+    display: block;
+    font-size: 13px;
     font-weight: 800;
+    color: var(--secondary);
+    text-transform: uppercase;
     letter-spacing: 0.5px;
-    text-decoration: none;
-    color: var(--white);
-    white-space: nowrap;
-}
-
-.nav-links {
-    display: flex;
-    align-items: center;
-    gap: clamp(1rem, 3vw, 1.5rem);
-}
-
-.nav-links a {
-    color: rgba(255, 255, 255, 0.9);
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 0.95rem;
-    transition: color 0.2s ease;
-}
-
-.nav-links a:hover {
-    color: var(--white);
-}
-
-.btn-nav {
-    background: var(--white);
-    color: var(--maroon-deep) !important;
-    padding: 0.5rem 1.2rem;
-    border-radius: 25px;
-    font-weight: 700;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.btn-nav:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.mobile-menu-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--white);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem; /* Better touch target */
+    margin-bottom: 8px;
 }
 
 /* =========================================
@@ -109,130 +92,98 @@ main.container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: clamp(1.5rem, 5vw, 2rem) 1rem; /* Fluid padding */
+    padding: clamp(20px, 5vw, 40px) 15px; 
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-}
-
-/* =========================================
-   SWIPE DECK & CARDS (RESPONSIVE)
-   ========================================= */
-.deck-container {
     position: relative;
-    width: 100%;
-    max-width: 400px;
-    margin: 1rem auto;
-    /* Prevents the deck from stretching too wide on tablets */
-    display: flex;
-    justify-content: center; 
+    z-index: 10;
 }
 
-.card {
-    background: var(--white);
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 10px 25px rgba(114, 0, 0, 0.15);
-    transition: transform 0.4s ease;
-    width: 100%;
-}
-
-.image-container {
-    position: relative;
-    height: 60vh;
-    min-height: 300px; /* Reduced slightly for smaller screens */
-    max-height: 500px;
-    background: #f0f0f0;
-}
-
-#profile-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.badge {
-    background: var(--primary-red);
-    color: var(--white);
-    padding: 0.3rem 0.8rem;
-    border-radius: 15px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    display: inline-block;
-    margin-bottom: 0.8rem;
-}
-
-/* Shimmer Loading Effect */
-.shimmer {
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-}
-
-@keyframes loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
-
-/* =========================================
-   FORMS & BUTTONS (RESPONSIVE)
-   ========================================= */
 .form-container {
-    background: var(--white);
-    padding: clamp(1.5rem, 5vw, 2rem); /* Fluid internal padding */
-    border-radius: 20px;
+    background: var(--surface);
+    padding: clamp(30px, 6vw, 45px) clamp(20px, 5vw, 35px);
+    border-radius: 28px;
     width: 100%;
-    max-width: 400px;
-    box-shadow: 0 10px 20px rgba(114, 0, 0, 0.1);
+    max-width: 450px;
+    box-shadow: 0 20px 40px rgba(114, 0, 0, 0.08);
+    border: 1px solid var(--primary-light);
+    animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
+/* =========================================
+   BUTTONS (NATIVE FEEL)
+   ========================================= */
 .btn-primary {
-    background: linear-gradient(90deg, var(--maroon-deep) 0%, var(--primary-red) 100%);
-    color: var(--white);
+    background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+    color: var(--surface);
     border: none;
-    padding: 1rem;
-    min-height: 48px; /* Minimum accessible touch target size */
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 1rem;
+    padding: 16px 24px;
+    min-height: 52px; /* Apple HIG minimum touch target */
+    border-radius: 16px;
+    font-weight: 900;
+    font-size: 16px;
     cursor: pointer;
     width: 100%;
-    transition: all 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 8px;
+    box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25);
+    text-decoration: none;
 }
 
-.btn-primary:hover {
-    filter: brightness(1.15);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(230, 0, 38, 0.3);
+@media (hover: hover) {
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px rgba(230, 0, 38, 0.35);
+    }
 }
 
-.alert {
-    padding: 0.8rem;
-    border-radius: 10px;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-    text-align: center;
+.btn-primary:active {
+    transform: scale(0.97); /* The native "squish" click effect */
 }
-.alert-error { background: #ffebeb; color: #d90429; border: 1px solid var(--pink-soft); }
-.alert-success { background: #ebffef; color: #28a745; border: 1px solid #c3e6cb; }
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
 
 /* =========================================
-   MODAL SYSTEM
+   ALERTS & TOASTS
+   ========================================= */
+.alert {
+    padding: 16px 20px;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    line-height: 1.4;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.alert-error, .alert-danger { background: #FEF2F4; color: var(--primary); border-left: 5px solid var(--primary); }
+.alert-success { background: #ebffef; color: #155724; border-left: 5px solid #28a745; }
+.alert-warning { background: #fff8e6; color: #856404; border-left: 5px solid #ffc107; }
+
+/* =========================================
+   GLOBAL MODAL SYSTEM
    ========================================= */
 .modal {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(74, 0, 8, 0.85);
-    z-index: 10000; /* Must be higher than navbar */
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10000; /* Absolute highest layer */
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem;
+    padding: 20px;
     transition: opacity 0.3s ease;
 }
 
@@ -243,87 +194,28 @@ main.container {
 }
 
 .modal-content {
-    background: var(--white);
+    background: var(--surface);
     width: 100%;
-    max-width: 380px;
-    border-radius: 20px;
-    padding: clamp(1.5rem, 5vw, 2rem);
+    max-width: 400px;
+    border-radius: 28px;
+    padding: clamp(25px, 6vw, 40px);
     text-align: center;
-    box-shadow: 0 15px 40px rgba(74, 0, 8, 0.3);
-    animation: slideUp 0.3s ease-out;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
 }
 
-@keyframes slideUp {
+/* =========================================
+   GLOBAL ANIMATIONS
+   ========================================= */
+@keyframes slideUpFade {
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes popIn {
+    0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .hidden { display: none !important; }
-
-/* =========================================
-   FOOTER
-   ========================================= */
-footer {
-    text-align: center;
-    padding: 1.5rem;
-    background-color: var(--maroon-darker);
-    color: var(--pink-soft);
-    font-size: 0.8rem;
-    margin-top: auto;
-}
-
-/* =========================================
-   MEDIA QUERIES
-   ========================================= */
-
-/* Tablets & standard mobile */
-@media screen and (max-width: 768px) {
-    .nav-links {
-        display: none; 
-        position: absolute;
-        top: var(--nav-height);
-        left: 0;
-        width: 100%;
-        background: var(--white);
-        flex-direction: column;
-        padding: 0; /* Remove padding here, add to children for full width hover */
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        border-top: 1px solid #eee;
-    }
-
-    .nav-links.active {
-        display: flex;
-    }
-
-    .nav-links a, .btn-nav {
-        width: 100%;
-        text-align: center;
-        padding: 1.2rem; /* Taller touch targets */
-        color: var(--maroon-darker) !important;
-        background: none;
-        border-radius: 0;
-        box-shadow: none;
-        border-bottom: 1px solid #eee;
-    }
-
-    .btn-nav {
-        font-weight: 800;
-        color: var(--primary-red) !important;
-    }
-
-    .mobile-menu-btn {
-        display: block;
-    }
-}
-
-/* Landscape Mobile Fix (Prevents swipe deck from overflowing screen height) */
-@media screen and (max-height: 600px) and (orientation: landscape) {
-    .image-container {
-        height: 45vh;
-        min-height: 200px;
-    }
-    
-    .navbar {
-        position: relative; /* Un-stick navbar in landscape to maximize vertical space */
-    }
-}
