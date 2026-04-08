@@ -9,11 +9,21 @@ firebase-admin
 psycopg2-binary
 python-dotenv
 
-# Utilities 
+# Utilities (Push Notifications & QR Codes)
 pywebpush
 qrcode
 Pillow
 
+# Data Science & Machine Learning
+pandas
+numpy
+scikit-learn
+
 # AI & External APIs
 groq
 requests
+torch
+torchvision
+transformers
+sentence-transformers
+huggingface_hub
