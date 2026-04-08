@@ -1,19 +1,19 @@
 # Web Framework & Server
-Flask==3.0.2
-Flask-SocketIO==5.3.6
-gunicorn==21.2.0
-eventlet==0.35.2
-werkzeug==3.0.1
+Flask
+Flask-SocketIO
+gunicorn
+eventlet
 
 # Database & Environment
-firebase-admin==6.5.0
-python-dotenv==1.0.1
-requests==2.31.0
+firebase-admin
+psycopg2-binary
+python-dotenv
 
-# Utilities
-pywebpush==1.14.0
-qrcode==7.4.2
-Pillow==10.2.0
+# Utilities 
+pywebpush
+qrcode
+Pillow
 
 # AI & External APIs
-groq==0.4.2
+groq
+requests
