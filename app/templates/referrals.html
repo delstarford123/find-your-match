@@ -14,7 +14,7 @@
 
     .referral-card {
         width: 100%;
-        max-width: 450px;
+        max-width: 480px;
         background: white;
         border-radius: 32px;
         padding: clamp(30px, 8vw, 45px) clamp(20px, 6vw, 35px);
@@ -39,54 +39,57 @@
     }
     @media (hover: hover) { .nav-back:hover { color: #E60026; transform: translateX(-3px); } }
 
-    /* === REWARD BANNER === */
-    .reward-banner {
-        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+    /* === BANNERS === */
+    .banner {
         border-radius: 24px;
         padding: clamp(20px, 6vw, 30px) clamp(15px, 5vw, 25px);
         color: white;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
         position: relative;
         overflow: hidden;
+    }
+    .banner.reward {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         box-shadow: 0 15px 35px rgba(230,0,38,0.25);
     }
+    .banner.wingman {
+        background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+        box-shadow: 0 15px 35px rgba(168, 85, 247, 0.25);
+        margin-top: 40px;
+    }
     
-    /* Decorative shine */
-    .reward-banner::before {
+    .banner::before {
         content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
         background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
         pointer-events: none;
     }
 
-    .reward-icon { font-size: clamp(40px, 10vw, 50px); line-height: 1; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));}
-    .reward-title { font-size: clamp(22px, 6vw, 28px); font-weight: 900; margin: 0 0 8px 0; letter-spacing: -0.5px; line-height: 1.2;}
-    .reward-desc { font-size: clamp(14px, 4vw, 15px); font-weight: 500; opacity: 0.95; margin: 0; line-height: 1.5; }
+    .banner-icon { font-size: clamp(40px, 10vw, 50px); line-height: 1; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));}
+    .banner-title { font-size: clamp(22px, 6vw, 26px); font-weight: 900; margin: 0 0 8px 0; letter-spacing: -0.5px; line-height: 1.2;}
+    .banner-desc { font-size: clamp(14px, 4vw, 15px); font-weight: 500; opacity: 0.95; margin: 0; line-height: 1.5; }
 
     /* === LINK BOX === */
     .link-label {
-        font-size: 12px; color: #E60026; font-weight: 900; text-transform: uppercase;
+        font-size: 12px; color: #4A0008; font-weight: 900; text-transform: uppercase;
         letter-spacing: 1px; margin-bottom: 10px; display: block; text-align: left;
     }
     
     .link-container {
         display: flex; align-items: center; background: #fafafa;
         border: 2px solid #f0f0f0; border-radius: 16px; padding: 6px;
-        margin-bottom: 25px; transition: 0.3s; width: 100%; box-sizing: border-box;
+        margin-bottom: 20px; transition: 0.3s; width: 100%; box-sizing: border-box;
     }
-    .link-container:focus-within { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
+    .link-container:focus-within { background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
     
     .link-input {
-        /* min-width: 0 is CRITICAL to stop flex items from overflowing their container */
         flex: 1 1 auto; min-width: 0; 
         background: transparent; border: none; padding: 12px 10px 12px 15px;
         font-size: 15px; font-weight: 700; color: #111; outline: none;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        -webkit-user-select: all; user-select: all; 
     }
     
     .btn-copy {
-        flex-shrink: 0; /* Prevents button from being squashed */
-        background: white; border: 1px solid #ddd; border-radius: 12px;
+        flex-shrink: 0; background: white; border: 1px solid #ddd; border-radius: 12px;
         padding: 12px 16px; font-weight: 900; cursor: pointer; color: #333;
         transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
@@ -97,7 +100,7 @@
         width: 100%; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
         color: white; border: none; padding: 18px; border-radius: 16px;
         font-size: 16px; font-weight: 900; cursor: pointer;
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s;
         box-shadow: 0 10px 25px rgba(37, 211, 102, 0.3);
         display: flex; justify-content: center; align-items: center; gap: 10px;
         text-decoration: none; margin-bottom: 30px; min-height: 56px; box-sizing: border-box;
@@ -109,16 +112,11 @@
     .stats-box {
         display: flex; justify-content: space-between; background: #fff5f6;
         border: 1px dashed #FFD6DD; border-radius: 20px; 
-        padding: clamp(15px, 5vw, 20px) clamp(10px, 4vw, 25px);
-        gap: 10px; /* Prevents columns from touching */
+        padding: clamp(15px, 5vw, 20px) clamp(10px, 4vw, 25px); gap: 10px; 
     }
-    .stat-col { 
-        text-align: center; flex: 1; 
-        display: flex; flex-direction: column; justify-content: center;
-    }
+    .stat-col { text-align: center; flex: 1; display: flex; flex-direction: column; justify-content: center; }
     .stat-col:first-child { border-right: 1px solid #FFD6DD; padding-right: 10px; }
     .stat-col:last-child { padding-left: 10px; }
-    
     .stat-num { font-size: clamp(24px, 6vw, 28px); font-weight: 900; color: #720000; line-height: 1; margin-bottom: 6px;}
     .stat-label { font-size: clamp(10px, 3vw, 11px); font-weight: 900; color: #E60026; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3;}
 
@@ -131,29 +129,31 @@
         width: max-content; max-width: 90%; text-align: center;
     }
     .copy-toast.show { opacity: 1; bottom: 40px; }
+    
+    .divider { width: 100%; height: 2px; background: #f0f0f0; margin: 40px 0; border: none;}
 </style>
 
 <div class="referral-wrapper">
     <div class="referral-card">
         
-        <a href="javascript:history.back()" class="nav-back"><span>←</span> Back</a>
+        <a href="javascript:history.back()" class="nav-back"><span>←</span> Back to Dashboard</a>
 
-        <div class="reward-banner">
-            <div class="reward-icon">🎁</div>
-            <h2 class="reward-title">Be the Ultimate Wingman</h2>
-            <p class="reward-desc">Invite a single friend to MMUST Dating. When they sign up, <strong>you both get 1 week of Premium Access (Free).</strong></p>
+        <div class="banner reward">
+            <div class="banner-icon">🎁</div>
+            <h2 class="banner-title">Earn Free Premium</h2>
+            <p class="banner-desc">Invite a single friend to MMUST Dating. When they sign up, <strong>you both get 1 week of Premium Access (Free).</strong></p>
         </div>
 
         <div style="text-align: left;">
-            <label class="link-label">Your Unique Invite Link</label>
+            <label class="link-label" style="color: #E60026;">Your VIP Invite Link</label>
             <div class="link-container">
-                <input type="text" id="ref-link" class="link-input" value="https://find-your-match-un1c.onrender.com/join?ref={{ user.referral_code | default('MMUST-VIP-26') }}" readonly>
-                <button class="btn-copy" onclick="copyLink()">Copy</button>
+                <input type="text" id="ref-link" class="link-input" value="{{ base_url }}/join?ref={{ user.referral_code | default('MMUST-VIP-26') }}" readonly>
+                <button class="btn-copy" onclick="copyLink('ref-link')">Copy</button>
             </div>
         </div>
 
-        <button onclick="shareToWhatsApp()" class="btn-whatsapp">
-            <span style="font-size: 22px;">💬</span> Share via WhatsApp
+        <button onclick="shareReferral()" class="btn-whatsapp">
+            <span style="font-size: 22px;">💬</span> Share Invite to WhatsApp
         </button>
 
         <div class="stats-box">
@@ -167,40 +167,56 @@
             </div>
         </div>
 
+        <hr class="divider">
+
+        <div class="banner wingman">
+            <div class="banner-icon">🕵️‍♀️</div>
+            <h2 class="banner-title">Send to My Bestie</h2>
+            <p class="banner-desc">Need a second opinion? Send a secure, read-only link to your bestie so they can rate your profile!</p>
+        </div>
+
+        <div style="text-align: left;">
+            <label class="link-label" style="color: #7e22ce;">Your Wingman Profile Link</label>
+            <div class="link-container">
+                <input type="text" id="wingman-link" class="link-input" value="{{ base_url }}/bestie/{{ user.wingman_code }}" readonly>
+                <button class="btn-copy" onclick="copyLink('wingman-link')">Copy</button>
+            </div>
+        </div>
+
+        <button onclick="shareWingman()" class="btn-whatsapp" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); box-shadow: 0 10px 25px rgba(0,0,0,0.2); margin-bottom: 0;">
+            <span style="font-size: 22px;">🔍</span> Send to Bestie for Review
+        </button>
+
     </div>
 </div>
 
 <div id="copy-toast" class="copy-toast">✨ Link copied to clipboard!</div>
 
 <script>
-    function copyLink() {
-        const linkInput = document.getElementById('ref-link');
+    function copyLink(inputId) {
+        const linkInput = document.getElementById(inputId);
         linkInput.select();
         linkInput.setSelectionRange(0, 99999); // For mobile devices
         
         navigator.clipboard.writeText(linkInput.value).then(() => {
             const toast = document.getElementById('copy-toast');
             toast.classList.add('show');
+            if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
             
-            // Haptic feedback if available
-            if (navigator.vibrate) navigator.vibrate(50);
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
         });
     }
 
-    function shareToWhatsApp() {
+    function shareReferral() {
         const link = document.getElementById('ref-link').value;
         const text = `Hey! I'm using the new AI-powered MMUST Dating app. Use my VIP link to get a free week of premium access when you sign up! 🔥\n\n${link}`;
-        
-        // URL encode the text for WhatsApp
-        const encodedText = encodeURIComponent(text);
-        const whatsappUrl = `https://wa.me/?text=${encodedText}`;
-        
-        // Open WhatsApp
-        window.open(whatsappUrl, '_blank');
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    function shareWingman() {
+        const link = document.getElementById('wingman-link').value;
+        const text = `Hey bestie!  I just made a profile on the new MMUST Dating app. Can you check it out and tell me if it's giving 'Catch' or 'Red Flag'? Be honest! 😂👇\n\n${link}`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
 </script>
 {% endblock %}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Review {{ profile.name }}'s Profile - MMUST AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; background: #0f172a; color: white; 
+            margin: 0; display: flex; justify-content: center; align-items: center; 
+            min-height: 100dvh; padding: 20px;
+        }
+        .review-card {
+            background: white; border-radius: 24px; padding: 30px; 
+            max-width: 400px; width: 100%; text-align: center; color: #111;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .profile-img { width: 100%; height: 350px; object-fit: cover; border-radius: 16px; margin-bottom: 20px; background: #eee; }
+        h1 { margin: 0 0 5px 0; font-size: 28px; font-weight: 900; color: #720000; }
+        .tag { background: #FEF2F4; color: #E60026; padding: 5px 12px; border-radius: 20px; font-weight: 800; font-size: 13px; display: inline-block; margin-bottom: 15px;}
+        p { font-size: 16px; line-height: 1.5; color: #555; margin-bottom: 30px; }
+        
+        .vote-row { display: flex; gap: 15px; }
+        .btn-vote {
+            flex: 1; padding: 18px 10px; border: none; border-radius: 16px; font-weight: 900; 
+            font-size: 15px; cursor: pointer; transition: transform 0.2s;
+        }
+        .btn-vote:active { transform: scale(0.95); }
+        .btn-catch { background: #10b981; color: white; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3); }
+        .btn-redflag { background: #ef4444; color: white; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
+        
+        .success-state { display: none; text-align: center; padding: 40px 10px; }
+        .success-state h2 { color: #10b981; font-weight: 900; margin-bottom: 10px; }
+        .btn-join { display: block; margin-top: 30px; background: #0ea5e9; color: white; padding: 15px; border-radius: 16px; text-decoration: none; font-weight: 800; }
+    </style>
+</head>
+<body>
+
+    <div class="review-card" id="main-card">
+        <div style="font-size: 12px; color: #888; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px;">Wingman Profile Review</div>
+        
+        <img src="{{ profile.img }}" class="profile-img">
+        
+        <h1>{{ profile.name }}, {{ profile.age }}</h1>
+        <div class="tag">{{ profile.major }}</div>
+        {% if profile.intent %}<div class="tag" style="background: #e0e7ff; color: #4338ca;">{{ profile.intent }}</div>{% endif %}
+        
+        <p>"{{ profile.bio }}"</p>
+        
+        <h3 style="font-size: 18px; margin-bottom: 15px; font-weight: 900;">What's your verdict?</h3>
+        
+        <div class="vote-row">
+            <button class="btn-vote btn-redflag" onclick="submitVote('red_flag')">🚩 Red Flag</button>
+            <button class="btn-vote btn-catch" onclick="submitVote('catch')">🔥 Total Catch</button>
+        </div>
+    </div>
+
+    <div class="review-card success-state" id="success-card">
+        <div style="font-size: 60px; margin-bottom: 10px;">✅</div>
+        <h2>Feedback Sent!</h2>
+        <p style="margin-bottom: 10px;">Your feedback was sent anonymously to {{ profile.name }}.</p>
+        
+        <a href="{{ url_for('home') }}" class="btn-join">I want to join MMUST Dating too!</a>
+    </div>
+
+    <script>
+        function submitVote(voteType) {
+            fetch('/api/bestie_vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: '{{ target_id }}', vote: voteType })
+            }).then(res => res.json()).then(data => {
+                document.getElementById('main-card').style.display = 'none';
+                document.getElementById('success-card').style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>

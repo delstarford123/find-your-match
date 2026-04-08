@@ -38,7 +38,106 @@
         opacity: 0.9;
     }
 
-    /* === VENUE GRID (SNAP SCROLLING) === */
+    /* === TRENDING SECTION STYLES === */
+    .trending-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 15px 15px 15px;
+    }
+    @media (min-width: 768px) {
+        .trending-header { margin: 10px auto 15px auto; max-width: 1100px;}
+    }
+    .trending-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: #720000;
+        margin: 0;
+        letter-spacing: -0.5px;
+    }
+    .live-badge {
+        background: #E60026;
+        color: white;
+        font-size: 11px;
+        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        animation: pulse-red 2s infinite;
+    }
+    @keyframes pulse-red {
+        0% { box-shadow: 0 0 0 0 rgba(230, 0, 38, 0.4); }
+        70% { box-shadow: 0 0 0 6px rgba(230, 0, 38, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(230, 0, 38, 0); }
+    }
+
+    .trending-scroller {
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding: 10px 15px 30px 15px;
+        margin: 0 auto;
+        max-width: 1100px;
+        -ms-overflow-style: none; 
+        scrollbar-width: none; 
+        -webkit-overflow-scrolling: touch; 
+        scroll-snap-type: x mandatory;
+        scroll-padding-left: 15px;
+    }
+    .trending-scroller::-webkit-scrollbar { display: none; }
+
+    .trending-card {
+        flex: 0 0 85%; 
+        max-width: 340px;
+        background: linear-gradient(180deg, #ffffff 0%, #fffcfc 100%);
+        border: 2px solid #FFD6DD;
+        border-radius: 24px;
+        padding: 25px;
+        box-shadow: 0 15px 35px rgba(114,0,0,0.08);
+        scroll-snap-align: start;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    @media (min-width: 768px) {
+        .trending-card { flex: 0 0 320px; scroll-snap-align: start; }
+        .trending-scroller { scroll-padding-left: 0; justify-content: flex-start; }
+    }
+
+    .trending-rank {
+        position: absolute;
+        top: -15px;
+        right: -15px;
+        background: #720000;
+        color: white;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 900;
+        padding-top: 15px;
+        padding-right: 15px;
+        box-sizing: border-box;
+    }
+
+    .trending-stats {
+        display: inline-block;
+        background: #FEF2F4;
+        color: #E60026;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 800;
+        margin-bottom: 15px;
+        width: max-content;
+    }
+
+    /* === VENUE GRID (ALL VENUES) === */
     .venue-grid {
         display: flex; 
         gap: clamp(15px, 4vw, 25px);
@@ -47,7 +146,7 @@
         padding: 10px 15px 30px 15px; 
         overflow-x: auto; 
         scroll-snap-type: x mandatory; 
-        scroll-padding-left: 15px; /* Helps the snap align nicely */
+        scroll-padding-left: 15px; 
         scrollbar-width: none; 
         -webkit-overflow-scrolling: touch; 
     }
@@ -64,7 +163,7 @@
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
         display: flex;
         flex-direction: column;
-        scroll-snap-align: center; /* Snaps the card to the center on mobile */
+        scroll-snap-align: center; 
     }
 
     @media (min-width: 768px) { 
@@ -153,14 +252,14 @@
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         display: none; align-items: center; justify-content: center; z-index: 9999;
         opacity: 0; transition: opacity 0.3s ease;
-        padding: 15px; /* Ensures modal doesn't touch screen edges on tiny phones */
+        padding: 15px; 
     }
     .modal-overlay.active { display: flex; opacity: 1; }
     .modal-box {
         background: white; width: 100%; max-width: 420px;
         border-radius: 28px; padding: 35px 30px; box-shadow: 0 25px 60px rgba(0,0,0,0.2);
         transform: scale(0.9) translateY(20px); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        max-height: 90dvh; overflow-y: auto; /* Prevents overflow on short screens */
+        max-height: 90dvh; overflow-y: auto; 
     }
     .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
     
@@ -176,11 +275,10 @@
     .form-group { margin-bottom: 20px; }
     .form-group label { display: block; font-size: 11px; font-weight: 900; color: #E60026; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
     
-    /* font-size: 16px is required on inputs to prevent iOS auto-zoom */
     .form-group select, .form-group input {
         width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 12px;
         font-size: 16px; font-weight: 700; outline: none; background: #fafafa; box-sizing: border-box;
-        -webkit-appearance: none; /* Removes native OS styling for selects */
+        -webkit-appearance: none; 
     }
     .form-group select:focus, .form-group input:focus { border-color: #E60026; background: white; }
 
@@ -203,6 +301,47 @@
         <h1>MMUST's Top Date Spots</h1>
         <p>Book a table through the app to claim exclusive student discounts at our verified partner restaurants in Kakamega.</p>
     </div>
+
+    {% if trending_venues and trending_venues|length > 0 %}
+        <div class="trending-header">
+            <h2 class="trending-title">🔥 Trending This Week</h2>
+            <span class="live-badge">LIVE Heatmap</span>
+        </div>
+        
+        <div class="trending-scroller">
+            {% for venue in trending_venues %}
+            <div class="trending-card">
+                <div class="trending-rank">#{{ loop.index }}</div>
+                
+                <h3 style="margin: 0 0 10px 0; color: #720000; font-size: 24px; font-weight: 900; width: 85%;">
+                    {{ venue.business_name }}
+                </h3>
+                
+                <div class="trending-stats">
+                    📈 {{ venue.trending_score }} Couples booked here this week!
+                </div>
+                
+                <p style="font-size: 14px; color: #666; margin: 0 0 20px 0; font-weight: 500; line-height: 1.5; flex: 1;">
+                    <strong>📍 Location:</strong> {{ venue.location }}<br>
+                    <strong>✨ Exclusive Perk:</strong> {{ venue.conditions }}
+                </p>
+                
+                <button class="btn-propose" style="width: 100%; margin-top: auto;" 
+                        data-id="{{ venue.id }}" 
+                        data-name="{{ venue.business_name }}" 
+                        onclick="openModal(this.dataset.id, this.dataset.name)">
+                    Book This Hotspot
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+
+        <hr style="border: 0; border-top: 2px dashed #FFD6DD; margin: 20px 15px 30px 15px; max-width: 1100px;">
+        
+        <div class="trending-header" style="margin-bottom: 10px;">
+            <h2 class="trending-title">📍 All Approved Venues</h2>
+        </div>
+    {% endif %}
 
     <div class="venue-grid">
         {% if venues %}

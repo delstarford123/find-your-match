@@ -1928,24 +1928,60 @@ def handle_message(data):
 # ==========================================
 # STUDENT VENUE DISCOVERY & BOOKING
 # ==========================================
-
 @app.route('/discover')
 @requires_subscription
 def discover_venues():
-    """THE DISCOVERY DECK FOR DATE VENUES"""
+    """THE DISCOVERY DECK FOR DATE VENUES WITH TRENDING HEATMAP"""
     user_id = session.get('user_id')
     
     try:
         # 1. Fetch only ACTIVE (paying) restaurants
         venues = get_all_restaurants(active_only=True)
         
-        # 2. Fetch EVERY student profile to show in the dropdown
+        # ==========================================
+        # 🔥 NEW: TRENDING VENUES ALGORITHM
+        # ==========================================
+        all_bookings = db.reference('bookings').get() or {}
+        now_eat = datetime.now(EAT)
+        seven_days_ago = now_eat - timedelta(days=7)
+        
+        # Initialize scores
+        venue_scores = {str(v.get('id')): 0 for v in venues}
+        
+        # Tally up the bookings from the last 7 days
+        for b_id, b_data in all_bookings.items():
+            if not isinstance(b_data, dict): continue
+            
+            v_id = str(b_data.get('venue_id'))
+            b_timestamp = b_data.get('timestamp') or b_data.get('created_at') # Fallback depending on how you save dates
+            
+            if v_id in venue_scores and b_timestamp:
+                try:
+                    b_time = datetime.fromisoformat(b_timestamp)
+                    # Only count bookings from the last 7 days
+                    if b_time >= seven_days_ago:
+                        # Weight Approved/Completed dates heavier than Pending ones
+                        points = 2 if b_data.get('status') in ['Approved', 'Completed'] else 1
+                        venue_scores[v_id] += points
+                except ValueError:
+                    pass # Ignore badly formatted old dates
+        
+        # Attach the calculated score to the venue dictionaries
+        for venue in venues:
+            venue['trending_score'] = venue_scores.get(str(venue.get('id')), 0)
+            
+        # Create a separate list for the Top 3 Trending venues (Must have at least 1 booking to trend)
+        trending_venues = sorted([v for v in venues if v['trending_score'] > 0], key=lambda x: x['trending_score'], reverse=True)[:3]
+
+        # ==========================================
+        # 2. Fetch student profiles for the invite dropdown
+        # ==========================================
         all_profiles_dict = db.reference('profiles').get() or {}
         selectable_students = []
 
         for p_id, p in all_profiles_dict.items():
             # Skip conditions: Self, Hidden profiles, or the AI Wingman
-            if p_id == user_id or not p.get('is_visible', True) or p_id == 'AI_COMPANION':
+            if not isinstance(p, dict) or p_id == user_id or not p.get('is_visible', True) or p_id == 'AI_COMPANION':
                 continue
             
             # Calculate compatibility
@@ -1958,22 +1994,23 @@ def discover_venues():
                 'is_perfect_match': ai_score >= 80
             })
 
-        # 3. Sort: Perfect Matches at the top, then by score
+        # Sort: Perfect Matches at the top, then by score
         selectable_students.sort(key=lambda x: (x['is_perfect_match'], x['compatibility']), reverse=True)
 
     except Exception as e:
         logger.error(f"Error loading discovery data: {e}")
-        venues, selectable_students = [], []
+        venues, trending_venues, selectable_students = [], [], []
         flash("Error loading page. Please refresh.", "error")
         
     return render_template(
         'bookings.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0],
         venues=venues, 
-        matches=selectable_students # We pass 'selectable_students' as 'matches'
+        trending_venues=trending_venues, # <-- Pass trending venues to the template
+        matches=selectable_students 
     )
-
-
+    
+    
 @app.route('/api/propose_date', methods=['POST'])
 @login_required
 def propose_date():
@@ -2178,17 +2215,13 @@ def page_not_found(e):
 def internal_server_error(e):
     # You can reuse the 404 template, or create a specific 500.html later
     return render_template('404.html'), 500
-
 @app.route('/referrals')
 def referrals():
-    # 1. Check if the user is actually logged in
     if 'user_id' not in session:
-        flash("Please log in to view your VIP Referral Dashboard.", "error")
+        flash("Please log in to view your VIP Dashboard.", "error")
         return redirect(url_for('auth.login')) 
     
     user_id = session['user_id']
-    
-    # 2. Fetch the user's current data from Firebase (Using Firebase Admin syntax)
     user_ref = db.reference(f'profiles/{user_id}')
     user_data = user_ref.get()
     
@@ -2197,27 +2230,88 @@ def referrals():
         session.pop('user_id', None)
         return redirect(url_for('auth.login'))
         
-    # 3. Failsafe: Generate a unique referral code if they don't have one yet
+    # 1. Ensure Referral Code Exists
     if 'referral_code' not in user_data:
-        # Create a cool code using their name and some random characters
         first_name = user_data.get('name', 'VIP').split(' ')[0].upper()
-        # Strip any weird characters just in case
         clean_name = ''.join(e for e in first_name if e.isalnum())[:5] 
         random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-        
         new_ref_code = f"MMUST-{clean_name}-{random_suffix}"
         
-        # Save the new code back to Firebase
         user_ref.update({'referral_code': new_ref_code})
         user_data['referral_code'] = new_ref_code
         
-    # 4. Ensure the stats default to 0 so the HTML template doesn't crash
+    # 2. Ensure Wingman Code Exists (NEW)
+    if 'wingman_code' not in user_data:
+        # Generates a short, clean 6-character hash for the URL
+        wingman_hash = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+        user_ref.update({'wingman_code': wingman_hash})
+        user_data['wingman_code'] = wingman_hash
+        
     user_data['referrals_count'] = user_data.get('referrals_count', 0)
     user_data['free_weeks_earned'] = user_data.get('free_weeks_earned', 0)
 
-    # 5. Render the beautifully polished HTML page
-    return render_template('referrals.html', user=user_data)
+    # Determine the base URL dynamically
+    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    return render_template('referrals.html', user=user_data, base_url=base_url)
 
+
+# ==========================================
+# PUBLIC WINGMAN ROUTES (VIRAL GROWTH)
+# ==========================================
+@app.route('/bestie/<wingman_code>')
+def bestie_review(wingman_code):
+    """Public read-only route for a friend to review a profile."""
+    # Find the user by their unique wingman code
+    matching_users = db.reference('profiles').order_by_child('wingman_code').equal_to(wingman_code).get()
+    
+    if not matching_users:
+        flash("This profile link has expired or doesn't exist.", "warning")
+        return redirect(url_for('home'))
+        
+    # Extract the target user's ID and data
+    target_id = list(matching_users.keys())[0]
+    target_user = matching_users[target_id]
+    
+    # Hide sensitive data just in case
+    safe_profile = {
+        'name': target_user.get('name', 'Student').split(' ')[0],
+        'age': target_user.get('age', 18),
+        'bio': target_user.get('bio', 'No bio provided.'),
+        'img': target_user.get('img', '/static/img/placeholder.png'),
+        'major': target_user.get('major', 'MMUST Student'),
+        'intent': target_user.get('intent', '')
+    }
+    
+    return render_template('bestie_review.html', profile=safe_profile, target_id=target_id)
+
+@app.route('/api/bestie_vote', methods=['POST'])
+def bestie_vote():
+    """Receives the 'Catch' or 'Red Flag' vote from the friend."""
+    data = request.json
+    target_id = data.get('target_id')
+    vote = data.get('vote') # 'catch' or 'red_flag'
+    
+    if not target_id or not vote:
+        return jsonify({'success': False}), 400
+        
+    try:
+        # Send a real-time system message to the user!
+        msg_text = "🔥 WINGMAN ALERT: Your bestie says you're a Catch!" if vote == 'catch' else "🚨 WINGMAN ALERT: Your bestie flagged your profile! Time to update your bio?"
+        
+        save_chat_message('SYSTEM_AI', target_id, msg_text, msg_type='text')
+        
+        # Attempt real-time socket delivery if they are online
+        socketio.emit('receive_message', {
+            'sender': 'SYSTEM_AI',
+            'text': msg_text,
+            'timestamp': datetime.now(EAT).isoformat()
+        }, to=target_id)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Bestie Vote Error: {e}")
+        return jsonify({'success': False}), 500
+    
 
 @app.route('/merchant/dashboard')
 @login_required # Ensure this user is a merchant, not a student
