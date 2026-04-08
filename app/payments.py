@@ -34,7 +34,6 @@ _token_cache = {
 
 def format_phone_number(phone: str) -> str:
     """Ensures the phone number is strictly in the 254XXXXXXXXX format."""
-    # Strip any +, spaces, or dashes
     phone = ''.join(filter(str.isdigit, str(phone)))
     
     if phone.startswith('0') and len(phone) == 10:
@@ -44,13 +43,12 @@ def format_phone_number(phone: str) -> str:
     if len(phone) == 9:
         return '254' + phone
         
-    return phone # Fallback, let Daraja reject it if it's completely invalid
+    return phone 
 
 def get_access_token():
     """Generates or retrieves a valid OAuth token required by Safaricom."""
     global _token_cache
     
-    # Return cached token if it is still valid (with a 60-second safety buffer)
     if _token_cache["token"] and _token_cache["expires_at"]:
         if datetime.now() < (_token_cache["expires_at"] - timedelta(seconds=60)):
             return _token_cache["token"]
@@ -60,9 +58,7 @@ def get_access_token():
         response.raise_for_status()
         data = response.json()
         
-        # Cache the new token
         _token_cache["token"] = data.get('access_token')
-        # Daraja tokens expire in 3599 seconds
         _token_cache["expires_at"] = datetime.now() + timedelta(seconds=int(data.get('expires_in', 3599)))
         
         return _token_cache["token"]
@@ -76,16 +72,8 @@ def generate_password(timestamp: str) -> str:
     return base64.b64encode(data_to_encode.encode('utf-8')).decode('utf-8')
 
 def initiate_stk_push(phone_number, amount, account_reference, callback_url, transaction_desc="MMUST Subscription"):
-    """
-    Triggers the PIN prompt on the user's phone.
-    Returns a dictionary containing the 'CheckoutRequestID' to track the payment.
-    """
-    # 🚨 LOCALHOST SAFEGUARD: Stop bad requests before they hit Safaricom
-    if "127.0.0.1" in callback_url or "localhost" in callback_url:
-        logger.error("❌ CRITICAL: Safaricom Daraja API blocks localhost/127.0.0.1 CallBackURLs.")
-        logger.error("👉 FIX: You must use Ngrok to expose your local server, and set BASE_URL in your .env file.")
-        return {"error": "Local network URL detected. Use Ngrok for testing M-Pesa!"}
-
+    """Triggers the PIN prompt on the user's phone."""
+    
     token = get_access_token()
     if not token:
         return {"error": "Failed to authenticate with M-Pesa Servers."}
@@ -109,8 +97,8 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         "PartyB": BUSINESS_SHORTCODE,
         "PhoneNumber": formatted_phone,
         "CallBackURL": callback_url,
-        "AccountReference": str(account_reference)[:12], # Max 12 chars
-        "TransactionDesc": str(transaction_desc)[:13] # Max 13 chars
+        "AccountReference": str(account_reference)[:12], 
+        "TransactionDesc": str(transaction_desc)[:13] 
     }
 
     try:
@@ -121,7 +109,6 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
     except requests.exceptions.RequestException as e:
         logger.error(f"❌ STK Push Error: {e}")
         
-        # Safely extract Safaricom's specific JSON error message if available
         if getattr(e, 'response', None) is not None:
             try:
                 safaricom_error = e.response.json()
@@ -134,9 +121,7 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         return {"error": str(e)}
 
 def check_payment_status(checkout_request_id):
-    """
-    ACTIVELY asks Safaricom if a specific transaction was paid successfully.
-    """
+    """ACTIVELY asks Safaricom if a specific transaction was paid successfully."""
     token = get_access_token()
     if not token:
         return {"error": "Auth failed."}
@@ -161,7 +146,6 @@ def check_payment_status(checkout_request_id):
         response.raise_for_status()
         data = response.json()
         
-        # Safaricom returns ResultCode as a string or int depending on the specific state
         result_code = str(data.get('ResultCode'))
         
         if result_code == "0":
@@ -172,7 +156,6 @@ def check_payment_status(checkout_request_id):
             return {"status": "FAILED", "data": data}
             
     except requests.exceptions.RequestException as e:
-        # A 400 or 500 error from Daraja Query often means the user hasn't entered their PIN yet
         if getattr(e, 'response', None) is not None:
             try:
                 error_data = e.response.json()

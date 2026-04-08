@@ -1603,7 +1603,7 @@ def pay_student_fee():
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
     # Dynamically generate the callback URL for whichever environment you are currently running
-    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    base_url = "https://www.findyourmatch.co.ke"
     callback_url = f"{base_url}/api/mpesa/student_callback"
     
     response = initiate_stk_push(phone_number, 20, user_id, callback_url)
@@ -1675,7 +1675,7 @@ def pay_subscription():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
 
-    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    base_url = "https://www.findyourmatch.co.ke"
     callback_url = f"{base_url}/api/mpesa/b2b_callback"
     
     # Initiate the STK Push request to Safaricom
@@ -2251,7 +2251,7 @@ def referrals():
     user_data['free_weeks_earned'] = user_data.get('free_weeks_earned', 0)
 
     # Determine the base URL dynamically
-    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    base_url = "https://www.findyourmatch.co.ke"
     return render_template('referrals.html', user=user_data, base_url=base_url)
 
 
