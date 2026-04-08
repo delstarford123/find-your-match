@@ -2254,6 +2254,19 @@ def referrals():
     base_url = "https://www.findyourmatch.co.ke"
     return render_template('referrals.html', user=user_data, base_url=base_url)
 
+@app.route('/api/check_access', methods=['GET'])
+@login_required
+def check_access():
+    """The frontend calls this every 3 seconds to see if the callback arrived."""
+    user_id = session.get('user_id')
+    
+    # Check Firebase to see if the webhook flipped the switch
+    user_data = db.reference(f'profiles/{user_id}').get()
+    
+    if user_data and user_data.get('is_paid') == True:
+        return jsonify({'granted': True})
+        
+    return jsonify({'granted': False})
 
 # ==========================================
 # PUBLIC WINGMAN ROUTES (VIRAL GROWTH)

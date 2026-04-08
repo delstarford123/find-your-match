@@ -217,7 +217,7 @@
                 btn.style.background = "#720000"; // Darken button to show it's waiting
                 waitingMsg.style.display = "block";
 
-                // 3. Start Smart Polling
+                // 3. Start Smart Polling via the lightweight JSON API
                 pollForPaymentSuccess();
                 
             } else {
@@ -239,16 +239,13 @@
         const spinner = document.getElementById('btn-spinner');
         const waitingMsg = document.getElementById('waiting-msg');
 
-        // Check the server every 4 seconds
+        // Check the server every 3 seconds using the lightweight API route
         const checkInterval = setInterval(async () => {
             try {
-                // We fetch the /swipe page. If the user is paid, the backend returns the Swipe Deck HTML.
-                // If they are not paid, it returns this Paywall HTML.
-                const response = await fetch('/swipe');
-                const text = await response.text();
+                const response = await fetch('/api/check_access');
+                const data = await response.json();
                 
-                // Check if the returned HTML contains the Swipe Deck UI elements
-                if (text.includes('deck-container') || text.includes('card')) {
+                if (data.granted === true) {
                     clearInterval(checkInterval);
                     
                     // 4. Update UI to "Success" state
@@ -257,15 +254,15 @@
                     btn.style.background = "#28a745"; // Success Green
                     btnText.innerText = "Payment Received! ✅";
                     
-                    // Smoothly redirect to the swipe deck
+                    // Smoothly redirect to the dashboard
                     setTimeout(() => {
-                        window.location.href = '/swipe';
+                        window.location.href = '/dashboard';
                     }, 1000);
                 }
             } catch (error) {
                 console.error("Polling error:", error);
             }
-        }, 4000);
+        }, 3000);
         
         // Timeout after 2 minutes (Safaricom STK push expires in about 60-90 seconds)
         setTimeout(() => {
