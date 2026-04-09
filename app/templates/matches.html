@@ -125,14 +125,33 @@
         color: white; display: flex; justify-content: space-between; align-items: center; 
         box-shadow: 0 4px 15px rgba(0,0,0,0.1); z-index: 10; position: relative;
     }
-    
-    .chat-header-avatar {
-        width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; 
-        border: 2px solid white; flex-shrink: 0; object-fit: cover;
+
+    /* 🔥 BLURRED LINES AVATAR & TRACKER CSS 🔥 */
+    .partner-avatar-wrapper {
+        position: relative; width: 45px; height: 45px; border-radius: 50%;
+        overflow: hidden; border: 2px solid white; flex-shrink: 0; margin-right: 15px;
+        background: #eee;
     }
+    .partner-avatar {
+        width: 100%; height: 100%; object-fit: cover;
+        /* Smooth transition when the unblur math updates */
+        transition: filter 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .reveal-progress-container {
+        background: rgba(255,255,255,0.3); border-radius: 10px; height: 4px;
+        width: 100px; margin-top: 4px; overflow: hidden;
+    }
+    .reveal-progress-bar {
+        height: 100%; background: #fff; transition: width 0.5s ease;
+    }
+    .reveal-text {
+        font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.9);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    
     .chat-partner-name {
         font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 6px; 
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
     }
     .chat-partner-status {
         font-size: 12px; opacity: 0.9; font-weight: 500; 
@@ -302,18 +321,36 @@
         <div class="chat-header">
             <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
-                <img src="{{ active_partner.img }}" class="chat-header-avatar">
+                
+                <div class="partner-avatar-wrapper">
+                    <img src="{{ active_partner.img }}" id="partner-img" class="partner-avatar" 
+                         style="filter: blur({{ current_blur | default(0) }}px);">
+                </div>
                 
                 <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px;">
                     <span class="chat-partner-name">
                         {{ active_partner.name }}
                         {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
                     </span>
-                    <span class="chat-partner-status">
-                        {% if active_partner.id == 'AI_COMPANION' %}Always Online
-                        {% elif active_partner.is_online %}Online
-                        {% else %}Offline{% endif %}
-                    </span>
+                    
+                    {% if is_blind_date and messages_left > 0 %}
+                        <div id="reveal-tracker">
+                            <div class="reveal-text"><span id="msg-left-text">{{ messages_left }}</span> msgs to reveal</div>
+                            <div class="reveal-progress-container">
+                                <div class="reveal-progress-bar" id="reveal-bar" style="width: {{ ((20 - messages_left) / 20) * 100 }}%;"></div>
+                            </div>
+                        </div>
+                    {% elif is_blind_date and messages_left == 0 %}
+                        <div id="reveal-tracker">
+                            <span style="color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); font-weight: 800; font-size: 11px;">🔓 FACE REVEALED</span>
+                        </div>
+                    {% else %}
+                        <span class="chat-partner-status status-text">
+                            {% if active_partner.id == 'AI_COMPANION' %}Always Online
+                            {% elif active_partner.is_online %}Online
+                            {% else %}Offline{% endif %}
+                        </span>
+                    {% endif %}
                 </div>
             </div>
             
@@ -714,7 +751,6 @@
 
     updateBellUI();
 
-
     // ==========================================
     // REAL-TIME CHAT WEBSOCKETS & ICEBREAKER
     // ==========================================
@@ -728,6 +764,36 @@
     function getCurrentTime() {
         const now = new Date();
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // 🔥 BLURRED LINES LOGIC 🔥
+    const MAX_MESSAGES = 20;
+    const MAX_BLUR = 15;
+    let messagesLeft = parseInt("{{ messages_left | default(0) }}") || 0;
+
+    function updateBlurUI() {
+        if (messagesLeft > 0) {
+            messagesLeft--; // Decrement live message count
+            
+            const partnerImg = document.getElementById('partner-img');
+            const trackerText = document.getElementById('msg-left-text');
+            const progressBar = document.getElementById('reveal-bar');
+            const revealTrackerDiv = document.getElementById('reveal-tracker');
+
+            if (messagesLeft > 0) {
+                // Smoothly lower the CSS blur filter value
+                let newBlur = MAX_BLUR - (MAX_BLUR * ((MAX_MESSAGES - messagesLeft) / MAX_MESSAGES));
+                if (partnerImg) partnerImg.style.filter = `blur(${newBlur}px)`;
+                
+                // Update UI text and progress bar width
+                if (trackerText) trackerText.innerText = messagesLeft;
+                if (progressBar) progressBar.style.width = `${((MAX_MESSAGES - messagesLeft) / MAX_MESSAGES) * 100}%`;
+            } else {
+                // Fully revealed!
+                if (partnerImg) partnerImg.style.filter = 'blur(0px)';
+                if (revealTrackerDiv) revealTrackerDiv.innerHTML = '<span style="color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); font-weight: 800; font-size: 11px;">🔓 FACE REVEALED</span>';
+            }
+        }
     }
 
     // MAGIC ICEBREAKER INTEGRATION
@@ -812,6 +878,8 @@
             renderMyMessageInstantly(text, tempId);
             
             chatInput.value = '';
+            updateBlurUI(); // 🔥 Trigger unblur when you send a message
+            
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
             if(typingIndicator) typingIndicator.style.display = 'none';
             chatInput.focus();
@@ -892,7 +960,10 @@
             return;
         }
 
+        // Message is from Active Partner
         if(typingIndicator) typingIndicator.style.display = 'none';
+        
+        updateBlurUI(); // 🔥 Trigger unblur when you receive a message from partner
         
         let html = '';
         const cleanText = escapeHTML(data.text);

@@ -74,10 +74,12 @@
     }
     .toggle-wrapper.strict { background: #fafafa; border: 2px solid #f0f0f0; }
     .toggle-wrapper.ai-mode { background: #FEF2F4; border: 2px dashed #E60026; }
+    .toggle-wrapper.blind-date { background: #f8fafc; border: 2px solid #e2e8f0; }
     
     .toggle-text h4 { margin: 0 0 6px 0; font-size: 16px; font-weight: 900; }
     .toggle-wrapper.strict .toggle-text h4 { color: #111; }
     .toggle-wrapper.ai-mode .toggle-text h4 { color: #720000; }
+    .toggle-wrapper.blind-date .toggle-text h4 { color: #475569; }
     
     .toggle-text p { margin: 0; font-size: 13px; color: #666; line-height: 1.5; font-weight: 500;}
     .toggle-wrapper.ai-mode .toggle-text p { color: #4A0008; }
@@ -170,11 +172,11 @@
             <div class="settings-group">
                 <label class="field-label">What are you looking for?</label>
                 <select name="intent">
-                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}>🤫 Keep it mysterious</option>
-                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}>☕ Just Coffee</option>
-                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>📚 Study Buddy</option>
-                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>🎉 Event +1</option>
-                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>💘 Looking for a Relationship</option>
+                    <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}> Keep it mysterious</option>
+                    <option value="coffee" {% if user.intent == 'coffee' %}selected{% endif %}> Just Coffee</option>
+                    <option value="study" {% if user.intent == 'study' %}selected{% endif %}>Study Buddy</option>
+                    <option value="event" {% if user.intent == 'event' %}selected{% endif %}>Event +1</option>
+                    <option value="relationship" {% if user.intent == 'relationship' %}selected{% endif %}>Looking for a Relationship</option>
                 </select>
             </div>
 
@@ -186,6 +188,19 @@
                     </div>
                     <label class="switch">
                         <input type="checkbox" name="strict_mode" {% if user.strict_mode %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <div class="toggle-wrapper blind-date">
+                    <div class="toggle-text">
+                        <h4>Blind Date Mode </h4>
+                        <p>Gamify your chats! Blur your match's profile picture until you exchange 20 messages.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" name="blind_date_mode" {% if user.blind_date_mode %}checked{% endif %}>
                         <span class="slider"></span>
                     </label>
                 </div>

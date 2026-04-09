@@ -689,6 +689,8 @@ def check_pending_date():
             break
             
     return jsonify({'has_pending': pending_found})
+ 
+ 
 
 @app.route('/matches')
 @app.route('/matches/<partner_id>')
@@ -785,11 +787,44 @@ def matches(partner_id=None):
     # Load the chat history
     history = get_chat_history(user_id, partner_id) if active_partner else []
     
+    # ==========================================
+    # 🧮 THE "BLURRED LINES" (BLIND DATE) MATH
+    # ==========================================
+    is_blind_date = False
+    current_blur = 0
+    messages_left = 0
+
+    if active_partner and partner_id != 'AI_COMPANION':
+        # Only apply blind date logic to mutual matches
+        if active_partner.get('is_mutual_match'):
+            
+            # Check user settings (defaulting to True for the gamified experience)
+            user_settings = user_data.get('settings', {})
+            is_blind_date = user_settings.get('blind_date_mode', True)
+            
+            if is_blind_date:
+                MESSAGES_TO_REVEAL = 20 # 10 texts sent by each person
+                MAX_BLUR_PX = 15        # Starts heavily blurred
+                message_count = len(history)
+                
+                if message_count >= MESSAGES_TO_REVEAL:
+                    current_blur = 0
+                    messages_left = 0
+                else:
+                    # Calculate proportional blur drop based on message count
+                    current_blur = MAX_BLUR_PX - (MAX_BLUR_PX * (message_count / MESSAGES_TO_REVEAL))
+                    messages_left = MESSAGES_TO_REVEAL - message_count
+
     return render_template('matches.html', 
                            current_user=session.get('user_name'),
                            my_matches=my_matches,
                            active_partner=active_partner,
-                           chat_history=history)   
+                           chat_history=history,
+                           is_blind_date=is_blind_date,           # Pass flag to UI
+                           current_blur=round(current_blur, 1),   # Pass pixel blur to UI
+                           messages_left=messages_left)           # Pass progress to UI
+    
+    
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -874,6 +909,9 @@ def settings():
         strict_mode = request.form.get('strict_mode') == 'on'
         ai_mode = request.form.get('ai_mode') == 'on'
         
+        # 🔥 Grab the new Blind Date Mode toggle
+        blind_date_mode = request.form.get('blind_date_mode') == 'on'
+        
         # 🆕 Grab the new Intent Tag (defaults to 'none' if they didn't touch it)
         intent = request.form.get('intent', 'none') 
 
@@ -883,7 +921,8 @@ def settings():
                 'looking_for': gender_pref,
                 'major_filter': major_filter,
                 'strict_schedule': strict_mode,
-                'ai_companion_mode': ai_mode
+                'ai_companion_mode': ai_mode,
+                'blind_date_mode': blind_date_mode  # 🔥 Save to Firebase
             })
             
             # 3. Update main profile attributes (visibility and the new intent tag)
@@ -914,6 +953,9 @@ def settings():
         'strict_mode': user_settings.get('strict_schedule', False),
         'ai_mode': user_settings.get('ai_companion_mode', False),
         
+        # 🔥 Pass the blind date mode back to the template (Defaulting to True)
+        'blind_date_mode': user_settings.get('blind_date_mode', True),
+        
         # 🆕 Pass the intent back so the dropdown remembers their choice
         'intent': user_profile.get('intent', 'none') 
     }
@@ -924,7 +966,9 @@ def settings():
         current_user=session.get('user_name'),
         user=template_user_data
     )
-
+    
+    
+    
 # ==========================================
 # 8. B2B PAGES (MERCHANTS)
 # ==========================================
