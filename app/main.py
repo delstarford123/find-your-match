@@ -425,7 +425,6 @@ def swipe():
         potential_matches=potential_matches
     )
 import random
-
 @app.route('/dashboard')
 @requires_subscription
 def dashboard():
@@ -433,6 +432,9 @@ def dashboard():
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
+    
+    # --- NEW: Extract the subscription expiry date for the countdown timer ---
+    subscription_expiry = user_data.get('subscription_expiry', '')
     
     my_matches = []
     
@@ -518,9 +520,11 @@ def dashboard():
         current_user=session.get('user_name', 'Student').split(' ')[0], 
         matches=my_matches,
         pending_dates_count=pending_dates_count,
-        upcoming_dates=upcoming_dates
-    )   
-       
+        upcoming_dates=upcoming_dates,
+        subscription_expiry=subscription_expiry # <--- NEW: Passed to frontend!
+    )
+    
+      
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
 def unmatch_user():
@@ -1283,6 +1287,8 @@ logger = logging.getLogger('god_mode')
 
 # Define East Africa Time (UTC+3) for accurate Kenyan timestamps
 EAT = timezone(timedelta(hours=3))
+
+
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
@@ -1317,6 +1323,10 @@ def super_admin():
         # Fetch Support System Data
         feedbacks_dict = db.reference('feedbacks').get() or {}
         call_requests_dict = db.reference('call_requests').get() or {}
+        
+        # --- NEW: Fetch System Settings for Marketing ---
+        system_settings = db.reference('system_settings').get() or {}
+        promo_active = system_settings.get('new_user_promo', False)
         
         # Calculate Revenue (Safely checking if it's a dict to prevent Firebase type errors)
         student_revenue = sum(20 for p in all_profiles.values() if isinstance(p, dict) and p.get('is_paid'))
@@ -1355,9 +1365,10 @@ def super_admin():
                                student_revenue=student_revenue,
                                b2b_revenue=b2b_revenue,
                                alerts=alerts,
-                               feedbacks=feedbacks,          # Passed to frontend
-                               call_requests=call_requests,  # Passed to frontend
-                               pending_businesses=pending_businesses)
+                               feedbacks=feedbacks,
+                               call_requests=call_requests,
+                               pending_businesses=pending_businesses,
+                               promo_active=promo_active) # <--- Passed to frontend!
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return "Failed to load dashboard data.", 500
@@ -1393,9 +1404,8 @@ def admin_action():
         elif action == 'dismiss_alert':
             db.reference(f'admin_alerts/{target_id}').delete()
             
-        # --- NEW ACTIONS FOR SUPPORT SYSTEM ---
+        # --- SUPPORT SYSTEM ACTIONS ---
         elif action == 'resolve_feedback':
-            # We mapped the 'type' (suggestion or ticket) to the alert_id parameter in JS
             feedback_type = data.get('alert_id') 
             if feedback_type and target_id:
                 db.reference(f'feedbacks/{feedback_type}/{target_id}').delete()
@@ -1403,6 +1413,13 @@ def admin_action():
         elif action == 'resolve_call':
             if target_id:
                 db.reference(f'call_requests/{target_id}').delete()
+                
+        # --- NEW: TOGGLE MARKETING CAMPAIGN ---
+        elif action == 'toggle_promo':
+            current_status = db.reference('system_settings/new_user_promo').get()
+            new_status = not current_status # Flip it (True to False, False to True)
+            db.reference('system_settings/new_user_promo').set(new_status)
+            return jsonify({'success': True, 'new_status': new_status})
             
         return jsonify({'success': True})
     except Exception as e:

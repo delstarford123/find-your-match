@@ -71,16 +71,23 @@
         /* Prevents iOS from auto-zooming on inputs */
         input, select, textarea { font-size: 16px !important; }
 
-        /* === PREMIUM GLASSMORPHISM NAVBAR === */
+        /* === 🚨 BULLETPROOF NAVBAR FIX 🚨 === */
+        header {
+            position: relative;
+            z-index: 99990; /* High base z-index for the header container */
+        }
+
         .navbar {
-            position: fixed; top: 0; left: 0; right: 0;
+            position: fixed !important; 
+            top: 0; left: 0; right: 0;
             height: calc(var(--nav-height) + var(--safe-top));
             padding-top: var(--safe-top);
             background: linear-gradient(135deg, rgba(114, 0, 0, 0.95) 0%, rgba(230, 0, 38, 0.95) 100%);
             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             display: flex; justify-content: space-between; align-items: center;
             padding-left: clamp(15px, 5vw, 5%); padding-right: clamp(15px, 5vw, 5%);
-            z-index: 2000; box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); 
+            z-index: 99999 !important; /* FORCES NAVBAR TO TOP OF EVERYTHING */
+            box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); 
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
@@ -91,10 +98,10 @@
             color: white; text-decoration: none; letter-spacing: -0.5px;
             display: flex; align-items: center; gap: 8px;
             text-shadow: 0 2px 4px rgba(74, 0, 8, 0.4); 
-            z-index: 2002; white-space: nowrap;
+            z-index: 100000; white-space: nowrap;
         }
         
-        .nav-links { display: flex; align-items: center; gap: 25px; }
+        .nav-links { display: flex; align-items: center; gap: 25px; z-index: 100000; }
         .nav-links > a {
             text-decoration: none; color: rgba(255, 255, 255, 0.9);
             font-weight: 600; font-size: 15px; transition: all 0.2s;
@@ -103,7 +110,7 @@
         .nav-links > a:hover { color: white; transform: translateY(-1px); }
         
         /* === DROPDOWN MENUS (DESKTOP) === */
-        .dropdown { position: relative; display: inline-block; }
+        .dropdown { position: relative; display: inline-block; z-index: 100000; }
         .dropbtn {
             background: none; border: none; cursor: pointer;
             color: rgba(255, 255, 255, 0.9); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
@@ -118,15 +125,16 @@
         .dropdown-content {
             display: none; position: absolute; top: 100%; left: 0;
             background-color: white; min-width: 220px;
-            box-shadow: 0 20px 40px rgba(114, 0, 0, 0.15);
-            border-radius: 16px; z-index: 10; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(114, 0, 0, 0.25);
+            border-radius: 16px; z-index: 100001; /* Above navbar */
+            overflow: hidden;
             border: 1px solid var(--primary-light); 
             animation: fadeIn 0.2s ease-out; margin-top: 15px;
         }
         .dropdown-content a {
             color: var(--text-dark) !important; padding: 14px 20px;
             text-decoration: none; display: block; border-bottom: 1px solid #f0f0f0;
-            font-size: 14px; font-weight: 600;
+            font-size: 14px; font-weight: 600; position: relative; z-index: 100002;
         }
         .dropdown-content a:hover {
             background-color: var(--primary-light); color: var(--primary) !important;
@@ -139,7 +147,7 @@
         }
 
         /* === CTA BUTTONS === */
-        .nav-right-actions { display: flex; align-items: center; gap: 20px; }
+        .nav-right-actions { display: flex; align-items: center; gap: 20px; z-index: 100000; }
         .btn-nav {
             background: white; color: var(--secondary) !important;
             padding: 10px 24px; border-radius: 30px; font-weight: 800 !important;
@@ -154,7 +162,7 @@
         /* === MOBILE MENU TOGGLE & OVERLAY === */
         .mobile-menu-btn {
             display: none; font-size: 26px; background: none; border: none; 
-            color: white; cursor: pointer; z-index: 2003; 
+            color: white; cursor: pointer; z-index: 100005; 
             transition: transform 0.3s; width: 44px; height: 44px; /* iOS standard touch target */
             align-items: center; justify-content: center;
         }
@@ -162,7 +170,8 @@
         .mobile-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.6);
             backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-            z-index: 1998; opacity: 0; visibility: hidden; transition: 0.3s;
+            z-index: 99995; /* Right under the navbar */
+            opacity: 0; visibility: hidden; transition: 0.3s;
         }
         .mobile-overlay.active { opacity: 1; visibility: visible; }
 
@@ -179,7 +188,7 @@
                 box-shadow: 0 15px 30px rgba(114, 0, 0, 0.2);
                 transform: translateY(-150%);
                 transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                z-index: 1999; align-items: flex-start; 
+                z-index: 99998; align-items: flex-start; 
                 overflow-y: auto; max-height: calc(100dvh - var(--nav-height) - var(--safe-top));
                 border-bottom-left-radius: 24px; border-bottom-right-radius: 24px;
             }
@@ -215,14 +224,14 @@
         /* === FLOATING TOAST NOTIFICATIONS === */
         .toast-container { 
             position: fixed; top: calc(var(--nav-height) + var(--safe-top) + 15px); right: 15px; left: 15px; 
-            z-index: 2005; 
+            z-index: 100010; /* Highest so errors show over nav */
             display: flex; flex-direction: column; gap: 10px; pointer-events: none; 
         }
         @media (min-width: 600px) { .toast-container { left: auto; max-width: 400px; right: 20px; } }
         
         .alert {
             padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
-            box-shadow: 0 10px 30px rgba(74, 0, 8, 0.15); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            box-shadow: 0 10px 30px rgba(74, 0, 8, 0.25); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             display: flex; align-items: center; justify-content: space-between; pointer-events: auto; line-height: 1.4;
         }
         .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
@@ -241,14 +250,14 @@
             flex: 1; width: 100%; max-width: 1200px; 
             margin: calc(var(--nav-height) + var(--safe-top)) auto 0; 
             padding: 0 var(--safe-left) 0 var(--safe-right); 
-            position: relative; z-index: 10; 
+            position: relative; z-index: 10; /* Lower than navbar */
         }
 
         /* === APP INSTALL BANNER === */
         .pwa-banner {
             display: none; position: fixed; bottom: max(30px, var(--safe-bottom)); left: 15px; right: 15px; 
             background: white; padding: 20px; border-radius: 16px; 
-            box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 2004; 
+            box-shadow: 0 15px 40px rgba(114,0,0,0.25); z-index: 99000; 
             border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; 
             animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -305,7 +314,7 @@
         .support-modal-overlay {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
             backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-            z-index: 10000; align-items: center; justify-content: center;
+            z-index: 100020; align-items: center; justify-content: center;
             animation: fadeInModal 0.3s ease;
         }
         .support-modal-card {
@@ -450,7 +459,7 @@
         {% endif %}
     </footer>
 
-    <button onclick="openSupportModal()" style="position: fixed; bottom: 20px; right: 20px; background: #E60026; color: white; border: none; border-radius: 50px; padding: 15px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.4); z-index: 9999; font-weight: 800; transition: transform 0.2s;">
+    <button onclick="openSupportModal()" style="position: fixed; bottom: 20px; right: 20px; background: #E60026; color: white; border: none; border-radius: 50px; padding: 15px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.4); z-index: 99990; font-weight: 800; transition: transform 0.2s;">
         💬 Support & Ideas
     </button>
 

@@ -2,11 +2,21 @@
 
 {% block content %}
 <style>
+    /* === 🚨 MOBILE NAVBAR CLICKABILITY FIX 🚨 === */
+    /* Traps all animations in the dashboard so they cannot bleed up and block the navbar */
+    main.container {
+        isolation: isolate;
+        position: relative;
+        z-index: 1 !important;
+    }
+
     /* === DASHBOARD HEADER === */
     .dashboard-header {
         text-align: center;
         padding: clamp(20px, 4vw, 40px) clamp(15px, 5vw, 30px) clamp(15px, 3vw, 25px);
         animation: fadeInDown 0.4s ease-out;
+        position: relative;
+        z-index: 2;
     }
     .dashboard-header h1 {
         color: #720000;
@@ -21,6 +31,57 @@
         from { opacity: 0; transform: translateY(-15px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    /* === ⏳ PREMIUM TRIAL BANNER === */
+    .trial-banner {
+        background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+        color: white;
+        max-width: 600px;
+        margin: 0 auto 25px auto;
+        padding: 15px 20px;
+        border-radius: 18px;
+        display: none; /* Hidden by default, shown by JS if active */
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        border: 1px solid #334155;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        animation: fadeInDown 0.5s ease-out 0.2s both;
+        position: relative;
+        z-index: 2;
+    }
+    .trial-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .trial-icon {
+        font-size: 28px;
+        animation: pulse-icon 2s infinite;
+    }
+    @keyframes pulse-icon {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+    }
+    .trial-text {
+        text-align: left;
+    }
+    .trial-text strong {
+        display: block;
+        color: #38bdf8;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 11px;
+        margin-bottom: 2px;
+    }
+    .timer-value {
+        font-size: 20px;
+        font-weight: 900;
+        font-variant-numeric: tabular-nums; 
+        color: #f8fafc;
+        letter-spacing: 0.5px;
+    }
     
     /* === ACTION CENTER (QUICK STATS) === */
     .action-center {
@@ -30,6 +91,8 @@
         margin-bottom: 30px;
         padding: 0 clamp(15px, 5vw, 30px);
         flex-wrap: wrap;
+        position: relative;
+        z-index: 2;
     }
     .action-pill {
         background: white;
@@ -139,7 +202,6 @@
     }
     .matches-grid::-webkit-scrollbar { display: none; }
 
-    /* THE FIX: Forces browser to render the right padding on the last item */
     .matches-grid::after {
         content: '';
         flex: 0 0 1px;
@@ -156,7 +218,6 @@
         scroll-snap-align: start; 
     }
 
-    /* THE DESKTOP UPGRADE: Wrap cards beautifully on big screens */
     @media (min-width: 768px) {
         .matches-grid {
             flex-wrap: wrap;
@@ -164,7 +225,7 @@
             overflow-x: visible;
             padding-bottom: 20px;
         }
-        .matches-grid::after { display: none; } /* Remove padding fix on desktop */
+        .matches-grid::after { display: none; } 
         .match-card { flex: 0 0 280px; scroll-snap-align: none; }
     }
     
@@ -239,7 +300,17 @@
 </style>
 
 <div class="dashboard-header">
-    <h1>Welcome back, {{ current_user }}! 👋</h1>
+    <h1>Welcome back, {{ current_user }}! </h1>
+</div>
+
+<div class="trial-banner" id="trial-banner">
+    <div class="trial-info">
+        <div class="trial-icon"></div>
+        <div class="trial-text">
+            <strong>Free Premium Ends In</strong>
+            <div class="timer-value" id="countdown-timer">Calculating...</div>
+        </div>
+    </div>
 </div>
 
 <div class="action-center">
@@ -367,7 +438,54 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Milestone Check
+        
+        // --- ⏳ COUNTDOWN TIMER LOGIC ---
+        // Safely grab the expiry date string from the backend template
+        const expiryDateStr = "{{ subscription_expiry | default('') }}"; 
+        
+        // Only run the timer logic if the user actually has a valid expiry date string
+        if (expiryDateStr && expiryDateStr !== "") {
+            try {
+                const expiryDate = new Date(expiryDateStr).getTime();
+                const banner = document.getElementById('trial-banner');
+                const timerEl = document.getElementById('countdown-timer');
+
+                // If the date is valid (not NaN)
+                if (!isNaN(expiryDate)) {
+                    function updateTimer() {
+                        const now = new Date().getTime();
+                        const distance = expiryDate - now;
+
+                        // Only show the banner if they have LESS THAN 30 days left (to avoid showing it to standard yearly subscribers)
+                        // AND if the distance is greater than 0 (not expired yet)
+                        const daysToExpiry = distance / (1000 * 60 * 60 * 24);
+                        
+                        if (distance > 0 && daysToExpiry <= 30) {
+                            banner.style.display = 'flex'; 
+                            
+                            const days = Math.floor(daysToExpiry);
+                            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                            
+                            const fHours = hours < 10 ? '0' + hours : hours;
+                            const fMins = minutes < 10 ? '0' + minutes : minutes;
+
+                            timerEl.innerText = `${days}d ${fHours}h ${fMins}m`;
+                        } else {
+                            // Hide the banner if expired or if they have months/years left
+                            banner.style.display = 'none'; 
+                        }
+                    }
+                    
+                    updateTimer(); 
+                    setInterval(updateTimer, 60000); 
+                }
+            } catch(e) {
+                console.error("Timer formatting error:", e);
+            }
+        }
+
+        // --- Milestone Check ---
         fetch('/api/check_milestone')
             .then(res => res.json())
             .then(data => {
@@ -378,7 +496,7 @@
             })
             .catch(err => console.error("Milestone Check Error:", err));
             
-        // Calculate Unread Chats from LocalStorage
+        // --- Calculate Unread Chats ---
         try {
             let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
             let totalUnread = 0;

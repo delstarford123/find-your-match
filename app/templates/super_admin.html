@@ -286,6 +286,29 @@
         </div>
     </div>
 
+    <h3 class="section-title animate-up delay-2">Marketing & Campaigns</h3>
+    <div class="admin-list animate-up delay-2">
+        <div class="list-item">
+            <div style="flex: 1; min-width: 250px;">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
+                    <span class="flag-blue" id="promo-badge" style="background: {% if promo_active %}rgba(16, 185, 129, 0.15){% else %}rgba(100, 116, 139, 0.15){% endif %}; color: {% if promo_active %}#10b981{% else %}#94a3b8{% endif %}; border-color: transparent;">
+                        {% if promo_active %}🟢 PROMO IS LIVE{% else %}⚫ PROMO IS OFF{% endif %}
+                    </span>
+                </div>
+                <h4 style="color: white; margin: 10px 0 5px 0; font-size: 20px; font-weight: 900;">14-Day Free Trial Campaign</h4>
+                <p style="color: #94a3b8; font-size: 14px; margin: 0; line-height: 1.5;">When activated, any new student who verifies their email will instantly receive 2 weeks of Premium access. Once the 14 days expire, they will hit the paywall.</p>
+            </div>
+            
+            <div class="action-group">
+                <button class="btn-admin" id="promo-btn" 
+                        style="background: {% if promo_active %}#334155{% else %}#10b981{% endif %}; color: white;"
+                        onclick="togglePromo(this)">
+                    {% if promo_active %}Turn Off Campaign{% else %}Launch Campaign 🚀{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+
     <h3 class="section-title animate-up delay-3">User Suggestions & Support Tickets</h3>
     <div class="admin-list animate-up delay-3" id="feedback-list">
         {% if feedbacks %}
@@ -485,6 +508,51 @@
                 btn.innerText = originalText;
                 showToast("Network error. Check console.", true);
                 console.error(err);
+            });
+        }
+        
+        // --- NEW: TOGGLE MARKETING PROMO ---
+        function togglePromo(btn) {
+            if (!confirm("Are you sure you want to toggle the 14-Day Free Trial campaign?")) return;
+            
+            const originalText = btn.innerText;
+            btn.innerText = "Updating...";
+            btn.disabled = true;
+
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'toggle_promo' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                if (data.success) {
+                    const badge = document.getElementById('promo-badge');
+                    if (data.new_status) {
+                        btn.innerText = "Turn Off Campaign";
+                        btn.style.background = "#334155";
+                        badge.innerText = "🟢 PROMO IS LIVE";
+                        badge.style.color = "#10b981";
+                        badge.style.background = "rgba(16, 185, 129, 0.15)";
+                        showToast("Campaign Launched! New users get 14 days free.");
+                    } else {
+                        btn.innerText = "Launch Campaign 🚀";
+                        btn.style.background = "#10b981";
+                        badge.innerText = "⚫ PROMO IS OFF";
+                        badge.style.color = "#94a3b8";
+                        badge.style.background = "rgba(100, 116, 139, 0.15)";
+                        showToast("Campaign Stopped.");
+                    }
+                } else {
+                    btn.innerText = originalText;
+                    showToast("Failed to toggle promo.", true);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast("Network error.", true);
             });
         }
     </script>

@@ -147,8 +147,18 @@ def verify_email():
                 'verification_code': None 
             }
             
+            now_eat = datetime.now(EAT)
+            bonus_premium_days = 0  # Start with 0 free days
+            
             # ====================================================
-            # 2. VIP REFERRAL REWARD SYSTEM (Grants Free Premium)
+            # 2. CHECK FOR ADMIN "14-DAY FREE TRIAL" CAMPAIGN
+            # ====================================================
+            system_settings = db.reference('system_settings').get() or {}
+            if system_settings.get('new_user_promo') == True:
+                bonus_premium_days += 14  # Add 2 weeks free!
+            
+            # ====================================================
+            # 3. VIP REFERRAL REWARD SYSTEM 
             # ====================================================
             referred_by_code = user_data.get('referred_by')
             if referred_by_code:
@@ -159,8 +169,6 @@ def verify_email():
                     if referrers:
                         referrer_id = list(referrers.keys())[0]
                         referrer_data = referrers[referrer_id]
-                        
-                        now_eat = datetime.now(EAT)
                         
                         # A. Give the Referrer 1 Week Premium
                         new_count = referrer_data.get('referrals_count', 0) + 1
@@ -180,9 +188,8 @@ def verify_email():
                             'subscription_expiry': new_ref_exp
                         })
                         
-                        # B. Give the NEW User 1 Week Premium
-                        user_updates['is_paid'] = True
-                        user_updates['subscription_expiry'] = (now_eat + timedelta(days=7)).isoformat()
+                        # B. Add 7 days to the New User's bonus pool
+                        bonus_premium_days += 7
                         
                         # Clear the session code
                         session.pop('referred_by', None)
@@ -190,10 +197,18 @@ def verify_email():
                 except Exception as e:
                     print(f"Error processing referral reward: {e}")
 
-            # 3. Apply updates to the newly verified user
+            # ====================================================
+            # 4. APPLY ACCUMULATED FREE DAYS
+            # ====================================================
+            if bonus_premium_days > 0:
+                user_updates['is_paid'] = True
+                user_updates['subscription_expiry'] = (now_eat + timedelta(days=bonus_premium_days)).isoformat()
+                user_updates['last_payment_receipt'] = f'SYSTEM_PROMO_{bonus_premium_days}_DAYS'
+
+            # 5. Apply updates to the newly verified user
             user_ref.update(user_updates)
             
-            # 4. Upgrade temporary session to a full, authorized session
+            # 6. Upgrade temporary session to a full, authorized session
             session['user_id'] = user_id
             session['user_name'] = user_data.get('name')
             session['user_email'] = user_data.get('email')
@@ -202,7 +217,10 @@ def verify_email():
             session.pop('temp_user_id', None)
             
             if not referred_by_code:
-                flash("Account verified successfully! Welcome to MMUST Dating AI.", "success")
+                if bonus_premium_days >= 14:
+                    flash("Account verified! You've been granted a 14-Day Free Trial! 🚀", "success")
+                else:
+                    flash("Account verified successfully! Welcome to MMUST Dating AI.", "success")
                 
             return redirect(url_for('swipe'))
         else:
