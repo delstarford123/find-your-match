@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .feed-wrapper {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: clamp(15px, 4vw, 30px) 15px;
+        min-height: calc(100dvh - var(--nav-height, 70px) - 40px);
+        position: relative;
+    }
+
+    .header-box {
+        text-align: center;
+        margin-bottom: 30px;
+        animation: fadeInDown 0.4s ease-out;
+    }
+    .header-box h1 {
+        color: #720000; font-size: clamp(24px, 6vw, 32px); font-weight: 900; margin-bottom: 10px; line-height: 1.2;
+    }
+    .prompt-badge {
+        display: inline-block; background: #FEF2F4; color: #E60026; padding: 6px 16px; border-radius: 20px;
+        font-weight: 900; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; border: 1px solid #FFD6DD;
+        margin-bottom: 15px;
+    }
+
+    /* === LOCKED STATE (MUST ANSWER) === */
+    .locked-container {
+        background: white; border-radius: 24px; padding: 35px 25px; text-align: center;
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1); border: 2px solid #E60026; position: relative; z-index: 10;
+    }
+    .locked-container h2 { color: #111; font-size: 20px; font-weight: 900; margin-bottom: 20px; line-height: 1.4;}
+    
+    .answer-input {
+        width: 100%; border: 2px solid #f0f0f0; background: #fafafa; border-radius: 16px; padding: 16px;
+        font-size: 16px; font-family: inherit; font-weight: 500; outline: none; transition: 0.3s;
+        resize: vertical; min-height: 100px; margin-bottom: 20px; box-sizing: border-box;
+    }
+    .answer-input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
+    
+    .btn-submit {
+        width: 100%; background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white;
+        border: none; padding: 18px; border-radius: 16px; font-size: 16px; font-weight: 900; cursor: pointer;
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25); transition: 0.2s;
+    }
+    .btn-submit:active { transform: scale(0.97); }
+
+    /* Fake background cards to tease the user */
+    .blurred-background {
+        position: absolute; top: 120px; left: 0; right: 0; bottom: 0;
+        background-image: repeating-linear-gradient(180deg, #fff, #fff 100px, #fafafa 100px, #fafafa 200px);
+        opacity: 0.5; filter: blur(8px); z-index: 1; border-radius: 24px; pointer-events: none;
+    }
+
+    /* === UNLOCKED STATE (THE FEED) === */
+    .my-answer-box {
+        background: #FEF2F4; border-left: 4px solid #E60026; padding: 15px 20px; border-radius: 0 16px 16px 0;
+        margin-bottom: 40px; font-size: 15px; font-weight: 600; color: #4A0008; line-height: 1.5;
+    }
+    
+    .feed-card {
+        background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px;
+        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.06); border: 1px solid #FFD6DD;
+        animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0;
+    }
+    @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Staggered animation delays for the feed */
+    .feed-card:nth-child(1) { animation-delay: 0.1s; }
+    .feed-card:nth-child(2) { animation-delay: 0.2s; }
+    .feed-card:nth-child(3) { animation-delay: 0.3s; }
+    .feed-card:nth-child(4) { animation-delay: 0.4s; }
+    .feed-card:nth-child(n+5) { animation-delay: 0.5s; }
+
+    .feed-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .feed-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #FFD6DD; }
+    .feed-name { font-weight: 900; color: #720000; font-size: 16px; margin: 0;}
+    .feed-time { font-size: 12px; color: #888; font-weight: 600; }
+    
+    .feed-text { font-size: 16px; color: #111; line-height: 1.5; font-weight: 500; margin: 0 0 15px 0; }
+    
+    .btn-reply {
+        background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 10px 15px; border-radius: 12px;
+        font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+        transition: 0.2s; width: max-content;
+    }
+    @media (hover: hover) { .btn-reply:hover { background: #E60026; color: white; border-color: #E60026; } }
+    .btn-reply:active { transform: scale(0.95); }
+</style>
+
+<div class="feed-wrapper">
+    <div class="header-box">
+        <div class="prompt-badge">Question of the Day</div>
+        <h1>{{ question }}</h1>
+    </div>
+
+    {% if not has_answered %}
+        <div class="blurred-background"></div>
+        <div class="locked-container">
+            <h2>Join the conversation to see what other students are saying!</h2>
+            <textarea id="my-answer" class="answer-input" placeholder="Type your spicy take here..."></textarea>
+            <button class="btn-submit" id="submit-btn" onclick="submitAnswer()">Submit to Reveal 👀</button>
+        </div>
+    {% else %}
+        <div style="font-size: 12px; font-weight: 900; color: #888; text-transform: uppercase; margin-bottom: 8px;">Your Answer:</div>
+        <div class="my-answer-box">
+            "{{ my_answer }}"
+        </div>
+
+        {% if answers and answers|length > 0 %}
+            {% for ans in answers %}
+                <div class="feed-card">
+                    <div class="feed-header">
+                        <img src="{{ ans.img }}" class="feed-avatar" alt="Profile">
+                        <div>
+                            <h3 class="feed-name">{{ ans.name }}</h3>
+                            <span class="feed-time">Answered today</span>
+                        </div>
+                    </div>
+                    <p class="feed-text">{{ ans.answer }}</p>
+                    
+                    <a href="/matches/{{ ans.user_id }}?icebreaker=I saw your answer: '{{ ans.answer[:30] }}...' " class="btn-reply">
+                        💬 Reply in Chat
+                    </a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 40px; background: white; border-radius: 20px; border: 2px dashed #FFD6DD;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🏆</div>
+                <h3 style="color: #720000; font-weight: 900; margin-bottom: 5px;">You're the first one!</h3>
+                <p style="color: #666; font-size: 14px;">Check back later to see what other students replied.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<script>
+    function submitAnswer() {
+        const answer = document.getElementById('my-answer').value;
+        const btn = document.getElementById('submit-btn');
+        
+        if (!answer || answer.length < 2) {
+            alert("Come on, give us a real answer!");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Submitting...";
+
+        fetch('/api/answer_prompt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answer: answer })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Refresh the page to show the unlocked feed!
+                window.location.reload();
+            } else {
+                alert(data.message);
+                btn.disabled = false;
+                btn.innerText = "Submit to Reveal 👀";
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            alert("Network error. Try again.");
+            btn.disabled = false;
+            btn.innerText = "Submit to Reveal 👀";
+        });
+    }
+</script>
+{% endblock %}

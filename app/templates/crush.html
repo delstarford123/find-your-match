@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .crush-wrapper {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: clamp(20px, 5vw, 40px) 15px;
+        min-height: calc(100dvh - var(--nav-height, 70px) - 40px);
+        text-align: center;
+    }
+
+    .crush-header h1 {
+        color: #720000; font-size: clamp(28px, 8vw, 36px); font-weight: 900; margin-bottom: 10px; letter-spacing: -1px;
+    }
+    .crush-header p { color: #666; font-size: 15px; line-height: 1.5; margin-bottom: 30px; font-weight: 500; }
+
+    /* === THE CURIOSITY CARD === */
+    .admirer-card {
+        background: linear-gradient(135deg, #4A0008 0%, #E60026 100%);
+        border-radius: 24px; padding: 30px 20px; color: white; margin-bottom: 40px;
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.25); position: relative; overflow: hidden;
+    }
+    .admirer-card::before {
+        content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%); pointer-events: none;
+    }
+    .admirer-count { font-size: 60px; font-weight: 900; line-height: 1; margin-bottom: 5px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .admirer-text { font-size: 18px; font-weight: 800; opacity: 0.9; letter-spacing: 1px; text-transform: uppercase;}
+
+    /* Blurred faces to build curiosity */
+    .mystery-faces { display: flex; justify-content: center; margin-top: 20px; gap: -15px; }
+    .mystery-face {
+        width: 50px; height: 50px; border-radius: 50%; background: #fff; border: 3px solid rgba(255,255,255,0.5);
+        margin-left: -15px; filter: blur(4px); opacity: 0.8; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    .mystery-face:first-child { margin-left: 0; }
+
+    /* === THE INPUT FORM === */
+    .crush-form {
+        background: white; border-radius: 24px; padding: 30px 20px;
+        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.08); border: 1px solid #FFD6DD; margin-bottom: 40px;
+    }
+    .crush-form h2 { color: #111; font-size: 20px; font-weight: 900; margin-bottom: 15px; }
+    
+    .reg-input {
+        width: 100%; border: 2px solid #f0f0f0; background: #fafafa; border-radius: 16px; padding: 16px;
+        font-size: 18px; font-family: monospace; font-weight: 700; outline: none; transition: 0.3s;
+        text-align: center; text-transform: uppercase; margin-bottom: 20px; box-sizing: border-box;
+        letter-spacing: 2px;
+    }
+    .reg-input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
+    
+    .btn-crush {
+        width: 100%; background: #111; color: white; border: none; padding: 18px; border-radius: 16px;
+        font-size: 16px; font-weight: 900; cursor: pointer; transition: 0.2s; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+    .btn-crush:active { transform: scale(0.97); }
+
+    /* === SENT CRUSHES LIST === */
+    .sent-crushes { text-align: left; }
+    .sent-crushes h3 { font-size: 18px; font-weight: 900; color: #720000; margin-bottom: 15px; padding-left: 5px;}
+    .sent-card {
+        display: flex; align-items: center; justify-content: space-between; background: white;
+        padding: 15px; border-radius: 16px; margin-bottom: 10px; border: 1px solid #f0f0f0;
+    }
+    .sent-info { display: flex; align-items: center; gap: 12px; }
+    .sent-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
+    .sent-name { font-weight: 800; color: #111; font-size: 15px;}
+    .status-badge { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; }
+    .status-pending { background: #f1f5f9; color: #64748b; }
+    .status-matched { background: #dcfce7; color: #059669; }
+
+</style>
+
+<div class="crush-wrapper">
+    <div class="crush-header">
+        <h1>Secret Admirer 🤫</h1>
+        <p>Shoot your shot anonymously. If they enter your Reg Number too, it's an instant match.</p>
+    </div>
+
+    <div class="admirer-card">
+        <div class="admirer-count">{{ admirer_count }}</div>
+        <div class="admirer-text">Secret Admirers</div>
+        
+        {% if admirer_count > 0 %}
+        <div class="mystery-faces">
+            {% for i in range([admirer_count, 3]|min) %}
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed={{ i }}&backgroundColor=e60026" class="mystery-face">
+            {% endfor %}
+        </div>
+        <p style="margin-top: 15px; font-size: 13px; font-weight: 600; opacity: 0.9;">Someone is waiting for you to guess their Reg No...</p>
+        {% else %}
+        <p style="margin-top: 15px; font-size: 13px; font-weight: 600; opacity: 0.8;">No one has pinged you yet. Time to make the first move!</p>
+        {% endif %}
+    </div>
+
+    <div class="crush-form">
+        <h2>Who is your campus crush?</h2>
+        <input type="text" id="target-reg" class="reg-input" placeholder="SAB/B/01-XXXX/2023">
+        <button class="btn-crush" id="btn-submit" onclick="sendCrush()">Send Anonymous Ping 💘</button>
+    </div>
+
+    {% if my_crushes|length > 0 %}
+    <div class="sent-crushes">
+        <h3>People you're eyeing 👀</h3>
+        {% for crush in my_crushes %}
+        <div class="sent-card">
+            <div class="sent-info">
+                <img src="{{ crush.img }}" class="sent-avatar">
+                <span class="sent-name">{{ crush.name }}</span>
+            </div>
+            {% if crush.status == 'matched' %}
+                <span class="status-badge status-matched">Matched ❤️</span>
+            {% else %}
+                <span class="status-badge status-pending">Waiting...</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    function sendCrush() {
+        const regInput = document.getElementById('target-reg').value;
+        const btn = document.getElementById('btn-submit');
+        
+        if (!regInput || regInput.length < 5) {
+            alert("Please enter a valid Registration Number.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Sending Ping...";
+
+        fetch('/api/submit_crush', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_reg: regInput })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload(); // Reload to update the lists
+            } else {
+                alert(data.message);
+                btn.disabled = false;
+                btn.innerText = "Send Anonymous Ping 💘";
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            alert("Network error. Try again.");
+            btn.disabled = false;
+            btn.innerText = "Send Anonymous Ping 💘";
+        });
+    }
+</script>
+{% endblock %}

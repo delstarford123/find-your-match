@@ -2521,8 +2521,214 @@ def request_call():
     except Exception as e:
         logger.error(f"Call Request Error: {e}")
         return jsonify({'success': False, 'message': 'Failed to request call.'}), 500
+
+import random
+
+# ==========================================
+# THE ICEBREAKER ENGINE (DAILY PROMPTS)
+# ==========================================
+
+# A list of spicy, fun, and campus-specific prompts
+CAMPUS_PROMPTS = [
+    "What is the most overrated food spot outside MMUST?",
+    "What is the biggest red flag in a university relationship?",
+    "If you had 1000 KSH for a date in Kakamega, where are you going?",
+    "Be honest: 8 AM classes or 5 PM classes?",
+    "What's your most controversial opinion about MMUST comrades?",
+    "Best place to hide and study when the library is full?",
+    "What's a text you received that immediately gave you the 'ick'?",
+    "Describe your perfect weekend in Kakamega.",
+    "What is a fashion trend on campus that needs to stop immediately?",
+    "Who is the strictest lecturer in your school?"
+]
+
+def get_todays_prompt():
+    """Lazy evaluator: Checks if today has a prompt. If not, sets one."""
+    today_str = datetime.now(EAT).strftime('%Y-%m-%d')
+    prompt_ref = db.reference(f'daily_prompts/{today_str}')
+    prompt_data = prompt_ref.get()
+
+    if not prompt_data:
+        # It's a new day! Pick a random prompt.
+        question = random.choice(CAMPUS_PROMPTS)
+        prompt_data = {'question': question, 'date': today_str}
+        prompt_ref.set(prompt_data)
+        
+    return prompt_data
+
+@app.route('/feed')
+@requires_subscription
+def campus_feed():
+    """Renders the Daily Icebreaker Feed"""
+    user_id = session.get('user_id')
+    today_str = datetime.now(EAT).strftime('%Y-%m-%d')
+    
+    prompt_data = get_todays_prompt()
+    question = prompt_data.get('question')
+    
+    # Check if current user has answered today's prompt
+    my_answer_data = db.reference(f'prompt_answers/{today_str}/{user_id}').get()
+    has_answered = bool(my_answer_data)
+    
+    feed_answers = []
+    
+    if has_answered:
+        # User has answered, fetch everyone else's answers!
+        all_answers = db.reference(f'prompt_answers/{today_str}').get() or {}
+        profiles = db.reference('profiles').get() or {}
+        
+        for uid, ans_data in all_answers.items():
+            if uid != user_id: # Don't show the user their own answer in the feed
+                user_profile = profiles.get(uid, {})
+                
+                # Only show answers from users who are visible
+                if user_profile.get('is_visible', True):
+                    feed_answers.append({
+                        'user_id': uid,
+                        'name': user_profile.get('name', 'Student').split(' ')[0],
+                        'img': user_profile.get('img', '/static/img/placeholder.png'),
+                        'answer': ans_data.get('answer'),
+                        'timestamp': ans_data.get('timestamp')
+                    })
+        
+        # Sort answers by newest first
+        feed_answers.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+    return render_template('feed.html', 
+                           question=question, 
+                           has_answered=has_answered, 
+                           my_answer=my_answer_data.get('answer') if my_answer_data else "",
+                           answers=feed_answers)
+
+@app.route('/api/answer_prompt', methods=['POST'])
+def answer_prompt():
+    """Saves the user's answer to Firebase"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+        
+    data = request.json
+    answer = data.get('answer')
+    
+    if not answer or len(answer.strip()) < 2:
+        return jsonify({'success': False, 'message': 'Your answer is too short!'})
+        
+    today_str = datetime.now(EAT).strftime('%Y-%m-%d')
+    
+    db.reference(f'prompt_answers/{today_str}/{user_id}').set({
+        'answer': answer.strip(),
+        'timestamp': datetime.now(EAT).isoformat()
+    })
+    
+    return jsonify({'success': True})   
     
     
+# ==========================================
+# THE SECRET ADMIRER ENGINE (CURIOSITY LOOP)
+# ==========================================
+
+@app.route('/secret-admirer')
+@requires_subscription
+def secret_admirer():
+    """Renders the Secret Admirer Page"""
+    user_id = session.get('user_id')
+    
+    # 1. Count how many people are secretly crushing on this user
+    my_admirers = db.reference(f'secret_crushes/{user_id}').get() or {}
+    admirer_count = len([k for k, v in my_admirers.items() if v.get('status') == 'pending'])
+
+    # 2. Get the list of people THIS user has crushed on (so they can track them)
+    all_crushes = db.reference('secret_crushes').get() or {}
+    my_crushes = []
+    
+    for target_id, senders in all_crushes.items():
+        if user_id in senders:
+            target_profile = db.reference(f'profiles/{target_id}').get()
+            if target_profile:
+                my_crushes.append({
+                    'name': target_profile.get('name', 'Student').split(' ')[0],
+                    'img': target_profile.get('img', '/static/img/placeholder.png'),
+                    'status': senders[user_id].get('status', 'pending')
+                })
+
+    return render_template('crush.html', admirer_count=admirer_count, my_crushes=my_crushes)
+
+
+@app.route('/api/submit_crush', methods=['POST'])
+def submit_crush():
+    """Handles the logic of sending a crush and checking for mutual matches"""
+    sender_id = session.get('user_id')
+    if not sender_id:
+        return jsonify({'success': False, 'message': 'Session expired. Please log in.'}), 401
+
+    data = request.json
+    target_reg_raw = data.get('target_reg', '').strip().upper()
+    target_id = target_reg_raw.replace('/', '_') # Standardize ID format
+
+    if sender_id == target_id:
+        return jsonify({'success': False, 'message': "You can't crush on yourself! 😂"})
+
+    # Fetch both profiles to check gender and existence
+    sender_profile = db.reference(f'profiles/{sender_id}').get() or {}
+    target_profile = db.reference(f'profiles/{target_id}').get()
+
+    if not target_profile:
+        return jsonify({'success': False, 'message': "We couldn't find a student with that Registration Number on the app."})
+
+    # STRICT RULE: Male only to Female, Female only to Male
+    sender_gender = sender_profile.get('gender', '').lower()
+    target_gender = target_profile.get('gender', '').lower()
+
+    if sender_gender == target_gender and sender_gender in ['male', 'female']:
+        return jsonify({'success': False, 'message': "System Rule: You can only send a Secret Crush to the opposite gender."})
+
+    # CHECK FOR MUTUAL MATCH (Did they already crush on the sender?)
+    target_crushes_on_me = db.reference(f'secret_crushes/{sender_id}/{target_id}').get()
+
+    now_eat = datetime.now(EAT).isoformat()
+
+    if target_crushes_on_me:
+        # ❤️ IT IS A MUTUAL MATCH! ❤️
+        # 1. Upgrade the crush status
+        db.reference(f'secret_crushes/{target_id}/{sender_id}').set({'timestamp': now_eat, 'status': 'matched'})
+        db.reference(f'secret_crushes/{sender_id}/{target_id}').update({'status': 'matched'})
+
+        # 2. Create an official Chat Match in the database
+        match_id = f"match_{min(sender_id, target_id)}_{max(sender_id, target_id)}"
+        db.reference(f'matches/{match_id}').set({
+            'users': {sender_id: True, target_id: True},
+            'timestamp': now_eat,
+            'is_perfect_match': True,
+            'type': 'secret_crush'
+        })
+        
+        # 3. Fire Push Notification to the target
+        # TODO: Implement send_push_notification(target_id, "OMG! It's a mutual crush! You've been matched! ❤️")
+
+        return jsonify({
+            'success': True, 
+            'mutual': True, 
+            'message': "OMG! They had a crush on you too! ❤️ We just created a match in your chats."
+        })
+
+    else:
+        # 🤫 NOT MUTUAL YET (Anonymous Mode)
+        db.reference(f'secret_crushes/{target_id}/{sender_id}').set({
+            'timestamp': now_eat,
+            'status': 'pending'
+        })
+        
+        # 3. Fire Push Notification to the target
+        # TODO: Implement send_push_notification(target_id, "Someone has a Secret Crush on you! 👀 Open the app to see.")
+
+        return jsonify({
+            'success': True, 
+            'mutual': False, 
+            'message': "Secret Crush sent! 🤫 If they enter your Reg Number too, you will instantly match."
+        })
+        
+        
+        
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
