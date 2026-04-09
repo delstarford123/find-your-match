@@ -2215,6 +2215,23 @@ def page_not_found(e):
 def internal_server_error(e):
     # You can reuse the 404 template, or create a specific 500.html later
     return render_template('404.html'), 500
+
+
+@app.route('/join')
+def join():
+    """Catches incoming referral links and stores the code before signup."""
+    # Get the code from the URL (e.g., ?ref=MMUST-VIP-26)
+    ref_code = request.args.get('ref')
+    
+    if ref_code:
+        # Save it securely in their browser session
+        session['referred_by'] = ref_code
+        flash("✨ VIP Invite applied! Create your account to claim your free Premium week.", "success")
+    
+    # Send them to the signup page (Adjust 'auth.signup' if your signup is just 'signup')
+    return redirect(url_for('auth.signup'))
+
+
 @app.route('/referrals')
 def referrals():
     if 'user_id' not in session:

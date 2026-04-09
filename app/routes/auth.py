@@ -2,6 +2,7 @@ import re
 import hashlib
 import random
 import uuid
+from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from app.database import db, delete_user_account
@@ -10,6 +11,9 @@ from app.database import db, delete_user_account
 from app.email_service import send_verification_email
 
 auth_bp = Blueprint('auth', __name__)
+
+# Define East Africa Time (UTC+3)
+EAT = timezone(timedelta(hours=3))
 
 # --- REGEX PATTERNS ---
 REG_PATTERN = r"^[A-Z]{2,4}/[A-Z]/\d{2}-\d{4,5}/\d{4}$"
@@ -31,8 +35,8 @@ def signup():
         reg_number = request.form.get('reg_number')
         bio = request.form.get('bio', 'Hey! I am using MMUST Dating AI.')
         
-        # --- NEW: Capture the Referral Code ---
-        ref_code = request.form.get('ref_code', '').strip()
+        # --- REFERRAL LOGIC: Check form first, then check session ---
+        ref_code = request.form.get('ref_code', '').strip() or session.get('referred_by', '')
         
         # Expanded Fields
         age = int(request.form.get('age', 18))
@@ -87,13 +91,13 @@ def signup():
                 'vibe_vector': [0.0, 0.0, 0.0, 0.0],
                 'is_verified': False,            # User must verify via code
                 'verification_code': str(otp_code), # Store code as string for exact matching
-                'referred_by': ref_code          # <--- NEW: Saves who invited them!
+                'referred_by': ref_code          # Saves who invited them!
             })
             
             # Send the Email 
             send_verification_email(email, name, otp_code)
             
-            # Create a TEMPORARY browser session (Protects the /swipe route)
+            # Create a TEMPORARY browser session
             session['temp_user_id'] = safe_reg_number
             session['temp_user_email'] = email
             
@@ -106,9 +110,10 @@ def signup():
 
     return render_template('signup.html')
 
+
 @auth_bp.route('/verify', methods=['GET', 'POST'])
 def verify_email():
-    """Handles the 6-digit OTP verification."""
+    """Handles the 6-digit OTP verification and grants Premium Rewards."""
     # Look for either a temporary session (just signed up) or full session
     user_id = session.get('temp_user_id') or session.get('user_id')
     
@@ -136,13 +141,59 @@ def verify_email():
         actual_code = str(user_data.get('verification_code'))
 
         if entered_code == actual_code:
-            # Code matches! Verify user.
-            user_ref.update({
+            # 1. Prepare base update payload
+            user_updates = {
                 'is_verified': True,
                 'verification_code': None 
-            })
+            }
             
-            # Upgrade temporary session to a full, authorized session
+            # ====================================================
+            # 2. VIP REFERRAL REWARD SYSTEM (Grants Free Premium)
+            # ====================================================
+            referred_by_code = user_data.get('referred_by')
+            if referred_by_code:
+                try:
+                    # Find the user who sent the invite link
+                    referrers = db.reference('profiles').order_by_child('referral_code').equal_to(referred_by_code).get()
+                    
+                    if referrers:
+                        referrer_id = list(referrers.keys())[0]
+                        referrer_data = referrers[referrer_id]
+                        
+                        now_eat = datetime.now(EAT)
+                        
+                        # A. Give the Referrer 1 Week Premium
+                        new_count = referrer_data.get('referrals_count', 0) + 1
+                        new_weeks = referrer_data.get('free_weeks_earned', 0) + 1
+                        
+                        ref_exp_str = referrer_data.get('subscription_expiry')
+                        # If they already have premium, ADD 7 days to their current expiry
+                        if ref_exp_str and datetime.fromisoformat(ref_exp_str) > now_eat:
+                            new_ref_exp = (datetime.fromisoformat(ref_exp_str) + timedelta(days=7)).isoformat()
+                        else:
+                            new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
+
+                        db.reference(f'profiles/{referrer_id}').update({
+                            'referrals_count': new_count,
+                            'free_weeks_earned': new_weeks,
+                            'is_paid': True,
+                            'subscription_expiry': new_ref_exp
+                        })
+                        
+                        # B. Give the NEW User 1 Week Premium
+                        user_updates['is_paid'] = True
+                        user_updates['subscription_expiry'] = (now_eat + timedelta(days=7)).isoformat()
+                        
+                        # Clear the session code
+                        session.pop('referred_by', None)
+                        flash("VIP Invite Confirmed! You both get 1 Free Week of Premium! 🎉", "success")
+                except Exception as e:
+                    print(f"Error processing referral reward: {e}")
+
+            # 3. Apply updates to the newly verified user
+            user_ref.update(user_updates)
+            
+            # 4. Upgrade temporary session to a full, authorized session
             session['user_id'] = user_id
             session['user_name'] = user_data.get('name')
             session['user_email'] = user_data.get('email')
@@ -150,7 +201,9 @@ def verify_email():
             session['user_religion'] = user_data.get('religion', 'Other')
             session.pop('temp_user_id', None)
             
-            flash("Account verified successfully! Welcome to MMUST Dating AI.", "success")
+            if not referred_by_code:
+                flash("Account verified successfully! Welcome to MMUST Dating AI.", "success")
+                
             return redirect(url_for('swipe'))
         else:
             flash("Invalid code. Please check your email and try again.", "error")
@@ -269,25 +322,27 @@ def business_register():
 
 @auth_bp.route('/resend_otp', methods=['POST'])
 def resend_otp():
-    """Generates a new OTP and updates Firebase."""
-    # 1. Grab the email from the session
-    email = session.get('unverified_email') 
+    """Generates a new OTP and updates Firebase safely."""
+    # Grab the IDs from the session
+    user_id = session.get('temp_user_id')
+    email = session.get('temp_user_email') 
     
-    if not email:
+    if not user_id or not email:
         flash("Session expired. Please log in or sign up again.", "error")
         return redirect(url_for('auth.login'))
 
-    # 2. Generate a new 6-digit OTP
+    # Generate a new 6-digit OTP
     new_otp = str(random.randint(100000, 999999))
     
     try:
-        # 3. Save the new OTP to Firebase
-        email_safe_key = email.replace('.', ',')
-        db.reference(f'unverified_users/{email_safe_key}/otp').set(new_otp)
+        # BUG FIX: Write the new code directly to the actual user's profile
+        db.reference(f'profiles/{user_id}').update({'verification_code': new_otp})
         
-        # 4. Fire your email sending function here!
+        # Fire your email sending function here!
+        # (Pass 'Student' as name fallback since we don't fetch it here)
+        send_verification_email(email, "Student", new_otp)
+        
         print(f"📧 NEW OTP SENT TO {email}: {new_otp}")
-        
         flash("A new 6-digit code has been sent to your email.", "success")
         
     except Exception as e:
@@ -295,6 +350,7 @@ def resend_otp():
         flash("Failed to resend code. Please try again.", "error")
         
     return redirect(url_for('auth.verify_email'))
+
 
 @auth_bp.route('/logout')
 def logout():
