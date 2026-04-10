@@ -968,6 +968,10 @@ def settings():
     )
     
     
+@app.route('/merchant-terms')
+def merchant_terms():
+    return render_template('merchant_terms.html')
+
     
 # ==========================================
 # 8. B2B PAGES (MERCHANTS)

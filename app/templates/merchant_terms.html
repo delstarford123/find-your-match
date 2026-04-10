@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .legal-wrapper {
+        display: flex;
+        justify-content: center;
+        padding: clamp(30px, 5vw, 60px) 15px;
+        min-height: calc(100vh - var(--nav-height, 70px) - 80px);
+        background: #fafafa;
+    }
+    
+    .legal-container {
+        background: white;
+        padding: clamp(30px, 6vw, 60px) clamp(25px, 6vw, 50px);
+        border-radius: 28px;
+        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.05);
+        border: 1px solid #FFD6DD;
+        width: 100%;
+        max-width: 850px;
+        animation: fadeSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .legal-header {
+        text-align: center;
+        margin-bottom: 40px;
+        border-bottom: 2px dashed #FFD6DD;
+        padding-bottom: 30px;
+    }
+    .legal-header h1 {
+        color: #720000;
+        font-size: clamp(28px, 5vw, 40px);
+        font-weight: 900;
+        letter-spacing: -1px;
+        margin-bottom: 10px;
+    }
+    .legal-header p {
+        color: #666;
+        font-size: 15px;
+        font-weight: 500;
+        margin: 0;
+    }
+
+    .legal-content {
+        color: #333;
+        line-height: 1.7;
+        font-size: 15px;
+    }
+    .legal-content h2 {
+        color: #E60026;
+        font-size: 20px;
+        font-weight: 800;
+        margin: 35px 0 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .legal-content h2::before {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #720000;
+        border-radius: 50%;
+    }
+    .legal-content p {
+        margin-bottom: 15px;
+        font-weight: 500;
+    }
+    .legal-content ul {
+        margin: 0 0 20px 20px;
+        padding-left: 20px;
+    }
+    .legal-content li {
+        margin-bottom: 10px;
+        font-weight: 500;
+        padding-left: 5px;
+    }
+    .legal-content li::marker {
+        color: #E60026;
+        font-weight: 900;
+    }
+    .legal-content strong {
+        color: #111;
+        font-weight: 800;
+    }
+
+    .highlight-box {
+        background: #FEF2F4;
+        border-left: 4px solid #E60026;
+        padding: 20px;
+        border-radius: 0 12px 12px 0;
+        margin: 25px 0;
+        font-size: 14px;
+        color: #4A0008;
+        font-weight: 600;
+    }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: #f1f5f9;
+        color: #475569;
+        border-radius: 12px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: 0.2s;
+        margin-bottom: 30px;
+    }
+    @media (hover: hover) {
+        .btn-back:hover { background: #e2e8f0; color: #1e293b; transform: translateX(-4px); }
+    }
+</style>
+
+<div class="legal-wrapper">
+    <div class="legal-container">
+        
+        <a href="javascript:history.back()" class="btn-back">← Back to Registration</a>
+        
+        <div class="legal-header">
+            <h1>Merchant Terms of Service</h1>
+            <p>Last Updated: April 2026</p>
+        </div>
+
+        <div class="legal-content">
+            <p>Welcome to the MMUST Dating AI Partner Network ("Platform"). These Merchant Terms of Service ("Terms") govern your access to and use of our business dashboard and venue listing services. By checking the agreement box during registration and using the Platform, you, the business owner or authorized representative ("Merchant"), agree to these Terms.</p>
+
+            <div class="highlight-box">
+                Please read these terms carefully. They define your obligations regarding student safety, subscription payments, and the fulfillment of promotional offers advertised on our platform.
+            </div>
+
+            <h2>1. Merchant Account & Authorization</h2>
+            <p>By creating a Merchant Account, you warrant that you are the legal owner or an authorized representative of the registered business. You agree to provide accurate, current, and complete information. You are solely responsible for maintaining the confidentiality of your login credentials.</p>
+
+            <h2>2. Subscription & Payments</h2>
+            <p>Participation in the Partner Network requires an active subscription.</p>
+            <ul>
+                <li><strong>Fees:</strong> The standard subscription fee is <strong>2,000 KSH per month</strong>, billed securely via Daraja M-Pesa.</li>
+                <li><strong>Activation:</strong> Your venue profile will only be visible to students in the "Approved Date Spots" directory while your subscription is active.</li>
+                <li><strong>Lapsed Payments:</strong> Failure to renew the subscription will result in your venue being hidden from the directory. Your data will be preserved, and visibility will be restored upon successful payment.</li>
+                <li><strong>No Refunds:</strong> Subscription payments are non-refundable, including for partial months of service.</li>
+            </ul>
+
+            <h2>3. Honoring Student Perks</h2>
+            <p>If you list a "Student Perk" or "Condition" (e.g., "10% off with MMUST ID" or "Free dessert with couple booking") on your profile, you are <strong>legally bound</strong> to honor that promotion for any student who presents a valid booking confirmation or QR code from our app.</p>
+            <p>Repeated reports from students regarding a venue failing to honor advertised perks will result in immediate suspension from the platform without refund.</p>
+
+            <h2>4. Safety & Conduct Obligations</h2>
+            <p>Student safety is our highest priority. As an Approved Date Spot, you agree to:</p>
+            <ul>
+                <li>Maintain a safe, brightly lit, and secure environment for all patrons.</li>
+                <li>Ensure your staff treats all students arriving via our platform with respect and dignity.</li>
+                <li>Promptly assist any student who reports feeling unsafe or threatened while on your premises.</li>
+                <li>Report any dangerous incidents or severe misconduct by students to platform administrators immediately.</li>
+            </ul>
+
+            <h2>5. Data Privacy & Use of Platform</h2>
+            <p>You will have access to a Business Dashboard that displays metrics (e.g., profile views, QR scans). This data is provided solely for internal business analysis. You agree <strong>not</strong> to extract, scrape, or misuse any student data, nor attempt to contact students outside the parameters of fulfilling a reservation.</p>
+
+            <h2>6. Termination & Suspension</h2>
+            <p>We reserve the right to suspend or permanently ban your Merchant Account, without notice or refund, for any of the following reasons:</p>
+            <ul>
+                <li>Violation of these Terms.</li>
+                <li>Unsafe conditions at your physical venue.</li>
+                <li>Failing to honor advertised student discounts.</li>
+                <li>Fraudulent activity or providing false business information.</li>
+            </ul>
+            <p>You may cancel your subscription at any time via your dashboard, which will halt future billing and remove your venue from the public directory.</p>
+
+            <h2>7. Limitation of Liability</h2>
+            <p>MMUST Dating AI and Delstarford Works provide the Platform "as is". We do not guarantee a specific number of reservations, foot traffic, or revenue resulting from your listing. We are not liable for the behavior, actions, or payment disputes of students who visit your venue.</p>
+
+            <h2>8. Contact Us</h2>
+            <p>For support, billing inquiries, or to report an issue, please contact our administrative team at <strong>admin@delstarfordworks.co.ke</strong> or utilize the callback request feature within your Merchant Dashboard.</p>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
