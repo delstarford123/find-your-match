@@ -2,6 +2,18 @@
 
 {% block content %}
 <style>
+    /* === 🚨 CRITICAL NAVBAR FIX 🚨 === */
+    /* Forces the 3D swipe deck to stay underneath your global navigation bar */
+    .deck-wrapper {
+        display: flex; justify-content: center; align-items: center;
+        height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); 
+        width: 100%; padding: 10px; perspective: 1000px; 
+        overflow: hidden; background: #f4f6f8; 
+        box-sizing: border-box;
+        position: relative;
+        z-index: 10; /* Lower than navbar's 99990 */
+    }
+
     /* === GLOBAL NOTIFICATION BELL === */
     .floating-bell {
         position: fixed; 
@@ -43,7 +55,7 @@
 
     .crush-modal {
         display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-        z-index: 10001; justify-content: center; align-items: center; padding: 20px;
+        z-index: 100000; justify-content: center; align-items: center; padding: 20px; 
         backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
     .crush-modal-content {
@@ -65,7 +77,7 @@
     .bell-popover {
         position: fixed; top: calc(80px + env(safe-area-inset-top, 0px)); right: 20px; 
         background: white; border-radius: 20px;
-        box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; z-index: 100000; 
         border: 1px solid #FFD6DD; display: none; flex-direction: column;
         overflow: hidden; transform-origin: top right; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
@@ -100,16 +112,7 @@
         100% { opacity: 1; transform: scale(1) translateY(0); }
     }
 
-    /* === CORE LAYOUT & SWIPE CARD === */
-    .deck-wrapper {
-        display: flex; justify-content: center; align-items: center;
-        /* dvh secures the height perfectly on mobile browsers */
-        height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); 
-        width: 100%; padding: 10px; perspective: 1000px; 
-        overflow: hidden; background: #f4f6f8; 
-        box-sizing: border-box;
-    }
-    
+    /* === CORE SWIPE CARD === */
     .deck-container { 
         position: relative; width: 100%; max-width: 420px; 
         height: 75dvh; max-height: 680px; min-height: 480px;
@@ -165,7 +168,7 @@
     
     .card-info { 
         position: absolute; bottom: 0; left: 0; right: 0; 
-        padding: 120px 25px 110px; /* Leaves space for bottom buttons */
+        padding: 120px 25px 110px; 
         background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 30%, transparent 100%); 
         color: white; pointer-events: none; z-index: 5;
     }
@@ -213,7 +216,7 @@
     /* === MATCH OVERLAY === */
     #match-overlay { 
         display: none; position: fixed; inset: 0; 
-        background: rgba(0, 0, 0, 0.85); z-index: 10000; 
+        background: rgba(0, 0, 0, 0.85); z-index: 100000; /* High Z-index to cover navbar */
         flex-direction: column; align-items: center; justify-content: center; 
         text-align: center; color: white; padding: 20px; 
         backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
@@ -249,7 +252,7 @@
         position: absolute; inset: 0; display: flex; flex-direction: column; 
         align-items: center; justify-content: center; text-align: center; 
         padding: clamp(20px, 5vw, 30px); background: #f4f6f8; z-index: 10; 
-        border-radius: 28px; overflow-y: auto; /* Allows scrolling on very short screens */
+        border-radius: 28px; overflow-y: auto; 
         box-sizing: border-box;
     }
     
@@ -282,7 +285,7 @@
         padding: 16px; border-radius: 16px; text-decoration: none; 
         font-weight: 900; font-size: 15px; display: flex; align-items: center; 
         justify-content: center; gap: 10px; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
-        min-height: 54px; /* Apple HIG Touch Target */
+        min-height: 54px; 
     }
     
     .empty-btn:active { transform: scale(0.96); }
@@ -387,7 +390,8 @@
 
 <div id="match-overlay">
     <h1 class="match-title">IT'S A MATCH!</h1>
-    <p class="match-subtitle">You and <span id="match-name-celeb" style="font-weight: 900;"></span> liked each other.</p>
+    
+    <p class="match-subtitle" id="match-reason-celeb">You liked each other.</p>
     
     <div class="match-avatars">
         <img src="{{ current_user.img }}" class="match-avatar avatar-left">
@@ -683,13 +687,24 @@
                     card.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease';
                     card.style.opacity = '1';
                 });
-            }, 350); // Matches the CSS transition time
+            }, 350); 
         };
 
-        // 4. Match Celebration UI
+        // 4. 🔥 UPGRADED MATCH CELEBRATION UI 🔥
         window.triggerMatchCelebration = function(matchData, partnerId) {
-            document.getElementById('match-name-celeb').innerText = matchData.name.split(' ')[0];
+            const firstName = matchData.name.split(' ')[0];
+            
+            document.getElementById('match-name-celeb').innerText = firstName;
             document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
+            
+            // Display the dynamic match reason directly on the screen
+            const reasonEl = document.getElementById('match-reason-celeb');
+            if (matchData.reason) {
+                reasonEl.innerText = matchData.reason;
+            } else {
+                reasonEl.innerHTML = `You and <span style="font-weight: 900;">${firstName}</span> liked each other.`;
+            }
+
             document.getElementById('match-overlay').style.display = 'flex';
             
             document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;

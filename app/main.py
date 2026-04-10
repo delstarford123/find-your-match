@@ -361,7 +361,6 @@ from flask import session, flash, redirect, url_for, render_template
 # Make sure your db is imported! e.g., from app.database import db
 
 import random
-
 @app.route('/swipe')
 @requires_subscription
 def swipe():
@@ -380,12 +379,27 @@ def swipe():
     user_profile = db.reference(f'profiles/{user_id}').get() or {}
     user_swipes = db.reference(f'swipes/{user_id}').get() or {}
 
+    # --- THE ALGORITHM DATA FETCH ---
+    # Fetch people who have a pending Secret Crush on THIS user
+    crushes_on_me = db.reference(f'secret_crushes/{user_id}').get() or {}
+    pending_crushers = [sender_id for sender_id, data in crushes_on_me.items() if data.get('status') == 'pending']
+
+    # Fetch User Preferences
+    user_settings = user_profile.get('settings', {})
+    gender_pref = user_settings.get('looking_for', 'Everyone')
+    my_intent = user_profile.get('intent', 'none')
+    
+    # Prepare for Bio matching
+    my_bio_words = set(user_profile.get('bio', '').lower().replace('.', '').replace(',', '').split())
+    stop_words = {'i', 'am', 'a', 'the', 'and', 'to', 'for', 'in', 'of', 'my', 'is', 'at', 'on', 'with', 'student', 'mmust'}
+    my_keywords = my_bio_words - stop_words
+
     # 3. Bundle Context for the Frontend
     current_user = {
         'id': user_id,
         'name': user_profile.get('name', session.get('user_name', 'Student')).split(' ')[0], 
         'img': user_profile.get('img') or url_for('static', filename='img/placeholder.png'),
-        'settings': user_profile.get('settings', {}) 
+        'settings': user_settings
     }
 
     # 4. Build the Discovery Deck
@@ -402,8 +416,31 @@ def swipe():
         if p_id == user_id or not p.get('is_visible', True) or p_id in user_swipes:
             continue
             
-        # Retrieve AI score safely, default to a random high score if not calculated yet
-        ai_score = p.get('ai_score', random.randint(65, 95))
+        # GENDER FILTER
+        if gender_pref != 'Everyone':
+            p_gender = p.get('gender', 'Unknown')
+            if p_gender.lower() != gender_pref.lower():
+                continue
+                
+        # --- THE SCORING ALGORITHM ---
+        base_score = p.get('ai_score', random.randint(65, 80))
+        bonus = 0
+        
+        # Intent Bonus
+        p_intent = p.get('intent', 'none')
+        if my_intent != 'none' and p_intent == my_intent:
+            bonus += 10
+            
+        # Bio Overlap Bonus
+        p_bio_words = set(p.get('bio', '').lower().replace('.', '').replace(',', '').split())
+        if len((p_bio_words - stop_words) & my_keywords) > 0:
+            bonus += 5
+            
+        final_score = min(base_score + bonus, 99)
+        
+        # SECRET CRUSH OVERRIDE (Forces them to the absolute front of the line)
+        if p_id in pending_crushers:
+            final_score = 100 
         
         potential_matches.append({
             'id': p_id,
@@ -412,8 +449,9 @@ def swipe():
             'major': p.get('major', 'MMUST Student'),
             'bio': p.get('bio', 'Hey! I am using MMUST Dating AI.'),
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
-            'compatibility': ai_score,
-            'is_perfect_match': ai_score >= 80  # Flag for the frontend badge
+            'intent': p_intent, # Passes the intent so the frontend tag works!
+            'compatibility': final_score,
+            'is_perfect_match': final_score >= 80  # Flag for the frontend badge
         })
 
     # 5. Sort the deck: Show the Highest Compatibility matches first!
@@ -424,6 +462,7 @@ def swipe():
         current_user=current_user,
         potential_matches=potential_matches
     )
+    
 import random
 @app.route('/dashboard')
 @requires_subscription
@@ -1560,6 +1599,7 @@ def get_profiles():
     user_id = request.args.get('user_id')
     ranked_deck = generate_ranked_deck(user_id)
     return jsonify(ranked_deck)
+
 @app.route('/api/swipe', methods=['POST'])
 @login_required
 def record_swipe():
@@ -1583,35 +1623,74 @@ def record_swipe():
         match_details = {}
 
         if action == 'like':
-            # 2. Check if it's a mutual match
-            target_swipe = db.reference(f'swipes/{target_user_id}/{current_user_id}').get()
+            # Fetch profiles early so we can compare them for cool commonalities!
+            current_profile = db.reference(f'profiles/{current_user_id}').get() or {}
+            target_profile = db.reference(f'profiles/{target_user_id}').get() or {}
 
-            if target_swipe and target_swipe.get('action') == 'like':
+            # 2. CHECK ALL MATCH CONDITIONS
+            # A: Did they already swipe right on us?
+            target_swipe = db.reference(f'swipes/{target_user_id}/{current_user_id}').get()
+            target_swiped_right = target_swipe and target_swipe.get('action') == 'like'
+            
+            # B: Do they have a pending Secret Crush on us?
+            target_crush = db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').get()
+            target_crushed_on_me = target_crush and target_crush.get('status') == 'pending'
+
+            # If either condition is true, IT IS A MATCH!
+            if target_swiped_right or target_crushed_on_me:
                 is_match = True
                 match_id = "_".join(sorted([current_user_id, target_user_id]))
                 
-                # 3. Save Match Entry
+                # If they matched via crush, update the crush database to keep it clean
+                if target_crushed_on_me:
+                    db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').update({'status': 'matched'})
+                    db.reference(f'secret_crushes/{current_user_id}/{target_user_id}').set({'timestamp': timestamp, 'status': 'matched'})
+                
+                # 3. FIGURE OUT *WHY* THEY MATCHED (To make the UI awesome)
+                match_reason = "You both liked each other! ✨"
+                
+                if target_crushed_on_me:
+                    match_reason = "OMG! They had a Secret Crush on you! 🤫❤️"
+                elif current_profile.get('intent') and current_profile.get('intent') != 'none' and current_profile.get('intent') == target_profile.get('intent'):
+                    # They have the exact same relationship intent!
+                    intent_map = {'coffee': '☕ Coffee', 'study': '📚 Study Sessions', 'event': '🎉 Events', 'relationship': '💘 A Relationship'}
+                    shared_intent = intent_map.get(current_profile.get('intent'), '')
+                    if shared_intent:
+                        match_reason = f"You are both looking for {shared_intent}!"
+                else:
+                    # Let's check for shared words in their bios!
+                    my_bio_words = set(current_profile.get('bio', '').lower().replace('.', '').replace(',', '').split())
+                    their_bio_words = set(target_profile.get('bio', '').lower().replace('.', '').replace(',', '').split())
+                    # Filter out boring words
+                    stop_words = {'i', 'am', 'a', 'the', 'and', 'to', 'for', 'in', 'of', 'my', 'is', 'at', 'on', 'with', 'student', 'mmust', 'like', 'love', 'looking', 'here'}
+                    common_words = (my_bio_words & their_bio_words) - stop_words
+                    
+                    if common_words:
+                        best_word = list(common_words)[0].capitalize()
+                        match_reason = f"You both mentioned '{best_word}' in your bios! 🎯"
+
+                # 4. Save Match Entry to Database
                 db.reference(f'matches/{match_id}').set({
                     'users': {current_user_id: True, target_user_id: True},
                     'matched_at': timestamp,
                     'last_message': 'You matched! Say hi.',
-                    'last_message_time': timestamp
+                    'last_message_time': timestamp,
+                    'match_reason': match_reason # Save it so we can show it in chats later!
                 })
                 
-                # 4. Prepare details for frontend popup
-                target_profile = db.reference(f'profiles/{target_user_id}').get() or {}
-                current_profile = db.reference(f'profiles/{current_user_id}').get() or {}
-                
+                # 5. Prepare details for frontend popup
                 match_details = {
                     'name': target_profile.get('name', 'Your Match').split(' ')[0],
-                    'img': target_profile.get('img', '/static/img/placeholder.png')
+                    'img': target_profile.get('img', '/static/img/placeholder.png'),
+                    'bio': target_profile.get('bio', 'MMUST Student'),
+                    'reason': match_reason # Pass the cool reason to the frontend UI
                 }
 
-                # 5. TRIGGER PUSH NOTIFICATION (Normal match buzz)
+                # 6. TRIGGER PUSH NOTIFICATION (Normal match buzz)
                 current_name = current_profile.get('name', 'Someone').split(' ')[0]
                 socketio.start_background_task(trigger_match_notification, target_user_id, current_name)
 
-                # 6.  THE AI MAGIC: AI Wingman sends a tip to the current user
+                # 7. THE AI MAGIC: AI Wingman sends a tip to the current user
                 socketio.start_background_task(ai_wingman_match_intro, current_user_id, target_profile)
 
         return jsonify({
@@ -1623,7 +1702,7 @@ def record_swipe():
     except Exception as e:
         logger.error(f"Swipe Error: {e}")
         return jsonify({"status": "error", "message": "Database error"}), 500
-    
+      
 @app.route('/api/save-subscription', methods=['POST'])
 def save_subscription():
     if 'user_id' not in session:

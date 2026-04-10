@@ -2,14 +2,6 @@
 
 {% block content %}
 <style>
-    /* === 🚨 MOBILE NAVBAR CLICKABILITY FIX 🚨 === */
-    /* Traps all animations in the dashboard so they cannot bleed up and block the navbar */
-    main.container {
-        isolation: isolate;
-        position: relative;
-        z-index: 1 !important;
-    }
-
     /* === DASHBOARD HEADER === */
     .dashboard-header {
         text-align: center;
@@ -32,6 +24,55 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
+    /* === 🚨 HIGH-CONVERSION CAMPUS ALERTS 🚨 === */
+    .campus-alerts {
+        display: flex; 
+        flex-direction: column; 
+        gap: 12px;
+        max-width: 600px; 
+        margin: 0 auto 25px auto; 
+        padding: 0 clamp(15px, 5vw, 30px);
+        animation: fadeInDown 0.5s ease-out 0.1s both;
+    }
+    .alert-box {
+        display: flex; 
+        align-items: center; 
+        background: white; 
+        padding: 16px;
+        border-radius: 16px; 
+        text-decoration: none; 
+        color: #111;
+        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.08); 
+        border: 2px solid #FFD6DD;
+        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s; 
+        cursor: pointer;
+    }
+    @media (hover: hover) {
+        .alert-box:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(114, 0, 0, 0.15); border-color: #E60026; }
+    }
+    .alert-box:active { transform: scale(0.97); }
+    
+    .alert-box.fee-alert { border-color: #e2e8f0; }
+    @media (hover: hover) { .alert-box.fee-alert:hover { border-color: #38bdf8; } }
+
+    .alert-icon { 
+        font-size: 24px; 
+        margin-right: 15px; 
+        background: #FEF2F4; 
+        width: 45px; height: 45px; 
+        display: flex; align-items: center; justify-content: center; 
+        border-radius: 12px; flex-shrink: 0; 
+    }
+    .fee-alert .alert-icon { background: #f0f9ff; }
+    
+    .alert-text { flex: 1; display: flex; flex-direction: column; }
+    .alert-text strong { font-size: 15px; font-weight: 900; color: #720000; margin-bottom: 2px; }
+    .fee-alert .alert-text strong { color: #0369a1; }
+    
+    .alert-text span { font-size: 13px; color: #666; font-weight: 500; }
+    .alert-arrow { font-size: 20px; color: #E60026; font-weight: bold; opacity: 0.5; }
+    .fee-alert .alert-arrow { color: #38bdf8; }
+
     /* === ⏳ PREMIUM TRIAL BANNER === */
     .trial-banner {
         background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
@@ -40,7 +81,7 @@
         margin: 0 auto 25px auto;
         padding: 15px 20px;
         border-radius: 18px;
-        display: none; /* Hidden by default, shown by JS if active */
+        display: none; 
         align-items: center;
         justify-content: center;
         gap: 15px;
@@ -50,123 +91,77 @@
         position: relative;
         z-index: 2;
     }
-    .trial-info {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-    .trial-icon {
-        font-size: 28px;
-        animation: pulse-icon 2s infinite;
-    }
+    .trial-info { display: flex; align-items: center; gap: 15px; }
+    .trial-icon { font-size: 28px; animation: pulse-icon 2s infinite; }
     @keyframes pulse-icon {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.15); }
     }
-    .trial-text {
-        text-align: left;
-    }
+    .trial-text { text-align: left; }
     .trial-text strong {
-        display: block;
-        color: #38bdf8;
-        font-weight: 900;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-size: 11px;
-        margin-bottom: 2px;
+        display: block; color: #38bdf8; font-weight: 900; text-transform: uppercase;
+        letter-spacing: 1px; font-size: 11px; margin-bottom: 2px;
     }
     .timer-value {
-        font-size: 20px;
-        font-weight: 900;
-        font-variant-numeric: tabular-nums; 
-        color: #f8fafc;
-        letter-spacing: 0.5px;
+        font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; 
+        color: #f8fafc; letter-spacing: 0.5px;
     }
     
     /* === ACTION CENTER (QUICK STATS) === */
     .action-center {
-        display: flex;
-        justify-content: center;
-        gap: 15px;
-        margin-bottom: 30px;
-        padding: 0 clamp(15px, 5vw, 30px);
-        flex-wrap: wrap;
-        position: relative;
-        z-index: 2;
+        display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;
+        padding: 0 clamp(15px, 5vw, 30px); flex-wrap: wrap; position: relative; z-index: 2;
     }
     .action-pill {
-        background: white;
-        border: 2px solid #FFD6DD;
-        padding: 12px 24px;
-        border-radius: 30px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 800;
-        color: #4A0008;
-        font-size: 14px;
-        box-shadow: 0 4px 15px rgba(114,0,0,0.05);
+        background: white; border: 2px solid #FFD6DD; padding: 12px 24px; border-radius: 30px;
+        display: flex; align-items: center; gap: 10px; font-weight: 800; color: #4A0008;
+        font-size: 14px; box-shadow: 0 4px 15px rgba(114,0,0,0.05);
         transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
-        text-decoration: none;
-        user-select: none;
+        text-decoration: none; user-select: none;
     }
     .action-pill:active { transform: scale(0.95); }
-    @media (hover: hover) {
-        .action-pill:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(114,0,0,0.1); border-color: #E60026; }
-    }
+    @media (hover: hover) { .action-pill:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(114,0,0,0.1); border-color: #E60026; } }
     
     .badge-count {
-        background: #E60026; color: white;
-        width: 24px; height: 24px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 900;
+        background: #E60026; color: white; width: 24px; height: 24px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900;
         box-shadow: 0 2px 8px rgba(230,0,38,0.3);
     }
 
     /* === PWA INSTALL BANNER (INLINE) === */
     #install-container {
-        display: none;
-        max-width: 600px;
-        margin: 0 auto 35px auto;
-        padding: 0 clamp(15px, 5vw, 30px);
+        display: none; max-width: 600px; margin: 0 auto 35px auto; padding: 0 clamp(15px, 5vw, 30px);
     }
     .btn-install {
-        width: 100%;
-        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white; border: none; padding: 16px; border-radius: 16px;
         font-size: 16px; font-weight: 900; cursor: pointer;
         display: flex; align-items: center; justify-content: center; gap: 10px;
-        box-shadow: 0 8px 20px rgba(230,0,38,0.25);
-        transition: transform 0.2s;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.25); transition: transform 0.2s;
     }
     .btn-install:active { transform: scale(0.98); }
 
     /* === UPCOMING DATES SECTION === */
     .section-title {
         color: #720000; font-size: clamp(20px, 5vw, 24px); font-weight: 900;
-        margin: 0 auto 15px auto; max-width: 1030px;
-        padding: 0 clamp(15px, 5vw, 30px);
+        margin: 0 auto 15px auto; max-width: 1030px; padding: 0 clamp(15px, 5vw, 30px);
         display: flex; align-items: center; gap: 8px;
     }
 
     .dates-container {
-        max-width: 1060px; margin: 0 auto 45px auto;
-        padding: 0 clamp(15px, 5vw, 30px);
-        display: grid; gap: 20px;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+        max-width: 1060px; margin: 0 auto 45px auto; padding: 0 clamp(15px, 5vw, 30px);
+        display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     }
 
     .date-card {
         background: linear-gradient(135deg, #ffffff 0%, #FEF2F4 100%);
         border-radius: 20px; border: 2px solid #E60026; padding: 25px;
-        box-shadow: 0 10px 30px rgba(230,0,38,0.12);
-        position: relative; overflow: hidden;
+        box-shadow: 0 10px 30px rgba(230,0,38,0.12); position: relative; overflow: hidden;
     }
     .date-card::before {
         content: 'CONFIRMED'; position: absolute; top: 22px; right: -35px;
         background: #28a745; color: white; font-size: 10px; font-weight: 900;
-        padding: 6px 40px; transform: rotate(45deg); letter-spacing: 1px;
-        box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
+        padding: 6px 40px; transform: rotate(45deg); letter-spacing: 1px; box-shadow: 0 2px 10px rgba(40, 167, 69, 0.3);
     }
 
     .date-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
@@ -174,10 +169,7 @@
     .date-info h3 { margin: 0 0 5px 0; color: #720000; font-size: 20px; font-weight: 900; line-height: 1.2;}
     .date-info p { margin: 0; color: #666; font-size: 14px; font-weight: 600; }
 
-    .date-details {
-        background: white; padding: 18px; border-radius: 14px;
-        border: 1px solid #FFD6DD; margin-bottom: 20px;
-    }
+    .date-details { background: white; padding: 18px; border-radius: 14px; border: 1px solid #FFD6DD; margin-bottom: 20px; }
     .detail-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; font-size: 14px; color: #111; font-weight: 600; line-height: 1.4; }
     .detail-row:last-child { margin-bottom: 0; }
     .detail-icon { font-size: 18px; flex-shrink: 0; margin-top: -2px;}
@@ -189,75 +181,46 @@
 
     /* === HORIZONTAL SCROLL GRID (MATCHES) === */
     .matches-grid {
-        display: flex; 
-        gap: clamp(15px, 4vw, 25px); 
-        max-width: 1060px;
-        margin: 0 auto 60px auto;
-        padding: 10px clamp(15px, 5vw, 30px) 40px clamp(15px, 5vw, 30px); 
-        overflow-x: auto; 
-        scroll-snap-type: x mandatory; 
-        scroll-padding-left: clamp(15px, 5vw, 30px); 
-        scrollbar-width: none; 
-        -webkit-overflow-scrolling: touch; 
+        display: flex; gap: clamp(15px, 4vw, 25px); max-width: 1060px;
+        margin: 0 auto 60px auto; padding: 10px clamp(15px, 5vw, 30px) 40px clamp(15px, 5vw, 30px); 
+        overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: clamp(15px, 5vw, 30px); 
+        scrollbar-width: none; -webkit-overflow-scrolling: touch; 
     }
     .matches-grid::-webkit-scrollbar { display: none; }
-
-    .matches-grid::after {
-        content: '';
-        flex: 0 0 1px;
-        width: 1px;
-    }
+    .matches-grid::after { content: ''; flex: 0 0 1px; width: 1px; }
 
     .match-card {
-        flex: 0 0 85%; 
-        max-width: 300px; 
-        background: white; border-radius: 20px; overflow: hidden;
-        box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08);
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: 1px solid #FFD6DD; display: flex; flex-direction: column;
-        scroll-snap-align: start; 
+        flex: 0 0 85%; max-width: 300px; background: white; border-radius: 20px; overflow: hidden;
+        box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        border: 1px solid #FFD6DD; display: flex; flex-direction: column; scroll-snap-align: start; 
     }
 
     @media (min-width: 768px) {
-        .matches-grid {
-            flex-wrap: wrap;
-            justify-content: center;
-            overflow-x: visible;
-            padding-bottom: 20px;
-        }
+        .matches-grid { flex-wrap: wrap; justify-content: center; overflow-x: visible; padding-bottom: 20px; }
         .matches-grid::after { display: none; } 
         .match-card { flex: 0 0 280px; scroll-snap-align: none; }
     }
     
-    @media (hover: hover) {
-        .match-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border-color: #E60026; }
-    }
+    @media (hover: hover) { .match-card:hover { transform: translateY(-6px); box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15); border-color: #E60026; } }
 
     .match-img-wrapper { position: relative; height: 280px; width: 100%; background: #eee; }
     .match-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-    .match-img-wrapper::after {
-        content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 30%;
-        background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
-    }
+    .match-img-wrapper::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 30%; background: linear-gradient(to top, rgba(0,0,0,0.5), transparent); }
     
     .compat-badge {
         position: absolute; bottom: 15px; left: 15px; background: rgba(255, 255, 255, 0.95);
-        color: #720000; padding: 6px 14px; border-radius: 20px; font-size: 12px;
-        font-weight: 900; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #FFD6DD;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 2;
+        color: #720000; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 900; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #FFD6DD; backdrop-filter: blur(5px); z-index: 2;
     }
-    .perfect-match-badge {
-        background: #E60026; color: white; border-color: white;
-    }
+    .perfect-match-badge { background: #E60026; color: white; border-color: white; }
 
     .match-info { padding: 20px; flex: 1; display: flex; flex-direction: column; }
     .match-info h3 { color: #720000; margin: 0 0 8px 0; font-size: 22px; font-weight: 900; line-height: 1.2; }
     .match-info p { color: #555; font-size: 14px; line-height: 1.5; margin: 0 0 20px 0; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
     .btn-chat {
-        background: #FEF2F4; color: #E60026; border: 2px solid #FFD6DD;
-        padding: 14px; border-radius: 14px; text-align: center; font-weight: 900; font-size: 15px;
-        text-decoration: none; transition: all 0.2s; display: block; width: 100%; box-sizing: border-box;
+        background: #FEF2F4; color: #E60026; border: 2px solid #FFD6DD; padding: 14px; border-radius: 14px; 
+        text-align: center; font-weight: 900; font-size: 15px; text-decoration: none; transition: all 0.2s; display: block; width: 100%; box-sizing: border-box;
     }
     .btn-chat:active { transform: scale(0.97); }
     @media (hover: hover) { .btn-chat:hover { background: #E60026; color: white; border-color: #E60026; } }
@@ -272,20 +235,16 @@
     .empty-state h2 { color: #720000; margin-bottom: 10px; font-weight: 900; font-size: clamp(20px, 4vw, 24px); }
     .empty-state p { color: #666; margin-bottom: 0; font-size: clamp(14px, 3vw, 15px); max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.5;}
 
-    /* === MILESTONE MODAL FIXES === */
+    /* === MODALS === */
     .modal {
-        position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-        z-index: 10000; display: flex; align-items: center; justify-content: center;
-        padding: 20px; opacity: 1; visibility: visible; transition: 0.3s;
+        position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+        z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 1; visibility: visible; transition: 0.3s;
     }
     .modal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     
     .modal-content {
-        background: white; border-radius: 24px; padding: 35px 25px;
-        width: 100%; max-width: 360px; text-align: center;
-        box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-        border-top: 8px solid #E60026;
+        background: white; border-radius: 24px; padding: 35px 25px; width: 100%; max-width: 360px; text-align: center;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.25); border-top: 8px solid #E60026;
         transform: scale(1) translateY(0); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
     .modal.hidden .modal-content { transform: scale(0.9) translateY(20px); }
@@ -303,9 +262,29 @@
     <h1>Welcome back, {{ current_user }}! </h1>
 </div>
 
+<div class="campus-alerts">
+    <a href="{{ url_for('secret_admirer') }}" class="alert-box">
+        <div class="alert-icon">🤫</div>
+        <div class="alert-text">
+            <strong>You have Secret Admirers!</strong>
+            <span>Someone in your faculty is eyeing you. Click to reveal.</span>
+        </div>
+        <div class="alert-arrow">→</div>
+    </a>
+    
+    <div class="alert-box fee-alert" onclick="openFeeModal()">
+        <div class="alert-icon">💰</div>
+        <div class="alert-text">
+            <strong>MMUST Fee Balance Portal</strong>
+            <span>Check your outstanding university fees.</span>
+        </div>
+        <div class="alert-arrow">→</div>
+    </div>
+</div>
+
 <div class="trial-banner" id="trial-banner">
     <div class="trial-info">
-        <div class="trial-icon"></div>
+        <div class="trial-icon">⏳</div>
         <div class="trial-text">
             <strong>Free Premium Ends In</strong>
             <div class="timer-value" id="countdown-timer">Calculating...</div>
@@ -412,6 +391,20 @@
 </div>
 {% endif %}
 
+<div id="fee-modal" class="modal hidden">
+    <div class="modal-content" style="border-top: 8px solid #0369a1;">
+        <h2 style="color: #111; margin-top: 0; font-size: 24px; font-weight: 900;">Fee Balance 🎓</h2>
+        <div style="font-size: 50px; margin: 15px 0;">😂</div>
+        <p style="color: #555; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
+            We can't pay your university fees, but we <strong>can</strong> help you find a rich partner to buy you lunch!<br><br>
+            Go swipe on some potential dates!
+        </p>
+        <button onclick="closeFeeModal()" class="btn-milestone" style="background: #0369a1;">
+            Alright, you got me 😭
+        </button>
+    </div>
+</div>
+
 <div id="milestone-modal" class="modal hidden">
     <div class="modal-content">
         <h2 style="color: #720000; margin-top: 0; margin-bottom: 10px; font-size: 24px; font-weight: 900;">Happy Anniversary! 🥳</h2>
@@ -437,27 +430,29 @@
 </div>
 
 <script>
+    // --- FUNNY MODAL SCRIPT ---
+    function openFeeModal() {
+        document.getElementById('fee-modal').classList.remove('hidden');
+    }
+    function closeFeeModal() {
+        document.getElementById('fee-modal').classList.add('hidden');
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
         
         // --- ⏳ COUNTDOWN TIMER LOGIC ---
-        // Safely grab the expiry date string from the backend template
         const expiryDateStr = "{{ subscription_expiry | default('') }}"; 
         
-        // Only run the timer logic if the user actually has a valid expiry date string
         if (expiryDateStr && expiryDateStr !== "") {
             try {
                 const expiryDate = new Date(expiryDateStr).getTime();
                 const banner = document.getElementById('trial-banner');
                 const timerEl = document.getElementById('countdown-timer');
 
-                // If the date is valid (not NaN)
                 if (!isNaN(expiryDate)) {
                     function updateTimer() {
                         const now = new Date().getTime();
                         const distance = expiryDate - now;
-
-                        // Only show the banner if they have LESS THAN 30 days left (to avoid showing it to standard yearly subscribers)
-                        // AND if the distance is greater than 0 (not expired yet)
                         const daysToExpiry = distance / (1000 * 60 * 60 * 24);
                         
                         if (distance > 0 && daysToExpiry <= 30) {
@@ -472,7 +467,6 @@
 
                             timerEl.innerText = `${days}d ${fHours}h ${fMins}m`;
                         } else {
-                            // Hide the banner if expired or if they have months/years left
                             banner.style.display = 'none'; 
                         }
                     }
