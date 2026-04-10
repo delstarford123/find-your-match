@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .notify-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100dvh - var(--nav-height, 70px) - 80px);
+        padding: 20px;
+    }
+    
+    .notify-card {
+        background: white;
+        padding: 40px 30px;
+        border-radius: 28px;
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.08);
+        border: 1px solid #FFD6DD;
+        width: 100%;
+        max-width: 450px;
+        text-align: center;
+        animation: fadeSlideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes fadeSlideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bell-wrapper {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 25px;
+        background: #FEF2F4;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 45px;
+        box-shadow: inset 0 0 20px rgba(230,0,38,0.1);
+    }
+    
+    /* The ringing animation */
+    .ringing {
+        animation: ring 2s infinite;
+        transform-origin: top center;
+    }
+    @keyframes ring {
+        0% { transform: rotate(0); }
+        10% { transform: rotate(15deg); }
+        20% { transform: rotate(-10deg); }
+        30% { transform: rotate(5deg); }
+        40% { transform: rotate(-5deg); }
+        50%, 100% { transform: rotate(0); }
+    }
+
+    .notify-title {
+        color: #720000;
+        font-size: 26px;
+        font-weight: 900;
+        margin-bottom: 10px;
+        letter-spacing: -0.5px;
+    }
+
+    .notify-subtitle {
+        color: #666;
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 30px;
+        font-weight: 500;
+    }
+
+    .perks-list {
+        text-align: left;
+        background: #fafafa;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 30px;
+        border: 1px solid #f0f0f0;
+    }
+    .perk-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #111;
+    }
+    .perk-item:last-child { margin-bottom: 0; }
+    .perk-icon {
+        background: #E60026; color: white; border-radius: 50%;
+        width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: bold; flex-shrink: 0;
+    }
+
+    .btn-notify {
+        width: 100%;
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; border: none; padding: 18px; border-radius: 16px;
+        font-size: 16px; font-weight: 900; cursor: pointer;
+        box-shadow: 0 10px 25px rgba(230, 0, 38, 0.25);
+        transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .btn-notify:active { transform: scale(0.97); }
+    @media (hover: hover) { .btn-notify:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.35); } }
+    
+    .btn-notify.disabled {
+        background: #e2e8f0; color: #94a3b8; box-shadow: none; pointer-events: none;
+    }
+
+    .status-text { margin-top: 15px; font-size: 13px; font-weight: 700; color: #64748b; }
+</style>
+
+<div class="notify-wrapper">
+    <div class="notify-card">
+        <a href="javascript:history.back()" style="display: block; text-align: left; color: #888; text-decoration: none; font-weight: 800; font-size: 14px; margin-bottom: 20px;">← Back</a>
+        
+        <div class="bell-wrapper">
+            <span class="ringing" id="bell-icon">🔔</span>
+        </div>
+        
+        <h1 class="notify-title">Never miss a match.</h1>
+        <p class="notify-subtitle">Turn on push notifications so you don't miss out when someone is trying to reach you.</p>
+
+        <div class="perks-list">
+            <div class="perk-item">
+                <div class="perk-icon">✓</div>
+                <span>Instant alerts when you get a Match</span>
+            </div>
+            <div class="perk-item">
+                <div class="perk-icon">✓</div>
+                <span>New chat messages & date updates</span>
+            </div>
+            <div class="perk-item">
+                <div class="perk-icon">✓</div>
+                <span>Secret Admirer campus pings 🤫</span>
+            </div>
+        </div>
+
+        <button id="enable-btn" class="btn-notify" onclick="setupPushNotifications()">
+            Enable Notifications
+        </button>
+        <div id="status-message" class="status-text">Checking browser support...</div>
+    </div>
+</div>
+
+<script>
+    const PUBLIC_VAPID_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpALO8QaYYjlrVifPH8A2yuIvoQoo';
+    const btn = document.getElementById('enable-btn');
+    const statusText = document.getElementById('status-message');
+    const bellIcon = document.getElementById('bell-icon');
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    // 1. Check current status on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            btn.classList.add('disabled');
+            btn.innerText = "Not Supported";
+            statusText.innerText = "Your browser does not support web push notifications (Try Chrome or Safari on iOS 16.4+).";
+            bellIcon.classList.remove('ringing');
+            return;
+        }
+
+        const permission = Notification.permission;
+        
+        if (permission === 'granted') {
+            btn.classList.add('disabled');
+            btn.style.background = '#dcfce7';
+            btn.style.color = '#059669';
+            btn.innerText = "Already Enabled! ✅";
+            statusText.innerText = "You're all set to receive alerts.";
+            bellIcon.classList.remove('ringing');
+        } else if (permission === 'denied') {
+            btn.classList.add('disabled');
+            btn.innerText = "Notifications Blocked ❌";
+            statusText.innerHTML = "You blocked notifications. <br>Please enable them in your browser/device settings.";
+            bellIcon.classList.remove('ringing');
+        } else {
+            statusText.innerText = "Tap the button to allow permissions.";
+        }
+    });
+
+    // 2. Handle the button click
+    async function setupPushNotifications() {
+        btn.innerText = "Requesting permission...";
+        btn.disabled = true;
+
+        try {
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                statusText.innerText = "Registering device with server...";
+                
+                // Ensure service worker is ready
+                const registration = await navigator.serviceWorker.ready;
+                
+                // Subscribe to push
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                });
+                
+                // Send to your Flask backend to save in Firebase
+                const response = await fetch('/api/save_subscription', {
+                    method: 'POST',
+                    body: JSON.stringify(subscription),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    btn.classList.add('disabled');
+                    btn.style.background = '#dcfce7';
+                    btn.style.color = '#059669';
+                    btn.innerText = "Enabled Successfully! 🎉";
+                    statusText.innerText = "Awesome! We will alert you when you get a match.";
+                    bellIcon.classList.remove('ringing');
+                } else {
+                    throw new Error("Failed to save to database");
+                }
+                
+            } else {
+                btn.classList.add('disabled');
+                btn.innerText = "Notifications Blocked";
+                statusText.innerText = "Permission denied. You can change this in your browser settings.";
+                bellIcon.classList.remove('ringing');
+            }
+        } catch (error) {
+            console.error('Push subscription failed:', error);
+            btn.innerText = "Try Again";
+            btn.disabled = false;
+            statusText.innerHTML = "<span style='color:red;'>Error connecting to server. Please try again.</span>";
+        }
+    }
+</script>
+{% endblock %}

@@ -462,7 +462,13 @@ def swipe():
         current_user=current_user,
         potential_matches=potential_matches
     )
-    
+
+@app.route('/notifications')
+@requires_subscription # Or @login_required depending on your setup
+def setup_notifications():
+    """Renders the dedicated Push Notification onboarding page."""
+    return render_template('notifications.html', current_user=session.get('user_name', 'Student').split(' ')[0])
+
 import random
 @app.route('/dashboard')
 @requires_subscription
