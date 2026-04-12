@@ -1385,6 +1385,13 @@ import os
 from flask import render_template, request, session, flash, redirect, url_for, jsonify
 from datetime import datetime, timedelta
 
+import os
+from datetime import datetime, timedelta
+from flask import render_template, request, session, flash, redirect, url_for, jsonify
+
+# Import your email service functions
+from app.email_service import send_broadcast_email
+
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
@@ -1431,7 +1438,8 @@ def super_admin():
         system_settings = db.reference('system_settings').get() or {}
         promo_active = system_settings.get('new_user_promo', False)
         
-        # Calculate Revenue (Safely checking if it's a dict to prevent Firebase type errors)
+        # Calculate Analytics & Revenue
+        total_users = sum(1 for p in all_profiles.values() if isinstance(p, dict)) 
         student_revenue = sum(20 for p in all_profiles.values() if isinstance(p, dict) and p.get('is_paid'))
         b2b_revenue = sum(2000 for r in all_restaurants.values() if isinstance(r, dict) and r.get('subscription_active'))
         total_revenue = student_revenue + b2b_revenue
@@ -1464,6 +1472,7 @@ def super_admin():
 
         return render_template('super_admin.html', 
                                logged_in=True,
+                               total_users=total_users,
                                total_revenue=total_revenue,
                                student_revenue=student_revenue,
                                b2b_revenue=b2b_revenue,
@@ -1531,6 +1540,94 @@ def admin_action():
         return jsonify({'success': False, 'message': "Internal server error."}), 500
 
 
+@app.route('/api/admin/broadcast', methods=['POST'])
+def admin_broadcast():
+    """Endpoint to trigger mass emails to all users."""
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.json
+    subject = data.get('subject')
+    message = data.get('message')
+    
+    if not subject or not message:
+        return jsonify({'success': False, 'message': 'Subject and message required.'}), 400
+        
+    try:
+        # Fetch all user profiles
+        all_profiles = db.reference('profiles').get() or {}
+        
+        # We process this in a background task so the admin dashboard doesn't freeze
+        # while waiting for 100+ emails to send via SMTP.
+        def dispatch_emails(profiles, subj, msg):
+            success_count = 0
+            for uid, user_data in profiles.items():
+                if isinstance(user_data, dict):
+                    email = user_data.get('email')
+                    name = user_data.get('name', 'Student').split(' ')[0]
+                    
+                    if email:
+                        # Send the email!
+                        send_broadcast_email(email, name, subj, msg)
+                        success_count += 1
+            
+            logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users.")
+
+        # Trigger background task using SocketIO
+        socketio.start_background_task(dispatch_emails, all_profiles, subject, message)
+        
+        return jsonify({'success': True, 'message': 'Broadcast queued for dispatch.'})
+        
+    except Exception as e:
+        logger.error(f"Broadcast Error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/admin/search_user', methods=['POST'])
+def admin_search_user():
+    """Allows Super Admin to lookup users by ID/Reg Number, Email, OR view ALL users."""
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        
+    data = request.json
+    query = data.get('query', '').strip().lower()
+    
+    if not query:
+        return jsonify({'success': False, 'message': 'Search query required'}), 400
+        
+    try:
+        all_profiles = db.reference('profiles').get() or {}
+        matched_users = []
+        
+        # Format the query to match how reg numbers are stored (e.g. SAB_B_...)
+        safe_query_id = query.upper().replace('/', '_')
+        
+        for user_id, user_data in all_profiles.items():
+            if isinstance(user_data, dict):
+                user_email = user_data.get('email', '').lower()
+                
+                # Check if query is 'all', or matches ID, or is inside the email
+                if query == 'all' or user_id == safe_query_id or query in user_email:
+                    safe_data = {
+                        'name': user_data.get('name', 'Unknown'),
+                        'reg_number': user_data.get('reg_number', user_id),
+                        'email': user_data.get('email', 'No email'),
+                        'is_verified': user_data.get('is_verified', False),
+                        'is_locked': user_data.get('is_locked', False)
+                    }
+                    matched_users.append(safe_data)
+
+        if matched_users:
+            # Sort users alphabetically by email so duplicates are right next to each other!
+            matched_users.sort(key=lambda x: x.get('email', ''))
+            return jsonify({'success': True, 'users': matched_users})
+        else:
+            return jsonify({'success': False, 'message': 'No users found'})
+            
+    except Exception as e:
+        logger.error(f"Search User Error: {e}")
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+
 @app.route('/admin/ledger')
 def admin_ledger():
     if not session.get('is_super_admin'):
@@ -1568,7 +1665,6 @@ def admin_logout():
     session.pop('is_super_admin', None)
     flash("Securely logged out of Command Center.", "info")
     return redirect(url_for('super_admin'))
-
 
 import os
 import logging

@@ -112,14 +112,14 @@
         .btn-lock:hover { background: #ef4444; color: white; border-color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
     }
     
-    /* === REVENUE CARDS === */
+    /* === METRICS CARDS === */
     .metrics-grid { 
         display: grid; 
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); 
-        gap: 20px; margin-bottom: 45px; 
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); 
+        gap: 15px; margin-bottom: 20px; 
     }
     .metric-card {
-        background: #1e293b; padding: 30px 25px; border-radius: 20px; 
+        background: #1e293b; padding: 25px 20px; border-radius: 20px; 
         border: 1px solid #334155; display: flex; flex-direction: column; 
         justify-content: center; transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
@@ -131,28 +131,27 @@
         box-shadow: 0 10px 30px rgba(14, 165, 233, 0.15);
     }
     .m-title { 
-        color: #94a3b8; font-size: 13px; text-transform: uppercase; 
-        font-weight: 800; margin-bottom: 10px; letter-spacing: 0.8px;
+        color: #94a3b8; font-size: 12px; text-transform: uppercase; 
+        font-weight: 800; margin-bottom: 8px; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;
     }
     .metric-card.highlight .m-title { color: #7dd3fc; }
     
     .m-value { 
-        font-size: clamp(32px, 6vw, 42px); font-weight: 900; color: #f8fafc; 
+        font-size: clamp(28px, 5vw, 36px); font-weight: 900; color: #f8fafc; 
         line-height: 1.1; letter-spacing: -1px;
     }
     .m-value span { 
-        font-size: 16px; color: #38bdf8; font-weight: 800;
+        font-size: 14px; color: #38bdf8; font-weight: 800;
         vertical-align: super; margin-right: 4px; letter-spacing: 0;
     }
 
     /* === LISTS & ALERTS === */
     .section-title { 
-        font-size: 22px; color: #f8fafc; margin-bottom: 20px; 
+        font-size: 20px; color: #f8fafc; margin-top: 20px; margin-bottom: 20px; 
         padding-bottom: 15px; border-bottom: 2px solid #1e293b; font-weight: 900;
+        display: flex; align-items: center; gap: 10px;
     }
-    .admin-list { 
-        display: flex; flex-direction: column; gap: 15px; margin-bottom: 50px; 
-    }
+    .admin-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 40px; }
     .list-item {
         background: #1e293b; padding: 25px; border-radius: 20px; 
         border: 1px solid #334155; display: flex; justify-content: space-between; 
@@ -161,52 +160,24 @@
     }
     
     /* Warning Flags */
-    .flag-red { 
-        color: #ef4444; font-weight: 900; background: rgba(239, 68, 68, 0.15); 
-        padding: 6px 12px; border-radius: 8px; font-size: 12px; letter-spacing: 0.5px;
-        display: inline-block; border: 1px solid rgba(239, 68, 68, 0.2);
-    }
-    .flag-yellow { 
-        color: #eab308; font-weight: 800; background: rgba(234, 179, 8, 0.15); 
-        padding: 6px 12px; border-radius: 8px; font-size: 12px;
-        display: inline-block; border: 1px solid rgba(234, 179, 8, 0.2);
-    }
-    .flag-blue { 
-        color: #38bdf8; font-weight: 800; background: rgba(56, 189, 248, 0.15); 
-        padding: 6px 12px; border-radius: 8px; font-size: 12px;
-        display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2);
-    }
-    .flag-purple { 
-        color: #a855f7; font-weight: 800; background: rgba(168, 85, 247, 0.15); 
-        padding: 6px 12px; border-radius: 8px; font-size: 12px;
-        display: inline-block; border: 1px solid rgba(168, 85, 247, 0.2);
-    }
+    .flag-red { color: #ef4444; font-weight: 900; background: rgba(239, 68, 68, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; letter-spacing: 0.5px; display: inline-block; border: 1px solid rgba(239, 68, 68, 0.2); }
+    .flag-yellow { color: #eab308; font-weight: 800; background: rgba(234, 179, 8, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .flag-blue { color: #38bdf8; font-weight: 800; background: rgba(56, 189, 248, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2); }
+    .flag-purple { color: #a855f7; font-weight: 800; background: rgba(168, 85, 247, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(168, 85, 247, 0.2); }
     
     /* Message Bubble */
-    .alert-message {
-        color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; 
-        padding: 18px; border-radius: 12px; border-left: 4px solid #ef4444;
-        line-height: 1.6; word-break: break-word; font-style: italic; font-weight: 500;
-    }
-    .feedback-message {
-        color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; 
-        padding: 18px; border-radius: 12px; border-left: 4px solid #38bdf8;
-        line-height: 1.6; word-break: break-word; font-weight: 500;
-    }
-    .ticket-message {
-        border-left: 4px solid #a855f7;
-    }
+    .alert-message { color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; padding: 18px; border-radius: 12px; border-left: 4px solid #ef4444; line-height: 1.6; word-break: break-word; font-style: italic; font-weight: 500; }
+    .feedback-message { color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; padding: 18px; border-radius: 12px; border-left: 4px solid #38bdf8; line-height: 1.6; word-break: break-word; font-weight: 500; }
+    .ticket-message { border-left: 4px solid #a855f7; }
     
     /* Action Buttons */
-    .action-group { display: flex; gap: 12px; flex-wrap: wrap; }
-    .btn-admin { 
-        padding: 14px 20px; border-radius: 12px; font-weight: 800; 
-        cursor: pointer; border: none; font-size: 14px; transition: all 0.2s ease; 
-        display: flex; align-items: center; justify-content: center;
-        min-height: 48px; /* Apple HIG Touch Target */
-    }
+    .action-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-admin { padding: 12px 18px; border-radius: 12px; font-weight: 800; cursor: pointer; border: none; font-size: 14px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
     .btn-admin:active { transform: scale(0.97); }
     .btn-admin:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+    .btn-primary { background: #38bdf8; color: #0f172a; box-shadow: 0 4px 10px rgba(56, 189, 248, 0.2); }
+    @media (hover: hover) { .btn-primary:hover:not(:disabled) { background: #0ea5e9; transform: translateY(-2px); } }
 
     .btn-approve { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
     @media (hover: hover) { .btn-approve:hover:not(:disabled) { background: #059669; transform: translateY(-2px); } }
@@ -217,6 +188,39 @@
     .btn-dismiss { background: transparent; color: #94a3b8; border: 2px solid #475569; }
     @media (hover: hover) { .btn-dismiss:hover:not(:disabled) { background: #334155; color: white; transform: translateY(-2px); } }
     
+    /* === USER SEARCH BOX & CARDS === */
+    .search-box {
+        display: flex; gap: 10px; background: #0f172a; border: 2px solid #334155; 
+        padding: 8px; border-radius: 16px; margin-bottom: 20px; transition: 0.3s ease;
+        align-items: center; flex-wrap: wrap; /* Allows wrapping on mobile */
+    }
+    .search-box:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 4px rgba(56,189,248,0.15); }
+    .search-box input {
+        flex: 1; /* FORCES INPUT TO TAKE UP MAXIMUM SPACE */
+        min-width: 200px;
+        background: transparent; border: none; color: white;
+        padding: 10px 15px; font-size: 16px; outline: none; font-weight: 600;
+    }
+    .search-action-btns {
+        display: flex; gap: 10px;
+    }
+    
+    .user-result-card {
+        background: #0f172a; border-radius: 16px; padding: 20px; 
+        border: 1px solid #334155; display: flex; justify-content: space-between; 
+        flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 10px;
+    }
+    .user-result-card h4 { margin: 0 0 5px 0; color: white; font-size: 18px; font-weight: 900;}
+    .user-result-card h4 span { color: #94a3b8; font-weight: 500; font-size: 15px; }
+    .user-result-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 10px; font-weight: 600; word-break: break-all;}
+
+    /* Scrollable container so "View All" doesn't stretch the page to infinity */
+    .scrollable-results {
+        max-height: 600px; overflow-y: auto; padding-right: 5px;
+    }
+    .scrollable-results::-webkit-scrollbar { width: 8px; }
+    .scrollable-results::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
     /* === ADMIN TOAST NOTIFICATION === */
     .admin-toast {
         display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -235,9 +239,12 @@
     /* Responsive overrides */
     @media (max-width: 600px) {
         .action-group { width: 100%; flex-direction: column; gap: 10px;}
-        .btn-admin { width: 100%; text-align: center; }
+        .btn-admin { width: 100%; text-align: center; min-height: 48px;}
         .list-item { flex-direction: column; padding: 20px;}
         .alert-message, .feedback-message { font-size: 14px; padding: 15px; }
+        .search-box { flex-direction: column; align-items: stretch; padding: 15px;}
+        .search-action-btns { flex-direction: column; width: 100%; }
+        .search-action-btns button { width: 100%; }
     }
 </style>
 
@@ -283,20 +290,42 @@
 
     <div class="metrics-grid">
         <div class="metric-card highlight animate-up delay-1">
-            <div class="m-title">Total Gross Revenue</div>
+            <div class="m-title">💰 Total Gross Revenue</div>
             <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
         </div>
+        <div class="metric-card animate-up delay-1">
+            <div class="m-title">👥 Total Users</div>
+            <div class="m-value format-num">{{ total_users | default(0) }}</div>
+        </div>
         <div class="metric-card animate-up delay-2">
-            <div class="m-title">B2C (Student Subs)</div>
+            <div class="m-title">🎓 Student Subs (B2C)</div>
             <div class="m-value"><span>KSH</span> <span class="format-num">{{ student_revenue | default(0) }}</span></div>
         </div>
         <div class="metric-card animate-up delay-3">
-            <div class="m-title">B2B (Partner Venues)</div>
+            <div class="m-title">🏪 Partner Venues (B2B)</div>
             <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-2">Marketing & Campaigns</h3>
+    <h3 class="section-title animate-up delay-1">🔍 User Management Engine</h3>
+    <div class="admin-list animate-up delay-1">
+        <div class="list-item" style="flex-direction: column; align-items: stretch;">
+            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 15px 0; line-height: 1.5;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Click "View All" to list everyone and spot duplicate emails.</p>
+            
+            <div class="search-box">
+                <input type="text" id="search-query" placeholder="Enter Email or Reg Number..." onkeypress="if(event.key === 'Enter') searchUser()">
+                <div class="search-action-btns">
+                    <button class="btn-admin btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 130px;">🔍 Lookup</button>
+                    <button class="btn-admin" onclick="viewAllUsers()" style="background: #334155; color: white; min-width: 130px;">👥 View All</button>
+                </div>
+            </div>
+
+            <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
+                </div>
+        </div>
+    </div>
+
+    <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
     <div class="admin-list animate-up delay-2">
         <div class="list-item">
             <div style="flex: 1; min-width: 250px;">
@@ -319,7 +348,87 @@
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">User Suggestions & Support Tickets</h3>
+    <h3 class="section-title animate-up delay-3">📡 Mass Broadcast System</h3>
+    <div class="admin-list animate-up delay-3">
+        <div class="list-item" style="flex-direction: column; align-items: stretch;">
+            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
+                Dispatch an email to every registered student on the platform. Use this for major events, job openings, or critical system updates.
+            </p>
+
+            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. New Job Opening at MMUST Dating!)" style="margin-bottom: 15px;">
+            
+            <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted beautifully on our end." style="resize: vertical;"></textarea>
+
+            <div class="action-group" style="margin-top: 10px;">
+                <button class="btn-admin btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">
+                    🚀 Send Mass Broadcast
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="section-title animate-up delay-3">🛡️ AI Moderation Queue (Requires Action)</h3>
+    <div class="admin-list animate-up delay-3" id="moderation-list">
+        {% if alerts %}
+            {% for alert in alerts %}
+            <div class="list-item" id="alert-{{ alert.alert_id }}">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
+                        <span class="flag-red">VIOLATION: {{ alert.flag | upper }}</span>
+                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
+                    </div>
+                    
+                    <div class="alert-message">"{{ alert.message }}"</div>
+                    
+                    <div style="font-size: 13px; color: #64748b; font-family: monospace; font-weight: 600; word-break: break-all;">Sender ID: {{ alert.sender }}</div>
+                </div>
+                
+                <div class="action-group">
+                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
+                    <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 50px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
+                <div style="font-size: 45px; margin-bottom: 15px;"></div>
+                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px;">The community is safe.</div>
+                <div style="font-size: 14px;">No AI alerts currently pending.</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <h3 class="section-title animate-up delay-3">📞 Callback Requests</h3>
+    <div class="admin-list animate-up delay-3" id="call-list">
+        {% if call_requests %}
+            {% for call in call_requests %}
+            <div class="list-item" id="call-{{ call.id }}">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
+                        <span class="flag-yellow">📞 URGENT CALLBACK</span>
+                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
+                    </div>
+                    
+                    <h4 style="color: white; margin: 15px 0 5px 0; font-size: 20px; font-weight: 900;">{{ call.phone_number }}</h4>
+                    <div style="font-size: 14px; color: #94a3b8; font-weight: 500; margin-bottom: 10px;">Reason: {{ call.reason }}</div>
+                    
+                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Requested by: <strong style="color: #cbd5e1;">{{ call.user_name }}</strong> ({{ call.user_id }})</div>
+                </div>
+                
+                <div class="action-group">
+                    <a href="tel:{{ call.phone_number }}" class="btn-admin btn-approve" style="text-decoration: none;">Call Now</a>
+                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark as Handled</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
+                <div style="font-size: 16px; color: #94a3b8;">No pending call requests.</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <h3 class="section-title animate-up delay-3">✉️ User Suggestions & Support Tickets</h3>
     <div class="admin-list animate-up delay-3" id="feedback-list">
         {% if feedbacks %}
             {% for f in feedbacks %}
@@ -351,69 +460,7 @@
         {% endif %}
     </div>
 
-    <h3 class="section-title animate-up delay-3">Callback Requests</h3>
-    <div class="admin-list animate-up delay-3" id="call-list">
-        {% if call_requests %}
-            {% for call in call_requests %}
-            <div class="list-item" id="call-{{ call.id }}">
-                <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
-                        <span class="flag-yellow">📞 URGENT CALLBACK</span>
-                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
-                    </div>
-                    
-                    <h4 style="color: white; margin: 15px 0 5px 0; font-size: 20px; font-weight: 900;">{{ call.phone_number }}</h4>
-                    <div style="font-size: 14px; color: #94a3b8; font-weight: 500; margin-bottom: 10px;">Reason: {{ call.reason }}</div>
-                    
-                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Requested by: <strong style="color: #cbd5e1;">{{ call.user_name }}</strong> ({{ call.user_id }})</div>
-                </div>
-                
-                <div class="action-group">
-                    <a href="tel:{{ call.phone_number }}" class="btn-admin btn-approve" style="text-decoration: none;">Call Now</a>
-                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark as Handled</button>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 16px; color: #94a3b8;">No pending call requests.</div>
-            </div>
-        {% endif %}
-    </div>
-
-
-    <h3 class="section-title animate-up delay-3">AI Moderation Queue (Requires Action)</h3>
-    <div class="admin-list animate-up delay-3" id="moderation-list">
-        {% if alerts %}
-            {% for alert in alerts %}
-            <div class="list-item" id="alert-{{ alert.alert_id }}">
-                <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
-                        <span class="flag-red">VIOLATION: {{ alert.flag | upper }}</span>
-                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
-                    </div>
-                    
-                    <div class="alert-message">"{{ alert.message }}"</div>
-                    
-                    <div style="font-size: 13px; color: #64748b; font-family: monospace; font-weight: 600; word-break: break-all;">Sender ID: {{ alert.sender }}</div>
-                </div>
-                
-                <div class="action-group">
-                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
-                    <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 50px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 45px; margin-bottom: 15px;"></div>
-                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px;">The community is safe.</div>
-                <div style="font-size: 14px;">No AI alerts currently pending.</div>
-            </div>
-        {% endif %}
-    </div>
-
-    <h3 class="section-title animate-up delay-3">Pending Business Approvals</h3>
+    <h3 class="section-title animate-up delay-3">🏪 Pending Business Approvals</h3>
     <div class="admin-list animate-up delay-3" id="business-list">
         {% if pending_businesses %}
             {% for biz in pending_businesses %}
@@ -452,14 +499,13 @@
             }
         });
 
-        let toastTimeout; // Prevents toasts from overlapping/canceling each other incorrectly
+        let toastTimeout; 
 
         function showToast(message, isError = false) {
             const toast = document.getElementById('admin-toast');
             toast.innerText = message;
             toast.className = isError ? 'admin-toast error' : 'admin-toast';
             
-            // Reset animation
             toast.style.display = 'none';
             void toast.offsetWidth; // Trigger reflow
             toast.style.display = 'block';
@@ -488,40 +534,41 @@
                     if (actionType === 'approve_business') removeId = 'biz-' + targetId;
                     else if (actionType === 'resolve_feedback') removeId = 'feedback-' + targetId;
                     else if (actionType === 'resolve_call') removeId = 'call-' + targetId;
+                    else if (actionType === 'ban_user') removeId = 'search-res-' + targetId; 
                     else removeId = 'alert-' + (alertId || targetId);
 
                     const elementToRemove = document.getElementById(removeId);
                     
-                    if (elementToRemove) {
-                        // Smooth fade out before removal
+                    if (elementToRemove && actionType !== 'ban_user') {
                         elementToRemove.style.opacity = '0';
                         elementToRemove.style.transform = 'scale(0.95)';
                         setTimeout(() => { elementToRemove.style.display = 'none'; }, 300);
+                    } else if (actionType === 'ban_user' && elementToRemove) {
+                        elementToRemove.style.display = 'none';
                     }
                     
                     let msg = "Action completed.";
                     if (actionType === 'dismiss_alert') msg = "Alert dismissed.";
-                    if (actionType === 'ban_user') msg = "User permanently banned.";
+                    if (actionType === 'ban_user') msg = "User permanently banned and deleted.";
                     if (actionType === 'approve_business') msg = "Business approved and activated!";
                     if (actionType === 'resolve_feedback') msg = "Feedback marked as resolved.";
                     if (actionType === 'resolve_call') msg = "Call request closed.";
                     
                     showToast(msg);
+                    if (btn) { btn.disabled = false; btn.innerText = originalText; }
                 } else {
-                    btn.disabled = false;
-                    btn.innerText = originalText;
+                    if (btn) { btn.disabled = false; btn.innerText = originalText; }
                     showToast("Action failed: " + data.message, true);
                 }
             })
             .catch(err => {
-                btn.disabled = false;
-                btn.innerText = originalText;
+                if (btn) { btn.disabled = false; btn.innerText = originalText; }
                 showToast("Network error. Check console.", true);
                 console.error(err);
             });
         }
         
-        // --- NEW: TOGGLE MARKETING PROMO ---
+        // --- TOGGLE MARKETING PROMO ---
         function togglePromo(btn) {
             if (!confirm("Are you sure you want to toggle the 14-Day Free Trial campaign?")) return;
             
@@ -564,6 +611,118 @@
                 btn.innerText = originalText;
                 showToast("Network error.", true);
             });
+        }
+
+        // --- SEND MASS BROADCAST EMAIL ---
+        function sendBroadcastEmail(btn) {
+            const subject = document.getElementById('broadcast-subject').value.trim();
+            const message = document.getElementById('broadcast-message').value.trim();
+
+            if (!subject || !message) {
+                showToast("Subject and message are required.", true);
+                return;
+            }
+
+            if (!confirm("⚠️ WARNING: You are about to send an email to EVERY registered user. Are you absolutely sure you want to proceed?")) return;
+
+            const originalText = btn.innerText;
+            btn.innerText = "Sending Broadcast... ⏳";
+            btn.disabled = true;
+
+            fetch('/api/admin/broadcast', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ subject: subject, message: message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                if (data.success) {
+                    showToast("Broadcast dispatched to background queue! Emails are sending.");
+                    document.getElementById('broadcast-subject').value = '';
+                    document.getElementById('broadcast-message').value = '';
+                } else {
+                    showToast("Failed to send: " + data.message, true);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast("Network error. Check console.", true);
+                console.error(err);
+            });
+        }
+
+        // --- NEW: ADVANCED USER SEARCH & MANAGEMENT ---
+        function searchUser(forcedQuery = null) {
+            let inputField = document.getElementById('search-query');
+            let query = forcedQuery || inputField.value.trim();
+            
+            if (!query) {
+                showToast("Please enter an Email or Registration Number.", true);
+                return;
+            }
+            
+            const btn = document.getElementById('search-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Searching... ⏳";
+            btn.disabled = true;
+            
+            let resultsContainer = document.getElementById('user-search-results');
+            resultsContainer.innerHTML = '';
+            resultsContainer.style.display = 'none';
+
+            fetch('/api/admin/search_user', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ query: query })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                
+                if (data.success && data.users.length > 0) {
+                    data.users.forEach(user => {
+                        let safeId = user.reg_number.replace(/\//g, '_');
+                        let statusHtml = user.is_verified ? '<span class="flag-blue">Verified</span>' : '<span class="flag-yellow">Unverified</span>';
+                        if (user.is_locked) statusHtml += ' <span class="flag-red" style="margin-left:5px;">Locked Out</span>';
+                        
+                        let card = document.createElement('div');
+                        card.className = 'user-result-card';
+                        card.id = 'search-res-' + safeId;
+                        card.innerHTML = `
+                            <div>
+                                <h4>${user.name} <span>(${user.reg_number})</span></h4>
+                                <div class="email">${user.email}</div>
+                                <div>${statusHtml}</div>
+                            </div>
+                            <div class="action-group" style="align-items: center;">
+                                <a href="mailto:${user.email}" class="btn-admin btn-primary" style="text-decoration: none;">✉️ Email User</a>
+                                <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '${safeId}')">🚫 Ban & Delete</button>
+                            </div>
+                        `;
+                        resultsContainer.appendChild(card);
+                    });
+                    resultsContainer.style.display = 'flex';
+                    showToast(`Found ${data.users.length} user(s).`);
+                } else {
+                    showToast("No users found matching that query.", true);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast("Search failed.", true);
+                console.error(err);
+            });
+        }
+
+        // Helper to trigger the "View All" functionality
+        function viewAllUsers() {
+            document.getElementById('search-query').value = '';
+            searchUser('all');
         }
     </script>
 {% endif %}
