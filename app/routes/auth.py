@@ -3,7 +3,7 @@ import hashlib
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from app.database import db, delete_user_account
 
@@ -26,6 +26,41 @@ def hash_family_name(name):
     clean_name = name.strip().lower()
     return hashlib.sha256(clean_name.encode('utf-8')).hexdigest()
 
+def calculate_account_expiry(reg_number):
+    """
+    Parses the MMUST Registration Number to determine the account expiry date.
+    Format: PREFIX/MIDDLE/ID/YEAR (e.g., SAB/B/01-04774/2023)
+    - Default: 4 years + 1 grace year = 5 years
+    - MIE, ECE, CSE, BTB: 5 years + 1 grace year = 6 years
+    - MED: 6 years + 1 grace year = 7 years
+    Expires on December 31st of the expiry year.
+    """
+    try:
+        parts = reg_number.strip().upper().split('/')
+        if len(parts) >= 4:
+            prefix = parts[0]
+            start_year = int(parts[-1])
+            
+            # Determine base course duration
+            if prefix.startswith('MED'):
+                duration = 6
+            elif prefix in ['MIE', 'ECE', 'CSE', 'BTB']:
+                duration = 5
+            else:
+                duration = 4
+                
+            # Add 1 year grace period
+            expiry_year = start_year + duration + 1
+            
+            # Return December 31st of the expiry year
+            return f"{expiry_year}-12-31T23:59:59"
+    except Exception as e:
+        print(f"Error parsing reg number for expiry: {e}")
+        
+    # Fallback to 5 years from today if format is unrecognized
+    fallback_year = datetime.now(EAT).year + 5
+    return f"{fallback_year}-12-31T23:59:59"
+
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -33,6 +68,8 @@ def signup():
         name = request.form.get('name')
         email = request.form.get('email', '').strip().lower()
         reg_number = request.form.get('reg_number')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
         bio = request.form.get('bio', 'Hey! I am using MMUST Dating AI.')
         
         # --- REFERRAL LOGIC: Check form first, then check session ---
@@ -48,7 +85,15 @@ def signup():
         father_surname = hash_family_name(request.form.get('father_surname'))
         mother_maiden = hash_family_name(request.form.get('mother_maiden'))
 
-        # 2. Validation: Reg Number Format
+        # 2. Validation: Passwords
+        if not password or len(password) < 6:
+            flash("Password must be at least 6 characters.", "error")
+            return redirect(url_for('auth.signup'))
+        if password != confirm_password:
+            flash("Passwords do not match.", "error")
+            return redirect(url_for('auth.signup'))
+
+        # 3. Validation: Reg Number Format
         if reg_number:
             reg_number = reg_number.strip().upper()
         
@@ -56,12 +101,12 @@ def signup():
             flash("Invalid Reg Format. Use: SAB/B/01-04774/2023", "error")
             return redirect(url_for('auth.signup'))
 
-        # 3. Validation: Normal Email Format
+        # 4. Validation: Normal Email Format
         if not email or not re.match(EMAIL_PATTERN, email):
             flash("Please enter a valid email address.", "error")
             return redirect(url_for('auth.signup'))
 
-        # 4. Check if user already exists (Optimized O(1) Fetch)
+        # 5. Check if user already exists (Optimized O(1) Fetch)
         safe_reg_number = reg_number.replace('/', '_')
         existing_user = db.reference(f'profiles/{safe_reg_number}').get()
         
@@ -70,8 +115,12 @@ def signup():
             return redirect(url_for('auth.login'))
 
         profile_img = "" if skip_pic else "https://via.placeholder.com/400"
+        
+        # 6. Hash Password and Calculate Expiry
+        hashed_password = generate_password_hash(password)
+        expiry_date = calculate_account_expiry(reg_number)
 
-        # 5. GENERATE OTP & SAVE TO FIREBASE
+        # 7. GENERATE OTP & SAVE TO FIREBASE
         try:
             otp_code = random.randint(100000, 999999)
             
@@ -81,6 +130,10 @@ def signup():
                 'name': name,
                 'email': email,
                 'reg_number': reg_number,
+                'password': hashed_password,        # 🔒 Securely hashed password
+                'account_expiry': expiry_date,      # ⏳ Automated Deletion Date
+                'failed_attempts': 0,               # 🛡️ Brute-force tracker
+                'is_locked': False,                 # 🔒 Lockout status
                 'age': age,
                 'gender': gender,
                 'religion': religion,
@@ -176,7 +229,7 @@ def verify_email():
                         
                         ref_exp_str = referrer_data.get('subscription_expiry')
                         # If they already have premium, ADD 7 days to their current expiry
-                        if ref_exp_str and datetime.fromisoformat(ref_exp_str) > now_eat:
+                        if ref_exp_str and datetime.fromisoformat(ref_exp_str) > now_eat.replace(tzinfo=None):
                             new_ref_exp = (datetime.fromisoformat(ref_exp_str) + timedelta(days=7)).isoformat()
                         else:
                             new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
@@ -235,35 +288,184 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         reg_number = request.form.get('reg_number')
+        password = request.form.get('password')
         
-        if reg_number:
+        if email and reg_number and password:
             safe_reg_number = reg_number.strip().upper().replace('/', '_')
             
-            # Optimized O(1) Fetch directly from the user's node
-            user = db.reference(f'profiles/{safe_reg_number}').get()
-            
-            if user and user.get('email') == email:
-                # Security Check: Did they verify their OTP?
-                if not user.get('is_verified'):
-                    session['temp_user_id'] = safe_reg_number
-                    session['temp_user_email'] = email
-                    flash("Please verify your account to continue.", "warning")
-                    return redirect(url_for('auth.verify_email'))
+            # --- 🚨 CRITICAL FIX: PREVENT FIREBASE CRASH 🚨 ---
+            invalid_chars = ['.', '#', '$', '[', ']']
+            if any(char in safe_reg_number for char in invalid_chars):
+                flash("Invalid Registration Number format.", "error")
+                return redirect(url_for('auth.login'))
 
-                # Full Login Authorization
-                session['user_id'] = safe_reg_number
-                session['user_name'] = user.get('name')
-                session['user_email'] = user.get('email')
-                session['user_img'] = user.get('img')
-                session['user_religion'] = user.get('religion', 'Other') 
+            try:
+                # Optimized O(1) Fetch directly from the user's node
+                user_ref = db.reference(f'profiles/{safe_reg_number}')
+                user = user_ref.get()
                 
-                flash(f"Welcome back, {user['name']}!", "success")
-                return redirect(url_for('swipe'))
-            else:
-                flash("Incorrect Email or Registration Number.", "error")
+                if user:
+                    # 1. 🔒 SECURITY: Verify Email Matches Exactly!
+                    if user.get('email') != email:
+                        # Use a generic error so attackers don't know which part was wrong
+                        flash("Incorrect Email, Registration Number, or Password.", "error")
+                        return redirect(url_for('auth.login'))
+
+                    # 2. CHECK AUTOMATED EXPIRY (Graduation + Grace Period)
+                    expiry_str = user.get('account_expiry')
+                    if expiry_str:
+                        try:
+                            expiry_date = datetime.fromisoformat(expiry_str)
+                            if datetime.now(EAT).replace(tzinfo=None) > expiry_date:
+                                # Auto-delete account if past grace period
+                                delete_user_account(safe_reg_number)
+                                flash("Your account has expired as you have passed your graduation grace period. All data has been deleted.", "error")
+                                return redirect(url_for('auth.login'))
+                        except Exception as e:
+                            print(f"Expiry check error: {e}")
+
+                    # 3. CHECK BRUTE FORCE LOCKOUT
+                    if user.get('is_locked'):
+                        flash("Account locked due to too many failed attempts. Please unlock it.", "error")
+                        return redirect(url_for('auth.unlock_account'))
+
+                    # 4. Security Check: Did they verify their OTP?
+                    if not user.get('is_verified'):
+                        session['temp_user_id'] = safe_reg_number
+                        session['temp_user_email'] = user.get('email')
+                        flash("Please verify your account to continue.", "warning")
+                        return redirect(url_for('auth.verify_email'))
+
+                    # 5. 🔒 VERIFY PASSWORD
+                    if check_password_hash(user.get('password', ''), password):
+                        # Success! Reset failed attempts
+                        user_ref.update({'failed_attempts': 0})
+                        
+                        # Full Login Authorization
+                        session['user_id'] = safe_reg_number
+                        session['user_name'] = user.get('name')
+                        session['user_email'] = user.get('email')
+                        session['user_img'] = user.get('img')
+                        session['user_religion'] = user.get('religion', 'Other') 
+                        
+                        flash(f"Welcome back, {user['name']}!", "success")
+                        return redirect(url_for('swipe'))
+                    else:
+                        # Failed Password Attempt Handling
+                        attempts = user.get('failed_attempts', 0) + 1
+                        if attempts >= 4:
+                            user_ref.update({'failed_attempts': attempts, 'is_locked': True})
+                            flash("Account locked due to 4 failed attempts. You must unlock it.", "error")
+                            return redirect(url_for('auth.unlock_account'))
+                        else:
+                            user_ref.update({'failed_attempts': attempts})
+                            flash(f"Incorrect password. You have {4 - attempts} attempts remaining.", "error")
+                else:
+                    flash("Incorrect Email, Registration Number, or Password.", "error")
+            except Exception as e:
+                print(f"Login Error: {e}")
+                flash("System error during login. Please try again.", "error")
+                
+        else:
+            flash("Please provide your Email, Registration Number, and Password.", "error")
         
     return render_template('login.html')
 
+@auth_bp.route('/unlock', methods=['GET', 'POST'])
+def unlock_account():
+    """Route to unlock an account locked by brute-force protection."""
+    if request.method == 'POST':
+        reg_number = request.form.get('reg_number')
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        
+        if not reg_number or not old_password or not new_password:
+            flash("Please fill in all fields.", "error")
+            return redirect(url_for('auth.unlock_account'))
+            
+        safe_reg_number = reg_number.strip().upper().replace('/', '_')
+        user_ref = db.reference(f'profiles/{safe_reg_number}')
+        user = user_ref.get()
+        
+        if user and user.get('is_locked'):
+            # Verify they know their original password
+            if check_password_hash(user.get('password', ''), old_password):
+                if len(new_password) < 6:
+                    flash("New password must be at least 6 characters.", "error")
+                else:
+                    # Unlock and update password
+                    user_ref.update({
+                        'password': generate_password_hash(new_password),
+                        'is_locked': False,
+                        'failed_attempts': 0
+                    })
+                    flash("Account unlocked successfully! You can now log in.", "success")
+                    return redirect(url_for('auth.login'))
+            else:
+                flash("Initial password incorrect. Cannot unlock.", "error")
+        else:
+            flash("Account not found or is not currently locked.", "error")
+            
+    return render_template('unlock.html')
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Handles password reset requests via email OTP."""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        # Find user by email
+        users = db.reference('profiles').order_by_child('email').equal_to(email).get()
+        if users:
+            user_id = list(users.keys())[0]
+            
+            # Generate OTP
+            otp_code = str(random.randint(100000, 999999))
+            db.reference(f'profiles/{user_id}').update({'reset_code': otp_code})
+            
+            # Send Email
+            send_verification_email(email, "Student", otp_code)
+            
+            session['reset_user_id'] = user_id
+            flash("A password reset code has been sent to your email.", "success")
+            return redirect(url_for('auth.reset_password'))
+        else:
+            flash("No account found with that email address.", "error")
+            
+    return render_template('forgot_password.html')
+
+@auth_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Verifies the reset OTP and applies the new password."""
+    user_id = session.get('reset_user_id')
+    if not user_id:
+        return redirect(url_for('auth.forgot_password'))
+        
+    if request.method == 'POST':
+        otp_code = request.form.get('otp_code', '').strip()
+        new_password = request.form.get('new_password')
+        
+        user_ref = db.reference(f'profiles/{user_id}')
+        user = user_ref.get()
+        
+        if user and str(user.get('reset_code')) == otp_code:
+            if len(new_password) < 6:
+                flash("Password must be at least 6 characters.", "error")
+                return redirect(url_for('auth.reset_password'))
+                
+            user_ref.update({
+                'password': generate_password_hash(new_password),
+                'reset_code': None,
+                'is_locked': False,  # Automatically unlocks them if they were locked
+                'failed_attempts': 0
+            })
+            session.pop('reset_user_id', None)
+            flash("Password reset successfully! Please log in with your new password.", "success")
+            return redirect(url_for('auth.login'))
+        else:
+            flash("Invalid reset code.", "error")
+            
+    return render_template('reset_password.html')
 
 @auth_bp.route('/delete_account', methods=['POST'])
 def delete_account():

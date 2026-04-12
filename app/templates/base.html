@@ -447,9 +447,13 @@
         </div>
         <button id="install-btn" class="pwa-btn">Install</button>
     </div>
-
-    <footer>
-        <p>&copy; <span id="current-year"></span> FIND YOUR MATCH.</p>
+<footer>
+        <p>&copy; <span id="current-year"></span> 
+            <a href="/admin/super" style="color: inherit; text-decoration: none; cursor: default;">
+                FIND YOUR MATCH <span style="color: #E60026; cursor: pointer;">❤️</span>
+            </a>
+        </p>
+        
         <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
             Powered by <a href="https://www.delstarfordworks.co.ke" target="_blank" rel="noopener noreferrer" style="color: #FFD6DD; text-decoration: none; font-weight: 800; letter-spacing: 0.5px;">DELSTARFORD WORKS</a>
         </p>
@@ -465,7 +469,6 @@
         </a>
         {% endif %}
     </footer>
-
     <button onclick="openSupportModal()" style="position: fixed; bottom: 20px; right: 20px; background: #E60026; color: white; border: none; border-radius: 50px; padding: 15px 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.4); z-index: 99990; font-weight: 800; transition: transform 0.2s;">
         💬 Support & Ideas
     </button>

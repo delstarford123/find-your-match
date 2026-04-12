@@ -1381,32 +1381,42 @@ logger = logging.getLogger('god_mode')
 # Define East Africa Time (UTC+3) for accurate Kenyan timestamps
 EAT = timezone(timedelta(hours=3))
 
+import os
+from flask import render_template, request, session, flash, redirect, url_for, jsonify
+from datetime import datetime, timedelta
 
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
 @app.route('/admin/super', methods=['GET', 'POST'])
 def super_admin():
-    # SECURITY: Never use a fallback password in production.
-    ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
-    
-    if not ADMIN_PASSWORD:
-        logger.critical("SUPER_ADMIN_PASS environment variable is missing!")
-        return "CRITICAL ERROR: Admin environment not configured safely.", 500
-
+    # 1. Handle Login Attempt
     if request.method == 'POST':
-        if request.form.get('password') == ADMIN_PASSWORD:
+        # SECURITY: Never use a fallback password in production. Pull from .env
+        ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
+        
+        if not ADMIN_PASSWORD:
+            logger.critical("SUPER_ADMIN_PASS environment variable is missing!")
+            flash("CRITICAL ERROR: Admin environment not configured safely.", "error")
+            return redirect(url_for('super_admin'))
+
+        entered_password = request.form.get('password')
+
+        if entered_password == ADMIN_PASSWORD:
             session['is_super_admin'] = True
             session.permanent = False  # Forces session to expire when browser closes
             flash("Welcome to God Mode, Creator.", "success")
+            return redirect(url_for('super_admin'))
         else:
             logger.warning(f"Failed God Mode login attempt from IP: {request.remote_addr}")
-            flash("Access Denied. Incorrect Password.", "error")
-        return redirect(url_for('super_admin'))
+            flash("Access Denied. Incorrect Master Password.", "error")
+            return redirect(url_for('super_admin'))
         
+    # 2. Gatekeeper: Ensure only authenticated admins can see the dashboard
     if not session.get('is_super_admin'):
         return render_template('super_admin.html', logged_in=False)
 
+    # 3. Load Dashboard Data
     try:
         # Fetch Core Data
         all_profiles = db.reference('profiles').get() or {}
@@ -1417,7 +1427,7 @@ def super_admin():
         feedbacks_dict = db.reference('feedbacks').get() or {}
         call_requests_dict = db.reference('call_requests').get() or {}
         
-        # --- NEW: Fetch System Settings for Marketing ---
+        # Fetch System Settings for Marketing
         system_settings = db.reference('system_settings').get() or {}
         promo_active = system_settings.get('new_user_promo', False)
         
@@ -1461,11 +1471,12 @@ def super_admin():
                                feedbacks=feedbacks,
                                call_requests=call_requests,
                                pending_businesses=pending_businesses,
-                               promo_active=promo_active) # <--- Passed to frontend!
+                               promo_active=promo_active)
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return "Failed to load dashboard data.", 500
     
+
 @app.route('/api/admin/action', methods=['POST'])
 def admin_action():
     if not session.get('is_super_admin'):
@@ -1507,7 +1518,7 @@ def admin_action():
             if target_id:
                 db.reference(f'call_requests/{target_id}').delete()
                 
-        # --- NEW: TOGGLE MARKETING CAMPAIGN ---
+        # --- TOGGLE MARKETING CAMPAIGN ---
         elif action == 'toggle_promo':
             current_status = db.reference('system_settings/new_user_promo').get()
             new_status = not current_status # Flip it (True to False, False to True)
@@ -1518,6 +1529,7 @@ def admin_action():
     except Exception as e:
         logger.error(f"Admin Action Error ({action}): {e}")
         return jsonify({'success': False, 'message': "Internal server error."}), 500
+
 
 @app.route('/admin/ledger')
 def admin_ledger():
@@ -1549,6 +1561,7 @@ def admin_ledger():
     except Exception as e:
         logger.error(f"Admin Ledger Error: {e}")
         return "Failed to load ledger.", 500
+
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -2663,6 +2676,7 @@ import random
 
 # A list of spicy, fun, and campus-specific prompts
 CAMPUS_PROMPTS = [
+    # --- The Original 50 (Dating, Survival & Campus Culture) ---
     "What is the most overrated food spot outside MMUST?",
     "What is the biggest red flag in a university relationship?",
     "If you had 1000 KSH for a date in Kakamega, where are you going?",
@@ -2672,9 +2686,206 @@ CAMPUS_PROMPTS = [
     "What's a text you received that immediately gave you the 'ick'?",
     "Describe your perfect weekend in Kakamega.",
     "What is a fashion trend on campus that needs to stop immediately?",
-    "Who is the strictest lecturer in your school?"
-]
+    "Who is the strictest lecturer in your school?",
+    "Is it a flex or a trap to date someone in your exact same class?",
+    "Green flags you look for on a first date in Kakamega?",
+    "What's the worst excuse you've used (or heard) to dodge a date?",
+    "Who lies more during the talking stage: campus guys or campus babes?",
+    "Is it socially acceptable to go on a first date at the Student Mess?",
+    "A comrade texts 'Niko area, can I pull up?' What's your immediate reaction?",
+    "Does posting your partner on WhatsApp status actually mean anything?",
+    "What's the fastest way to get ghosted by a MMUST student?",
+    "Would you rather date someone broke with good vibes or rich with zero personality?",
+    "Is 'I'm focusing on my books' a valid excuse or just a polite rejection?",
+    "What advice would you give to your first-year self about campus dating?",
+    "What is the best (or worst) pick-up line you've heard on campus?",
+    "Have you ever shot your shot in a class WhatsApp group? How did it go?",
+    "Which hostel area has the most drama: Kefinco, Lurambi, or Sichirayi?",
+    "What's the best street food you can get for under 100 bob around campus?",
+    "HELB just dropped. What is your first irresponsible purchase?",
+    "Rate your cooking skills on a scale of 'Indomie everyday' to 'Masterchef'.",
+    "What's the most useless item you brought to campus in first year?",
+    "What is your ultimate survival hack for the last two weeks of the semester?",
+    "Kakamega rain just ruined your date plans. What's the backup plan?",
+    "What's the longest you've survived on a 50 KSH budget?",
+    "What is the one meal that truly defines the MMUST comrade experience?",
+    "If we checked your M-Pesa statements right now, what's your most common expense?",
+    "What's the ultimate 'I am a first-year' giveaway behavior?",
+    "What is the unwritten rule of surviving morning classes during Kakamega's cold season?",
+    "Which course at MMUST do you think has the most stylish students?",
+    "What is the ultimate heartbreak song for a comrade?",
+    "Best spot in Kakamega to take photos for the gram?",
+    "What's the one thing you must pack when going for a sleepover at a comrade's place?",
+    "Which is the most peaceful residential area for students in Kakamega?",
+    "What's a major dealbreaker when someone is visiting your room for the first time?",
+    "If your university life was a movie, what would the title be?",
+    "If you could instantly graduate tomorrow but never see your campus friends again, would you?",
+    "What is the most chaotic thing that has happened during a group discussion?",
+    "What's the most annoying habit roommates have?",
+    "Are you team 'study till dawn' or team 'sleep and guess in the exam'?",
+    "Which joint plays the best music in Kakamega on a Friday night?",
+    "What's the funniest thing you've witnessed at the Graduation Square?",
+    "Have you ever accidentally texted the wrong person something embarrassing? Spill.",
+    "What's the biggest lie a MMUST comrade has ever told you?",
 
+    # --- NEW: Roommate & Hostel Drama (51 - 80) ---
+    "What is the universal sign that your roommate has brought someone over?",
+    "Is it a crime to cook fish in a shared hostel?",
+    "What's the maximum number of days a visitor should stay in your room?",
+    "Have you ever pretended to be asleep so your roommate's guest would leave?",
+    "What's the most annoying thing to 'borrow' in a hostel setting?",
+    "If your room could talk, what's the first secret it would spill?",
+    "Worst experience with a Kakamega landlord?",
+    "What is the ultimate revenge for a roommate who steals your food?",
+    "Do you prefer living alone or having a roommate? Why?",
+    "What is the most ridiculous rule your hostel caretaker has tried to enforce?",
+    "Washing dishes immediately or leaving them 'to soak' for 3 days?",
+    "What's your strategy when your roommate's alarm rings but they don't wake up?",
+    "Have you ever been locked out of your room by a roommate? How did you survive?",
+    "What's the most chaotic meal you've ever cooked using only a coil or heater?",
+    "If someone uses your iron box without asking, what's the verdict?",
+    "Is it acceptable to play loud Gengetone at 6 AM on a Saturday?",
+    "What's the worst pest in campus hostels: bedbugs, roaches, or mosquitoes?",
+    "Who is the most annoying person in your hostel WhatsApp group?",
+    "What's the protocol when the electricity token beeps at 2 AM?",
+    "What is the biggest red flag when touring a new hostel to rent?",
+    "Have you ever had to fetch water from the river/borehole? Describe the trauma.",
+    "What's the most embarrassing thing you've dropped while doing laundry?",
+    "What is the funniest WiFi network name you've seen around campus?",
+    "Have you ever had a noise complaint filed against your room?",
+    "What's the golden rule of using a shared bathroom?",
+    "If you find someone sitting on your bed with outside clothes, what do you do?",
+    "What's the longest you've gone without electricity in Kakamega?",
+    "Have you ever been forced to share a single bed with three comrades?",
+    "What's the worst excuse a roommate gave for not paying their half of the rent?",
+    "If someone borrows your charger and returns it broken, how do they compensate?",
+
+    # --- NEW: Academic Survival & Campus Life (81 - 120) ---
+    "What is the biggest lie lecturers tell first years?",
+    "Have you ever attended a class just to sign the attendance sheet?",
+    "What's the best excuse for missing a CAT that actually worked?",
+    "Who suffers more: Engineering students, Med students, or IT students?",
+    "What's your worst 'Missing Mark' experience?",
+    "What goes through your mind when the invigilator stands right next to your desk?",
+    "Have you ever done a group assignment 100% by yourself?",
+    "What's the standard penalty for a group member who contributes absolutely nothing?",
+    "Is sitting at the front of the lecture hall a green flag or a red flag?",
+    "What's the most creative way you've seen someone cheat in an exam?",
+    "Be honest, do you know your student portal password right now?",
+    "What is the worst time to have a lecture scheduled?",
+    "Have you ever accidentally called a lecturer 'Dad' or 'Mom'?",
+    "What is the most stressful unit you've taken so far?",
+    "If MMUST added a unit called 'Comrade Survival 101', what's the first topic?",
+    "What's your strategy for a 3-hour lecture when your phone is at 2%?",
+    "What's the weirdest thing a lecturer has ever said during a class?",
+    "Have you ever defended a classmate you didn't know so they wouldn't get marked absent?",
+    "What's the worst thing about using the school Wi-Fi?",
+    "If you could remove one building in MMUST and replace it, what would it be?",
+    "What's the most chaotic student elections memory you have?",
+    "Have you ever fallen asleep in the library and woken up not knowing what year it is?",
+    "What is the most elite hiding spot on campus during a strike?",
+    "Who is the most powerful person on campus: The VC, the Chef, or the Security Guards?",
+    "What's the most dramatic thing you've witnessed at the Administration Block?",
+    "What is your go-to excuse when you haven't paid fees but want to enter the exam room?",
+    "Have you ever revised for the wrong unit by mistake?",
+    "What is the ultimate 'premium tears' moment academically?",
+    "If your transcript was leaked to your family WhatsApp group, what happens?",
+    "What's the loudest you've ever cheered during a university sports match?",
+    "What is the best feeling in the world as a university student?",
+    "Have you ever presented a project you knew absolutely nothing about?",
+    "What's the most ridiculous thing you've written in an exam just to fill the page?",
+    "Is it better to graduate with a pass and peace of mind, or first class with high blood pressure?",
+    "What's the golden rule of interacting with class reps?",
+    "Have you ever been kicked out of a lecture hall? Why?",
+    "If you could magically master one course at MMUST without studying, what is it?",
+    "What is the weirdest item you've seen someone bring to an exam room?",
+    "What's the most stressful part of clearing for graduation?",
+    "Have you ever printed a 50-page assignment 5 minutes before the deadline?",
+
+    # --- NEW: Finances, HELB & Survival Hacks (121 - 150) ---
+    "What is the fastest way to blow 5k in Kakamega?",
+    "What is the most elite 'broke comrade' meal?",
+    "If HELB was cancelled forever, how many students would actually graduate?",
+    "What's the biggest financial lie you've told your parents?",
+    "Omena or Ugali Mayai for the rest of the semester?",
+    "What's the most embarrassing thing you've done to save money on campus?",
+    "Is 'Fuliza' a comrade's best friend or worst enemy?",
+    "What is the standard price for a decent haircut/salon visit around campus?",
+    "If you find 1000 KSH on the ground outside MCU, what are you doing with it?",
+    "What's the most expensive mistake you've made as a student?",
+    "What is the unwritten rule of borrowing money from a comrade?",
+    "Have you ever walked from town to campus just to save 50 bob?",
+    "What's the best side hustle for a student in Kakamega?",
+    "If your bank account balance was your exam score, did you pass or fail?",
+    "What's the one thing you refuse to buy cheap, even when broke?",
+    "How many days can a comrade realistically survive on 200 KSH?",
+    "What's the most painful text to receive: 'Insufficient Funds' or 'We need to talk'?",
+    "Have you ever attended an event purely for the free food?",
+    "What's the best financial advice you've learned the hard way?",
+    "Is betting a valid investment strategy for a comrade?",
+    "What's the most ridiculous thing you've bought immediately after HELB dropped?",
+    "What is the universal 'I am broke' meal combination?",
+    "If someone owes you 100 bob, do you ask for it back or let it go?",
+    "What is the biggest scam you fell for as a first year?",
+    "Have you ever bought clothes from 'mitumba' and claimed they were from a boutique?",
+    "What is the most overpriced item sold inside the school compound?",
+    "If a comrade says 'I'll refund you tomorrow', what day is tomorrow?",
+    "What is your ultimate tip for surviving the January semester?",
+    "Have you ever negotiated a boda boda fare down to 20 bob?",
+    "What's the most desperate 'send me something small' text you've drafted?",
+
+    # --- NEW: Modern Dating, Talking Stages & Hot Takes (151 - 200) ---
+    "Is it mandatory to match outfits with your partner on campus?",
+    "What is the correct response when your ex says 'I miss you' during exam week?",
+    "Is viewing someone's Instagram story in under 2 minutes a red flag?",
+    "What's the most dramatic breakup you've witnessed in a hostel?",
+    "If they take 12 hours to reply but watch your WhatsApp status, what's the diagnosis?",
+    "Is 'we are just friends' the biggest lie told on campus?",
+    "What is the ultimate sign of 'Character Development'?",
+    "Would you forgive someone who dumped you but later sent you 5k?",
+    "What's the most petty reason you stopped talking to someone?",
+    "Is it a flex to have your partner's face as your wallpaper?",
+    "What is the unspoken rule about dating your roommate's friend?",
+    "Have you ever been taken on a 'walking date' around Kakamega forest?",
+    "What does it mean if they only text you after 10 PM?",
+    "If they refuse to post you on their birthday, are you single?",
+    "What's the most ridiculous standard people have for dating on campus?",
+    "Is 'let's go study together' a date or a trap to make you do their assignment?",
+    "Have you ever fought over a comrade? Was it worth it?",
+    "What's the standard mourning period for a 2-week talking stage?",
+    "Is blocking someone a sign of immaturity or peace of mind?",
+    "What's the most elite response to 'You're too good for me'?",
+    "If you find out your campus crush doesn't know how to cook, is it a dealbreaker?",
+    "Have you ever stayed in a toxic relationship just because they had Wi-Fi?",
+    "What's the most suspicious name someone can save you as on their phone?",
+    "Is going to the cinema in town considered a high-end date?",
+    "What's the worst advice your friends have given you about your relationship?",
+    "If a comrade asks 'Are you single?' what is the safest answer?",
+    "Have you ever been the 'villain' in someone's campus story?",
+    "What's the boldest way someone has ever asked for your number?",
+    "Is it acceptable to date someone from a rival university?",
+    "What's the ultimate 'I want to be more than friends' signal?",
+    "Have you ever pretended to like a specific music genre just to impress a crush?",
+    "What is the maximum acceptable age gap for dating in university?",
+    "Is sharing passwords true love or a privacy violation?",
+    "What's the funniest lie you've used to escape a bad date?",
+    "If your current relationship status was a weather forecast, what is it?",
+    "What is the most brutal way to friendzone someone?",
+    "Have you ever crushed on a lecturer? (We won't judge).",
+    "What's the worst place to get into an argument with your partner on campus?",
+    "If they say 'I don't want a label right now', what are you doing?",
+    "What is the unwritten rule of dating someone in the same discussion group?",
+    "Is taking someone to a campus event a valid first date?",
+    "What's the most elite response to getting rejected?",
+    "Have you ever matched with someone on a dating app and then seen them in class?",
+    "What's the biggest green flag a comrade can have on their social media profile?",
+    "If they ask 'What are we?', what is the most terrifying answer?",
+    "What's the most overused pickup line by Kakamega guys?",
+    "Is 'I lost my phone' a valid excuse for ignoring someone for a week?",
+    "What's the most iconic way to announce you are officially single?",
+    "If you could ban one phrase from campus dating vocabulary, what would it be?",
+    "What's the ultimate secret to surviving MMUST Dating AI?"
+]
 def get_todays_prompt():
     """Lazy evaluator: Checks if today has a prompt. If not, sets one."""
     today_str = datetime.now(EAT).strftime('%Y-%m-%d')

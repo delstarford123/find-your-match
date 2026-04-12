@@ -91,6 +91,30 @@
         font-weight: 400;
     }
 
+    /* === SECURE PASSWORD FIELD === */
+    .password-container { position: relative; width: 100%; }
+    .password-container input { padding-right: 50px !important; } 
+    .toggle-password {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; font-size: 18px; color: #888; 
+        padding: 10px; outline: none; display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; transition: 0.2s;
+    }
+    .toggle-password:hover { background: #f0f0f0; }
+    
+    .forgot-link {
+        display: block;
+        text-align: right;
+        margin-top: -12px;
+        margin-bottom: 25px;
+        font-size: 13px;
+        color: #E60026;
+        font-weight: 800;
+        text-decoration: none;
+        transition: 0.2s;
+    }
+    .forgot-link:hover { color: #720000; text-decoration: underline; }
+
     /* === BUTTONS & LINKS === */
     .btn-submit {
         width: 100%; 
@@ -104,7 +128,6 @@
         cursor: pointer; 
         transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
         box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
-        margin-top: 10px;
     }
     .btn-submit:active {
         transform: scale(0.97);
@@ -146,7 +169,7 @@
         <div class="auth-header">
             <div style="margin-bottom: 20px; display: flex; justify-content: center;">
                 <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 70px; height: 70px; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 32px; border: 2px solid white;">
-                    
+                    🔒
                 </div>
             </div>
             <h1 class="auth-title">Welcome Back</h1>
@@ -157,22 +180,33 @@
           {% if messages %}
             {% for category, message in messages %}
               <div style="padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;">
-                   {{ message }}
+                   ⚠️ {{ message }}
               </div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
         <form action="{{ url_for('auth.login') }}" method="POST" id="studentLoginForm" onsubmit="showLoading()">
-            <div class="input-group">
-                <label for="email">Email Address</label>
-                <input type="email" id="email" name="email" required placeholder="e.g. del@gmail.com" autocomplete="email">
-            </div>
             
             <div class="input-group">
-                <label for="reg_number">Registration Number</label>
-                <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" autocomplete="username">
+                <label for="email">Account Email</label>
+                <input type="email" id="email" name="email" required placeholder="e.g. del@gmail.com" autocomplete="email">
             </div>
+
+            <div class="input-group">
+                <label for="reg_number">Registration Number</label>
+                <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" autocomplete="username" autocapitalize="characters" oninput="this.value = this.value.toUpperCase();">
+            </div>
+
+            <div class="input-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
+                    <button type="button" class="toggle-password" onclick="toggleVisibility('password')" aria-label="Toggle password visibility">👁️</button>
+                </div>
+            </div>
+            
+            <a href="{{ url_for('auth.forgot_password') }}" class="forgot-link">Forgot Password?</a>
 
             <button type="submit" class="btn-submit" id="submitBtn">Secure Log In</button>
         </form>
@@ -184,6 +218,18 @@
 </div>
 
 <script>
+    function toggleVisibility(fieldId) {
+        const input = document.getElementById(fieldId);
+        const toggleBtn = input.nextElementSibling;
+        if (input.type === "password") {
+            input.type = "text";
+            toggleBtn.innerHTML = "👁️‍🗨️";
+        } else {
+            input.type = "password";
+            toggleBtn.innerHTML = "👁️";
+        }
+    }
+
     function showLoading() {
         const btn = document.getElementById('submitBtn');
         btn.innerText = "Authenticating... ⏳";

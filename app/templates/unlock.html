@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .auth-wrapper { display: flex; justify-content: center; align-items: center; min-height: calc(100dvh - var(--nav-height, 70px) - 80px); padding: clamp(20px, 5vw, 40px) 15px; }
+    .auth-card { background: white; padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px); border-radius: 28px; box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1); border: 1px solid #FFD6DD; width: 100%; max-width: 420px; animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; box-sizing: border-box; }
+    @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .auth-title { color: #720000; font-size: clamp(24px, 6vw, 28px); font-weight: 900; margin-bottom: 8px; letter-spacing: -0.5px; line-height: 1.2; text-align: center; }
+    .auth-subtitle { color: #666; font-size: 15px; font-weight: 500; margin-bottom: 25px; text-align: center; line-height: 1.5;}
+
+    .input-group { margin-bottom: 20px; width: 100%; }
+    .input-group label { display: block; font-size: 11px; font-weight: 900; color: #E60026; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .input-group input { width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px; font-size: 16px; background: #fafafa; transition: all 0.3s ease; font-family: inherit; outline: none; color: #111; font-weight: 600; box-sizing: border-box; -webkit-appearance: none; }
+    .input-group input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1); }
+    
+    .password-container { position: relative; width: 100%; }
+    .password-container input { padding-right: 50px !important; } 
+    .toggle-password { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 18px; color: #888; padding: 10px; outline: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: 0.2s; }
+    
+    .btn-submit { width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 18px; border-radius: 14px; font-size: 16px; font-weight: 900; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25); }
+    .btn-submit:active { transform: scale(0.97); }
+    .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; transform: none; }
+</style>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div style="margin-bottom: 20px; display: flex; justify-content: center;">
+            <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 70px; height: 70px; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 32px; border: 2px solid white; border-color: #E60026;">
+                🛡️
+            </div>
+        </div>
+        <h1 class="auth-title">Account Locked</h1>
+        <p class="auth-subtitle">Your account was locked due to multiple failed login attempts. Verify your old password and set a new one to unlock it.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div style="padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;">
+                   ⚠️ {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('auth.unlock_account') }}" method="POST" onsubmit="showLoading()">
+            <div class="input-group">
+                <label for="reg_number">Registration Number</label>
+                <input type="text" id="reg_number" name="reg_number" required placeholder="e.g. SAB/B/01-0000/2023" autocapitalize="characters" autocomplete="username">
+            </div>
+
+            <div class="input-group">
+                <label for="old_password">Previous Password</label>
+                <div class="password-container">
+                    <input type="password" id="old_password" name="old_password" required placeholder="Enter the password you remember">
+                    <button type="button" class="toggle-password" onclick="toggleVisibility('old_password')" aria-label="Toggle password visibility">👁️</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="new_password">Create New Password</label>
+                <div class="password-container">
+                    <input type="password" id="new_password" name="new_password" required minlength="6" placeholder="Must be at least 6 characters">
+                    <button type="button" class="toggle-password" onclick="toggleVisibility('new_password')" aria-label="Toggle password visibility">👁️</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="submitBtn">Unlock Account</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleVisibility(fieldId) {
+        const input = document.getElementById(fieldId);
+        const toggleBtn = input.nextElementSibling;
+        if (input.type === "password") {
+            input.type = "text";
+            toggleBtn.innerHTML = "👁️‍🗨️";
+        } else {
+            input.type = "password";
+            toggleBtn.innerHTML = "👁️";
+        }
+    }
+
+    function showLoading() {
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Unlocking... ⏳";
+        btn.classList.add('loading');
+    }
+</script>
+{% endblock %}
