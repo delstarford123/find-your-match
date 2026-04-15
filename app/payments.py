@@ -8,19 +8,15 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 # ==========================================
-# DARAJA API CREDENTIALS
+# DARAJA API CREDENTIALS (PRODUCTION)
 # ==========================================
 CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
 CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
 BUSINESS_SHORTCODE = os.getenv("MPESA_SHORTCODE") 
 PASSKEY = os.getenv("MPESA_PASSKEY")
 
-ENVIRONMENT = os.getenv("MPESA_ENV", "sandbox").lower()
-
-if ENVIRONMENT == "production":
-    BASE_URL = "https://api.safaricom.co.ke"
-else:
-    BASE_URL = "https://sandbox.safaricom.co.ke"
+# Hardcoded to the live Safaricom API
+BASE_URL = "https://api.safaricom.co.ke"
 
 OAUTH_URL = f"{BASE_URL}/oauth/v1/generate?grant_type=client_credentials"
 STK_PUSH_URL = f"{BASE_URL}/mpesa/stkpush/v1/processrequest"
@@ -91,7 +87,10 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         "BusinessShortCode": BUSINESS_SHORTCODE,
         "Password": password,
         "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
+        # Note: Use "CustomerPayBillOnline" for Paybills. 
+        # If using a Till Number (Buy Goods), change this to "CustomerBuyGoodsOnline"
+        # and ensure "PartyB" is the Till Number, not the Head Office Shortcode.
+        "TransactionType": "CustomerPayBillOnline", 
         "Amount": int(amount),
         "PartyA": formatted_phone,
         "PartyB": BUSINESS_SHORTCODE,
