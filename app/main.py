@@ -500,8 +500,8 @@ def dashboard():
             if not isinstance(p, dict):
                 continue
                 
-            # Skip the user themselves and hidden profiles
-            if p_id != user_id and p.get('is_visible', True):
+            # Skip the user themselves, hidden profiles, and non-premium users
+            if p_id != user_id and p.get('is_visible', True) and p.get('is_paid') == True:
                 # Fetch or simulate compatibility score
                 ai_score = p.get('ai_score', random.randint(65, 95))
                 
@@ -568,7 +568,7 @@ def dashboard():
         upcoming_dates=upcoming_dates,
         subscription_expiry=subscription_expiry # <--- NEW: Passed to frontend!
     )
-    
+
       
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
@@ -783,7 +783,8 @@ def matches(partner_id=None):
         # 3. Build the inbox list with EVERYONE
         for p in all_profiles:
             # Skip the current user themselves and hidden profiles
-            if p['id'] != user_id and p.get('is_visible', True): 
+            # ADDED: Skip users who haven't paid the subscription (p.get('is_paid') != True)
+            if p['id'] != user_id and p.get('is_visible', True) and p.get('is_paid') == True: 
                 p_id = p['id']
                 is_mutual = p_id in matched_data
                 
@@ -870,6 +871,7 @@ def matches(partner_id=None):
                            messages_left=messages_left)           # Pass progress to UI
     
     
+        
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -1391,6 +1393,12 @@ from flask import render_template, request, session, flash, redirect, url_for, j
 
 # Import your email service functions
 from app.email_service import send_broadcast_email
+import os
+import logging
+from datetime import datetime, timedelta
+from flask import request, jsonify, session, flash, url_for, render_template, redirect
+
+logger = logging.getLogger(__name__)
 
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
@@ -1585,7 +1593,7 @@ def admin_broadcast():
 
 @app.route('/api/admin/search_user', methods=['POST'])
 def admin_search_user():
-    """Allows Super Admin to lookup users by ID/Reg Number, Email, OR view ALL users."""
+    """Allows Super Admin to lookup users by ID/Reg Number, Email, OR view specific filtered lists."""
     if not session.get('is_super_admin'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
@@ -1605,14 +1613,30 @@ def admin_search_user():
         for user_id, user_data in all_profiles.items():
             if isinstance(user_data, dict):
                 user_email = user_data.get('email', '').lower()
+                is_verified = user_data.get('is_verified', False)
+                has_paid = user_data.get('is_paid', False)
                 
-                # Check if query is 'all', or matches ID, or is inside the email
-                if query == 'all' or user_id == safe_query_id or query in user_email:
+                # Check mapping logic against user commands
+                matches = False
+                
+                if query == 'all':
+                    matches = True
+                elif query == 'filter:unverified':
+                    matches = not is_verified
+                elif query == 'filter:unpaid':
+                    matches = is_verified and not has_paid
+                elif query == 'filter:paid':
+                    matches = is_verified and has_paid
+                elif user_id.upper() == safe_query_id or query in user_email:
+                    matches = True
+                
+                if matches:
                     safe_data = {
                         'name': user_data.get('name', 'Unknown'),
                         'reg_number': user_data.get('reg_number', user_id),
                         'email': user_data.get('email', 'No email'),
-                        'is_verified': user_data.get('is_verified', False),
+                        'is_verified': is_verified,
+                        'has_paid': has_paid, # Required for frontend Premium Badge
                         'is_locked': user_data.get('is_locked', False)
                     }
                     matched_users.append(safe_data)
@@ -1622,7 +1646,7 @@ def admin_search_user():
             matched_users.sort(key=lambda x: x.get('email', ''))
             return jsonify({'success': True, 'users': matched_users})
         else:
-            return jsonify({'success': False, 'message': 'No users found'})
+            return jsonify({'success': False, 'message': 'No users found matching that criteria.'})
             
     except Exception as e:
         logger.error(f"Search User Error: {e}")
@@ -1665,13 +1689,6 @@ def admin_logout():
     session.pop('is_super_admin', None)
     flash("Securely logged out of Command Center.", "info")
     return redirect(url_for('super_admin'))
-
-import os
-import logging
-from datetime import datetime, timedelta
-from flask import request, jsonify, session, flash, url_for
-
-logger = logging.getLogger(__name__)
 
 # ==========================================
 # API ENDPOINTS (SWIPE, PAYMENTS, NOTIFICATIONS)

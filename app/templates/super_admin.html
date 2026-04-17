@@ -163,6 +163,7 @@
     .flag-red { color: #ef4444; font-weight: 900; background: rgba(239, 68, 68, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; letter-spacing: 0.5px; display: inline-block; border: 1px solid rgba(239, 68, 68, 0.2); }
     .flag-yellow { color: #eab308; font-weight: 800; background: rgba(234, 179, 8, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(234, 179, 8, 0.2); }
     .flag-blue { color: #38bdf8; font-weight: 800; background: rgba(56, 189, 248, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2); }
+    .flag-green { color: #10b981; font-weight: 800; background: rgba(16, 185, 129, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(16, 185, 129, 0.2); }
     .flag-purple { color: #a855f7; font-weight: 800; background: rgba(168, 85, 247, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(168, 85, 247, 0.2); }
     
     /* Message Bubble */
@@ -191,19 +192,16 @@
     /* === USER SEARCH BOX & CARDS === */
     .search-box {
         display: flex; gap: 10px; background: #0f172a; border: 2px solid #334155; 
-        padding: 8px; border-radius: 16px; margin-bottom: 20px; transition: 0.3s ease;
-        align-items: center; flex-wrap: wrap; /* Allows wrapping on mobile */
+        padding: 12px; border-radius: 16px; margin-bottom: 20px; transition: 0.3s ease;
+        align-items: center; flex-wrap: wrap; 
     }
     .search-box:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 4px rgba(56,189,248,0.15); }
     .search-box input {
-        flex: 1; /* FORCES INPUT TO TAKE UP MAXIMUM SPACE */
-        min-width: 200px;
-        background: transparent; border: none; color: white;
+        flex: 1; min-width: 200px; background: transparent; border: none; color: white;
         padding: 10px 15px; font-size: 16px; outline: none; font-weight: 600;
     }
-    .search-action-btns {
-        display: flex; gap: 10px;
-    }
+    .search-action-btns { display: flex; gap: 10px; }
+    .quick-filters { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #334155; }
     
     .user-result-card {
         background: #0f172a; border-radius: 16px; padding: 20px; 
@@ -214,10 +212,7 @@
     .user-result-card h4 span { color: #94a3b8; font-weight: 500; font-size: 15px; }
     .user-result-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 10px; font-weight: 600; word-break: break-all;}
 
-    /* Scrollable container so "View All" doesn't stretch the page to infinity */
-    .scrollable-results {
-        max-height: 600px; overflow-y: auto; padding-right: 5px;
-    }
+    .scrollable-results { max-height: 600px; overflow-y: auto; padding-right: 5px; }
     .scrollable-results::-webkit-scrollbar { width: 8px; }
     .scrollable-results::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
@@ -245,6 +240,7 @@
         .search-box { flex-direction: column; align-items: stretch; padding: 15px;}
         .search-action-btns { flex-direction: column; width: 100%; }
         .search-action-btns button { width: 100%; }
+        .quick-filters { flex-direction: column; }
     }
 </style>
 
@@ -310,13 +306,19 @@
     <h3 class="section-title animate-up delay-1">🔍 User Management Engine</h3>
     <div class="admin-list animate-up delay-1">
         <div class="list-item" style="flex-direction: column; align-items: stretch;">
-            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 15px 0; line-height: 1.5;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Click "View All" to list everyone and spot duplicate emails.</p>
+            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 15px 0; line-height: 1.5;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Use the filters below to find users based on their onboarding status.</p>
             
             <div class="search-box">
                 <input type="text" id="search-query" placeholder="Enter Email or Reg Number..." onkeypress="if(event.key === 'Enter') searchUser()">
                 <div class="search-action-btns">
                     <button class="btn-admin btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 130px;">🔍 Lookup</button>
                     <button class="btn-admin" onclick="viewAllUsers()" style="background: #334155; color: white; min-width: 130px;">👥 View All</button>
+                </div>
+                
+                <div class="quick-filters">
+                    <button class="btn-admin" onclick="searchUser('filter:unverified')" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.2); font-size: 12px; padding: 8px 12px;">⚠️ Show Unverified</button>
+                    <button class="btn-admin" onclick="searchUser('filter:unpaid')" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 12px; padding: 8px 12px;">📧 Show Verified (Unpaid)</button>
+                    <button class="btn-admin" onclick="searchUser('filter:paid')" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 12px; padding: 8px 12px;">💎 Show Premium</button>
                 </div>
             </div>
 
@@ -348,20 +350,30 @@
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">📡 Mass Broadcast System</h3>
+    <h3 class="section-title animate-up delay-3" id="broadcast-section-anchor">🎯 Targeted Email Engine</h3>
     <div class="admin-list animate-up delay-3">
         <div class="list-item" style="flex-direction: column; align-items: stretch;">
             <p style="color: #94a3b8; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
-                Dispatch an email to every registered student on the platform. Use this for major events, job openings, or critical system updates.
+                Dispatch an email to specific user groups or the entire platform.
             </p>
 
-            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. New Job Opening at MMUST Dating!)" style="margin-bottom: 15px;">
+            <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 15px;">
+                <option value="all">📢 All Registered Users</option>
+                <option value="premium">💎 Premium Users (Paid 20 KSH)</option>
+                <option value="verified_unpaid">📧 Verified but Unpaid Users</option>
+                <option value="unverified">⚠️ Unverified Users</option>
+                <option value="specific">👤 Specific User (Enter Email)</option>
+            </select>
+
+            <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 15px; border-color: #38bdf8;">
+
+            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. Action Required: Finish Registration)" style="margin-bottom: 15px;">
             
             <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted beautifully on our end." style="resize: vertical;"></textarea>
 
             <div class="action-group" style="margin-top: 10px;">
                 <button class="btn-admin btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">
-                    🚀 Send Mass Broadcast
+                    🚀 Send System Email
                 </button>
             </div>
         </div>
@@ -613,8 +625,38 @@
             });
         }
 
-        // --- SEND MASS BROADCAST EMAIL ---
+        // --- NEW: TARGETED EMAIL ENGINE FUNCTIONS ---
+        function toggleSpecificEmailInput() {
+            const targetSelect = document.getElementById('broadcast-target').value;
+            const emailInput = document.getElementById('specific-email-input');
+            if (targetSelect === 'specific') {
+                emailInput.style.display = 'block';
+                emailInput.focus();
+            } else {
+                emailInput.style.display = 'none';
+            }
+        }
+
+        // Called when you click "✉️ System Email" from the user search results
+        function prepTargetedEmail(userEmail) {
+            const targetSelect = document.getElementById('broadcast-target');
+            const emailInput = document.getElementById('specific-email-input');
+            
+            targetSelect.value = 'specific';
+            emailInput.style.display = 'block';
+            emailInput.value = userEmail;
+            
+            // Scroll smoothly to the broadcast section
+            document.getElementById('broadcast-section-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Highlight the subject input to prompt the admin to type
+            setTimeout(() => { document.getElementById('broadcast-subject').focus(); }, 500);
+            showToast("Email Engine primed for " + userEmail);
+        }
+
         function sendBroadcastEmail(btn) {
+            const targetGroup = document.getElementById('broadcast-target').value;
+            const specificEmail = document.getElementById('specific-email-input').value.trim();
             const subject = document.getElementById('broadcast-subject').value.trim();
             const message = document.getElementById('broadcast-message').value.trim();
 
@@ -623,25 +665,47 @@
                 return;
             }
 
-            if (!confirm("⚠️ WARNING: You are about to send an email to EVERY registered user. Are you absolutely sure you want to proceed?")) return;
+            if (targetGroup === 'specific' && !specificEmail) {
+                showToast("Please provide the specific user's email address.", true);
+                return;
+            }
+
+            // Build a smart confirmation message
+            let confirmMsg = "Are you sure you want to send this email?";
+            if (targetGroup === 'all') confirmMsg = "⚠️ WARNING: You are about to send an email to EVERY registered user. Proceed?";
+            else if (targetGroup === 'premium') confirmMsg = "Send email to all Premium (Paid) users?";
+            else if (targetGroup === 'verified_unpaid') confirmMsg = "Send email to all Verified but Unpaid users?";
+            else if (targetGroup === 'unverified') confirmMsg = "Send email to all Unverified users?";
+            else if (targetGroup === 'specific') confirmMsg = `Send email directly to ${specificEmail}?`;
+
+            if (!confirm(confirmMsg)) return;
 
             const originalText = btn.innerText;
-            btn.innerText = "Sending Broadcast... ⏳";
+            btn.innerText = "Sending... ⏳";
             btn.disabled = true;
 
+            // Notice we added target_group and specific_email to the payload!
             fetch('/api/admin/broadcast', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ subject: subject, message: message })
+                body: JSON.stringify({ 
+                    target_group: targetGroup,
+                    specific_email: specificEmail,
+                    subject: subject, 
+                    message: message 
+                })
             })
             .then(res => res.json())
             .then(data => {
                 btn.disabled = false;
                 btn.innerText = originalText;
                 if (data.success) {
-                    showToast("Broadcast dispatched to background queue! Emails are sending.");
+                    showToast("Email(s) dispatched to background queue!");
                     document.getElementById('broadcast-subject').value = '';
                     document.getElementById('broadcast-message').value = '';
+                    if (targetGroup === 'specific') {
+                        document.getElementById('specific-email-input').value = '';
+                    }
                 } else {
                     showToast("Failed to send: " + data.message, true);
                 }
@@ -654,7 +718,7 @@
             });
         }
 
-        // --- NEW: ADVANCED USER SEARCH & MANAGEMENT ---
+        // --- ADVANCED USER SEARCH & BADGE MANAGEMENT ---
         function searchUser(forcedQuery = null) {
             let inputField = document.getElementById('search-query');
             let query = forcedQuery || inputField.value.trim();
@@ -686,12 +750,25 @@
                 if (data.success && data.users.length > 0) {
                     data.users.forEach(user => {
                         let safeId = user.reg_number.replace(/\//g, '_');
-                        let statusHtml = user.is_verified ? '<span class="flag-blue">Verified</span>' : '<span class="flag-yellow">Unverified</span>';
-                        if (user.is_locked) statusHtml += ' <span class="flag-red" style="margin-left:5px;">Locked Out</span>';
+                        
+                        let statusHtml = '';
+                        if (user.is_verified && user.has_paid) {
+                            statusHtml += '<span class="flag-green">💎 Premium (Paid 20 KSH)</span>';
+                        } else if (user.is_verified && !user.has_paid) {
+                            statusHtml += '<span class="flag-blue">📧 Email Verified (Unpaid)</span>';
+                        } else {
+                            statusHtml += '<span class="flag-yellow">⚠️ Unverified Account</span>';
+                        }
+
+                        if (user.is_locked) {
+                            statusHtml += ' <span class="flag-red" style="margin-left:5px;">🚫 Locked Out</span>';
+                        }
                         
                         let card = document.createElement('div');
                         card.className = 'user-result-card';
                         card.id = 'search-res-' + safeId;
+                        
+                        // Notice the new onclick="prepTargetedEmail('${user.email}')" here!
                         card.innerHTML = `
                             <div>
                                 <h4>${user.name} <span>(${user.reg_number})</span></h4>
@@ -699,16 +776,16 @@
                                 <div>${statusHtml}</div>
                             </div>
                             <div class="action-group" style="align-items: center;">
-                                <a href="mailto:${user.email}" class="btn-admin btn-primary" style="text-decoration: none;">✉️ Email User</a>
+                                <button class="btn-admin btn-primary" onclick="prepTargetedEmail('${user.email}')">✉️ System Email</button>
                                 <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '${safeId}')">🚫 Ban & Delete</button>
                             </div>
                         `;
                         resultsContainer.appendChild(card);
                     });
                     resultsContainer.style.display = 'flex';
-                    showToast(`Found ${data.users.length} user(s).`);
+                    showToast(`Found ${data.users.length} matching user(s).`);
                 } else {
-                    showToast("No users found matching that query.", true);
+                    showToast("No users found matching that criteria.", true);
                 }
             })
             .catch(err => {
@@ -719,7 +796,6 @@
             });
         }
 
-        // Helper to trigger the "View All" functionality
         function viewAllUsers() {
             document.getElementById('search-query').value = '';
             searchUser('all');
