@@ -8,7 +8,7 @@ eventlet
 firebase-admin
 psycopg2-binary
 python-dotenv
-
+twilio
 # Utilities (Push Notifications & QR Codes)
 pywebpush
 qrcode
