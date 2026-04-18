@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Call | MMUST Dating</title>
+    <style>
+        body { margin: 0; padding: 0; background: #0f172a; color: white; font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        .video-container { position: absolute; inset: 0; z-index: 1; display: none; }
+        #remoteVideo { width: 100%; height: 100%; object-fit: cover; background: #000; }
+        #localVideo { position: absolute; bottom: 120px; right: 20px; width: 100px; height: 150px; object-fit: cover; border-radius: 12px; border: 2px solid white; transform: scaleX(-1); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        
+        .avatar-container { z-index: 2; text-align: center; margin-bottom: 40px;}
+        .avatar { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid #38bdf8; margin-bottom: 20px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(56,189,248,0.5); } 70% { box-shadow: 0 0 0 30px rgba(56,189,248,0); } 100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } }
+        
+        h1 { margin: 0 0 10px 0; font-size: 28px; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+        .status { color: #38bdf8; font-size: 16px; font-weight: bold; text-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+        
+        .timer { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 8px 20px; border-radius: 20px; font-size: 20px; font-weight: bold; font-family: monospace; z-index: 10; display: none; border: 1px solid #333;}
+        .timer.warning { color: #ef4444; border-color: #ef4444; animation: flash 1s infinite; }
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .controls { position: absolute; bottom: 40px; z-index: 10; display: flex; gap: 20px; }
+        .btn { width: 65px; height: 65px; border-radius: 50%; border: none; cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); transition: 0.2s;}
+        .btn:active { transform: scale(0.9); }
+        .btn-hangup { background: #ef4444; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="timer" id="callTimer">01:00</div>
+
+    <div class="video-container" id="videoContainer">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay playsinline muted></video>
+    </div>
+
+    <div class="avatar-container" id="avatarContainer">
+        <img src="{{ partner_img }}" class="avatar" id="partnerAvatar">
+        <h1>{{ partner_name }}</h1>
+        <div class="status" id="callStatus">Connecting...</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-hangup" onclick="endCall()">📵</button>
+    </div>
+
+    <audio id="remoteAudio" autoplay playsinline></audio>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const myId = "{{ session.get('user_id') }}";
+        const partnerId = "{{ partner_id }}";
+        const action = "{{ action }}"; // 'call' or 'answer'
+        const isVideoCall = {{ is_video | lower }};
+        
+        let pc = null;
+        let localStream = null;
+        let callTimeout = null;
+        let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        socket.on('connect', () => { socket.emit('join_call_room', { user_id: myId }); });
+
+        // ── 1 MINUTE TIMER LOGIC ──
+        function startOneMinuteTimer() {
+            const timerEl = document.getElementById('callTimer');
+            timerEl.style.display = 'block';
+            let timeLeft = 60;
+
+            callTimeout = setInterval(() => {
+                timeLeft--;
+                let seconds = timeLeft < 10 ? `0${timeLeft}` : timeLeft;
+                timerEl.innerText = `00:${seconds}`;
+
+                if (timeLeft <= 10) timerEl.classList.add('warning');
+
+                if (timeLeft <= 0) {
+                    clearInterval(callTimeout);
+                    alert("1 Minute Limit Reached!");
+                    endCall();
+                }
+            }, 1000);
+        }
+
+        async function initWebRTC() {
+            // 1. Fetch Twilio TURN Servers
+            try {
+                const res = await fetch('/api/turn-credentials');
+                const data = await res.json();
+                if (data.iceServers) rtcConfig.iceServers = data.iceServers;
+            } catch(e) { console.warn("Using free STUN, Twilio fetch failed."); }
+
+            // 2. Get Camera/Mic
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideoCall });
+                if (isVideoCall) {
+                    document.getElementById('videoContainer').style.display = 'block';
+                    document.getElementById('localVideo').srcObject = localStream;
+                }
+            } catch (e) {
+                alert("Microphone/Camera access denied!");
+                window.location.href = '/matches';
+                return;
+            }
+
+            // 3. Setup Connection
+            pc = new RTCPeerConnection(rtcConfig);
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+            pc.ontrack = e => {
+                // Force play to bypass mobile restrictions
+                if (isVideoCall) {
+                    const rv = document.getElementById('remoteVideo');
+                    rv.srcObject = e.streams[0];
+                    rv.play().catch(e=>console.log(e));
+                    document.getElementById('avatarContainer').style.display = 'none';
+                } else {
+                    const ra = document.getElementById('remoteAudio');
+                    ra.srcObject = e.streams[0];
+                    ra.play().catch(e=>console.log(e));
+                }
+            };
+
+            pc.onicecandidate = e => {
+                if (e.candidate) socket.emit('webrtc_ice_candidate', { target_id: partnerId, candidate: e.candidate });
+            };
+
+            // 4. Execute Call or Answer
+            if (action === 'call') {
+                document.getElementById('callStatus').innerText = "Ringing...";
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                socket.emit('webrtc_offer', {
+                    target_id: partnerId, caller_id: myId,
+                    caller_name: "{{ session.get('user_name', 'Student').split()[0] }}",
+                    caller_img: "{{ session.get('profile_img') }}",
+                    is_video: isVideoCall, offer: offer
+                });
+            }
+        }
+
+        // Wait for receiver to answer
+        socket.on('call_answered', async data => {
+            document.getElementById('callStatus').innerText = "Connected!";
+            document.getElementById('partnerAvatar').style.animation = 'none'; // Stop pulsing
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            startOneMinuteTimer(); // START 1 MINUTE COUNTDOWN!
+        });
+
+        // Receiver answering logic (triggered if action == 'answer')
+        socket.on('webrtc_offer', async data => {
+            if (action === 'answer' && data.caller_id === partnerId) {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('webrtc_answer', { caller_id: partnerId, answer: answer });
+                document.getElementById('callStatus').innerText = "Connected!";
+                document.getElementById('partnerAvatar').style.animation = 'none';
+                startOneMinuteTimer(); // START 1 MINUTE COUNTDOWN!
+            }
+        });
+
+        socket.on('new_ice_candidate', async data => {
+            if (pc) await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        });
+
+        socket.on('call_ended', () => {
+            alert("The other person hung up.");
+            endCall(false);
+        });
+
+        function endCall(notifyOther = true) {
+            if (notifyOther) socket.emit('end_call', { target_id: partnerId });
+            if (pc) pc.close();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            clearInterval(callTimeout);
+            window.location.href = '/matches'; // Return to inbox
+        }
+
+        // Start everything when page loads
+        initWebRTC();
+    </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<style>
+    /* === NATIVE APP THEME === */
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Outfit', sans-serif; background-color: #0B1219; color: #F1F5F9; }
+    
+    .talk-wrapper {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 30px 20px 80px;
+    }
+
+    .page-header { margin-bottom: 30px; }
+    .page-header h1 { font-size: 32px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 8px; }
+    .page-header h1 span { color: #38BDF8; }
+    .page-header p { color: #64748B; font-size: 15px; }
+
+    .online-badge {
+        display: inline-flex; align-items: center; gap: 8px;
+        background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10B981; font-size: 13px; font-weight: 800;
+        padding: 6px 16px; border-radius: 30px; margin-bottom: 25px;
+    }
+    .online-badge::before {
+        content: ''; width: 8px; height: 8px; border-radius: 50%;
+        background: #10B981; animation: pulsePip 1.5s infinite;
+    }
+    @keyframes pulsePip { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* === USER GRID === */
+    .user-grid { display: flex; flex-direction: column; gap: 14px; }
+
+    .user-card {
+        background: #141F2E; border: 1px solid rgba(56, 189, 248, 0.15);
+        border-radius: 20px; padding: 20px; display: flex; align-items: center; 
+        justify-content: space-between; gap: 15px; transition: transform 0.2s, border-color 0.2s;
+    }
+    .user-card:hover { transform: translateY(-3px); border-color: rgba(56, 189, 248, 0.4); }
+
+    .user-info { display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;}
+    
+    .avatar-wrapper { position: relative; flex-shrink: 0; }
+    .avatar-wrapper img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #1E293B; display: block; }
+    .status-pip {
+        position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px;
+        border-radius: 50%; background: #10B981; border: 2.5px solid #141F2E;
+    }
+
+    .user-meta h4 { font-size: 18px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .user-meta p { font-size: 13px; color: #94A3B8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+
+    .perfect-badge {
+        background: rgba(239, 68, 68, 0.15); color: #FB7185; font-size: 10px;
+        font-weight: 900; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    /* === CALL BUTTONS === */
+    .call-actions { display: flex; gap: 10px; flex-shrink: 0; }
+
+    .btn-call {
+        border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif;
+        font-size: 14px; font-weight: 800; padding: 12px 18px; display: flex; align-items: center; gap: 8px;
+        transition: 0.2s; text-decoration: none;
+    }
+    .btn-call:active { transform: scale(0.95); }
+
+    .btn-voice { background: #38BDF8; color: #080D14; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); }
+    .btn-voice:hover { filter: brightness(1.1); }
+
+    .btn-video { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .btn-video:hover { background: rgba(168, 85, 247, 0.25); }
+
+    /* === EMPTY STATE === */
+    .empty-state {
+        background: #141F2E; border: 1px dashed rgba(56, 189, 248, 0.2);
+        border-radius: 20px; padding: 60px 20px; text-align: center; color: #64748B;
+    }
+    .empty-state .icon { font-size: 55px; margin-bottom: 15px; opacity: 0.7; }
+    .empty-state h3 { color: #F1F5F9; font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .empty-state p { font-size: 15px; }
+
+    @media (max-width: 600px) {
+        .call-card { flex-direction: column; align-items: flex-start; }
+        .call-actions { width: 100%; display: flex; }
+        .btn-call { flex: 1; justify-content: center; }
+    }
+</style>
+
+<div class="talk-wrapper">
+    <div class="page-header">
+        <h1>Live <span>Directory</span></h1>
+        <p>Connect instantly with students who are online right now.</p>
+    </div>
+
+    {% if online_users %}
+        <div class="online-badge">{{ online_users | length }} student{{ 's' if online_users | length != 1 }} active</div>
+    {% endif %}
+
+    <div class="user-grid">
+        {% if online_users %}
+            {% for u in online_users %}
+            <div class="user-card">
+                <div class="user-info">
+                    <div class="avatar-wrapper">
+                        <img src="{{ u.img }}" alt="{{ u.name }}">
+                        <div class="status-pip"></div>
+                    </div>
+                    <div class="user-meta">
+                        <h4>
+                            {{ u.name }}
+                            {% if u.is_perfect_match %}<span class="perfect-badge">❤️ Perfect Match</span>{% endif %}
+                        </h4>
+                        <p>{{ u.course | default('MMUST Student') }}</p>
+                    </div>
+                </div>
+                <div class="call-actions">
+                    <button class="btn-call btn-voice" onclick="window.location.href='/call/{{ u.id }}?action=call&video=false'">
+                        🎙 <span>Voice</span>
+                    </button>
+                    <button class="btn-call btn-video" onclick="window.location.href='/call/{{ u.id }}?action=call&video=true'">
+                        📹 <span>Video</span>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="icon">🌙</div>
+                <h3>No one is online</h3>
+                <p>Check back later — the directory updates in real-time when students log in.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

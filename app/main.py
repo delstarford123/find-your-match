@@ -3184,7 +3184,110 @@ def submit_crush():
             'message': "Secret Crush sent! 🤫 If they enter your Reg Number too, you will instantly match."
         })
         
-        
+import os
+from flask import request, jsonify, render_template, session
+from twilio.rest import Client
+from flask_socketio import emit, join_room, leave_room
+
+# 1. Page Route
+@app.route('/call/<partner_id>')
+@requires_subscription
+def call_page(partner_id):
+    # Determine if they are initiating or answering based on URL parameters
+    action = request.args.get('action', 'call') # 'call' or 'answer'
+    is_video = request.args.get('video', 'false') == 'true'
+    
+    partner_data = db.reference(f'profiles/{partner_id}').get() or {}
+    partner_name = partner_data.get('name', 'Student').split()[0]
+    partner_img = partner_data.get('img', '/static/img/placeholder.png')
+
+    return render_template('call.html', 
+                           partner_id=partner_id,
+                           partner_name=partner_name,
+                           partner_img=partner_img,
+                           action=action,
+                           is_video=is_video)
+
+# 2. Twilio TURN Credentials (Bypasses Campus Firewalls)
+@app.route('/api/turn-credentials')
+@requires_subscription
+def get_turn_credentials():
+    account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+    auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+    try:
+        client = Client(account_sid, auth_token)
+        token = client.tokens.create()
+        return jsonify({'iceServers': token.ice_servers})
+    except Exception as e:
+        logger.error(f"Twilio Error: {e}")
+        return jsonify({'error': 'Twilio failed'}), 500
+
+# 3. Socket.IO Call Handlers
+@socketio.on('join_call_room')
+def on_join_call_room(data):
+    join_room(data['user_id'])
+
+@socketio.on('webrtc_offer')
+def handle_offer(data):
+    target_id = data.get('target_id')
+    emit('incoming_call', {
+        'caller_id': data.get('caller_id'),
+        'caller_name': data.get('caller_name'),
+        'caller_img': data.get('caller_img'),
+        'is_video': data.get('is_video'),
+        'offer': data.get('offer')
+    }, room=target_id)
+
+@socketio.on('webrtc_answer')
+def handle_answer(data):
+    emit('call_answered', {'answer': data.get('answer')}, room=data.get('caller_id'))
+
+@socketio.on('webrtc_ice_candidate')
+def handle_ice_candidate(data):
+    emit('new_ice_candidate', {'candidate': data.get('candidate')}, room=data.get('target_id'))
+
+@socketio.on('end_call')
+def handle_end_call(data):
+    emit('call_ended', room=data.get('target_id'))
+    
+            
+@app.route('/talk')
+@requires_subscription
+def talk_directory():
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+
+    try:
+        all_profiles = db.reference('profiles').get() or {}
+    except Exception as e:
+        logger.error('talk_directory: Firebase read failed: %s', e)
+        all_profiles = {}
+
+    online_users = []
+
+    for p_id, p in all_profiles.items():
+        if not isinstance(p, dict):
+            continue
+            
+        # Skip yourself, offline users, unpaid users, and hidden profiles
+        if (p_id == user_id or not p.get('is_online') or p.get('is_paid') != True or not p.get('is_visible', True)):
+            continue
+
+        ai_score = p.get('ai_score', random.randint(60, 95))
+
+        online_users.append({
+            'id': p_id,
+            'name': p.get('name', 'Student').split()[0],
+            'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+            'course': p.get('course', 'MMUST Student'),
+            'is_perfect_match': ai_score >= 80,
+        })
+
+    # Sort: Perfect matches first, then alphabetical
+    online_users.sort(key=lambda u: (not u['is_perfect_match'], u['name']))
+
+    return render_template('talk.html', online_users=online_users)
+
         
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing

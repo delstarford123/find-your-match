@@ -405,6 +405,9 @@
                         <div class="dropdown-content">
                             <a href="{{ url_for('dashboard') }}">Overview</a>
                             <a href="{{ url_for('matches') }}">Messages</a>
+                            <a href="{{ url_for('talk_directory') }}" class="nav-link">
+                           🎙 Live Talk
+                           </a>
                         </div>
                     </div>
 
@@ -767,6 +770,113 @@
             });
         });
     </script>
+<script>
+    const globalSocket = io();
+    globalSocket.on('connect', () => { globalSocket.emit('join_call_room', { user_id: "{{ session.get('user_id') }}" }); });
+    
+    globalSocket.on('incoming_call', (data) => {
+        // When a call comes in, ask them if they want to answer
+        const callType = data.is_video ? "Video" : "Voice";
+        if (confirm(`${data.caller_name} is calling you (${callType} Call). Answer?`)) {
+            // Redirect them to the standalone call page to answer it!
+            window.location.href = `/call/${data.caller_id}?action=answer&video=${data.is_video}`;
+        } else {
+            globalSocket.emit('end_call', { target_id: data.caller_id });
+        }
+    });
+</script>
+<style>
+    #globalIncomingCall {
+        display: none; position: fixed; inset: 0; z-index: 99999;
+        background: rgba(8, 13, 20, 0.95); backdrop-filter: blur(15px);
+        flex-direction: column; align-items: center; justify-content: center; color: white; font-family: 'Outfit', sans-serif;
+    }
+    #globalIncomingCall.active { display: flex; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .g-ring-container { position: relative; width: 140px; height: 140px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center;}
+    .g-ring { position: absolute; border-radius: 50%; border: 2px solid #38BDF8; animation: globalExpandRing 2s infinite; }
+    .g-ring:nth-child(1) { width: 100px; height: 100px; animation-delay: 0s; }
+    .g-ring:nth-child(2) { width: 120px; height: 120px; animation-delay: 0.5s; }
+    .g-ring:nth-child(3) { width: 140px; height: 140px; animation-delay: 1s; }
+    @keyframes globalExpandRing { 0%{opacity:0.8;transform:scale(0.85)} 100%{opacity:0;transform:scale(1.2)} }
+    
+    .g-avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; border: 4px solid #38BDF8; position: relative; z-index: 5; }
+    
+    .g-name { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+    .g-type { font-size: 15px; color: #38BDF8; font-weight: 600; margin-bottom: 40px; letter-spacing: 1px;}
+    
+    .g-actions { display: flex; gap: 30px; }
+    .g-btn { width: 75px; height: 75px; border-radius: 50%; border: none; font-size: 32px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);}
+    .g-btn:active { transform: scale(0.9); }
+    .g-btn.decline { background: #EF4444; color: white; }
+    .g-btn.answer { background: #10B981; color: white; animation: bounce 2s infinite; }
+    @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-10px);} 60% {transform: translateY(-5px);} }
+</style>
+
+<div id="globalIncomingCall">
+    <div class="g-ring-container">
+        <div class="g-ring"></div><div class="g-ring"></div><div class="g-ring"></div>
+        <img id="gIncImg" src="" class="g-avatar">
+    </div>
+    <div class="g-name" id="gIncName">Student Name</div>
+    <div class="g-type" id="gIncType">Incoming Call...</div>
+    
+    <div class="g-actions">
+        <button class="g-btn decline" onclick="globalDeclineCall()">✖</button>
+        <button class="g-btn answer" id="gBtnAnswer">📞</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+<script>
+    const globalSocket = io();
+    const myUserId = "{{ session.get('user_id') }}";
+    let globalIncomingCallerId = null;
+
+    if (myUserId) {
+        globalSocket.on('connect', () => { 
+            globalSocket.emit('join_call_room', { user_id: myUserId }); 
+        });
+        
+        globalSocket.on('incoming_call', (data) => {
+            // Do not show popup if they are ALREADY on the call.html page
+            if (window.location.pathname.includes('/call/')) return; 
+
+            globalIncomingCallerId = data.caller_id;
+            document.getElementById('gIncImg').src = data.caller_img || '/static/img/placeholder.png';
+            document.getElementById('gIncName').innerText = data.caller_name || 'A Student';
+            
+            const isVideo = data.is_video === true || data.is_video === 'true';
+            document.getElementById('gIncType').innerText = isVideo ? '📹 Incoming Video Call' : '🎙 Incoming Voice Call';
+            document.getElementById('gIncType').style.color = isVideo ? '#A855F7' : '#38BDF8';
+            document.getElementById('gIncImg').style.borderColor = isVideo ? '#A855F7' : '#38BDF8';
+
+            // Setup the Answer button to redirect to call.html
+            document.getElementById('gBtnAnswer').onclick = function() {
+                document.getElementById('globalIncomingCall').classList.remove('active');
+                window.location.href = `/call/${data.caller_id}?action=answer&video=${isVideo}`;
+            };
+
+            document.getElementById('globalIncomingCall').classList.add('active');
+            
+            // Optional: Play a ringtone here using standard HTML5 Audio
+        });
+
+        globalSocket.on('call_ended', () => {
+            document.getElementById('globalIncomingCall').classList.remove('active');
+            globalIncomingCallerId = null;
+        });
+    }
+
+    function globalDeclineCall() {
+        document.getElementById('globalIncomingCall').classList.remove('active');
+        if (globalIncomingCallerId) {
+            globalSocket.emit('end_call', { target_id: globalIncomingCallerId, reason: 'declined' });
+            globalIncomingCallerId = null;
+        }
+    }
+</script>
 
     {% block scripts %}{% endblock %}
 </body>

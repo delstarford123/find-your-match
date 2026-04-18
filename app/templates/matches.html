@@ -329,6 +329,8 @@
         {% if active_partner %}
         
         <div class="chat-header">
+           <button onclick="window.location.href='/call/{{ active_partner.id }}?action=call&video=false'">📞 Voice Call</button>
+           <button onclick="window.location.href='/call/{{ active_partner.id }}?action=call&video=true'">📹 Video Call</button> 
             <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
                 
