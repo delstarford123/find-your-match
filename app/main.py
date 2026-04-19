@@ -3451,7 +3451,14 @@ def submit_review():
     except Exception as e:
         logger.error(f"Failed to submit call review: {e}")
         return jsonify({'success': False, 'message': 'Database error'}), 500 
-           
+# Relay in-call emoji reactions
+@socketio.on('call_reaction')
+def handle_call_reaction(data):
+    target_id = data.get('target_id')
+    if target_id:
+        emit('receive_reaction', {'emoji': data.get('emoji')}, room=target_id)
+        
+                   
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

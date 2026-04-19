@@ -77,6 +77,50 @@
         .btn:active { transform: scale(0.9); }
         .btn-hangup { background: #ef4444; color: white; }
         .btn-hangup:hover { background: #dc2626; }
+
+        /* === STUDIO GLOW FILTER === */
+        /* This slightly boosts brightness, smooths contrast, and warms the skin tone */
+        .studio-glow {
+            filter: brightness(1.1) contrast(1.05) saturate(1.2) sepia(0.1);
+        }
+
+        /* === LIVE REACTIONS UI === */
+        .reaction-bar {
+            position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 15px; z-index: 20;
+        }
+        .react-btn {
+            background: rgba(11, 18, 25, 0.6); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 50%;
+            width: 50px; height: 50px; font-size: 24px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .react-btn:active { transform: scale(0.8); }
+        .react-btn:hover { background: rgba(255,255,255,0.1); }
+
+        /* Floating Emoji Animation Container */
+        #reaction-layer {
+            position: absolute; inset: 0; z-index: 15; pointer-events: none; overflow: hidden;
+        }
+        .floating-emoji {
+            position: absolute; bottom: -50px; font-size: 40px;
+            animation: floatUpAndFade 2.5s ease-out forwards;
+            filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4));
+        }
+
+        @keyframes floatUpAndFade {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            10% { transform: translateY(-50px) scale(1.2); opacity: 1; }
+            50% { transform: translateY(-150px) scale(1) translateX(15px); opacity: 1; }
+            100% { transform: translateY(-300px) scale(1.5) translateX(-15px); opacity: 0; }
+        }
+        
+        /* Extra control button for the beauty filter */
+        .btn-magic { background: #1E293B; color: #A855F7; border: 1px solid #334155; }
+        .btn-magic.active { background: rgba(168, 85, 247, 0.2); border-color: #A855F7; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+
+
     </style>
 </head>
 <body>
@@ -88,7 +132,11 @@
         <video id="remoteVideo" autoplay playsinline></video>
         <video id="localVideo" autoplay playsinline muted></video>
     </div>
-
+    <div class="controls">
+        <button class="btn btn-magic" id="btnGlow" onclick="toggleGlow()" title="Studio Glow">✨</button>
+        <button class="btn btn-pip" id="btnPip" onclick="togglePiP()" style="display: none;" title="Minimize Video">⧉</button>
+        <button class="btn btn-hangup" onclick="endCall()" title="End Call">📵</button>
+    </div>
     <div class="avatar-container" id="avatarContainer">
         <img src="{{ partner_img }}" class="avatar" id="partnerAvatar">
         <h1>{{ partner_name }}</h1>
@@ -208,6 +256,9 @@
             document.getElementById('callStatus').innerText = "Connected! 🟢";
             document.getElementById('partnerAvatar').style.animation = 'none'; // Stop the ringing pulse
             startTimer(); // Launch the 5-minute countdown!
+            if (isVideoCall) {
+            document.getElementById('reactionBar').style.display = 'flex';
+        }
         }
 
         // ==========================================
@@ -331,6 +382,63 @@
 
         // Boot up the system as soon as the page loads
         initWebRTC();
+        // ==========================================
+        // 6. STUDIO GLOW (BEAUTY FILTER)
+        // ==========================================
+        let isGlowActive = false;
+        function toggleGlow() {
+            isGlowActive = !isGlowActive;
+            const localVid = document.getElementById('localVideo');
+            const glowBtn = document.getElementById('btnGlow');
+            
+            if (isGlowActive) {
+                localVid.classList.add('studio-glow');
+                glowBtn.classList.add('active');
+            } else {
+                localVid.classList.remove('studio-glow');
+                glowBtn.classList.remove('active');
+            }
+        }
+
+        // ==========================================
+        // 7. IN-CALL EMOJI REACTIONS
+        // ==========================================
+        function sendReaction(emoji) {
+            // Show it locally immediately
+            showFloatingEmoji(emoji, true);
+            // Send it to the partner
+            socket.emit('call_reaction', { target_id: partnerId, emoji: emoji });
+        }
+
+        socket.on('receive_reaction', data => {
+            // Show the emoji received from the partner
+            showFloatingEmoji(data.emoji, false);
+        });
+
+        function showFloatingEmoji(emoji, isLocal) {
+            const layer = document.getElementById('reaction-layer');
+            const emojiEl = document.createElement('div');
+            emojiEl.className = 'floating-emoji';
+            emojiEl.innerText = emoji;
+            
+            // Randomize starting position slightly
+            const randomX = Math.random() * 40 - 20; 
+            
+            // If local, float up from the bottom right (near self video)
+            // If remote, float up from the bottom center (near remote video)
+            if (isLocal) {
+                emojiEl.style.right = (30 + randomX) + 'px';
+            } else {
+                emojiEl.style.left = `calc(50% + ${randomX}px)`;
+            }
+
+            layer.appendChild(emojiEl);
+
+            // Clean up the DOM element after the animation finishes (2.5s)
+            setTimeout(() => {
+                emojiEl.remove();
+            }, 2500);
+        }
     </script>
 </body>
 </html>
