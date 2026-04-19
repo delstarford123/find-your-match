@@ -57,6 +57,14 @@
         .timer.warning { color: #ef4444; border-color: rgba(239, 68, 68, 0.5); animation: flash 1s infinite; }
         @keyframes flash { 0%, 100% { background: rgba(11, 18, 25, 0.7); } 50% { background: rgba(239, 68, 68, 0.2); } }
 
+        /* === NETWORK WARNING === */
+        .network-warning {
+            position: absolute; top: 110px; left: 50%; transform: translateX(-50%);
+            background: rgba(239, 68, 68, 0.9); color: white; padding: 6px 16px;
+            border-radius: 20px; font-size: 13px; font-weight: 700; z-index: 10;
+            display: none; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+        }
+
         /* === CONTROLS === */
         .controls { position: absolute; bottom: 40px; z-index: 10; display: flex; gap: 25px; }
         
@@ -74,6 +82,7 @@
 <body>
 
     <div class="timer" id="callTimer">05:00</div>
+    <div class="network-warning" id="networkWarning">⚠️ Weak Connection</div>
 
     <div class="video-container" id="videoContainer">
         <video id="remoteVideo" autoplay playsinline></video>
@@ -106,6 +115,7 @@
         let pc = null;
         let localStream = null;
         let callTimeout = null;
+        let networkCheckInterval = null;
         
         // Fallback STUN servers (will be overwritten by Twilio TURN)
         let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
@@ -141,7 +151,6 @@
                 // Force end call at 0
                 if (timeLeft <= 0) {
                     clearInterval(callTimeout);
-                    alert("5 Minute Time Limit Reached!");
                     endCall();
                 }
             }, 1000);
@@ -176,6 +185,21 @@
             pc.onicecandidate = e => {
                 if (e.candidate) {
                     socket.emit('webrtc_ice_candidate', { target_id: partnerId, candidate: e.candidate });
+                }
+            };
+
+            // Monitor Network Quality
+            pc.oniceconnectionstatechange = () => {
+                const warningEl = document.getElementById('networkWarning');
+                if (pc.iceConnectionState === 'disconnected') {
+                    warningEl.style.display = 'block';
+                    warningEl.innerText = "⚠️ Reconnecting...";
+                } else if (pc.iceConnectionState === 'connected') {
+                    warningEl.style.display = 'none';
+                } else if (pc.iceConnectionState === 'failed') {
+                    warningEl.style.display = 'block';
+                    warningEl.innerText = "❌ Connection Lost";
+                    setTimeout(() => endCall(false), 3000);
                 }
             };
         }
@@ -279,11 +303,16 @@
         });
 
         // ==========================================
-        // 5. CALL TERMINATION
+        // 5. CALL TERMINATION & VIBE CHECK ROUTING
         // ==========================================
         socket.on('call_ended', () => {
-            alert("The other person hung up.");
-            endCall(false); // End locally without emitting another end_call event
+            // Only trigger if the connection was actually established
+            if (document.getElementById('callTimer').style.display === 'block') {
+                endCall(false);
+            } else {
+                alert("The other person declined or hung up.");
+                window.location.href = '/talk';
+            }
         });
 
         function endCall(notifyOther = true) {
@@ -296,8 +325,8 @@
             if (localStream) localStream.getTracks().forEach(t => t.stop());
             clearInterval(callTimeout);
             
-            // Return to the Live Talk directory
-            window.location.href = '/talk'; 
+            // Redirect to the Vibe Check rating screen!
+            window.location.href = '/call-review/' + partnerId; 
         }
 
         // Boot up the system as soon as the page loads

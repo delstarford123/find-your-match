@@ -3388,7 +3388,70 @@ def talk_directory():
 
     return render_template('talk.html', online_users=online_users)
 
-          
+@app.route('/call-review/<partner_id>')
+@requires_subscription
+def call_review(partner_id):
+    """Loads the post-call vibe check and quality rating screen."""
+    try:
+        partner_data = db.reference(f'profiles/{partner_id}').get() or {}
+        partner_name = partner_data.get('name', 'Student').split()[0]
+        partner_img = partner_data.get('img', '/static/img/placeholder.png')
+    except Exception as e:
+        logger.error(f"Error fetching partner data for review: {e}")
+        partner_name = "Student"
+        partner_img = '/static/img/placeholder.png'
+
+    return render_template('call_review.html',
+                           partner_id=partner_id,
+                           partner_name=partner_name,
+                           partner_img=partner_img)
+
+
+@app.route('/api/submit-review', methods=['POST'])
+@requires_subscription
+def submit_review():
+    """Processes the call feedback and handles safety reporting."""
+    user_id = session.get('user_id')
+    data = request.json
+
+    partner_id = data.get('partner_id')
+    vibe = data.get('vibe')         # 'up' or 'down'
+    quality = data.get('quality')   # 1 to 5
+    report = data.get('report', False)
+
+    try:
+        # Save the review data
+        db.reference(f'call_reviews/{user_id}/{partner_id}').set({
+            'vibe': vibe,
+            'quality': quality,
+            'reported': report,
+            'timestamp': datetime.now(EAT).isoformat()
+        })
+
+        # Check if the partner also gave a thumbs up (Mutual Vibe Match)
+        partner_review = db.reference(f'call_reviews/{partner_id}/{user_id}').get()
+        mutual_match = False
+        
+        if partner_review and partner_review.get('vibe') == 'up' and vibe == 'up':
+            mutual_match = True
+            # Unlock further messaging or set a mutual vibe flag here if desired
+
+        # Process safety report
+        if report:
+            db.reference('admin_alerts').push({
+                'sender': user_id,
+                'reported_user': partner_id,
+                'flag': 'call_report',
+                'message': 'User flagged inappropriate behavior or content during a live WebRTC call.',
+                'timestamp': datetime.now(EAT).isoformat()
+            })
+
+        return jsonify({'success': True, 'mutual_match': mutual_match})
+
+    except Exception as e:
+        logger.error(f"Failed to submit call review: {e}")
+        return jsonify({'success': False, 'message': 'Database error'}), 500 
+           
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

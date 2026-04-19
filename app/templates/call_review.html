@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Outfit', sans-serif; background-color: #0B1219; color: #F1F5F9; }
+    
+    .review-wrapper {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-height: calc(100vh - 70px);
+        justify-content: center;
+    }
+
+    .avatar-wrapper { position: relative; margin-bottom: 20px; }
+    .avatar-wrapper img { 
+        width: 120px; height: 120px; border-radius: 50%; object-fit: cover; 
+        border: 4px solid #1E293B; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    
+    .header-title { font-size: 28px; font-weight: 900; margin-bottom: 5px; color: #F1F5F9; }
+    .header-sub { font-size: 15px; color: #64748B; margin-bottom: 40px; }
+
+    /* Metrics Section */
+    .metric-section {
+        background: #141F2E; border: 1px solid rgba(56, 189, 248, 0.15);
+        border-radius: 20px; padding: 25px; width: 100%; margin-bottom: 20px;
+    }
+    .metric-label { font-size: 16px; font-weight: 800; margin-bottom: 15px; color: #E2E8F0; }
+
+    /* Quality Stars (1-5) */
+    .quality-row { display: flex; justify-content: center; gap: 10px; }
+    .q-btn {
+        width: 45px; height: 45px; border-radius: 12px; border: 2px solid #1E293B;
+        background: #0B1219; color: #64748B; font-size: 18px; font-weight: 800;
+        cursor: pointer; transition: 0.2s; font-family: 'Outfit', sans-serif;
+    }
+    .q-btn.selected { background: #38BDF8; color: #0B1219; border-color: #38BDF8; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); }
+
+    /* Vibe Thumbs */
+    .vibe-row { display: flex; justify-content: center; gap: 20px; }
+    .v-btn {
+        flex: 1; padding: 15px; border-radius: 16px; border: 2px solid #1E293B;
+        background: #0B1219; color: #F1F5F9; font-size: 24px;
+        cursor: pointer; transition: 0.2s;
+    }
+    .v-btn.down.selected { background: rgba(239, 68, 68, 0.2); border-color: #EF4444; }
+    .v-btn.up.selected { background: rgba(16, 185, 129, 0.2); border-color: #10B981; }
+
+    /* Report & Submit */
+    .report-wrap { margin-top: 10px; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .report-checkbox { width: 18px; height: 18px; accent-color: #EF4444; cursor: pointer; }
+    .report-label { color: #EF4444; font-size: 14px; font-weight: 700; cursor: pointer; }
+
+    .submit-btn {
+        width: 100%; padding: 18px; border-radius: 16px; border: none;
+        background: #38BDF8; color: #0B1219; font-size: 18px; font-weight: 900;
+        cursor: pointer; font-family: 'Outfit', sans-serif; transition: 0.2s;
+        box-shadow: 0 8px 20px rgba(56, 189, 248, 0.2);
+    }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .submit-btn:active { transform: scale(0.98); }
+
+    /* Confetti Overlay */
+    .vibe-matched-overlay {
+        display: none; position: fixed; inset: 0; background: rgba(8, 13, 20, 0.95);
+        z-index: 9999; flex-direction: column; align-items: center; justify-content: center;
+        animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+</style>
+
+<div class="review-wrapper">
+    <div class="avatar-wrapper">
+        <img src="{{ partner_img }}" alt="{{ partner_name }}">
+    </div>
+    <h1 class="header-title">Call Ended</h1>
+    <p class="header-sub">Help improve the platform by rating the experience.</p>
+
+    <div class="metric-section">
+        <div class="metric-label">Connection Quality</div>
+        <div class="quality-row">
+            <button class="q-btn" onclick="selectQuality(1)">1</button>
+            <button class="q-btn" onclick="selectQuality(2)">2</button>
+            <button class="q-btn" onclick="selectQuality(3)">3</button>
+            <button class="q-btn" onclick="selectQuality(4)">4</button>
+            <button class="q-btn" onclick="selectQuality(5)">5</button>
+        </div>
+    </div>
+
+    <div class="metric-section">
+        <div class="metric-label">Did the vibe match?</div>
+        <div class="vibe-row">
+            <button class="v-btn down" id="vibe-down" onclick="selectVibe('down')">👎</button>
+            <button class="v-btn up" id="vibe-up" onclick="selectVibe('up')">👍</button>
+        </div>
+    </div>
+
+    <div class="report-wrap">
+        <input type="checkbox" id="report-check" class="report-checkbox">
+        <label for="report-check" class="report-label">Report inappropriate behavior</label>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" onclick="submitReview()">Submit & Return</button>
+</div>
+
+<div class="vibe-matched-overlay" id="vibe-overlay">
+    <div style="font-size: 80px; margin-bottom: 20px;">🎉</div>
+    <h2 style="font-size: 32px; font-weight: 900; color: white; margin-bottom: 10px;">Vibe Matched!</h2>
+    <p style="color: #38BDF8; font-size: 16px; font-weight: 700;">Both parties gave a thumbs up.</p>
+</div>
+
+<script>
+    const partnerId = "{{ partner_id }}";
+    let selectedQuality = 0;
+    let selectedVibe = null;
+
+    function selectQuality(val) {
+        selectedQuality = val;
+        document.querySelectorAll('.q-btn').forEach((btn, index) => {
+            btn.classList.toggle('selected', index < val);
+        });
+    }
+
+    function selectVibe(val) {
+        selectedVibe = val;
+        document.getElementById('vibe-down').classList.toggle('selected', val === 'down');
+        document.getElementById('vibe-up').classList.toggle('selected', val === 'up');
+    }
+
+    function submitReview() {
+        if (!selectedQuality || !selectedVibe) {
+            alert("Please select both a quality rating and a vibe rating.");
+            return;
+        }
+
+        const btn = document.getElementById('submit-btn');
+        const reportUser = document.getElementById('report-check').checked;
+        
+        btn.disabled = true;
+        btn.innerText = "Submitting...";
+
+        const payload = {
+            partner_id: partnerId,
+            quality: selectedQuality,
+            vibe: selectedVibe,
+            report: reportUser
+        };
+
+        fetch('/api/submit-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.mutual_match) {
+                document.getElementById('vibe-overlay').style.display = 'flex';
+                setTimeout(() => {
+                    window.location.href = '/matches';
+                }, 3000);
+            } else {
+                window.location.href = '/talk';
+            }
+        })
+        .catch(err => {
+            console.error("Submission failed:", err);
+            window.location.href = '/talk';
+        });
+    }
+</script>
+{% endblock %}
