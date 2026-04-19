@@ -12,6 +12,7 @@
         max-width: 860px;
         margin: 0 auto;
         padding: 30px 20px 80px;
+        min-height: calc(100vh - 70px);
     }
 
     .page-header { margin-bottom: 30px; }
@@ -56,7 +57,7 @@
     .perfect-badge {
         background: rgba(239, 68, 68, 0.15); color: #FB7185; font-size: 10px;
         font-weight: 900; padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);
-        text-transform: uppercase; letter-spacing: 0.5px;
+        text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
     }
 
     /* === CALL BUTTONS === */
@@ -65,9 +66,10 @@
     .btn-call {
         border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif;
         font-size: 14px; font-weight: 800; padding: 12px 18px; display: flex; align-items: center; gap: 8px;
-        transition: 0.2s; text-decoration: none;
+        transition: 0.2s; text-decoration: none; justify-content: center;
     }
     .btn-call:active { transform: scale(0.95); }
+    .btn-call:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
     .btn-voice { background: #38BDF8; color: #080D14; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); }
     .btn-voice:hover { filter: brightness(1.1); }
@@ -79,15 +81,18 @@
     .empty-state {
         background: #141F2E; border: 1px dashed rgba(56, 189, 248, 0.2);
         border-radius: 20px; padding: 60px 20px; text-align: center; color: #64748B;
+        margin-top: 20px;
     }
     .empty-state .icon { font-size: 55px; margin-bottom: 15px; opacity: 0.7; }
     .empty-state h3 { color: #F1F5F9; font-size: 20px; font-weight: 800; margin-bottom: 8px; }
     .empty-state p { font-size: 15px; }
 
+    /* === MOBILE RESPONSIVENESS === */
     @media (max-width: 600px) {
-        .call-card { flex-direction: column; align-items: flex-start; }
+        .user-card { flex-direction: column; align-items: flex-start; padding: 18px; }
+        .user-info { width: 100%; margin-bottom: 10px; }
         .call-actions { width: 100%; display: flex; }
-        .btn-call { flex: 1; justify-content: center; }
+        .btn-call { flex: 1; }
     }
 </style>
 
@@ -119,10 +124,10 @@
                     </div>
                 </div>
                 <div class="call-actions">
-                    <button class="btn-call btn-voice" onclick="window.location.href='/call/{{ u.id }}?action=call&video=false'">
+                    <button class="btn-call btn-voice" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=false')">
                         🎙 <span>Voice</span>
                     </button>
-                    <button class="btn-call btn-video" onclick="window.location.href='/call/{{ u.id }}?action=call&video=true'">
+                    <button class="btn-call btn-video" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=true')">
                         📹 <span>Video</span>
                     </button>
                 </div>
@@ -137,4 +142,13 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+    // Prevents the user from spam-clicking the call button while the page redirects
+    function startCall(btn, url) {
+        btn.disabled = true;
+        btn.innerHTML = "⏳ <span>Calling...</span>";
+        window.location.href = url;
+    }
+</script>
 {% endblock %}

@@ -3232,13 +3232,18 @@ def submit_crush():
             'mutual': False, 
             'message': "Secret Crush sent! 🤫 If they enter your Reg Number too, you will instantly match."
         })
-        
 import os
-from flask import request, jsonify, render_template, session
+import random
+import logging
+from flask import request, jsonify, render_template, session, url_for
 from twilio.rest import Client
 from flask_socketio import emit, join_room, leave_room
 
-# 1. Page Route
+logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────
+#  1. DEDICATED CALL PAGE ROUTE
+# ─────────────────────────────────────────────────────────────
 @app.route('/call/<partner_id>')
 @requires_subscription
 def call_page(partner_id):
@@ -3246,9 +3251,15 @@ def call_page(partner_id):
     action = request.args.get('action', 'call') # 'call' or 'answer'
     is_video = request.args.get('video', 'false') == 'true'
     
-    partner_data = db.reference(f'profiles/{partner_id}').get() or {}
-    partner_name = partner_data.get('name', 'Student').split()[0]
-    partner_img = partner_data.get('img', '/static/img/placeholder.png')
+    # Fetch partner data safely
+    try:
+        partner_data = db.reference(f'profiles/{partner_id}').get() or {}
+        partner_name = partner_data.get('name', 'Student').split()[0]
+        partner_img = partner_data.get('img', '/static/img/placeholder.png')
+    except Exception as e:
+        logger.error(f"Error fetching partner data for call: {e}")
+        partner_name = "Student"
+        partner_img = '/static/img/placeholder.png'
 
     return render_template('call.html', 
                            partner_id=partner_id,
@@ -3257,55 +3268,92 @@ def call_page(partner_id):
                            action=action,
                            is_video=is_video)
 
-# 2. Twilio TURN Credentials (Bypasses Campus Firewalls)
+
+# ─────────────────────────────────────────────────────────────
+#  2. TWILIO TURN CREDENTIALS (E2EE Firewall Bypass)
+# ─────────────────────────────────────────────────────────────
 @app.route('/api/turn-credentials')
 @requires_subscription
 def get_turn_credentials():
+    """Generates temporary, secure tokens to punch through strict university firewalls."""
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+    
+    if not account_sid or not auth_token:
+        logger.error("Missing Twilio credentials in environment.")
+        return jsonify({'error': 'Server config error'}), 500
+
     try:
         client = Client(account_sid, auth_token)
         token = client.tokens.create()
         return jsonify({'iceServers': token.ice_servers})
     except Exception as e:
-        logger.error(f"Twilio Error: {e}")
-        return jsonify({'error': 'Twilio failed'}), 500
+        logger.error(f"Twilio Token Generation Error: {e}")
+        return jsonify({'error': 'Failed to generate network routing'}), 500
 
-# 3. Socket.IO Call Handlers
+
+# ─────────────────────────────────────────────────────────────
+#  3. WEBRTC SIGNALING & E2EE HANDSHAKE (Socket.IO)
+# ─────────────────────────────────────────────────────────────
 @socketio.on('join_call_room')
 def on_join_call_room(data):
-    join_room(data['user_id'])
+    """Users join a private room matching their ID to receive direct signals."""
+    user_id = data.get('user_id')
+    if user_id:
+        join_room(user_id)
 
+# Step A: Caller invites Receiver (Rings their phone globally)
+@socketio.on('call_invite')
+def handle_call_invite(data):
+    target_id = data.get('target_id')
+    if target_id:
+        emit('incoming_call', data, room=target_id)
+
+# Step B: Receiver accepts, loads the page, and tells Caller they are ready
+@socketio.on('receiver_ready')
+def handle_receiver_ready(data):
+    caller_id = data.get('caller_id')
+    if caller_id:
+        emit('receiver_ready', data, room=caller_id)
+
+# Step C: Caller generates WebRTC Offer and sends it securely
 @socketio.on('webrtc_offer')
 def handle_offer(data):
     target_id = data.get('target_id')
-    emit('incoming_call', {
-        'caller_id': data.get('caller_id'),
-        'caller_name': data.get('caller_name'),
-        'caller_img': data.get('caller_img'),
-        'is_video': data.get('is_video'),
-        'offer': data.get('offer')
-    }, room=target_id)
+    if target_id:
+        emit('webrtc_offer', data, room=target_id)
 
+# Step D: Receiver generates WebRTC Answer and sends it back
 @socketio.on('webrtc_answer')
 def handle_answer(data):
-    emit('call_answered', {'answer': data.get('answer')}, room=data.get('caller_id'))
+    caller_id = data.get('caller_id')
+    if caller_id:
+        emit('call_answered', data, room=caller_id)
 
+# Step E: Connect the audio/video streams (ICE Candidates)
 @socketio.on('webrtc_ice_candidate')
 def handle_ice_candidate(data):
-    emit('new_ice_candidate', {'candidate': data.get('candidate')}, room=data.get('target_id'))
+    target_id = data.get('target_id')
+    if target_id:
+        emit('new_ice_candidate', data, room=target_id)
 
+# Step F: End Call
 @socketio.on('end_call')
 def handle_end_call(data):
-    emit('call_ended', room=data.get('target_id'))
-    
-            
+    target_id = data.get('target_id')
+    if target_id:
+        emit('call_ended', room=target_id)
+
+
+# ─────────────────────────────────────────────────────────────
+#  4. LIVE TALK DIRECTORY
+# ─────────────────────────────────────────────────────────────
 @app.route('/talk')
 @requires_subscription
 def talk_directory():
+    """Displays all currently online, visible, and paid users for live calling."""
     user_id = session.get('user_id')
-    user_data = db.reference(f'profiles/{user_id}').get() or {}
-
+    
     try:
         all_profiles = db.reference('profiles').get() or {}
     except Exception as e:
@@ -3318,8 +3366,11 @@ def talk_directory():
         if not isinstance(p, dict):
             continue
             
-        # Skip yourself, offline users, unpaid users, and hidden profiles
-        if (p_id == user_id or not p.get('is_online') or p.get('is_paid') != True or not p.get('is_visible', True)):
+        # Exclude self, offline users, free users, and hidden users
+        if (p_id == user_id or 
+            not p.get('is_online') or 
+            p.get('is_paid') != True or 
+            not p.get('is_visible', True)):
             continue
 
         ai_score = p.get('ai_score', random.randint(60, 95))
@@ -3332,12 +3383,12 @@ def talk_directory():
             'is_perfect_match': ai_score >= 80,
         })
 
-    # Sort: Perfect matches first, then alphabetical
+    # Sort: Perfect matches float to the top, then alphabetically
     online_users.sort(key=lambda u: (not u['is_perfect_match'], u['name']))
 
     return render_template('talk.html', online_users=online_users)
 
-        
+          
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
