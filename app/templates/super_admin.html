@@ -3,14 +3,14 @@
 {% block content %}
 <style>
     /* === OVERRIDE BASE THEME FOR ADMIN MODE === */
-    body { background-color: #0f172a; color: #f8fafc; }
+    body { background-color: #0B1120; color: #f8fafc; font-family: 'Outfit', sans-serif; }
     
     /* Make the navbar match the dark theme */
-    .navbar { background: #1e293b !important; border-bottom: 1px solid #334155 !important; }
+    .navbar { background: #0F172A !important; border-bottom: 1px solid #1E293B !important; }
     .navbar .logo { color: #38bdf8 !important; }
     .nav-links a { color: #cbd5e1 !important; }
     .btn-nav { background: #38bdf8 !important; color: #0f172a !important; }
-    footer { background: #0f172a !important; color: #64748b !important; border-top: 1px solid #1e293b; }
+    footer { background: #0B1120 !important; color: #475569 !important; border-top: 1px solid #1E293B !important; }
     
     /* === CONTAINER === */
     .admin-wrapper {
@@ -34,37 +34,31 @@
     .delay-3 { animation-delay: 0.3s; }
     
     /* === LOGIN STATE === */
-    .admin-login-container {
-        flex: 1; display: flex; align-items: center; justify-content: center;
-    }
+    .admin-login-container { flex: 1; display: flex; align-items: center; justify-content: center; }
     
     .admin-login-box {
         width: 100%; max-width: 420px; 
-        background: #1e293b;
+        background: #0F172A;
         padding: clamp(35px, 8vw, 50px) clamp(25px, 6vw, 40px); 
         border-radius: 24px; 
         text-align: center;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
-        border: 1px solid #334155;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); 
+        border: 1px solid #1E293B;
         box-sizing: border-box;
     }
     .admin-input {
-        width: 100%; padding: 16px; background: #0f172a; 
-        border: 2px solid #334155; border-radius: 14px; 
+        width: 100%; padding: 16px; background: #0B1120; 
+        border: 2px solid #1E293B; border-radius: 14px; 
         color: white; margin-bottom: 20px; 
-        font-size: 16px; /* Prevents iOS zoom */
-        outline: none; box-sizing: border-box;
+        font-size: 15px; outline: none; box-sizing: border-box;
         transition: border-color 0.2s, box-shadow 0.2s;
-        -webkit-appearance: none; font-family: inherit; font-weight: 600;
+        -webkit-appearance: none; font-family: inherit; font-weight: 500;
     }
-    .admin-input:focus { 
-        border-color: #38bdf8; 
-        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15); 
-    }
+    .admin-input:focus { border-color: #38bdf8; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15); }
     
     .btn-admin-login {
         width: 100%; padding: 16px; border-radius: 14px; 
-        background: #38bdf8; color: #0f172a; font-weight: 900; 
+        background: #38bdf8; color: #0B1120; font-weight: 900; 
         font-size: 16px; border: none; cursor: pointer; 
         transition: transform 0.2s, box-shadow 0.2s;
         box-shadow: 0 8px 20px rgba(56, 189, 248, 0.2);
@@ -74,12 +68,12 @@
 
     /* === DASHBOARD LAYOUT === */
     .admin-header { 
-        margin: 0 0 30px; display: flex; flex-wrap: wrap;
+        margin: 0 0 40px; display: flex; flex-wrap: wrap;
         justify-content: space-between; align-items: center; gap: 20px;
     }
     .admin-header h1 { 
-        font-size: clamp(26px, 5vw, 36px); color: #f8fafc; 
-        margin: 0 0 8px 0; font-weight: 900; letter-spacing: -0.5px;
+        font-size: clamp(28px, 5vw, 38px); color: #f8fafc; 
+        margin: 0 0 8px 0; font-weight: 900; letter-spacing: -1px;
     }
     .admin-header p { color: #94a3b8; margin: 0; font-size: 15px; font-weight: 500; }
     
@@ -87,8 +81,8 @@
 
     .system-status {
         background: rgba(56, 189, 248, 0.1); color: #38bdf8; 
-        padding: 10px 18px; border-radius: 20px; font-weight: 800; 
-        font-size: 13px; border: 1px solid rgba(56, 189, 248, 0.3);
+        padding: 10px 18px; border-radius: 30px; font-weight: 800; 
+        font-size: 13px; border: 1px solid rgba(56, 189, 248, 0.2);
         display: flex; align-items: center; gap: 8px;
     }
     .status-dot {
@@ -102,37 +96,33 @@
     }
 
     .btn-lock {
-        background: #0f172a; color: #94a3b8; border: 1px solid #334155;
-        padding: 10px 20px; border-radius: 20px; font-size: 13px;
+        background: #1E293B; color: #94a3b8; border: 1px solid #334155;
+        padding: 10px 20px; border-radius: 30px; font-size: 13px;
         font-weight: 800; cursor: pointer; transition: all 0.2s ease;
         text-decoration: none; display: flex; align-items: center; gap: 8px;
     }
     .btn-lock:active { transform: scale(0.95); }
-    @media (hover: hover) {
-        .btn-lock:hover { background: #ef4444; color: white; border-color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
-    }
+    @media (hover: hover) { .btn-lock:hover { background: #ef4444; color: white; border-color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); } }
     
     /* === METRICS CARDS === */
     .metrics-grid { 
-        display: grid; 
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); 
-        gap: 15px; margin-bottom: 20px; 
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); 
+        gap: 16px; margin-bottom: 30px; 
     }
     .metric-card {
-        background: #1e293b; padding: 25px 20px; border-radius: 20px; 
-        border: 1px solid #334155; display: flex; flex-direction: column; 
+        background: #0F172A; padding: 24px; border-radius: 20px; 
+        border: 1px solid #1E293B; display: flex; flex-direction: column; 
         justify-content: center; transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    @media (hover: hover) { .metric-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); } }
+    @media (hover: hover) { .metric-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.3); border-color: #334155; } }
     
     .metric-card.highlight { 
-        border-color: #0ea5e9; 
-        background: linear-gradient(135deg, #1e293b 0%, #0c4a6e 100%); 
+        border-color: #0ea5e9; background: linear-gradient(135deg, #0F172A 0%, #082f49 100%); 
         box-shadow: 0 10px 30px rgba(14, 165, 233, 0.15);
     }
     .m-title { 
         color: #94a3b8; font-size: 12px; text-transform: uppercase; 
-        font-weight: 800; margin-bottom: 8px; letter-spacing: 0.8px; display: flex; align-items: center; gap: 8px;
+        font-weight: 800; margin-bottom: 12px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;
     }
     .metric-card.highlight .m-title { color: #7dd3fc; }
     
@@ -140,80 +130,89 @@
         font-size: clamp(28px, 5vw, 36px); font-weight: 900; color: #f8fafc; 
         line-height: 1.1; letter-spacing: -1px;
     }
-    .m-value span { 
-        font-size: 14px; color: #38bdf8; font-weight: 800;
-        vertical-align: super; margin-right: 4px; letter-spacing: 0;
-    }
+    .m-value span { font-size: 14px; color: #38bdf8; font-weight: 800; vertical-align: super; margin-right: 4px; letter-spacing: 0; }
 
-    /* === LISTS & ALERTS === */
+    /* === LISTS & CARDS === */
     .section-title { 
-        font-size: 20px; color: #f8fafc; margin-top: 20px; margin-bottom: 20px; 
-        padding-bottom: 15px; border-bottom: 2px solid #1e293b; font-weight: 900;
-        display: flex; align-items: center; gap: 10px;
+        font-size: 22px; color: #f8fafc; margin-top: 30px; margin-bottom: 20px; 
+        font-weight: 900; display: flex; align-items: center; gap: 10px;
     }
-    .admin-list { display: flex; flex-direction: column; gap: 15px; margin-bottom: 40px; }
-    .list-item {
-        background: #1e293b; padding: 25px; border-radius: 20px; 
-        border: 1px solid #334155; display: flex; justify-content: space-between; 
+    .admin-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+    
+    .admin-card {
+        background: #0F172A; padding: 24px; border-radius: 20px; 
+        border: 1px solid #1E293B; display: flex; justify-content: space-between; 
         align-items: flex-start; flex-wrap: wrap; gap: 20px;
         transition: opacity 0.3s ease, transform 0.3s ease;
     }
+    .admin-card-header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .admin-card-title { color: white; margin: 0; font-size: 20px; font-weight: 900; }
+    .admin-card-text { color: #94a3b8; font-size: 14px; margin: 0; line-height: 1.6; }
     
-    /* Warning Flags */
-    .flag-red { color: #ef4444; font-weight: 900; background: rgba(239, 68, 68, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; letter-spacing: 0.5px; display: inline-block; border: 1px solid rgba(239, 68, 68, 0.2); }
-    .flag-yellow { color: #eab308; font-weight: 800; background: rgba(234, 179, 8, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(234, 179, 8, 0.2); }
-    .flag-blue { color: #38bdf8; font-weight: 800; background: rgba(56, 189, 248, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(56, 189, 248, 0.2); }
-    .flag-green { color: #10b981; font-weight: 800; background: rgba(16, 185, 129, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(16, 185, 129, 0.2); }
-    .flag-purple { color: #a855f7; font-weight: 800; background: rgba(168, 85, 247, 0.15); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: inline-block; border: 1px solid rgba(168, 85, 247, 0.2); }
+    /* Universal Badges */
+    .badge { padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;}
+    .badge-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+    .badge-yellow { background: rgba(234, 179, 8, 0.1); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .badge-blue { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); }
+    .badge-green { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .badge-purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.2); }
+    .badge-gray { background: rgba(100, 116, 139, 0.1); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.2); }
     
-    /* Message Bubble */
-    .alert-message { color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; padding: 18px; border-radius: 12px; border-left: 4px solid #ef4444; line-height: 1.6; word-break: break-word; font-style: italic; font-weight: 500; }
-    .feedback-message { color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0f172a; padding: 18px; border-radius: 12px; border-left: 4px solid #38bdf8; line-height: 1.6; word-break: break-word; font-weight: 500; }
-    .ticket-message { border-left: 4px solid #a855f7; }
+    /* Message Bubbles */
+    .message-bubble { 
+        color: #e2e8f0; font-size: 15px; margin: 15px 0; background: #0B1120; 
+        padding: 18px; border-radius: 12px; line-height: 1.6; word-break: break-word; font-weight: 500; 
+    }
+    .message-alert { border-left: 4px solid #ef4444; font-style: italic;}
+    .message-feedback { border-left: 4px solid #38bdf8; }
+    .message-ticket { border-left: 4px solid #a855f7; }
     
-    /* Action Buttons */
-    .action-group { display: flex; gap: 10px; flex-wrap: wrap; }
-    .btn-admin { padding: 12px 18px; border-radius: 12px; font-weight: 800; cursor: pointer; border: none; font-size: 14px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
-    .btn-admin:active { transform: scale(0.97); }
-    .btn-admin:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+    /* Universal Buttons */
+    .action-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center;}
+    .btn { 
+        padding: 12px 20px; border-radius: 12px; font-weight: 800; cursor: pointer; border: none; 
+        font-size: 14px; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Outfit', sans-serif;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
 
     .btn-primary { background: #38bdf8; color: #0f172a; box-shadow: 0 4px 10px rgba(56, 189, 248, 0.2); }
     @media (hover: hover) { .btn-primary:hover:not(:disabled) { background: #0ea5e9; transform: translateY(-2px); } }
 
-    .btn-approve { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
-    @media (hover: hover) { .btn-approve:hover:not(:disabled) { background: #059669; transform: translateY(-2px); } }
+    .btn-success { background: #10b981; color: white; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+    @media (hover: hover) { .btn-success:hover:not(:disabled) { background: #059669; transform: translateY(-2px); } }
     
-    .btn-ban { background: #ef4444; color: white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); }
-    @media (hover: hover) { .btn-ban:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); } }
+    .btn-danger { background: #ef4444; color: white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); }
+    @media (hover: hover) { .btn-danger:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); } }
     
-    .btn-dismiss { background: transparent; color: #94a3b8; border: 2px solid #475569; }
-    @media (hover: hover) { .btn-dismiss:hover:not(:disabled) { background: #334155; color: white; transform: translateY(-2px); } }
+    .btn-outline { background: transparent; color: #94a3b8; border: 2px solid #334155; }
+    @media (hover: hover) { .btn-outline:hover:not(:disabled) { background: #1E293B; color: white; transform: translateY(-2px); } }
     
     /* === USER SEARCH BOX & CARDS === */
     .search-box {
-        display: flex; gap: 10px; background: #0f172a; border: 2px solid #334155; 
+        display: flex; gap: 12px; background: #0B1120; border: 2px solid #1E293B; 
         padding: 12px; border-radius: 16px; margin-bottom: 20px; transition: 0.3s ease;
         align-items: center; flex-wrap: wrap; 
     }
     .search-box:focus-within { border-color: #38bdf8; box-shadow: 0 0 0 4px rgba(56,189,248,0.15); }
     .search-box input {
         flex: 1; min-width: 200px; background: transparent; border: none; color: white;
-        padding: 10px 15px; font-size: 16px; outline: none; font-weight: 600;
+        padding: 10px 15px; font-size: 15px; outline: none; font-weight: 500; font-family: 'Outfit', sans-serif;
     }
-    .search-action-btns { display: flex; gap: 10px; }
-    .quick-filters { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; padding-top: 10px; border-top: 1px dashed #334155; }
+    .quick-filters { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; padding-top: 15px; border-top: 1px dashed #1E293B; }
+    .quick-filters .btn { padding: 8px 14px; font-size: 12px; border-radius: 8px;}
     
     .user-result-card {
-        background: #0f172a; border-radius: 16px; padding: 20px; 
-        border: 1px solid #334155; display: flex; justify-content: space-between; 
+        background: #0B1120; border-radius: 16px; padding: 20px; 
+        border: 1px solid #1E293B; display: flex; justify-content: space-between; 
         flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 10px;
     }
-    .user-result-card h4 { margin: 0 0 5px 0; color: white; font-size: 18px; font-weight: 900;}
-    .user-result-card h4 span { color: #94a3b8; font-weight: 500; font-size: 15px; }
-    .user-result-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 10px; font-weight: 600; word-break: break-all;}
+    .user-result-card h4 { margin: 0 0 6px 0; color: white; font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 8px;}
+    .user-result-card h4 span { color: #94a3b8; font-weight: 500; font-size: 14px; }
+    .user-result-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 12px; font-weight: 600; word-break: break-all;}
 
     .scrollable-results { max-height: 600px; overflow-y: auto; padding-right: 5px; }
-    .scrollable-results::-webkit-scrollbar { width: 8px; }
+    .scrollable-results::-webkit-scrollbar { width: 6px; }
     .scrollable-results::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
 
     /* === ADMIN TOAST NOTIFICATION === */
@@ -231,16 +230,14 @@
         to { opacity: 1; bottom: 30px; transform: translateX(-50%) scale(1); }
     }
 
-    /* Responsive overrides */
+    /* === RESPONSIVE OVERRIDES === */
     @media (max-width: 600px) {
-        .action-group { width: 100%; flex-direction: column; gap: 10px;}
-        .btn-admin { width: 100%; text-align: center; min-height: 48px;}
-        .list-item { flex-direction: column; padding: 20px;}
-        .alert-message, .feedback-message { font-size: 14px; padding: 15px; }
+        .action-group { width: 100%; flex-direction: column; align-items: stretch; gap: 10px;}
+        .btn { width: 100%; text-align: center; min-height: 48px; justify-content: center;}
+        .admin-card { flex-direction: column; padding: 20px;}
+        .message-bubble { font-size: 14px; padding: 15px; }
         .search-box { flex-direction: column; align-items: stretch; padding: 15px;}
-        .search-action-btns { flex-direction: column; width: 100%; }
-        .search-action-btns button { width: 100%; }
-        .quick-filters { flex-direction: column; }
+        .quick-filters { flex-direction: column; align-items: stretch;}
     }
 </style>
 
@@ -249,15 +246,15 @@
 {% if not logged_in %}
     <div class="admin-login-container animate-up">
         <div class="admin-login-box">
-            <div style="font-size: 50px; margin-bottom: 20px; color: #38bdf8;">⚡</div>
+            <div style="font-size: 50px; margin-bottom: 15px; color: #38bdf8;">⚡</div>
             <h2 style="color: white; margin-bottom: 8px; font-weight: 900; font-size: 28px;">God Mode</h2>
             <p style="color: #94a3b8; margin-bottom: 30px; font-size: 15px; font-weight: 500;">Authorized Personnel Only.</p>
             
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
-                  <div style="background: #ef4444; color: white; padding: 12px; border-radius: 12px; margin-bottom: 20px; font-size: 14px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2);">
-                       ⚠️ {{ message }}
+                  <div style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 14px; border-radius: 12px; margin-bottom: 20px; font-size: 14px; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.2);">
+                        ⚠️ {{ message }}
                   </div>
                 {% endfor %}
               {% endif %}
@@ -273,13 +270,10 @@
     <div class="admin-header animate-up">
         <div>
             <h1>Command Center</h1>
-            <p>Live Overview of MMUST AI - Powered Site</p>
+            <p>Live Overview of MMUST AI-Powered Platform</p>
         </div>
         <div class="status-group">
-            <div class="system-status">
-                <div class="status-dot"></div>
-                System Online
-            </div>
+            <div class="system-status"><div class="status-dot"></div> System Online</div>
             <a href="{{ url_for('admin_logout') }}" class="btn-lock">🔒 Lock Terminal</a>
         </div>
     </div>
@@ -305,44 +299,43 @@
 
     <h3 class="section-title animate-up delay-1">🔍 User Management Engine</h3>
     <div class="admin-list animate-up delay-1">
-        <div class="list-item" style="flex-direction: column; align-items: stretch;">
-            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 15px 0; line-height: 1.5;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Use the filters below to find users based on their onboarding status.</p>
+        <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+            <p class="admin-card-text" style="margin-bottom: 20px;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Use the filters below to isolate specific cohorts.</p>
             
             <div class="search-box">
                 <input type="text" id="search-query" placeholder="Enter Email or Reg Number..." onkeypress="if(event.key === 'Enter') searchUser()">
-                <div class="search-action-btns">
-                    <button class="btn-admin btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 130px;">🔍 Lookup</button>
-                    <button class="btn-admin" onclick="viewAllUsers()" style="background: #334155; color: white; min-width: 130px;">👥 View All</button>
+                <div class="action-group" style="flex-wrap: nowrap;">
+                    <button class="btn btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 120px;">🔍 Lookup</button>
+                    <button class="btn btn-outline" onclick="viewAllUsers()" style="min-width: 120px;">👥 View All</button>
                 </div>
                 
                 <div class="quick-filters">
-                    <button class="btn-admin" onclick="searchUser('filter:unverified')" style="background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.2); font-size: 12px; padding: 8px 12px;">⚠️ Show Unverified</button>
-                    <button class="btn-admin" onclick="searchUser('filter:unpaid')" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 12px; padding: 8px 12px;">📧 Show Verified (Unpaid)</button>
-                    <button class="btn-admin" onclick="searchUser('filter:paid')" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); font-size: 12px; padding: 8px 12px;">💎 Show Premium</button>
+                    <button class="btn badge-yellow" onclick="searchUser('filter:unverified')">⚠️ Unverified</button>
+                    <button class="btn badge-blue" onclick="searchUser('filter:unpaid')">📧 Verified (Unpaid)</button>
+                    <button class="btn badge-green" onclick="searchUser('filter:paid')">💎 Premium</button>
                 </div>
             </div>
 
-            <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
-                </div>
+            <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 12px; margin-top: 10px;"></div>
         </div>
     </div>
 
     <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
     <div class="admin-list animate-up delay-2">
-        <div class="list-item">
+        <div class="admin-card">
             <div style="flex: 1; min-width: 250px;">
-                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
-                    <span class="flag-blue" id="promo-badge" style="background: {% if promo_active %}rgba(16, 185, 129, 0.15){% else %}rgba(100, 116, 139, 0.15){% endif %}; color: {% if promo_active %}#10b981{% else %}#94a3b8{% endif %}; border-color: transparent;">
+                <div class="admin-card-header">
+                    <span class="badge {% if promo_active %}badge-green{% else %}badge-gray{% endif %}" id="promo-badge">
                         {% if promo_active %}🟢 PROMO IS LIVE{% else %}⚫ PROMO IS OFF{% endif %}
                     </span>
                 </div>
-                <h4 style="color: white; margin: 10px 0 5px 0; font-size: 20px; font-weight: 900;">14-Day Free Trial Campaign</h4>
-                <p style="color: #94a3b8; font-size: 14px; margin: 0; line-height: 1.5;">When activated, any new student who verifies their email will instantly receive 2 weeks of Premium access. Once the 14 days expire, they will hit the paywall.</p>
+                <h4 class="admin-card-title" style="margin-bottom: 8px;">14-Day Free Trial Campaign</h4>
+                <p class="admin-card-text">When activated, any new student who verifies their email will instantly receive 2 weeks of Premium access. Once the 14 days expire, they hit the paywall.</p>
             </div>
             
             <div class="action-group">
-                <button class="btn-admin" id="promo-btn" 
-                        style="background: {% if promo_active %}#334155{% else %}#10b981{% endif %}; color: white;"
+                <button class="btn" id="promo-btn" 
+                        style="background: {% if promo_active %}#1E293B{% else %}#10b981{% endif %}; color: white;"
                         onclick="togglePromo(this)">
                     {% if promo_active %}Turn Off Campaign{% else %}Launch Campaign 🚀{% endif %}
                 </button>
@@ -352,59 +345,51 @@
 
     <h3 class="section-title animate-up delay-3" id="broadcast-section-anchor">🎯 Targeted Email Engine</h3>
     <div class="admin-list animate-up delay-3">
-        <div class="list-item" style="flex-direction: column; align-items: stretch;">
-            <p style="color: #94a3b8; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">
-                Dispatch an email to specific user groups or the entire platform.
-            </p>
+        <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+            <p class="admin-card-text" style="margin-bottom: 20px;">Dispatch an email to specific user cohorts or the entire platform.</p>
 
-            <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 15px;">
+            <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 16px;">
                 <option value="all">📢 All Registered Users</option>
-                <option value="premium">💎 Premium Users (Paid 20 KSH)</option>
+                <option value="premium">💎 Premium Users (Paid)</option>
                 <option value="verified_unpaid">📧 Verified but Unpaid Users</option>
                 <option value="unverified">⚠️ Unverified Users</option>
                 <option value="specific">👤 Specific User (Enter Email)</option>
             </select>
 
-            <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 15px; border-color: #38bdf8;">
-
-            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. Action Required: Finish Registration)" style="margin-bottom: 15px;">
-            
-            <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted beautifully on our end." style="resize: vertical;"></textarea>
+            <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
+            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. Action Required: Finish Registration)" style="margin-bottom: 16px;">
+            <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted nicely." style="resize: vertical;"></textarea>
 
             <div class="action-group" style="margin-top: 10px;">
-                <button class="btn-admin btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">
-                    🚀 Send System Email
-                </button>
+                <button class="btn btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">🚀 Dispatch System Email</button>
             </div>
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">🛡️ AI Moderation Queue (Requires Action)</h3>
+    <h3 class="section-title animate-up delay-3">🛡️ AI Moderation Queue</h3>
     <div class="admin-list animate-up delay-3" id="moderation-list">
         {% if alerts %}
             {% for alert in alerts %}
-            <div class="list-item" id="alert-{{ alert.alert_id }}">
+            <div class="admin-card" id="alert-{{ alert.alert_id }}">
                 <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
-                        <span class="flag-red">VIOLATION: {{ alert.flag | upper }}</span>
-                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
+                    <div class="admin-card-header">
+                        <span class="badge badge-red">VIOLATION: {{ alert.flag | upper }}</span>
+                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
                     </div>
                     
-                    <div class="alert-message">"{{ alert.message }}"</div>
-                    
+                    <div class="message-bubble message-alert">"{{ alert.message }}"</div>
                     <div style="font-size: 13px; color: #64748b; font-family: monospace; font-weight: 600; word-break: break-all;">Sender ID: {{ alert.sender }}</div>
                 </div>
                 
                 <div class="action-group">
-                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
-                    <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
+                    <button class="btn btn-outline" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
+                    <button class="btn btn-danger" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 50px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 45px; margin-bottom: 15px;"></div>
-                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px;">The community is safe.</div>
+            <div style="padding: 40px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
+                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px; font-weight: 800;">The community is safe.</div>
                 <div style="font-size: 14px;">No AI alerts currently pending.</div>
             </div>
         {% endif %}
@@ -414,60 +399,60 @@
     <div class="admin-list animate-up delay-3" id="call-list">
         {% if call_requests %}
             {% for call in call_requests %}
-            <div class="list-item" id="call-{{ call.id }}">
+            <div class="admin-card" id="call-{{ call.id }}">
                 <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
-                        <span class="flag-yellow">📞 URGENT CALLBACK</span>
-                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
+                    <div class="admin-card-header">
+                        <span class="badge badge-yellow">URGENT CALLBACK</span>
+                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
                     </div>
                     
-                    <h4 style="color: white; margin: 15px 0 5px 0; font-size: 20px; font-weight: 900;">{{ call.phone_number }}</h4>
-                    <div style="font-size: 14px; color: #94a3b8; font-weight: 500; margin-bottom: 10px;">Reason: {{ call.reason }}</div>
+                    <h4 class="admin-card-title" style="margin: 10px 0;">{{ call.phone_number }}</h4>
+                    <p class="admin-card-text" style="margin-bottom: 12px;">Reason: {{ call.reason }}</p>
                     
                     <div style="font-size: 13px; color: #64748b; font-weight: 600;">Requested by: <strong style="color: #cbd5e1;">{{ call.user_name }}</strong> ({{ call.user_id }})</div>
                 </div>
                 
                 <div class="action-group">
-                    <a href="tel:{{ call.phone_number }}" class="btn-admin btn-approve" style="text-decoration: none;">Call Now</a>
-                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark as Handled</button>
+                    <a href="tel:{{ call.phone_number }}" class="btn btn-success" style="text-decoration: none;">Call Now</a>
+                    <button class="btn btn-outline" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark Handled</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 16px; color: #94a3b8;">No pending call requests.</div>
+            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
+                <div style="font-size: 15px; font-weight: 600;">No pending call requests.</div>
             </div>
         {% endif %}
     </div>
 
-    <h3 class="section-title animate-up delay-3">✉️ User Suggestions & Support Tickets</h3>
+    <h3 class="section-title animate-up delay-3">✉️ Support Tickets & Feedback</h3>
     <div class="admin-list animate-up delay-3" id="feedback-list">
         {% if feedbacks %}
             {% for f in feedbacks %}
-            <div class="list-item" id="feedback-{{ f.id }}">
+            <div class="admin-card" id="feedback-{{ f.id }}">
                 <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px;">
+                    <div class="admin-card-header">
                         {% if f.type == 'suggestion' %}
-                            <span class="flag-blue">💡 SUGGESTION</span>
+                            <span class="badge badge-blue">💡 SUGGESTION</span>
                         {% else %}
-                            <span class="flag-purple">⚠️ ERROR TICKET</span>
+                            <span class="badge badge-purple">⚠️ ERROR TICKET</span>
                         {% endif %}
-                        <span style="color: #94a3b8; font-size: 13px; font-weight: 600;">{{ f.timestamp[:10] if f.timestamp else 'Recent' }}</span>
+                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ f.timestamp[:10] if f.timestamp else 'Recent' }}</span>
                     </div>
                     
-                    <div class="feedback-message {% if f.type == 'ticket' %}ticket-message{% endif %}">"{{ f.message }}"</div>
+                    <div class="message-bubble {% if f.type == 'ticket' %}message-ticket{% else %}message-feedback{% endif %}">"{{ f.message }}"</div>
                     
                     <div style="font-size: 13px; color: #64748b; font-weight: 600;">Submitted by: <strong style="color: #cbd5e1;">{{ f.user_name }}</strong> ({{ f.user_id }})</div>
                 </div>
                 
                 <div class="action-group">
-                    <button class="btn-admin btn-dismiss" onclick="adminAction(this, 'resolve_feedback', '{{ f.id }}', '{{ f.type }}')">Mark as Resolved</button>
+                    <button class="btn btn-outline" onclick="adminAction(this, 'resolve_feedback', '{{ f.id }}', '{{ f.type }}')">Mark Resolved</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 16px; color: #94a3b8;">No new suggestions or tickets.</div>
+            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
+                <div style="font-size: 15px; font-weight: 600;">No new suggestions or tickets.</div>
             </div>
         {% endif %}
     </div>
@@ -476,26 +461,25 @@
     <div class="admin-list animate-up delay-3" id="business-list">
         {% if pending_businesses %}
             {% for biz in pending_businesses %}
-            <div class="list-item" id="biz-{{ biz.id }}">
+            <div class="admin-card" id="biz-{{ biz.id }}">
                 <div style="flex: 1; min-width: 250px;">
-                    <h4 style="color: white; margin: 0 0 10px 0; font-size: 20px; font-weight: 900;">{{ biz.business_name }}</h4>
-                    <p style="color: #94a3b8; font-size: 15px; margin: 0 0 15px 0; line-height: 1.5;">
-                        Owner: <strong style="color: #cbd5e1;">{{ biz.owner_name }}</strong> <br>
+                    <h4 class="admin-card-title" style="margin-bottom: 10px;">{{ biz.business_name }}</h4>
+                    <p class="admin-card-text" style="margin-bottom: 15px;">
+                        Owner: <strong style="color: #cbd5e1;">{{ biz.owner_name }}</strong><br>
                         Email: <span style="word-break: break-all;">{{ biz.email }}</span>
                     </p>
-                    <span class="flag-yellow">Awaiting 2000 KSH Payment</span>
+                    <span class="badge badge-yellow">Awaiting 2000 KSH Payment</span>
                 </div>
                 
                 <div class="action-group">
-                    <button class="btn-admin btn-approve" onclick="adminAction(this, 'approve_business', '{{ biz.id }}')">Approve & Activate</button>
+                    <button class="btn btn-success" onclick="adminAction(this, 'approve_business', '{{ biz.id }}')">Approve & Activate</button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div style="padding: 50px 20px; text-align: center; color: #64748b; background: #1e293b; border-radius: 20px; border: 2px dashed #334155; font-weight: 600;">
-                <div style="font-size: 45px; margin-bottom: 15px;"></div>
-                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px;">Queue is clear.</div>
-                <div style="font-size: 14px;">No new businesses pending approval right now.</div>
+            <div style="padding: 40px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
+                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px; font-weight: 800;">Queue is clear.</div>
+                <div style="font-size: 14px;">No new businesses pending approval.</div>
             </div>
         {% endif %}
     </div>
@@ -506,13 +490,10 @@
         // Format large revenue numbers with commas
         document.querySelectorAll('.format-num').forEach(el => {
             const num = parseFloat(el.innerText);
-            if(!isNaN(num)) {
-                el.innerText = num.toLocaleString('en-KE');
-            }
+            if(!isNaN(num)) el.innerText = num.toLocaleString('en-KE');
         });
 
         let toastTimeout; 
-
         function showToast(message, isError = false) {
             const toast = document.getElementById('admin-toast');
             toast.innerText = message;
@@ -600,17 +581,15 @@
                     const badge = document.getElementById('promo-badge');
                     if (data.new_status) {
                         btn.innerText = "Turn Off Campaign";
-                        btn.style.background = "#334155";
+                        btn.style.background = "#1E293B";
                         badge.innerText = "🟢 PROMO IS LIVE";
-                        badge.style.color = "#10b981";
-                        badge.style.background = "rgba(16, 185, 129, 0.15)";
+                        badge.className = "badge badge-green";
                         showToast("Campaign Launched! New users get 14 days free.");
                     } else {
                         btn.innerText = "Launch Campaign 🚀";
                         btn.style.background = "#10b981";
                         badge.innerText = "⚫ PROMO IS OFF";
-                        badge.style.color = "#94a3b8";
-                        badge.style.background = "rgba(100, 116, 139, 0.15)";
+                        badge.className = "badge badge-gray";
                         showToast("Campaign Stopped.");
                     }
                 } else {
@@ -625,7 +604,7 @@
             });
         }
 
-        // --- NEW: TARGETED EMAIL ENGINE FUNCTIONS ---
+        // --- TARGETED EMAIL ENGINE FUNCTIONS ---
         function toggleSpecificEmailInput() {
             const targetSelect = document.getElementById('broadcast-target').value;
             const emailInput = document.getElementById('specific-email-input');
@@ -637,7 +616,6 @@
             }
         }
 
-        // Called when you click "✉️ System Email" from the user search results
         function prepTargetedEmail(userEmail) {
             const targetSelect = document.getElementById('broadcast-target');
             const emailInput = document.getElementById('specific-email-input');
@@ -646,10 +624,7 @@
             emailInput.style.display = 'block';
             emailInput.value = userEmail;
             
-            // Scroll smoothly to the broadcast section
             document.getElementById('broadcast-section-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            
-            // Highlight the subject input to prompt the admin to type
             setTimeout(() => { document.getElementById('broadcast-subject').focus(); }, 500);
             showToast("Email Engine primed for " + userEmail);
         }
@@ -660,19 +635,11 @@
             const subject = document.getElementById('broadcast-subject').value.trim();
             const message = document.getElementById('broadcast-message').value.trim();
 
-            if (!subject || !message) {
-                showToast("Subject and message are required.", true);
-                return;
-            }
+            if (!subject || !message) { showToast("Subject and message are required.", true); return; }
+            if (targetGroup === 'specific' && !specificEmail) { showToast("Please provide the specific user's email.", true); return; }
 
-            if (targetGroup === 'specific' && !specificEmail) {
-                showToast("Please provide the specific user's email address.", true);
-                return;
-            }
-
-            // Build a smart confirmation message
             let confirmMsg = "Are you sure you want to send this email?";
-            if (targetGroup === 'all') confirmMsg = "⚠️ WARNING: You are about to send an email to EVERY registered user. Proceed?";
+            if (targetGroup === 'all') confirmMsg = "⚠️ WARNING: Sending email to EVERY registered user. Proceed?";
             else if (targetGroup === 'premium') confirmMsg = "Send email to all Premium (Paid) users?";
             else if (targetGroup === 'verified_unpaid') confirmMsg = "Send email to all Verified but Unpaid users?";
             else if (targetGroup === 'unverified') confirmMsg = "Send email to all Unverified users?";
@@ -684,16 +651,10 @@
             btn.innerText = "Sending... ⏳";
             btn.disabled = true;
 
-            // Notice we added target_group and specific_email to the payload!
             fetch('/api/admin/broadcast', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    target_group: targetGroup,
-                    specific_email: specificEmail,
-                    subject: subject, 
-                    message: message 
-                })
+                body: JSON.stringify({ target_group: targetGroup, specific_email: specificEmail, subject: subject, message: message })
             })
             .then(res => res.json())
             .then(data => {
@@ -703,30 +664,21 @@
                     showToast("Email(s) dispatched to background queue!");
                     document.getElementById('broadcast-subject').value = '';
                     document.getElementById('broadcast-message').value = '';
-                    if (targetGroup === 'specific') {
-                        document.getElementById('specific-email-input').value = '';
-                    }
+                    if (targetGroup === 'specific') document.getElementById('specific-email-input').value = '';
                 } else {
                     showToast("Failed to send: " + data.message, true);
                 }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerText = originalText;
-                showToast("Network error. Check console.", true);
-                console.error(err);
+            }).catch(err => {
+                btn.disabled = false; btn.innerText = originalText; showToast("Network error. Check console.", true); console.error(err);
             });
         }
 
-        // --- ADVANCED USER SEARCH & BADGE MANAGEMENT ---
+        // --- ADVANCED USER SEARCH ---
         function searchUser(forcedQuery = null) {
             let inputField = document.getElementById('search-query');
             let query = forcedQuery || inputField.value.trim();
             
-            if (!query) {
-                showToast("Please enter an Email or Registration Number.", true);
-                return;
-            }
+            if (!query) { showToast("Please enter an Email or Registration Number.", true); return; }
             
             const btn = document.getElementById('search-btn');
             const originalText = btn.innerText;
@@ -752,32 +704,25 @@
                         let safeId = user.reg_number.replace(/\//g, '_');
                         
                         let statusHtml = '';
-                        if (user.is_verified && user.has_paid) {
-                            statusHtml += '<span class="flag-green">💎 Premium (Paid 20 KSH)</span>';
-                        } else if (user.is_verified && !user.has_paid) {
-                            statusHtml += '<span class="flag-blue">📧 Email Verified (Unpaid)</span>';
-                        } else {
-                            statusHtml += '<span class="flag-yellow">⚠️ Unverified Account</span>';
-                        }
+                        if (user.is_verified && user.has_paid) statusHtml += '<span class="badge badge-green">💎 Premium</span>';
+                        else if (user.is_verified && !user.has_paid) statusHtml += '<span class="badge badge-blue">📧 Verified (Unpaid)</span>';
+                        else statusHtml += '<span class="badge badge-yellow">⚠️ Unverified</span>';
 
-                        if (user.is_locked) {
-                            statusHtml += ' <span class="flag-red" style="margin-left:5px;">🚫 Locked Out</span>';
-                        }
+                        if (user.is_locked) statusHtml += ' <span class="badge badge-red" style="margin-left:5px;">🚫 Locked Out</span>';
                         
                         let card = document.createElement('div');
                         card.className = 'user-result-card';
                         card.id = 'search-res-' + safeId;
                         
-                        // Notice the new onclick="prepTargetedEmail('${user.email}')" here!
                         card.innerHTML = `
                             <div>
                                 <h4>${user.name} <span>(${user.reg_number})</span></h4>
                                 <div class="email">${user.email}</div>
-                                <div>${statusHtml}</div>
+                                <div style="display:flex; gap:5px; flex-wrap:wrap;">${statusHtml}</div>
                             </div>
-                            <div class="action-group" style="align-items: center;">
-                                <button class="btn-admin btn-primary" onclick="prepTargetedEmail('${user.email}')">✉️ System Email</button>
-                                <button class="btn-admin btn-ban" onclick="adminAction(this, 'ban_user', '${safeId}')">🚫 Ban & Delete</button>
+                            <div class="action-group">
+                                <button class="btn btn-outline" onclick="prepTargetedEmail('${user.email}')" style="padding: 8px 12px; font-size:12px;">✉️ System Email</button>
+                                <button class="btn btn-danger" onclick="adminAction(this, 'ban_user', '${safeId}')" style="padding: 8px 12px; font-size:12px;">🚫 Ban</button>
                             </div>
                         `;
                         resultsContainer.appendChild(card);
@@ -789,10 +734,7 @@
                 }
             })
             .catch(err => {
-                btn.disabled = false;
-                btn.innerText = originalText;
-                showToast("Search failed.", true);
-                console.error(err);
+                btn.disabled = false; btn.innerText = originalText; showToast("Search failed.", true); console.error(err);
             });
         }
 

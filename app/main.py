@@ -1400,6 +1400,22 @@ from flask import request, jsonify, session, flash, url_for, render_template, re
 
 logger = logging.getLogger(__name__)
 
+
+
+import os
+import logging
+import random
+from datetime import datetime, timedelta, timezone
+from flask import request, jsonify, render_template, session, redirect, url_for, flash
+
+# Assuming these are imported from your email_utils file:
+# from email_utils import send_broadcast_email, send_admin_alert_email
+
+logger = logging.getLogger(__name__)
+
+# Define East Africa Time (EAT)
+EAT = timezone(timedelta(hours=3))
+
 # ==========================================
 # GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
@@ -1505,7 +1521,18 @@ def admin_action():
     
     try:
         if action == 'ban_user':
-            delete_user_account(target_id)
+            # NEW: Send the ban email BEFORE deleting the account from Firebase
+            user_data = db.reference(f'profiles/{target_id}').get()
+            if user_data and user_data.get('email'):
+                send_admin_alert_email(
+                    recipient_email=user_data.get('email'),
+                    recipient_name=user_data.get('name', 'Student').split()[0],
+                    action_type='ban',
+                    reason="Violation of Community Guidelines and Terms of Service."
+                )
+            
+            delete_user_account(target_id) # Assuming this is your existing helper
+            
             if data.get('alert_id'):
                 db.reference(f"admin_alerts/{data.get('alert_id')}").delete()
             logger.info(f"GOD_MODE: User {target_id} banned.")
@@ -1550,11 +1577,13 @@ def admin_action():
 
 @app.route('/api/admin/broadcast', methods=['POST'])
 def admin_broadcast():
-    """Endpoint to trigger mass emails to all users."""
+    """Endpoint to trigger targeted or mass emails to users."""
     if not session.get('is_super_admin'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
     data = request.json
+    target_group = data.get('target_group', 'all')
+    specific_email = data.get('specific_email', '').strip().lower()
     subject = data.get('subject')
     message = data.get('message')
     
@@ -1565,24 +1594,43 @@ def admin_broadcast():
         # Fetch all user profiles
         all_profiles = db.reference('profiles').get() or {}
         
-        # We process this in a background task so the admin dashboard doesn't freeze
-        # while waiting for 100+ emails to send via SMTP.
-        def dispatch_emails(profiles, subj, msg):
+        # NEW: Added targeting logic so it actually filters based on the admin's selection!
+        def dispatch_emails(profiles, target, specific_mail, subj, msg):
             success_count = 0
             for uid, user_data in profiles.items():
-                if isinstance(user_data, dict):
-                    email = user_data.get('email')
-                    name = user_data.get('name', 'Student').split(' ')[0]
+                if not isinstance(user_data, dict):
+                    continue
                     
-                    if email:
-                        # Send the email!
-                        send_broadcast_email(email, name, subj, msg)
-                        success_count += 1
+                email = user_data.get('email')
+                if not email:
+                    continue
+
+                name = user_data.get('name', 'Student').split(' ')[0]
+                is_verified = user_data.get('is_verified', False)
+                is_paid = user_data.get('is_paid', False)
+
+                # Determine if this user matches the targeted group
+                should_send = False
+                
+                if target == 'all':
+                    should_send = True
+                elif target == 'premium' and is_verified and is_paid:
+                    should_send = True
+                elif target == 'verified_unpaid' and is_verified and not is_paid:
+                    should_send = True
+                elif target == 'unverified' and not is_verified:
+                    should_send = True
+                elif target == 'specific' and email.lower() == specific_mail:
+                    should_send = True
+
+                if should_send:
+                    send_broadcast_email(email, name, subj, msg)
+                    success_count += 1
             
-            logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users.")
+            logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users in group '{target}'.")
 
         # Trigger background task using SocketIO
-        socketio.start_background_task(dispatch_emails, all_profiles, subject, message)
+        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, subject, message)
         
         return jsonify({'success': True, 'message': 'Broadcast queued for dispatch.'})
         
@@ -1689,6 +1737,7 @@ def admin_logout():
     session.pop('is_super_admin', None)
     flash("Securely logged out of Command Center.", "info")
     return redirect(url_for('super_admin'))
+
 
 # ==========================================
 # API ENDPOINTS (SWIPE, PAYMENTS, NOTIFICATIONS)
