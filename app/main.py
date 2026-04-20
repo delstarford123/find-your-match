@@ -361,6 +361,8 @@ from flask import session, flash, redirect, url_for, render_template
 # Make sure your db is imported! e.g., from app.database import db
 
 import random
+
+
 @app.route('/swipe')
 @requires_subscription
 def swipe():
@@ -378,6 +380,9 @@ def swipe():
     # 2. Fetch Current User Data & Swipes
     user_profile = db.reference(f'profiles/{user_id}').get() or {}
     user_swipes = db.reference(f'swipes/{user_id}').get() or {}
+
+    # Extract Current User's Gender for strict filtering
+    current_user_gender = user_profile.get('gender', '').strip().lower()
 
     # --- THE ALGORITHM DATA FETCH ---
     # Fetch people who have a pending Secret Crush on THIS user
@@ -408,6 +413,12 @@ def swipe():
     
     for p in all_profiles:
         p_id = p.get('id')
+        p_gender = p.get('gender', '').strip().lower()
+        
+        # --- STRICT OPPOSITE-GENDER RULE ---
+        # If both users have a gender set and they are the same, completely skip this profile
+        if current_user_gender and p_gender and current_user_gender == p_gender:
+            continue
         
         # SKIP CONDITIONS:
         # - Don't show the user themselves
@@ -416,10 +427,9 @@ def swipe():
         if p_id == user_id or not p.get('is_visible', True) or p_id in user_swipes:
             continue
             
-        # GENDER FILTER
+        # GENDER PREFERENCE FILTER (If they specifically selected Male or Female)
         if gender_pref != 'Everyone':
-            p_gender = p.get('gender', 'Unknown')
-            if p_gender.lower() != gender_pref.lower():
+            if p_gender != gender_pref.lower():
                 continue
                 
         # --- THE SCORING ALGORITHM ---
@@ -481,6 +491,9 @@ def dashboard():
     # --- NEW: Extract the subscription expiry date for the countdown timer ---
     subscription_expiry = user_data.get('subscription_expiry', '')
     
+    # Extract Current User's Gender for strict filtering
+    current_user_gender = user_data.get('gender', '').strip().lower()
+    
     my_matches = []
     
     # 1. BLAZING FAST FETCH: Grab all profiles in one single network call
@@ -498,6 +511,13 @@ def dashboard():
     else:
         for p_id, p in all_profiles_dict.items():
             if not isinstance(p, dict):
+                continue
+                
+            partner_gender = p.get('gender', '').strip().lower()
+
+            # --- STRICT OPPOSITE-GENDER RULE ---
+            # If both users have a gender set and they are the same, completely skip this profile
+            if current_user_gender and partner_gender and current_user_gender == partner_gender:
                 continue
                 
             # Skip the user themselves, hidden profiles, and non-premium users
@@ -568,8 +588,8 @@ def dashboard():
         upcoming_dates=upcoming_dates,
         subscription_expiry=subscription_expiry # <--- NEW: Passed to frontend!
     )
-
-      
+    
+    
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
 def unmatch_user():
@@ -736,7 +756,6 @@ def check_pending_date():
     return jsonify({'has_pending': pending_found})
  
  
-
 @app.route('/matches')
 @app.route('/matches/<partner_id>')
 @requires_subscription
@@ -762,7 +781,10 @@ def matches(partner_id=None):
     else:
         # --- HUMAN OPEN-DM MODE (Shows everyone, highlights matches) ---
         
-        # 1. FIXED: Fetch all matches and filter in Python to PREVENT Firebase crashes!
+        # 1. Get current user's gender for filtering
+        current_user_gender = user_data.get('gender', '').strip().lower()
+
+        # 2. Fetch all matches and filter in Python to PREVENT Firebase crashes!
         all_matches = db.reference('matches').get() or {}
         
         matched_data = {}
@@ -777,16 +799,20 @@ def matches(partner_id=None):
                         'last_message_time': m_data.get('last_message_time', '')
                     }
 
-        # 2. Fetch ALL profiles in the system
+        # 3. Fetch ALL profiles in the system
         all_profiles = get_all_profiles()
         
-        # 3. Build the inbox list with EVERYONE
+        # 4. Build the inbox list with EVERYONE (Opposite Gender Only)
         for p in all_profiles:
-            # Skip the current user themselves and hidden profiles
-            # ADDED: Skip users who haven't paid the subscription (p.get('is_paid') != True)
+            # Skip the current user themselves, hidden profiles, and unpaid profiles
             if p['id'] != user_id and p.get('is_visible', True) and p.get('is_paid') == True: 
                 p_id = p['id']
+                partner_gender = p.get('gender', '').strip().lower()
                 is_mutual = p_id in matched_data
+                
+                # --- NEW STRICT RULE: Skip if same gender (unless they are already matched) ---
+                if current_user_gender and partner_gender and current_user_gender == partner_gender and not is_mutual:
+                    continue
                 
                 if is_mutual:
                     last_msg = matched_data[p_id]['last_message']
@@ -798,18 +824,22 @@ def matches(partner_id=None):
                 # Retrieve AI score safely, default to 0
                 ai_score = p.get('ai_score', 0)
                 
+                # Double-check opposite gender before awarding the Perfect Match badge
+                is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
+                is_perfect_match = is_opposite_gender and ai_score > 80
+                
                 my_matches.append({
                     'id': p_id,
                     'name': p.get('name', 'Student').split(' ')[0], # First Name only
                     'img': p.get('img', '/static/img/placeholder.png'),
-                    'is_perfect_match': ai_score > 80, # ❤️ TRIGGERS PERFECT MATCH BADGE
+                    'is_perfect_match': is_perfect_match, # ❤️ TRIGGERS PERFECT MATCH BADGE
                     'is_online': p.get('is_online', False),
                     'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
                     'last_message': last_msg,
                     'last_message_time': last_msg_time
                 })
         
-        # 4. ALWAYS append the AI Wingman to the list
+        # 5. ALWAYS append the AI Wingman to the list
         my_matches.append({
             'id': 'AI_COMPANION', 'name': 'AI Wingman',
             'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman',
@@ -817,7 +847,7 @@ def matches(partner_id=None):
             'last_message': 'Need dating advice?', 'last_message_time': ''
         })
 
-        # 5. Sort matches (Mutual matches first, then by time)
+        # 6. Sort matches (Mutual matches first, then by time)
         my_matches.sort(key=lambda x: (x['is_mutual_match'], x.get('last_message_time', '')), reverse=True)
 
         if not partner_id and my_matches:
@@ -827,7 +857,7 @@ def matches(partner_id=None):
     active_partner = next((m for m in my_matches if str(m['id']) == str(partner_id)), None)
     
     if partner_id and not active_partner and not ai_mode:
-        flash("This student could not be found.", "warning")
+        flash("This student could not be found or is not available.", "warning")
         return redirect(url_for('matches'))
 
     # Load the chat history
@@ -869,7 +899,6 @@ def matches(partner_id=None):
                            is_blind_date=is_blind_date,           # Pass flag to UI
                            current_blur=round(current_blur, 1),   # Pass pixel blur to UI
                            messages_left=messages_left)           # Pass progress to UI
-    
     
         
 @app.route('/profile', methods=['GET', 'POST'])
@@ -3132,20 +3161,26 @@ def answer_prompt():
 # ==========================================
 # THE SECRET ADMIRER ENGINE (CURIOSITY LOOP)
 # ==========================================
-
 @app.route('/secret-admirer')
 @requires_subscription
 def secret_admirer():
     """Renders the Secret Admirer Page"""
     user_id = session.get('user_id')
     
+    # Fetch the current user's profile to know their gender
+    user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    current_user_gender = user_profile.get('gender', '').strip().lower()
+    
     # 1. Count how many people are secretly crushing on this user
     my_admirers = db.reference(f'secret_crushes/{user_id}').get() or {}
-    admirer_count = len([k for k, v in my_admirers.items() if v.get('status') == 'pending'])
-
+    
     # 2. Get the list of people THIS user has crushed on (so they can track them)
     all_crushes = db.reference('secret_crushes').get() or {}
     my_crushes = []
+    
+    # Optional: Fetch all profiles once if you want to strictly filter the admirer count by gender too,
+    # but since we are blocking it at the API level below, trusting the DB count is fine here.
+    admirer_count = len([k for k, v in my_admirers.items() if v.get('status') == 'pending'])
     
     for target_id, senders in all_crushes.items():
         if user_id in senders:
@@ -3181,12 +3216,15 @@ def submit_crush():
     if not target_profile:
         return jsonify({'success': False, 'message': "We couldn't find a student with that Registration Number on the app."})
 
-    # STRICT RULE: Male only to Female, Female only to Male
-    sender_gender = sender_profile.get('gender', '').lower()
-    target_gender = target_profile.get('gender', '').lower()
+    # --- STRICT OPPOSITE-GENDER RULE ---
+    sender_gender = sender_profile.get('gender', '').strip().lower()
+    target_gender = target_profile.get('gender', '').strip().lower()
 
-    if sender_gender == target_gender and sender_gender in ['male', 'female']:
-        return jsonify({'success': False, 'message': "System Rule: You can only send a Secret Crush to the opposite gender."})
+    if not sender_gender or not target_gender:
+        return jsonify({'success': False, 'message': "Both users must have their gender set to use the Secret Admirer feature."})
+
+    if sender_gender == target_gender:
+        return jsonify({'success': False, 'message': "System Rule: You can only send a Secret Crush to someone of the opposite gender."})
 
     # CHECK FOR MUTUAL MATCH (Did they already crush on the sender?)
     target_crushes_on_me = db.reference(f'secret_crushes/{sender_id}/{target_id}').get()
@@ -3232,6 +3270,7 @@ def submit_crush():
             'mutual': False, 
             'message': "Secret Crush sent! 🤫 If they enter your Reg Number too, you will instantly match."
         })
+        
 import os
 import random
 import logging
@@ -3348,6 +3387,9 @@ def handle_end_call(data):
 # ─────────────────────────────────────────────────────────────
 #  4. LIVE TALK DIRECTORY
 # ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  4. LIVE TALK DIRECTORY
+# ─────────────────────────────────────────────────────────────
 @app.route('/talk')
 @requires_subscription
 def talk_directory():
@@ -3359,6 +3401,10 @@ def talk_directory():
     except Exception as e:
         logger.error('talk_directory: Firebase read failed: %s', e)
         all_profiles = {}
+
+    # 1. Fetch the current user's gender to compare against others
+    current_user_profile = all_profiles.get(user_id, {})
+    current_user_gender = current_user_profile.get('gender', '').strip().lower()
 
     online_users = []
 
@@ -3373,14 +3419,25 @@ def talk_directory():
             not p.get('is_visible', True)):
             continue
 
+        # 2. Get the partner's gender
+        partner_gender = p.get('gender', '').strip().lower()
+        
+        # Generate the random AI score (or fetch if it exists)
         ai_score = p.get('ai_score', random.randint(60, 95))
+
+        # 3. Strict Rule: Only allow "Perfect Match" if they are of the opposite gender
+        is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
+        
+        is_perfect_match = False
+        if is_opposite_gender and ai_score >= 80:
+            is_perfect_match = True
 
         online_users.append({
             'id': p_id,
             'name': p.get('name', 'Student').split()[0],
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
             'course': p.get('course', 'MMUST Student'),
-            'is_perfect_match': ai_score >= 80,
+            'is_perfect_match': is_perfect_match, # Now safely restricted!
         })
 
     # Sort: Perfect matches float to the top, then alphabetically
@@ -3406,7 +3463,6 @@ def call_review(partner_id):
                            partner_name=partner_name,
                            partner_img=partner_img)
 
-
 @app.route('/api/submit-review', methods=['POST'])
 @requires_subscription
 def submit_review():
@@ -3428,13 +3484,25 @@ def submit_review():
             'timestamp': datetime.now(EAT).isoformat()
         })
 
+        # Fetch both profiles to verify gender
+        user_profile = db.reference(f'profiles/{user_id}').get() or {}
+        partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+        
+        user_gender = user_profile.get('gender', '').strip().lower()
+        partner_gender = partner_profile.get('gender', '').strip().lower()
+
         # Check if the partner also gave a thumbs up (Mutual Vibe Match)
         partner_review = db.reference(f'call_reviews/{partner_id}/{user_id}').get()
         mutual_match = False
         
-        if partner_review and partner_review.get('vibe') == 'up' and vibe == 'up':
+        # STRICT RULE: Only allow the match if genders are different
+        is_opposite_gender = bool(user_gender and partner_gender and user_gender != partner_gender)
+        
+        if is_opposite_gender and partner_review and partner_review.get('vibe') == 'up' and vibe == 'up':
             mutual_match = True
-            # Unlock further messaging or set a mutual vibe flag here if desired
+            # Unlock further messaging or set a mutual vibe flag here
+            db.reference(f'matches/{user_id}/{partner_id}').set(True)
+            db.reference(f'matches/{partner_id}/{user_id}').set(True)
 
         # Process safety report
         if report:
@@ -3450,7 +3518,8 @@ def submit_review():
 
     except Exception as e:
         logger.error(f"Failed to submit call review: {e}")
-        return jsonify({'success': False, 'message': 'Database error'}), 500 
+        return jsonify({'success': False, 'message': 'Database error'}), 500
+     
 # Relay in-call emoji reactions
 @socketio.on('call_reaction')
 def handle_call_reaction(data):
