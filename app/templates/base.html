@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#720000">
@@ -360,7 +360,38 @@
     </style>
 </head>
 <body>
-    
+    <div id="dreamscape-bg"></div>
+
+<style>
+    /* The container sits perfectly in the back, locked to the screen */
+    #dreamscape-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -999; /* Deep in the background */
+        overflow: hidden;
+        pointer-events: none; /* VERY IMPORTANT: Lets users click through the background */
+        background: radial-gradient(circle at center, #0B1219 0%, #06090e 100%);
+    }
+
+    /* The styling for the image orbs */
+    .love-orb {
+        position: absolute;
+        border-radius: 50%;
+        background-size: cover;
+        background-position: center;
+        opacity: 0; /* Starts invisible so it can fade in */
+        
+        /* Adds a soft, romantic glowing edge */
+        box-shadow: 0 0 25px rgba(236, 72, 153, 0.2), inset 0 0 15px rgba(0,0,0,0.5);
+        
+        /* A slight vintage/warm filter to make the images look cinematic and precious */
+        filter: grayscale(10%) sepia(20%) contrast(1.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+</style>
     <header>
         <nav class="navbar" id="main-navbar">
             <div class="nav-left-group">
@@ -1027,7 +1058,82 @@
         }
     }
 </script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const totalImages = 27;
+        const bgContainer = document.getElementById('dreamscape-bg');
+        
+        // 1. Generate the 27 Orbs
+        for (let i = 1; i <= totalImages; i++) {
+            let orb = document.createElement('div');
+            orb.className = 'love-orb';
+            
+            // Link to your static folder images
+            orb.style.backgroundImage = `url('/static/img/${i}.jpg')`; 
+            
+            // Randomize their sizes so it looks natural (between 50px and 140px)
+            let size = gsap.utils.random(50, 140);
+            orb.style.width = `${size}px`;
+            orb.style.height = `${size}px`;
+            
+            bgContainer.appendChild(orb);
+            
+            // Start the infinite animation loop for this specific orb
+            animateOrb(orb);
+        }
 
+        // 2. The GSAP Floating Logic
+        function animateOrb(orb) {
+            // Pick a random starting point at the bottom of the screen
+            let startX = gsap.utils.random(0, window.innerWidth);
+            let startY = window.innerHeight + 150; // Starts below the screen
+            
+            // Randomize how long it takes to float up (between 20 and 45 seconds - very slow and peaceful)
+            let duration = gsap.utils.random(20, 45); 
+            
+            // Randomize when it starts, so they don't all clump together at the beginning
+            let delay = gsap.utils.random(0, 30);
+
+            // Reset the orb to the bottom
+            gsap.set(orb, {
+                x: startX,
+                y: startY,
+                opacity: 0,
+                scale: gsap.utils.random(0.6, 1.2),
+                rotation: gsap.utils.random(-30, 30) // Give it a slight tilt
+            });
+
+            // Create the timeline
+            let tl = gsap.timeline({
+                delay: delay,
+                onComplete: () => animateOrb(orb) // When it finishes, restart it infinitely
+            });
+
+            // The Animation Sequence
+            tl.to(orb, {
+                // Fade in softly (Keep opacity low so it doesn't distract from the app text)
+                opacity: gsap.utils.random(0.15, 0.35), 
+                duration: duration * 0.2, 
+                ease: "power1.inOut"
+            })
+            .to(orb, {
+                // Float up to above the top of the screen
+                y: -200, 
+                // Drift slightly left or right like a balloon in the wind
+                x: startX + gsap.utils.random(-150, 150), 
+                rotation: gsap.utils.random(-60, 60),
+                duration: duration,
+                ease: "none"
+            }, "<") // The "<" symbol tells GSAP to run this at the same time as the fade-in
+            .to(orb, {
+                // Fade back out before it disappears
+                opacity: 0,
+                duration: duration * 0.2,
+                ease: "power1.inOut"
+            }, `-=${duration * 0.2}`); // Start fading out near the end of the duration
+        }
+    });
+</script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
