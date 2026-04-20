@@ -488,10 +488,10 @@ def dashboard():
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
     
-    # --- NEW: Extract the subscription expiry date for the countdown timer ---
+    # --- Extract the subscription expiry date for the countdown timer ---
     subscription_expiry = user_data.get('subscription_expiry', '')
     
-    # Extract Current User's Gender for strict filtering
+    # Extract Current User's Gender for matching logic
     current_user_gender = user_data.get('gender', '').strip().lower()
     
     my_matches = []
@@ -515,15 +515,17 @@ def dashboard():
                 
             partner_gender = p.get('gender', '').strip().lower()
 
-            # --- STRICT OPPOSITE-GENDER RULE ---
-            # If both users have a gender set and they are the same, completely skip this profile
-            if current_user_gender and partner_gender and current_user_gender == partner_gender:
-                continue
-                
             # Skip the user themselves, hidden profiles, and non-premium users
             if p_id != user_id and p.get('is_visible', True) and p.get('is_paid') == True:
                 # Fetch or simulate compatibility score
                 ai_score = p.get('ai_score', random.randint(65, 95))
+                
+                # --- NEW LOGIC: Everyone is visible, but only opposite genders can be a "Perfect Match" ---
+                is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
+                
+                is_perfect_match = False
+                if is_opposite_gender and ai_score >= 80:
+                    is_perfect_match = True
                 
                 my_matches.append({
                     'id': p_id,
@@ -531,10 +533,10 @@ def dashboard():
                     'bio': p.get('bio', 'MMUST Student'),
                     'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
                     'compatibility': ai_score,
-                    'is_perfect_match': ai_score >= 80 # Triggers the ❤️ Perfect Match badge
+                    'is_perfect_match': is_perfect_match # Only True for opposite gender with high score
                 })
         
-        # 2. Sort by highest compatibility first
+        # 2. Sort by highest compatibility first, pushing Perfect Matches to the top
         my_matches.sort(key=lambda x: x['compatibility'], reverse=True)
 
         # 3. Always pin the AI Wingman to the front of the line
@@ -586,9 +588,8 @@ def dashboard():
         matches=my_matches,
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
-        subscription_expiry=subscription_expiry # <--- NEW: Passed to frontend!
+        subscription_expiry=subscription_expiry
     )
-    
     
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
