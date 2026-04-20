@@ -833,7 +833,109 @@
         <button class="g-btn answer" id="gBtnAnswer">📞</button>
     </div>
 </div>
+{% if session.get('user_id') %}
+<style>
+    /* Sleek, docked glassmorphism button */
+    .live-floating-btn {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-left: none; /* Merges with the edge of the screen */
+        padding: 16px 8px;
+        border-radius: 0 16px 16px 0;
+        z-index: 9990; /* High z-index, but below incoming call alerts */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.4);
+        transition: 0.3s ease-in-out;
+        cursor: pointer;
+    }
 
+    /* Hover animation pops it out slightly */
+    .live-floating-btn:hover {
+        background: rgba(16, 185, 129, 0.15);
+        transform: translateY(-50%) translateX(5px);
+        box-shadow: 6px 0 25px rgba(16, 185, 129, 0.3);
+        border-color: rgba(16, 185, 129, 0.6);
+    }
+
+    /* The glowing green heartbeat dot */
+    .live-dot-wrap {
+        position: relative;
+        width: 14px; height: 14px;
+    }
+    .live-dot-ping {
+        position: absolute; inset: 0; border-radius: 50%;
+        background: #10B981; 
+        animation: livePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
+    .live-dot-core {
+        position: absolute; inset: 3px; border-radius: 50%; background: #10B981;
+    }
+    @keyframes livePing { 
+        75%, 100% { transform: scale(2.5); opacity: 0; } 
+    }
+    
+    /* Vertical text to save horizontal screen space */
+    .live-text-vertical {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        transform: rotate(180deg);
+        color: #F8FAFC;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 1.5px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .live-text-vertical span { 
+        color: #10B981; 
+        font-size: 16px; 
+        font-weight: 900;
+    }
+</style>
+
+<a href="/talk" class="live-floating-btn" id="liveFloatBtn" title="Go to Live Calls">
+    <div class="live-dot-wrap">
+        <div class="live-dot-ping"></div>
+        <div class="live-dot-core"></div>
+    </div>
+    <div class="live-text-vertical">
+        USERS ONLINE <span id="liveUserCount">...</span>
+    </div>
+</a>
+
+<script>
+    function updateLiveOnlineCount() {
+        fetch('/api/online_count')
+            .then(res => res.json())
+            .then(data => {
+                // Update the number inside the button
+                const countElement = document.getElementById('liveUserCount');
+                if (countElement) {
+                    countElement.innerText = data.count;
+                }
+            })
+            .catch(err => console.error("Failed to fetch live users", err));
+    }
+    
+    // Fetch the count immediately when the page loads
+    updateLiveOnlineCount();
+    
+    // Silently update the count in the background every 15 seconds
+    setInterval(updateLiveOnlineCount, 15000);
+</script>
+{% endif %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
     // Ensure scripts do not conflict if loaded multiple times

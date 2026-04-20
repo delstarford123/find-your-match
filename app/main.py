@@ -3526,8 +3526,30 @@ def handle_call_reaction(data):
     target_id = data.get('target_id')
     if target_id:
         emit('receive_reaction', {'emoji': data.get('emoji')}, room=target_id)
+
+
+@app.route('/api/online_count')
+def online_count():
+    """Optimized API to fetch the total number of online users."""
+    try:
+        # BLAZING FAST: Ask Firebase to ONLY send profiles where is_online is True.
+        # Because we added the index, Firebase does this instantly on their end.
+        online_profiles = db.reference('profiles').order_by_child('is_online').equal_to(True).get()
         
-                   
+        if online_profiles:
+            count = len(online_profiles)
+        else:
+            count = 0
+            
+        # Optional: Add a baseline so the app never looks "dead"
+        display_count = count if count > 0 else 1 
+        
+        return jsonify({'count': display_count})
+    except Exception as e:
+        logger.error(f"Failed to fetch online count: {e}")
+        return jsonify({'count': 1})
+
+                
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

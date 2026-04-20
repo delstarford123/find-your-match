@@ -449,4 +449,173 @@
     <a href="{{ url_for('auth.signup') }}" class="btn-white">Join the Community</a>
 </div>
 
+<style>
+    .showcase-section {
+        padding: 60px 20px;
+        background: #0B1219;
+        text-align: center;
+        font-family: 'Outfit', sans-serif;
+    }
+
+    .showcase-header {
+        margin-bottom: 40px;
+    }
+    
+    .showcase-header h2 {
+        color: #F8FAFC;
+        font-size: clamp(28px, 5vw, 42px);
+        font-weight: 900;
+        margin-bottom: 10px;
+        letter-spacing: -0.5px;
+    }
+    
+    .showcase-header h2 span {
+        color: #38BDF8; /* Neon Blue Accent */
+    }
+
+    .showcase-header p {
+        color: #94A3B8;
+        font-size: 16px;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    /* Responsive Grid for Desktop */
+    .video-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    /* Sleek Video Card Container */
+    .video-card {
+        background: #141F2E;
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        border-radius: 24px;
+        padding: 15px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .video-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(56, 189, 248, 0.2);
+        border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    /* The Actual Video Tag */
+    .app-video {
+        width: 100%;
+        border-radius: 16px;
+        background: #000;
+        object-fit: cover;
+        /* Force a vertical aspect ratio resembling a phone screen */
+        aspect-ratio: 9/16; 
+        pointer-events: none; /* Prevents users from pausing it by tapping */
+    }
+
+    /* Floating Feature Badge */
+    .feature-badge {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        background: rgba(56, 189, 248, 0.1);
+        color: #38BDF8;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .feature-desc {
+        color: #E2E8F0;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.5;
+        padding: 0 10px;
+    }
+
+    /* =========================================================
+       MOBILE OVERRIDE: HORIZONTAL SCROLL SNAP CAROUSEL
+       ========================================================= */
+    @media (max-width: 768px) {
+        .video-grid {
+            /* Switch from Grid to a horizontal Flexbox */
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            
+            /* Enable smooth iOS momentum scrolling */
+            -webkit-overflow-scrolling: touch; 
+            
+            /* Snap behavior so it stops perfectly on each card */
+            scroll-snap-type: x mandatory; 
+            
+            /* Add padding so the shadow doesn't get clipped */
+            padding-bottom: 20px; 
+            padding-left: 20px;
+            padding-right: 20px;
+            
+            /* Hide the ugly scrollbar for a native app feel */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE/Edge */
+        }
+
+        .video-grid::-webkit-scrollbar {
+            display: none; /* Chrome/Safari/Opera */
+        }
+
+        .video-card {
+            /* Force cards to 85% width so the next one peeks out */
+            flex: 0 0 85%; 
+            scroll-snap-align: center; /* Snap the card right to the middle of the screen */
+        }
+    }
+</style>
+
+<section class="showcase-section">
+    <div class="showcase-header">
+        <h2>Experience <span>The Vibe</span></h2>
+        <p>See how MMUST Dating connects you with the perfect match in real-time.</p>
+    </div>
+
+    <div class="video-grid">
+        
+        <div class="video-card">
+            <video class="app-video" autoplay loop muted playsinline>
+                <source src="{{ url_for('static', filename='video/1.mp4') }}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <div class="feature-badge">⚡ Smart Matching</div>
+            <div class="feature-desc">Our AI scans profiles to find your highest compatibility scores instantly.</div>
+        </div>
+
+        <div class="video-card">
+            <video class="app-video" autoplay loop muted playsinline>
+                <source src="{{ url_for('static', filename='video/2.mp4') }}" type="video/mp4">
+            </video>
+            <div class="feature-badge">📹 Live Video Dates</div>
+            <div class="feature-desc">Jump into end-to-end encrypted video calls with built-in beauty filters.</div>
+        </div>
+
+        <div class="video-card">
+            <video class="app-video" autoplay loop muted playsinline>
+                <source src="{{ url_for('static', filename='video/3.mp4') }}" type="video/mp4">
+            </video>
+            <div class="feature-badge">🔥 Seamless Swiping</div>
+            <div class="feature-desc">Flick through online students and find mutual crushes effortlessly.</div>
+        </div>
+
+    </div>
+</section>
+</section>
 {% endblock %}
