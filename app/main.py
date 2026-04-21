@@ -12,17 +12,19 @@ import threading
 from functools import wraps
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
-
+import ipaddress
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 from pywebpush import webpush, WebPushException
 from groq import Groq
-
+from flask_wtf.csrf import CSRFProtect
 # ==========================================
 # 1. PATH SETUP & ENVIRONMENT
 # ==========================================
 load_dotenv()
-# 👇 This line tells Python where to find the 'app' folder
+#  This line tells Python where to find the 'app' folder
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Define East Africa Time (UTC+3) for accurate Kenyan timestamps
@@ -107,13 +109,49 @@ def get_ai_companion_response(user_text, user_gender="unknown"):
     except Exception as e:
         print(f"⚠️ Groq API Error: {e}")
         return "The campus Wi-Fi is acting up! Try sending that again?"
-    
 # ==========================================
 # 4. INITIALIZE FLASK APP & WEBSOCKETS
 # ==========================================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "delstarford_works_secret_2026")
 
+# --- NEW: FIREWALL & RATE LIMITER ---
+# This tracks user IPs and blocks them if they spam requests
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["500 per day", "100 per hour"],
+    storage_uri="memory://" # Stores tracking data in server memory
+)
+# Initialize CSRF Protection
+csrf = CSRFProtect(app)
+# Known Safaricom API IP Subnets
+SAFARICOM_IPS = [
+    "196.201.214.0/24",
+    "196.201.213.0/24",
+    "196.201.212.0/24",
+    "196.201.211.0/24"
+]
+
+def get_real_ip():
+    """Safely extracts the real IP behind cloud proxies like Render or Nginx."""
+    if request.headers.getlist("X-Forwarded-For"):
+        return request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
+    return request.remote_addr
+
+def is_safaricom_ip(ip_str):
+    """Verifies if an incoming request is actually from Safaricom."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        for network in SAFARICOM_IPS:
+            if ip in ipaddress.ip_network(network):
+                return True
+        # Allow local testing via Postman/ngrok ONLY if running in debug mode
+        if app.debug and ip_str == '127.0.0.1': 
+            return True 
+        return False
+    except ValueError:
+        return False
 # VAPID Keys for Push Notifications
 # Using os.getenv so your personal email isn't hardcoded if you share the code
 mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
@@ -1941,12 +1979,12 @@ def end_date():
         flash("Date terminated. All data and chats have been securely deleted.", "success")
         return jsonify({'success': True})
     return jsonify({'success': False}), 500
-
 # ==========================================
 # M-PESA B2C: STUDENT SUBSCRIPTIONS
 # ==========================================
 
 @app.route('/api/pay_student_fee', methods=['POST'])
+@limiter.limit("3 per minute") # 🚨 STOPS STK PUSH SPAM
 def pay_student_fee():
     if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -1957,7 +1995,6 @@ def pay_student_fee():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
-    # Dynamically generate the callback URL for whichever environment you are currently running
     base_url = "https://www.findyourmatch.co.ke"
     callback_url = f"{base_url}/api/mpesa/student_callback"
     
@@ -1968,14 +2005,20 @@ def pay_student_fee():
 
     if 'CheckoutRequestID' in response:
         checkout_id = response['CheckoutRequestID']
-        # Temporarily link this specific transaction to this specific user
         db.reference(f'pending_payments/{checkout_id}').set(user_id)
         return jsonify({'success': True, 'message': 'Check your phone for the M-Pesa PIN prompt!'})
     
     return jsonify({'success': False, 'message': 'Payment failed to initiate.'})
 
 @app.route('/api/mpesa/student_callback', methods=['POST'])
+@limiter.exempt # Webhooks shouldn't be rate-limited by user IP rules
 def mpesa_student_callback():
+    # 🚨 CRITICAL FIX: Block fake Postman payloads
+    client_ip = get_real_ip()
+    if not is_safaricom_ip(client_ip):
+        logger.critical(f"🚨 FAKE MPESA CALLBACK BLOCKED! Origin IP: {client_ip}")
+        return jsonify({"ResultCode": 1, "ResultDesc": "Unauthorized IP. Go away hacker."}), 403
+
     data = request.json
     try:
         stk_callback = data['Body']['stkCallback']
@@ -1986,31 +2029,29 @@ def mpesa_student_callback():
             metadata = stk_callback['CallbackMetadata']['Item']
             mpesa_receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             
-            # Lookup who initiated this exact transaction
             pending_ref = db.reference(f'pending_payments/{checkout_id}')
             user_id = pending_ref.get()
 
             if user_id:
-                expiry_date = (datetime.now() + timedelta(days=30)).isoformat()
+                expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
                 db.reference(f'profiles/{user_id}').update({
                     'is_paid': True,
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': mpesa_receipt
                 })
-                # Clean up pending state
                 pending_ref.delete()
                 logger.info(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
-            else:
-                logger.warning(f"⚠️ Orphaned student payment received: {checkout_id}")
         else:
             fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
-            logger.info(f"❌ STUDENT PAYMENT FAILED/CANCELLED: {fail_reason}")
+            logger.info(f"❌ STUDENT PAYMENT FAILED: {fail_reason}")
 
     except Exception as e:
         logger.error(f"⚠️ Student Callback Error: {e}")
 
-    # Always return 0 to Safaricom so they stop retrying the webhook
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+
 # ==========================================
 # M-PESA B2B: MERCHANT SUBSCRIPTIONS
 # ==========================================
@@ -2491,6 +2532,7 @@ def ai_wingman():
 
 @app.route('/api/wingman_action', methods=['POST'])
 @login_required
+@limiter.limit("5 per minute") # 🚨 STOPS BOT SPAMMING THE GROQ API
 def api_wingman_action():
     """Handles requests for Profile Roasts and Icebreakers."""
     data = request.json
