@@ -40,7 +40,7 @@
     }
     .section-title { 
         color: #720000; 
-        margin: 35px 0 20px 0; 
+        margin: 35px 0 15px 0; 
         font-size: 18px; 
         font-weight: 900;
         border-bottom: 2px solid #FEF2F4; 
@@ -69,7 +69,7 @@
     .input-group select {
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
         background-repeat: no-repeat; background-position: right 15px top 50%;
-        background-size: 12px auto; padding-right: 40px;
+        background-size: 12px auto; padding-right: 40px; cursor: pointer;
     }
 
     .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
@@ -101,20 +101,32 @@
     input:checked + .slider { background-color: #E60026; }
     input:checked + .slider:before { transform: translateX(26px); }
 
-    /* === DYNAMIC SCHEDULE === */
+    /* === DYNAMIC SCHEDULE (OPTIONAL) === */
+    .schedule-info-box {
+        background: rgba(56, 189, 248, 0.1);
+        border-left: 4px solid #38BDF8;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .schedule-info-box p {
+        margin: 0; font-size: 14px; color: #0284C7; font-weight: 600; line-height: 1.5;
+    }
+
     .schedule-row { 
         display: flex; flex-wrap: wrap; gap: 12px; align-items: center; 
         margin-bottom: 15px; background: #fafafa; padding: 12px;
-        border-radius: 14px; border: 1px solid #eee;
+        border-radius: 14px; border: 1px solid #eee; transition: 0.2s;
     }
+    .schedule-row:hover { border-color: #ddd; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
     
     .schedule-input {
         padding: 14px; border-radius: 10px; border: 2px solid #f0f0f0; 
-        font-family: inherit; font-size: 16px; font-weight: 600; flex: 1; 
+        font-family: inherit; font-size: 15px; font-weight: 600; flex: 1; 
         min-width: 100px; background: white; outline: none; color: #111;
-        -webkit-appearance: none; box-sizing: border-box;
+        -webkit-appearance: none; box-sizing: border-box; cursor: pointer;
     }
-    .schedule-input:focus { border-color: #E60026; box-shadow: 0 0 0 3px rgba(230,0,38,0.1); }
+    .schedule-input:focus { border-color: #38BDF8; box-shadow: 0 0 0 3px rgba(56,189,248,0.1); }
     
     .btn-remove-row { 
         background: #FFD6DD; border: none; color: #720000; width: 40px; height: 40px; border-radius: 50%;
@@ -163,7 +175,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
         gap: 12px;
-        max-height: 280px; /* Increased height so they can see more at once */
+        max-height: 280px; 
         overflow-y: auto;
         padding: 5px;
     }
@@ -186,7 +198,6 @@
     /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
         flex: 1 1 35%; min-width: 300px; display: flex; flex-direction: column; align-items: center; 
-        /* Sticky keeps it in view on desktop as you scroll the form */
         position: sticky; top: calc(var(--nav-height, 70px) + 20px);
     }
 
@@ -218,7 +229,6 @@
         .schedule-input { width: 100%; }
         .time-group { display: flex; gap: 10px; align-items: center; }
         .btn-remove-row { align-self: flex-end; margin-top: 5px; }
-        /* Disable sticky on mobile so it doesn't block the screen */
         .preview-section { position: relative; top: 0; margin-bottom: 20px;} 
     }
 </style>
@@ -269,15 +279,18 @@
                     </div>
             </div>
 
-            <h4 class="section-title">Class Schedule</h4>
-            <p style="font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.5; font-weight: 500;">Add your free time on campus. The AI uses this to match you with students who are free when you are!</p>
+            <h4 class="section-title">Class Schedule (Optional)</h4>
+            <div class="schedule-info-box">
+                <p>📍 <strong>Why add your schedule?</strong> While strictly optional, telling the AI when you are free on campus allows us to recommend "Coffee Date" matches who have the exact same breaks as you!</p>
+            </div>
             
             <div id="schedule-container">
                 {% if user.schedule and user.schedule|length > 0 %}
                     {% for block in user.schedule %}
                     <div class="schedule-wrapper">
                         <div class="schedule-row">
-                            <select name="day_of_week[]" class="schedule-input" required>
+                            <select name="day_of_week[]" class="schedule-input">
+                                <option value="" disabled>Select Day</option>
                                 <option value="Monday" {% if block.day == 'Monday' %}selected{% endif %}>Monday</option>
                                 <option value="Tuesday" {% if block.day == 'Tuesday' %}selected{% endif %}>Tuesday</option>
                                 <option value="Wednesday" {% if block.day == 'Wednesday' %}selected{% endif %}>Wednesday</option>
@@ -287,9 +300,9 @@
                             </select>
                             
                             <div class="time-group">
-                                <input type="time" name="start_time[]" class="schedule-input" value="{{ block.start }}" required>
+                                <input type="time" name="start_time[]" class="schedule-input" value="{{ block.start }}">
                                 <span style="color: #720000; font-weight: 800; font-size: 14px;">TO</span>
-                                <input type="time" name="end_time[]" class="schedule-input" value="{{ block.end }}" required>
+                                <input type="time" name="end_time[]" class="schedule-input" value="{{ block.end }}">
                                 <button type="button" class="btn-remove-row" title="Remove" onclick="this.closest('.schedule-wrapper').remove();">&times;</button>
                             </div>
                         </div>
@@ -298,7 +311,7 @@
                 {% else %}
                     <div class="schedule-wrapper">
                         <div class="schedule-row">
-                            <select name="day_of_week[]" class="schedule-input" required>
+                            <select name="day_of_week[]" class="schedule-input">
                                 <option value="" disabled selected>Select Day</option>
                                 <option value="Monday">Monday</option>
                                 <option value="Tuesday">Tuesday</option>
@@ -308,10 +321,10 @@
                                 <option value="Saturday">Saturday</option>
                             </select>
                             <div class="time-group">
-                                <input type="time" name="start_time[]" class="schedule-input" required>
+                                <input type="time" name="start_time[]" class="schedule-input">
                                 <span style="color: #720000; font-weight: 800; font-size: 14px;">TO</span>
-                                <input type="time" name="end_time[]" class="schedule-input" required>
-                                <button type="button" class="btn-remove-row" title="Remove" style="display: none;">&times;</button>
+                                <input type="time" name="end_time[]" class="schedule-input">
+                                <button type="button" class="btn-remove-row" title="Remove" style="display: none;" onclick="this.closest('.schedule-wrapper').remove();">&times;</button>
                             </div>
                         </div>
                     </div>
@@ -415,7 +428,7 @@
                 </div>
                 
                 <h3>
-                    {{ user.name.split(',')[0] if user.name else 'Student' }} 
+                    {{ user.name.split(' ')[0] if user.name else 'Student' }} 
                     <span class="age-badge" id="preview-age-badge">{{ user.age }}</span>
                 </h3>
                 
@@ -439,21 +452,14 @@
     const previewImg = document.getElementById('live-preview-img');
     const uploadText = document.getElementById('upload-text');
 
-    // Replaced robots and blobs with highly expressive, human, and character-driven styles
     const avatarStyles = ['micah', 'lorelei', 'notionists', 'avataaars', 'personas', 'adventurer', 'fun-emoji'];
     let avatarHtml = '';
 
-    // Warm, romantic, and inviting background colors (pinks, peaches, warm yellows, soft purples)
     const romanticColors = "ffccd5,ffdfbf,fce1e4,fcf4dd,e8eaf6,f8bbd0,ffe0b2,ffcdd2";
 
-    // Loop 50 times to generate 50 distinct characters
     for(let i = 1; i <= 50; i++) {
         let style = avatarStyles[i % avatarStyles.length];
-        
-        // Generate the URL with our new styles and warmer backgrounds
         let url = `https://api.dicebear.com/7.x/${style}/svg?seed=LoveDatingMMUST${i}&backgroundColor=${romanticColors}`;
-        
-        // Highlight it if it matches their current saved avatar
         let isSelected = hiddenInput.value === url ? 'selected' : '';
         
         avatarHtml += `
@@ -466,18 +472,11 @@
     }
     avatarGrid.innerHTML = avatarHtml;
 
-    // Handles picking an avatar
     window.selectAvatar = function(url, element) {
-        hiddenInput.value = url; // Save to hidden form input
-        
-        // Update selection borders
+        hiddenInput.value = url; 
         document.querySelectorAll('.avatar-option').forEach(img => img.classList.remove('selected'));
         element.classList.add('selected');
-
-        // Instantly update the big live preview image
         previewImg.src = url;
-        
-        // Reset the file upload box in case they had selected a real photo previously
         uploadText.innerText = "📷 Upload Real Photo";
         document.getElementById('image-upload').value = ""; 
     };
@@ -514,10 +513,8 @@
         const file = event.target.files[0];
         if (file) {
             uploadText.innerText = "✅ " + file.name;
-            
-            // Un-select avatars if a real photo is chosen
             document.querySelectorAll('.avatar-option').forEach(img => img.classList.remove('selected'));
-            hiddenInput.value = ""; // Clear avatar input so backend prefers the file
+            hiddenInput.value = ""; 
 
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -527,7 +524,7 @@
         }
     });
 
-    // --- DYNAMIC SCHEDULE LOGIC ---
+    // --- DYNAMIC SCHEDULE LOGIC (OPTIONAL MODE) ---
     document.getElementById('btn-add-schedule').addEventListener('click', function() {
         const container = document.getElementById('schedule-container');
         const firstWrapper = container.querySelector('.schedule-wrapper');
