@@ -2169,6 +2169,9 @@ def handle_typing(data):
 # ==========================================
 # MESSAGE ROUTING
 # ==========================================
+# ==========================================
+# MESSAGE ROUTING & DB SAVING
+# ==========================================
 @socketio.on('send_message')
 def handle_message(data):
     # 1. SECURITY: Get the sender's ID
@@ -2181,13 +2184,14 @@ def handle_message(data):
     receiver_id = data.get('receiver_id')
     msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
+    temp_id = data.get('temp_id') # Crucial for the ✓✓ frontend confirmation
 
     if not receiver_id or not msg_text:
         return
 
-    # 🚨 CRITICAL FIX FOR WHATSAPP SPEED 🚨
+    now_eat = datetime.now(EAT).isoformat()
     data['sender'] = sender_id
-    data['timestamp'] = datetime.now().isoformat()
+    data['timestamp'] = now_eat
 
     # ------------------------------------------
     # ROUTE A: AI COMPANION LOGIC
@@ -2213,12 +2217,11 @@ def handle_message(data):
                     'sender': 'AI_COMPANION',
                     'type': 'text',
                     'text': ai_reply,
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': datetime.now(EAT).isoformat()
                 }, to=user_room)
             except Exception as e:
                 logger.error(f"AI Worker Error: {e}")
 
-        # Use SocketIO's safe background task instead of standard threading
         socketio.start_background_task(ai_worker, msg_text, sender_id, current_user_gender)
         return
 
@@ -2238,7 +2241,7 @@ def handle_message(data):
                                 'receiver': r_id,
                                 'message': txt,
                                 'flag': flag,
-                                'timestamp': datetime.now().isoformat()
+                                'timestamp': datetime.now(EAT).isoformat()
                             })
                         except Exception as e:
                             logger.error(f"Alert save error: {e}")
@@ -2262,24 +2265,51 @@ def handle_message(data):
             logger.error(f"Safety Check Error: {e}")
 
     # ------------------------------------------
-    # ROUTE C: LIGHTNING FAST MESSAGE DELIVERY
+    # ROUTE C: DATABASE SAVING & DELIVERY
     # ------------------------------------------
+    match_id = f"match_{min(sender_id, receiver_id)}_{max(sender_id, receiver_id)}"
     
-    # 1. SEND INSTANTLY (0ms delay for users)
-    # Changed from request.sid to sender_id to support multi-device syncing
-    emit('receive_message', data, to=sender_id) 
-    emit('receive_message', data, to=receiver_id)
+    message_payload = {
+        'sender_id': sender_id,
+        'text': msg_text,
+        'timestamp': now_eat,
+        'type': msg_type,
+        'status': 'sent'
+    }
 
-    # 2. SAVE IN BACKGROUND
-    def background_save(s_id, r_id, text, m_type):
-        try:
-            save_chat_message(s_id, r_id, text, m_type)
-        except Exception as e:
-            logger.error(f"Failed to save chat message to DB: {e}")
+    try:
+        # 1. Save to Firebase permanently
+        new_msg_ref = db.reference(f'matches/{match_id}/messages').push(message_payload)
+        
+        # 2. Update the parent match node for the inbox sidebar sorting
+        db.reference(f'matches/{match_id}').update({
+            'last_message': msg_text,
+            'last_message_time': now_eat,
+            f'users/{sender_id}': True,
+            f'users/{receiver_id}': True
+        })
 
-    # Use SocketIO's safe background task manager
-    socketio.start_background_task(background_save, sender_id, receiver_id, msg_text, msg_type)
-    
+        # 3. Deliver to Receiver's screen
+        emit('receive_message', {
+            'sender': sender_id,
+            'text': msg_text,
+            'timestamp': now_eat,
+            'temp_id': temp_id,
+            'msg_id': new_msg_ref.key
+        }, to=receiver_id)
+
+        # 4. Deliver CONFIRMATION back to Sender's screen (Turns 🕒 to ✓✓)
+        emit('receive_message', {
+            'sender': sender_id,
+            'temp_id': temp_id,
+            'msg_id': new_msg_ref.key,
+            'status': 'sent'
+        }, to=sender_id)
+
+    except Exception as e:
+        logger.error(f"Failed to route and save message: {e}")
+        # Optionally emit an error to the sender so they know it failed
+        
 # ==========================================
 # STUDENT VENUE DISCOVERY & BOOKING
 # ==========================================

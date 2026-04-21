@@ -176,7 +176,7 @@
     .bg-swatch { height: 60px; border-radius: 10px; cursor: pointer; background-size: cover; background-position: center; border: 2px solid #ddd; transition: 0.2s; }
     .bg-swatch:hover { border-color: #E60026; transform: scale(1.05); }
 
-    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: auto; }
     
     /* === CHAT BUBBLES WITH AVATARS === */
     .bubble-wrapper { display: flex; width: 100%; margin-bottom: 6px; position: relative; }
@@ -424,23 +424,25 @@
             {% if chat_history %}
                 {% for msg_id, msg in chat_history.items() %}
                     {% if session.get('user_id') not in msg.get('deleted_for', []) %}
-                        {% if msg.type == 'text' %}
-                            {% if msg.sender == 'SYSTEM_AI' %}
+                        
+                        {% set sender_safe = msg.get('sender_id', msg.get('sender')) %}
+                        {% set is_me = (sender_safe == session.get('user_id')) %}
+
+                        {% if msg.get('type') == 'text' %}
+                            {% if sender_safe == 'SYSTEM_AI' %}
                                 <div class="bubble-wrapper system" id="msg-wrap-{{ msg_id }}">
-                                    <div class="chat-bubble bubble-system">{{ msg.text }}</div>
+                                    <div class="chat-bubble bubble-system">{{ msg.get('text', '') }}</div>
                                 </div>
                             {% else %}
-                                {% set is_me = (msg.sender == session.get('user_id') or msg.sender_id == session.get('user_id')) %}
-                                
                                 <div class="bubble-wrapper {{ 'me' if is_me else 'them' }}" id="msg-wrap-{{ msg_id }}">
                                     {% if not is_me %}
                                         <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur({{ current_blur | default(0) }}px);">
                                     {% endif %}
                                     
-                                    <div class="chat-bubble {{ 'bubble-me' if is_me else 'bubble-them' }} {{ 'deleted-bubble' if msg.is_deleted else '' }}" id="bubble-{{ msg_id }}">
-                                        {{ msg.text }}
+                                    <div class="chat-bubble {{ 'bubble-me' if is_me else 'bubble-them' }} {{ 'deleted-bubble' if msg.get('is_deleted') else '' }}" id="bubble-{{ msg_id }}">
+                                        {{ msg.get('text', '') }}
                                         
-                                        {% if not msg.is_deleted %}
+                                        {% if not msg.get('is_deleted') %}
                                             <button class="msg-dropdown-btn" onclick="toggleMsgMenu('{{ msg_id }}', event)">⌄</button>
                                             <div class="msg-menu" id="menu-{{ msg_id }}">
                                                 <button class="msg-menu-btn" onclick="deleteMessage('{{ msg_id }}', 'me')">🗑 Delete for me</button>
@@ -452,12 +454,12 @@
                                         
                                         {% if is_me %}
                                         <div class="msg-meta">
-                                            <span class="msg-time">{{ msg.timestamp[-8:-3] if msg.timestamp else '' }}</span>
+                                            <span class="msg-time">{{ msg.get('timestamp', '')[-8:-3] }}</span>
                                             <span class="msg-status status-sent">✓✓</span>
                                         </div>
                                         {% else %}
                                         <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
-                                            <span class="msg-time">{{ msg.timestamp[-8:-3] if msg.timestamp else '' }}</span>
+                                            <span class="msg-time">{{ msg.get('timestamp', '')[-8:-3] }}</span>
                                         </div>
                                         {% endif %}
                                     </div>
@@ -537,6 +539,16 @@
                 '"': '&quot;'
             }[tag] || tag)
         );
+    }
+
+    // ==========================================
+    // SCROLL TO BOTTOM LOGIC
+    // ==========================================
+    function forceScrollToBottom() {
+        const historyBox = document.getElementById('chat-history');
+        if (historyBox) {
+            historyBox.scrollTop = historyBox.scrollHeight;
+        }
     }
 
     // ==========================================
@@ -956,9 +968,8 @@
 
     if (activePartnerId !== 'none') {
         window.onload = () => {
-            setTimeout(() => {
-                if (chatHistory) chatHistory.scrollTop = chatHistory.scrollHeight;
-            }, 150);
+            // Ensures the chat drops to the bottom perfectly upon loading
+            setTimeout(forceScrollToBottom, 100);
             if (window.innerWidth > 768 && chatInput) chatInput.focus();
         };
         
@@ -982,7 +993,7 @@
                 </div>
             `;
             chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+            forceScrollToBottom();
         }
 
         function sendMessage() {
@@ -1025,7 +1036,7 @@
             if (data.is_typing) {
                 typingIndicator.style.display = 'flex';
                 chatHistory.appendChild(typingIndicator);
-                chatHistory.scrollTop = chatHistory.scrollHeight;
+                forceScrollToBottom();
             } else {
                 typingIndicator.style.display = 'none';
             }
@@ -1033,6 +1044,7 @@
     });
 
     socket.on('receive_message', function(data) {
+        // If the server confirms our own message was saved
         if (data.sender === myId || data.sender_id === myId) {
             const statusElement = document.getElementById(`status-${data.temp_id}`);
             if (statusElement) {
@@ -1042,6 +1054,7 @@
             return;
         }
 
+        // If the message is from someone else, handle background queues and red dots
         if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
             let currentCount = 0;
             if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
@@ -1075,6 +1088,7 @@
             return;
         }
         
+        // If the message is from the active partner we are currently staring at
         if(typingIndicator) typingIndicator.style.display = 'none';
         
         updateBlurUI(); 
@@ -1104,7 +1118,7 @@
         
         if(chatHistory) {
             chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+            forceScrollToBottom();
         }
     });
 </script>
