@@ -634,6 +634,7 @@ def unmatch_user():
         return jsonify({"status": "error", "message": "Database error"}), 500
     
     
+    
 import hashlib
 import os
 
@@ -650,7 +651,7 @@ def hash_reg_number(reg_num):
     
     return hashlib.sha256(salted_reg.encode('utf-8')).hexdigest()
 
-@app.route('/api/add-crush', methods=['POST'])
+@app.route('/api/add-crush', methods=['POST'])   
 @login_required
 def add_crush():
     """Secure Cryptographic Secret Crush Radar"""
@@ -3384,10 +3385,6 @@ def handle_end_call(data):
     if target_id:
         emit('call_ended', room=target_id)
 
-
-# ─────────────────────────────────────────────────────────────
-#  4. LIVE TALK DIRECTORY
-# ─────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────
 #  4. LIVE TALK DIRECTORY
 # ─────────────────────────────────────────────────────────────
@@ -3426,25 +3423,36 @@ def talk_directory():
         # Generate the random AI score (or fetch if it exists)
         ai_score = p.get('ai_score', random.randint(60, 95))
 
-        # 3. Strict Rule: Only allow "Perfect Match" if they are of the opposite gender
+        # 3. Restrict "Perfect Match" functionality between same-gender profiles
         is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
         
         is_perfect_match = False
         if is_opposite_gender and ai_score >= 80:
             is_perfect_match = True
 
+        # 4. Determine unread messages from this specific partner
+        unread_count = 0
+        match_id = f"match_{min(user_id, p_id)}_{max(user_id, p_id)}"
+        chat_data = db.reference(f'matches/{match_id}/messages').get() or {}
+        
+        for msg_id, msg in chat_data.items():
+            if msg.get('sender_id') == p_id and msg.get('status') != 'read':
+                unread_count += 1
+
         online_users.append({
             'id': p_id,
             'name': p.get('name', 'Student').split()[0],
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
             'course': p.get('course', 'MMUST Student'),
-            'is_perfect_match': is_perfect_match, # Now safely restricted!
+            'is_perfect_match': is_perfect_match,
+            'unread_count': unread_count
         })
 
     # Sort: Perfect matches float to the top, then alphabetically
     online_users.sort(key=lambda u: (not u['is_perfect_match'], u['name']))
 
     return render_template('talk.html', online_users=online_users)
+
 
 @app.route('/call-review/<partner_id>')
 @requires_subscription
@@ -3463,6 +3471,7 @@ def call_review(partner_id):
                            partner_id=partner_id,
                            partner_name=partner_name,
                            partner_img=partner_img)
+
 
 @app.route('/api/submit-review', methods=['POST'])
 @requires_subscription
@@ -3485,21 +3494,12 @@ def submit_review():
             'timestamp': datetime.now(EAT).isoformat()
         })
 
-        # Fetch both profiles to verify gender
-        user_profile = db.reference(f'profiles/{user_id}').get() or {}
-        partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
-        
-        user_gender = user_profile.get('gender', '').strip().lower()
-        partner_gender = partner_profile.get('gender', '').strip().lower()
-
         # Check if the partner also gave a thumbs up (Mutual Vibe Match)
         partner_review = db.reference(f'call_reviews/{partner_id}/{user_id}').get()
         mutual_match = False
         
-        # STRICT RULE: Only allow the match if genders are different
-        is_opposite_gender = bool(user_gender and partner_gender and user_gender != partner_gender)
-        
-        if is_opposite_gender and partner_review and partner_review.get('vibe') == 'up' and vibe == 'up':
+        # Standard matching is allowed for all users after a successful call
+        if partner_review and partner_review.get('vibe') == 'up' and vibe == 'up':
             mutual_match = True
             # Unlock further messaging or set a mutual vibe flag here
             db.reference(f'matches/{user_id}/{partner_id}').set(True)
@@ -3521,6 +3521,7 @@ def submit_review():
         logger.error(f"Failed to submit call review: {e}")
         return jsonify({'success': False, 'message': 'Database error'}), 500
      
+
 # Relay in-call emoji reactions
 @socketio.on('call_reaction')
 def handle_call_reaction(data):
@@ -3533,8 +3534,8 @@ def handle_call_reaction(data):
 def online_count():
     """Optimized API to fetch the total number of online users."""
     try:
-        # BLAZING FAST: Ask Firebase to ONLY send profiles where is_online is True.
-        # Because we added the index, Firebase does this instantly on their end.
+        # Ask Firebase to ONLY send profiles where is_online is True.
+        # Because the index was added, Firebase does this instantly.
         online_profiles = db.reference('profiles').order_by_child('is_online').equal_to(True).get()
         
         if online_profiles:
@@ -3542,14 +3543,13 @@ def online_count():
         else:
             count = 0
             
-        # Optional: Add a baseline so the app never looks "dead"
+        # Optional: Add a baseline so the application never looks empty
         display_count = count if count > 0 else 1 
         
         return jsonify({'count': display_count})
     except Exception as e:
         logger.error(f"Failed to fetch online count: {e}")
         return jsonify({'count': 1})
-
                 
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing

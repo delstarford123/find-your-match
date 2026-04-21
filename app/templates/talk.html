@@ -60,22 +60,32 @@
         text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
     }
 
-    /* === CALL BUTTONS === */
-    .call-actions { display: flex; gap: 10px; flex-shrink: 0; }
+    /* === CALL & CHAT BUTTONS === */
+    .call-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-    .btn-call {
+    .btn-action {
         border: none; border-radius: 14px; cursor: pointer; font-family: 'Outfit', sans-serif;
-        font-size: 14px; font-weight: 800; padding: 12px 18px; display: flex; align-items: center; gap: 8px;
-        transition: 0.2s; text-decoration: none; justify-content: center;
+        font-size: 14px; font-weight: 800; padding: 12px 16px; display: flex; align-items: center; gap: 6px;
+        transition: 0.2s; text-decoration: none; justify-content: center; position: relative;
     }
-    .btn-call:active { transform: scale(0.95); }
-    .btn-call:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-action:active { transform: scale(0.95); }
+    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-chat { background: rgba(56, 189, 248, 0.15); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .btn-chat:hover { background: rgba(56, 189, 248, 0.25); }
 
     .btn-voice { background: #38BDF8; color: #080D14; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2); }
     .btn-voice:hover { filter: brightness(1.1); }
 
     .btn-video { background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3); }
     .btn-video:hover { background: rgba(168, 85, 247, 0.25); }
+
+    /* Unread Notification Badge */
+    .unread-badge {
+        background: #EF4444; color: white; font-size: 11px; font-weight: 900;
+        padding: 2px 6px; border-radius: 10px; margin-left: 4px;
+        box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
+    }
 
     /* === EMPTY STATE === */
     .empty-state {
@@ -92,7 +102,7 @@
         .user-card { flex-direction: column; align-items: flex-start; padding: 18px; }
         .user-info { width: 100%; margin-bottom: 10px; }
         .call-actions { width: 100%; display: flex; }
-        .btn-call { flex: 1; }
+        .btn-action { flex: 1; padding: 12px 8px; font-size: 13px; } /* Slimmer padding for 3 buttons */
     }
 </style>
 
@@ -124,10 +134,16 @@
                     </div>
                 </div>
                 <div class="call-actions">
-                    <button class="btn-call btn-voice" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=false')">
+                    <a href="/matches/{{ u.id }}" class="btn-action btn-chat">
+                        💬 <span>Chat</span>
+                        {% if u.unread_count and u.unread_count > 0 %}
+                            <span class="unread-badge">{{ u.unread_count }}</span>
+                        {% endif %}
+                    </a>
+                    <button class="btn-action btn-voice" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=false')">
                         🎙 <span>Voice</span>
                     </button>
-                    <button class="btn-call btn-video" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=true')">
+                    <button class="btn-action btn-video" onclick="startCall(this, '/call/{{ u.id }}?action=call&video=true')">
                         📹 <span>Video</span>
                     </button>
                 </div>
