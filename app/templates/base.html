@@ -392,86 +392,127 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
 </style>
-    <header>
-        <nav class="navbar" id="main-navbar">
-            <div class="nav-left-group">
-                <a href="{{ url_for('home') }}" class="logo">
-                    <span style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">✨</span> FIND YOUR MATCH
-                </a>
-                <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
-            </div>
+    
+<style>
+    /* === NAVIGATION ENHANCEMENTS === */
+    .logo-text {
+        font-size: 24px; 
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        margin-right: 6px;
+    }
 
-            <div class="nav-links" id="nav-links">
-                <a href="{{ url_for('home') }}">Home</a>
+    /* Premium Dropdown Link Formatting */
+    .dropdown-content a.premium-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        font-weight: 800;
+        color: #F8FAFC;
+    }
+
+    /* The glowing notification dot for Wee Chat */
+    .pulse-dot {
+        width: 8px; 
+        height: 8px; 
+        background: #E60026; 
+        border-radius: 50%; 
+        box-shadow: 0 0 8px rgba(230, 0, 38, 0.6); 
+        animation: pulseDot 2s infinite;
+        margin-left: auto; /* Pushes the dot to the far right of the dropdown */
+    }
+
+    @keyframes pulseDot { 
+        0%, 100% { opacity: 1; transform: scale(1); } 
+        50% { opacity: 0.5; transform: scale(1.3); } 
+    }
+</style>
+
+<header>
+    <nav class="navbar" id="main-navbar">
+        <div class="nav-left-group">
+            <a href="{{ url_for('home') }}" class="logo">
+                <span class="logo-text">✨</span> FIND YOUR MATCH
+            </a>
+            <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
+        </div>
+
+        <div class="nav-links" id="nav-links">
+            <a href="{{ url_for('home') }}">Home</a>
+            
+            {% if session.get('is_super_admin') %}
+                <div class="dropdown">
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Admin ▾</button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('admin_ledger') }}">Financial Ledger</a>
+                        <a href="{{ url_for('super_admin') }}">Safety Controls</a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if session.get('role') == 'business' %}
+                <a href="{{ url_for('business_dashboard') }}">Merchant Portal</a>
+                <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
+            
+            {% elif session.get('user_id') %}
+                <div class="dropdown">
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('swipe') }}">Swipe Deck</a>
+                        <a href="{{ url_for('campus_feed') }}">Daily Campus News</a>
+                        <a href="{{ url_for('secret_admirer') }}">Secret Admirer 🤫</a>
+                        <a href="{{ url_for('discover_venues') }}">Approved Date Spots</a>
+                        <a href="{{ url_for('ai_wingman') }}">JivoT AI</a>
+                        <a href="{{ url_for('venues') }}">All Dating Spots</a>
+                    </div>
+                </div>
+
+                <div class="dropdown">
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Dashboard ▾</button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('dashboard') }}">Overview</a>
+                        
+                        
+                        <a href="/directory" class="premium-nav-link">
+                            💬 <span>Wee Chat</span>
+                            <span class="pulse-dot"></span>
+                        </a>
+                        
+                        <a href="{{ url_for('talk_directory') }}" class="premium-nav-link">
+                            🎙 <span>Live Talk</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="dropdown">
+                    <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">Edit Profile</a>
+                        <a href="{{ url_for('settings') }}">Preferences & Settings</a>
+                        <a href="{{ url_for('safety') }}">Safety Center</a>
+                        <a href="{{ url_for('setup_notifications') }}">Push Notifications 🔔</a>
+                    </div>
+                </div>
                 
-                {% if session.get('is_super_admin') %}
-                    <div class="dropdown">
-                        <button class="dropbtn" onclick="toggleDropdown(this)">Admin ▾</button>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('admin_ledger') }}">Financial Ledger</a>
-                            <a href="{{ url_for('super_admin') }}">Safety Controls</a>
-                        </div>
-                    </div>
-                {% endif %}
+                <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="mobile-only-link">Log In</a>
+                <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn">Sign Up</a>
+            {% endif %}
+        </div>
 
-                {% if session.get('role') == 'business' %}
-                    <a href="{{ url_for('business_dashboard') }}">Merchant Portal</a>
-                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
-                
-                {% elif session.get('user_id') %}
-                    <div class="dropdown">
-                        <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('swipe') }}">Swipe Deck</a>
-                            <a href="{{ url_for('campus_feed') }}">Daily Campus News</a>
-                            <a href="{{ url_for('secret_admirer') }}">Secret Admirer 🤫</a>
-                            <a href="{{ url_for('discover_venues') }}">Approved Date Spots</a>
-                            <a href="{{ url_for('ai_wingman') }}">JivoT AI</a>
-                            <a href="{{ url_for('venues') }}">All dating spots</a>
-                        </div>
-                    </div>
-
-                    <div class="dropdown">
-                        <button class="dropbtn" onclick="toggleDropdown(this)">Dashboard ▾</button>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('dashboard') }}">Overview</a>
-                            <a href="{{ url_for('matches') }}">Messages</a>
-                            <a href="{{ url_for('talk_directory') }}" class="nav-link">
-                           🎙 Live Talk
-                           </a>
-                        </div>
-                    </div>
-
-                    <div class="dropdown">
-                        <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('profile') }}">Edit Profile</a>
-                            <a href="{{ url_for('settings') }}">Preferences & Settings</a>
-                            <a href="{{ url_for('safety') }}">Safety Center</a>
-                            <a href="{{ url_for('setup_notifications') }}">Push Notifications 🔔</a>
-                        </div>
-                    </div>
-                    
-                    <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
-                {% else %}
-                    <a href="{{ url_for('auth.login') }}" class="mobile-only-link">Log In</a>
-                    <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn">Sign Up</a>
-                {% endif %}
-            </div>
-
-            <div class="nav-right-actions">
-                {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
-                    <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
-                {% else %}
-                    <a href="{{ url_for('auth.login') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
-                    <a href="{{ url_for('auth.signup') }}" class="btn-nav">Sign Up</a>
-                {% endif %}
-            </div>
-        </nav>
-        
-        <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
-    </header>
-
+        <div class="nav-right-actions">
+            {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
+                <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
+                <a href="{{ url_for('auth.signup') }}" class="btn-nav">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
+    
+    <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
+</header>
     <div class="toast-container" id="toast-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}

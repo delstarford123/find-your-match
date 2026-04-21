@@ -757,7 +757,6 @@ def check_pending_date():
             
     return jsonify({'has_pending': pending_found})
  
- 
 @app.route('/matches')
 @app.route('/matches/<partner_id>')
 @requires_subscription
@@ -804,17 +803,13 @@ def matches(partner_id=None):
         # 3. Fetch ALL profiles in the system
         all_profiles = get_all_profiles()
         
-        # 4. Build the inbox list with EVERYONE (Opposite Gender Only)
+        # 4. Build the inbox list with EVERYONE
         for p in all_profiles:
             # Skip the current user themselves, hidden profiles, and unpaid profiles
             if p['id'] != user_id and p.get('is_visible', True) and p.get('is_paid') == True: 
                 p_id = p['id']
                 partner_gender = p.get('gender', '').strip().lower()
                 is_mutual = p_id in matched_data
-                
-                # --- NEW STRICT RULE: Skip if same gender (unless they are already matched) ---
-                if current_user_gender and partner_gender and current_user_gender == partner_gender and not is_mutual:
-                    continue
                 
                 if is_mutual:
                     last_msg = matched_data[p_id]['last_message']
@@ -862,8 +857,11 @@ def matches(partner_id=None):
         flash("This student could not be found or is not available.", "warning")
         return redirect(url_for('matches'))
 
-    # Load the chat history
-    history = get_chat_history(user_id, partner_id) if active_partner else []
+    # Load the chat history AS A DICTIONARY
+    history = {}
+    if active_partner and partner_id != 'AI_COMPANION':
+        match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
+        history = db.reference(f'matches/{match_id}/messages').get() or {}
     
     # ==========================================
     # 🧮 THE "BLURRED LINES" (BLIND DATE) MATH
@@ -883,7 +881,7 @@ def matches(partner_id=None):
             if is_blind_date:
                 MESSAGES_TO_REVEAL = 20 # 10 texts sent by each person
                 MAX_BLUR_PX = 15        # Starts heavily blurred
-                message_count = len(history)
+                message_count = len(history) # history is now a dict, so len(history) counts the keys
                 
                 if message_count >= MESSAGES_TO_REVEAL:
                     current_blur = 0
@@ -897,11 +895,12 @@ def matches(partner_id=None):
                            current_user=session.get('user_name'),
                            my_matches=my_matches,
                            active_partner=active_partner,
-                           chat_history=history,
+                           chat_history=history, # Now correctly passes a dictionary
                            is_blind_date=is_blind_date,           # Pass flag to UI
                            current_blur=round(current_blur, 1),   # Pass pixel blur to UI
-                           messages_left=messages_left)           # Pass progress to UI
-    
+                           messages_left=messages_left)           # Pass progress to UI    
+        
+        
         
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -3550,7 +3549,113 @@ def online_count():
     except Exception as e:
         logger.error(f"Failed to fetch online count: {e}")
         return jsonify({'count': 1})
-                
+
+           
+import math
+
+import math
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Calculate the distance between two points on Earth using the Haversine formula."""
+    if not all([lat1, lon1, lat2, lon2]):
+        return -1 # Use -1 to indicate an invalid or missing distance
+        
+    try:
+        R = 6371  # Radius of the Earth in km
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        
+        a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(float(lat1))) \
+            * math.cos(math.radians(float(lat2))) * math.sin(dlon/2) * math.sin(dlon/2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        d = R * c
+        return d
+    except (ValueError, TypeError):
+        return -1
+
+@app.route('/directory')
+@requires_subscription
+def full_directory():
+    """Shows all available users, their online status, and unread chat counts."""
+    user_id = session.get('user_id')
+    search_query = request.args.get('q', '').strip().lower()
+    
+    all_profiles = db.reference('profiles').get() or {}
+    current_user_profile = all_profiles.get(user_id, {})
+    
+    # Get current user's location for distance calculation
+    current_user_location = current_user_profile.get('location', {})
+    my_lat = current_user_location.get('latitude')
+    my_lon = current_user_location.get('longitude')
+    
+    # Fetch all matches to identify mutual connections
+    all_matches = db.reference('matches').get() or {}
+    my_mutual_matches = []
+    for match_id, m_data in all_matches.items():
+        if user_id in m_data.get('users', {}):
+             users_dict = m_data.get('users', {})
+             other_id = next((uid for uid in users_dict.keys() if uid != user_id), None)
+             if other_id:
+                 my_mutual_matches.append(other_id)
+
+    directory_users = []
+    
+    for p_id, p in all_profiles.items():
+        if not isinstance(p, dict) or p_id == user_id or not p.get('is_visible', True):
+            continue
+            
+        partner_name = p.get('name', 'Student')
+        
+        # Search Filter
+        if search_query and search_query not in partner_name.lower():
+            continue
+            
+        # Calculate unread messages from this specific user
+        unread_count = 0
+        match_id = f"match_{min(user_id, p_id)}_{max(user_id, p_id)}"
+        chat_data = db.reference(f'matches/{match_id}/messages').get() or {}
+        
+        for msg_id, msg in chat_data.items():
+            deleted_for = msg.get('deleted_for', [])
+            if msg.get('sender_id') == p_id and msg.get('status') != 'read' and user_id not in deleted_for:
+                unread_count += 1
+
+        # Check Mutual Match
+        is_mutual = p_id in my_mutual_matches
+        
+        # Calculate Distance
+        partner_location = p.get('location', {})
+        p_lat = partner_location.get('latitude')
+        p_lon = partner_location.get('longitude')
+        distance = calculate_distance(my_lat, my_lon, p_lat, p_lon)
+        
+        # For sorting purposes, if distance is -1, treat it as very far away
+        sort_distance = distance if distance != -1 else 999999
+
+        directory_users.append({
+            'id': p_id,
+            'name': partner_name.split()[0],
+            'full_name': partner_name,
+            'img': p.get('img') or '/static/img/placeholder.png',
+            'course': p.get('course', 'MMUST Student'),
+            'is_online': p.get('is_online', False),
+            'unread_count': unread_count,
+            'is_mutual': is_mutual,
+            'distance': distance,
+            'sort_distance': sort_distance,
+            'last_online': p.get('last_online', '1970-01-01T00:00:00') 
+        })
+
+    # Sort Logic:
+    directory_users.sort(key=lambda u: (
+        -u['unread_count'], 
+        not u['is_online'], 
+        not u['is_mutual'],
+        u['sort_distance'],
+        u['last_online']
+    ), reverse=False)
+
+    return render_template('directory.html', directory_users=directory_users, search_query=search_query)        
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

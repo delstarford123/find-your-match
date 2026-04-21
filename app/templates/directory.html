@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    body { font-family: 'Outfit', sans-serif; background-color: #0B1219; color: #F1F5F9; }
+    
+    .directory-wrapper {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    .dir-header { margin-bottom: 20px; }
+    .dir-header h1 { font-size: 32px; font-weight: 900; }
+    .dir-header span { color: #38BDF8; }
+
+    /* === SEARCH BAR === */
+    .search-container {
+        margin-bottom: 30px;
+        position: relative;
+    }
+    .search-input {
+        width: 100%;
+        padding: 16px 20px 16px 50px;
+        border-radius: 30px;
+        background: #141F2E;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        color: white;
+        font-family: inherit;
+        font-size: 16px;
+        outline: none;
+        transition: 0.2s;
+    }
+    .search-input:focus {
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+        border-color: #38BDF8;
+    }
+    .search-icon {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        color: #64748B;
+    }
+
+    .user-list {
+        background: #141F2E;
+        border-radius: 20px;
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        overflow: hidden;
+    }
+
+    .user-row {
+        display: flex;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        text-decoration: none;
+        color: inherit;
+        transition: 0.2s;
+    }
+    .user-row:last-child { border-bottom: none; }
+    .user-row:hover { background: rgba(56, 189, 248, 0.05); }
+
+    .avatar-box { position: relative; margin-right: 15px; }
+    .avatar-box img { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #1E293B; }
+    .online-pip {
+        position: absolute; bottom: 2px; right: 0; width: 14px; height: 14px;
+        background: #10B981; border: 2px solid #141F2E; border-radius: 50%;
+    }
+
+    .user-info { flex: 1; min-width: 0; }
+    .user-info h3 { 
+        font-size: 16px; font-weight: 800; margin-bottom: 4px; 
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .user-info p { 
+        font-size: 13px; color: #94A3B8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    }
+
+    .mutual-badge {
+        background: linear-gradient(90deg, #E60026, #FF4B2B);
+        color: white; font-size: 9px; padding: 2px 6px; border-radius: 8px;
+        font-weight: 900; letter-spacing: 0.5px;
+    }
+
+    .action-area { display: flex; align-items: center; gap: 15px; flex-shrink: 0; }
+    
+    .unread-pill {
+        background: #E60026; color: white; font-size: 12px; font-weight: 900;
+        min-width: 24px; height: 24px; border-radius: 12px;
+        display: flex; justify-content: center; align-items: center; padding: 0 6px;
+    }
+
+    .chat-icon { color: #38BDF8; font-size: 20px; opacity: 0.7; transition: 0.2s; }
+    .user-row:hover .chat-icon { opacity: 1; transform: translateX(3px); }
+    
+    .meta-data {
+        text-align: right; font-size: 11px; color: #64748B;
+    }
+</style>
+
+<div class="directory-wrapper">
+    <div class="dir-header">
+        <h1>Student <span>Directory</span></h1>
+        <p style="color: #64748B;">Find connections or jump into your chats.</p>
+    </div>
+
+    <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <form method="GET" action="/directory">
+            <input type="text" name="q" class="search-input" placeholder="Search by name..." value="{{ search_query }}">
+        </form>
+    </div>
+
+    <div class="user-list">
+        {% for u in directory_users %}
+        <a href="/matches/{{ u.id }}" class="user-row">
+            <div class="avatar-box">
+                <img src="{{ u.img }}" alt="{{ u.name }}">
+                {% if u.is_online %}<div class="online-pip"></div>{% endif %}
+            </div>
+            
+            <div class="user-info">
+                <h3>
+                    {{ u.full_name }}
+                    {% if u.is_mutual %}<span class="mutual-badge">MATCH</span>{% endif %}
+                </h3>
+                <p>{{ u.course }}</p>
+            </div>
+            <div class="action-area">
+                <div class="meta-data">
+                    {% if u.distance != -1 and u.distance < 100 %}
+                        📍 {{ "%.1f"|format(u.distance) }} km
+                    {% endif %}
+                </div>
+                
+                {% if u.unread_count > 0 %}
+                    <div class="unread-pill">{{ u.unread_count }}</div>
+                {% endif %}
+                <div class="chat-icon">💬</div>
+            </div>
+        </a>
+        {% else %}
+        <div style="padding: 60px 20px; text-align: center; color: #64748B;">
+            <div style="font-size: 40px; margin-bottom: 15px;">👻</div>
+            <p>No students found.</p>
+            {% if search_query %}
+                <a href="/directory" style="color: #38BDF8; text-decoration: none; margin-top: 10px; display: inline-block;">Clear Search</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
