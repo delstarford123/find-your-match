@@ -23,7 +23,7 @@ twilio
 pywebpush
 qrcode
 Pillow
-
+Flask-Limiter
 # ==========================================
 # 📊 DATA SCIENCE & MACHINE LEARNING
 # ==========================================
