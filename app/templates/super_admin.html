@@ -264,8 +264,30 @@
         to { opacity: 1; bottom: 30px; transform: translateX(-50%) scale(1); }
     }
 
+    /* === MODULE NAVIGATION === */
+    .admin-modules-nav {
+        display: flex; gap: 10px; margin-bottom: 30px; 
+        overflow-x: auto; padding-bottom: 5px; scrollbar-width: none;
+        position: sticky; top: 0; background: #0B1120; z-index: 100;
+        padding-top: 10px; border-bottom: 1px solid #1E293B;
+    }
+    .admin-modules-nav::-webkit-scrollbar { display: none; }
+    .module-btn {
+        background: #0F172A; border: 1px solid #1E293B; color: #94a3b8;
+        padding: 12px 20px; border-radius: 14px; font-weight: 700;
+        cursor: pointer; white-space: nowrap; transition: 0.3s;
+        display: flex; align-items: center; gap: 8px; font-size: 14px;
+    }
+    .module-btn.active {
+        background: rgba(56, 189, 248, 0.1); border-color: #38bdf8; color: #38bdf8;
+    }
+    .module-content { display: none; animation: fadeSlideUp 0.4s ease forwards; }
+    .module-content.active { display: block; }
+
     /* === RESPONSIVE OVERRIDES === */
     @media (max-width: 600px) {
+        .admin-modules-nav { margin: 0 -15px 20px; padding: 10px 15px; }
+        .module-btn { padding: 10px 16px; font-size: 13px; }
         .action-group { width: 100%; flex-direction: column; align-items: stretch; gap: 10px;}
         .btn { width: 100%; text-align: center; min-height: 48px; justify-content: center;}
         .admin-card { flex-direction: column; padding: 20px;}
@@ -314,323 +336,317 @@
         </div>
     </div>
 
-    <div class="metrics-grid">
-        <div class="metric-card highlight animate-up delay-1">
-            <div class="m-title">💰 Total Gross Revenue</div>
-            <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
-        </div>
-        <div class="metric-card animate-up delay-1">
-            <div class="m-title">👥 Total Users</div>
-            <div class="m-value format-num">{{ total_users | default(0) }}</div>
-        </div>
-        <div class="metric-card animate-up delay-2">
-            <div class="m-title">🎓 Student Subs (B2C)</div>
-            <div class="m-value"><span>KSH</span> <span class="format-num">{{ student_revenue | default(0) }}</span></div>
-        </div>
-        <div class="metric-card animate-up delay-3">
-            <div class="m-title">🏪 Partner Venues (B2B)</div>
-            <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
-        </div>
+    <div class="admin-modules-nav animate-up">
+        <button class="module-btn active" onclick="switchModule('module-dashboard')">📊 Dashboard</button>
+        <button class="module-btn" onclick="switchModule('module-users')">👥 Users</button>
+        <button class="module-btn" onclick="switchModule('module-users', 'tab-premium')">💎 Premium</button>
+        <button class="module-btn" onclick="switchModule('module-support')">💬 Support</button>
+        <button class="module-btn" onclick="switchModule('module-safety')">🛡️ Safety</button>
+        <button class="module-btn" onclick="switchModule('module-business')">🏪 Business</button>
+        <button class="module-btn" onclick="switchModule('module-system')">⚠️ System</button>
     </div>
 
-    <div class="chart-container animate-up delay-1">
-        <div class="m-title" style="margin-bottom: 15px; color: white;">🚀 New User Signups (Last 7 Days)</div>
-        <canvas id="growthChart"></canvas>
-    </div>
-
-    <h3 class="section-title animate-up delay-1" style="border-top: none; padding-top: 0;">
-        <span>🔍 User Management Engine</span>
-    </h3>
-    <div class="admin-list animate-up delay-1">
-        <div class="admin-card" style="flex-direction: column; align-items: stretch;">
-            <p class="admin-card-text" style="margin-bottom: 20px;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Use the filters below to isolate specific cohorts.</p>
-            
-            <div class="search-box">
-                <input type="text" id="search-query" placeholder="Enter Email or Reg Number..." onkeypress="if(event.key === 'Enter') searchUser()">
-                <div class="action-group" style="flex-wrap: nowrap;">
-                    <button class="btn btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 120px;">🔍 Lookup</button>
-                    <button class="btn btn-outline" onclick="viewAllUsers()" style="min-width: 120px;">👥 View All</button>
-                </div>
-                
-                <div class="quick-filters">
-                    <button class="btn badge-yellow" onclick="searchUser('filter:unverified')">⚠️ Unverified</button>
-                    <button class="btn badge-blue" onclick="searchUser('filter:unpaid')">📧 Verified (Unpaid)</button>
-                    <button class="btn badge-green" onclick="searchUser('filter:paid')">💎 Premium</button>
-                </div>
+    <!-- MODULE: DASHBOARD -->
+    <div id="module-dashboard" class="module-content active">
+        <div class="metrics-grid">
+            <div class="metric-card highlight animate-up delay-1">
+                <div class="m-title">💰 Total Gross Revenue</div>
+                <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
             </div>
-
-            <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 12px; margin-top: 10px;"></div>
-        </div>
-    </div>
-
-    <div class="admin-tabs animate-up delay-2">
-        <button class="tab-btn active" onclick="switchTab('tab-unpaid')">Verified (Unpaid)</button>
-        <button class="tab-btn" onclick="switchTab('tab-premium')">Premium Users</button>
-        <button class="tab-btn" onclick="switchTab('tab-unverified')">Unverified Users</button>
-    </div>
-
-    <div id="tab-unpaid" class="tab-content active"></div>
-        <div class="toolbar">
-            <input type="text" class="search-bar-dark" placeholder="Filter unpaid users..." onkeyup="filterGridUsers(this.value, 'tab-unpaid')">
-            <a href="{{ url_for('admin_export_csv', type='unpaid') }}" class="btn-export">📥 Export CSV</a>
-        </div>
-        <div class="users-grid" id="grid-unpaid">
-            {% for user in unpaid_users[:50] %}
-            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
-                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
-                <div>
-                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
-                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
-                    <span class="badge badge-blue">Pending 20 KSH</span>
-                </div>
+            <div class="metric-card animate-up delay-1">
+                <div class="m-title">👥 Total Users</div>
+                <div class="m-value format-num">{{ total_users | default(0) }}</div>
             </div>
-            {% else %}
-            <p style="color: #64748b;">No unpaid verified users found.</p>
-            {% endfor %}
-        </div>
-        {% if unpaid_users|length > 50 %}
-        <button class="load-more-btn" onclick="loadMore('unpaid', 50)">Load Next 50 Users ⬇️</button>
-        {% endif %}
-    </div>
-
-    <div id="tab-premium" class="tab-content"></div>
-        <div class="toolbar">
-            <input type="text" class="search-bar-dark" placeholder="Filter premium users..." onkeyup="filterGridUsers(this.value, 'tab-premium')">
-            <a href="{{ url_for('admin_export_csv', type='premium') }}" class="btn-export">📥 Export CSV</a>
-        </div>
-        <div class="users-grid" id="grid-premium">
-            {% for user in premium_users[:50] %}
-            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
-                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
-                <div>
-                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
-                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
-                    <span class="badge badge-green">Premium Active</span>
-                </div>
+            <div class="metric-card animate-up delay-2">
+                <div class="m-title">🎓 Student Subs (B2C)</div>
+                <div class="m-value"><span>KSH</span> <span class="format-num">{{ student_revenue | default(0) }}</span></div>
             </div>
-            {% else %}
-            <p style="color: #64748b;">No premium users found.</p>
-            {% endfor %}
-        </div>
-        {% if premium_users|length > 50 %}
-        <button class="load-more-btn" onclick="loadMore('premium', 50)">Load Next 50 Users ⬇️</button>
-        {% endif %}
-    </div>
-
-    <div id="tab-unverified" class="tab-content"></div>
-        <div class="toolbar">
-            <input type="text" class="search-bar-dark" placeholder="Filter unverified users..." onkeyup="filterGridUsers(this.value, 'tab-unverified')">
-            <a href="{{ url_for('admin_export_csv', type='unverified') }}" class="btn-export">📥 Export CSV</a>
-        </div>
-        <div class="users-grid" id="grid-unverified">
-            {% for user in unverified_users[:50] %}
-            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
-                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
-                <div>
-                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }}</h4>
-                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
-                    <span class="badge badge-yellow">Email Unverified</span>
-                </div>
-            </div>
-            {% else %}
-            <p style="color: #64748b;">No unverified users found.</p>
-            {% endfor %}
-        </div>
-        {% if unverified_users|length > 50 %}
-        <button class="load-more-btn" onclick="loadMore('unverified', 50)">Load Next 50 Users ⬇️</button>
-        {% endif %}
-    </div>
-
-
-    <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
-    <div class="admin-list animate-up delay-2">
-        <div class="admin-card">
-            <div style="flex: 1; min-width: 250px;">
-                <div class="admin-card-header">
-                    <span class="badge {% if promo_active %}badge-green{% else %}badge-gray{% endif %}" id="promo-badge">
-                        {% if promo_active %}🟢 PROMO IS LIVE{% else %}⚫ PROMO IS OFF{% endif %}
-                    </span>
-                </div>
-                <h4 class="admin-card-title" style="margin-bottom: 8px;">14-Day Free Trial Campaign</h4>
-                <p class="admin-card-text">When activated, any new student who verifies their email will instantly receive 2 weeks of Premium access. Once the 14 days expire, they hit the paywall.</p>
-            </div>
-            
-            <div class="action-group">
-                <button class="btn" id="promo-btn" 
-                        style="background: {% if promo_active %}#1E293B{% else %}#10b981{% endif %}; color: white;"
-                        onclick="togglePromo(this)">
-                    {% if promo_active %}Turn Off Campaign{% else %}Launch Campaign 🚀{% endif %}
-                </button>
+            <div class="metric-card animate-up delay-3">
+                <div class="m-title">🏪 Partner Venues (B2B)</div>
+                <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
             </div>
         </div>
-    </div>
 
-    <h3 class="section-title animate-up delay-3" id="broadcast-section-anchor">🎯 Targeted Email Engine</h3>
-    <div class="admin-list animate-up delay-3">
-        <div class="admin-card" style="flex-direction: column; align-items: stretch;">
-            <p class="admin-card-text" style="margin-bottom: 20px;">Dispatch an email to specific user cohorts or the entire platform.</p>
-
-            <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 16px;">
-                <option value="all">📢 All Registered Users</option>
-                <option value="class">🏫 Specific Class</option>
-                <option value="premium">💎 Premium Users (Paid)</option>
-                <option value="verified_unpaid">📧 Verified but Unpaid Users</option>
-                <option value="unverified">⚠️ Unverified Users</option>
-                <option value="specific">👤 Specific User (Enter Email)</option>
-            </select>
-
-            <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
-            <input type="text" id="specific-class-input" class="admin-input" placeholder="Enter Exact Class Code (e.g. SAB_B)" style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
-            
-            <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. Action Required: Finish Registration)" style="margin-bottom: 16px;">
-            <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted nicely." style="resize: vertical;"></textarea>
-
-            <div class="action-group" style="margin-top: 10px;">
-                <button class="btn btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">🚀 Dispatch System Email</button>
-            </div>
+        <div class="chart-container animate-up delay-1">
+            <div class="m-title" style="margin-bottom: 15px; color: white;">🚀 New User Signups (Last 7 Days)</div>
+            <canvas id="growthChart"></canvas>
         </div>
-    </div>
 
-    <h3 class="section-title animate-up delay-3">
-        <span>🛡️ AI Moderation Queue</span>
-        <button class="btn btn-outline" onclick="selectAllAlerts()" style="font-size:12px; padding: 6px 12px;">☑️ Select All</button>
-    </h3>
-    <div class="admin-list animate-up delay-3" id="moderation-list">
-        {% if alerts %}
-            {% for alert in alerts %}
-            <div class="admin-card" id="alert-{{ alert.alert_id }}" style="position: relative;">
-                <input type="checkbox" class="bulk-checkbox" value="{{ alert.alert_id }}" data-type="alert" onchange="updateBulkBar()">
-                <div style="flex: 1; min-width: 250px; padding-right: 30px;">
-                    <div class="admin-card-header">
-                        <span class="badge badge-red">VIOLATION: {{ alert.flag | upper }}</span>
-                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
-                    </div>
-                    
-                    <div class="message-bubble message-alert">"{{ alert.message }}"</div>
-                    <div style="font-size: 13px; color: #64748b; font-family: monospace; font-weight: 600; word-break: break-all;">Sender ID: {{ alert.sender }}</div>
-                </div>
-                
-                <div class="action-group">
-                    <button class="btn btn-outline" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
-                    <button class="btn btn-danger" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban & Delete</button>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 40px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
-                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px; font-weight: 800;">The community is safe.</div>
-                <div style="font-size: 14px;">No AI alerts currently pending.</div>
-            </div>
-        {% endif %}
-    </div>
-
-    <h3 class="section-title animate-up delay-3">📞 Callback Requests</h3>
-    <div class="admin-list animate-up delay-3" id="call-list">
-        {% if call_requests %}
-            {% for call in call_requests %}
-            <div class="admin-card" id="call-{{ call.id }}">
+        <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
+        <div class="admin-list animate-up delay-2">
+            <div class="admin-card">
                 <div style="flex: 1; min-width: 250px;">
                     <div class="admin-card-header">
-                        <span class="badge badge-yellow">URGENT CALLBACK</span>
-                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ call.timestamp[:10] if call.timestamp else 'Recent' }}</span>
+                        <span class="badge {% if promo_active %}badge-green{% else %}badge-gray{% endif %}" id="promo-badge">
+                            {% if promo_active %}🟢 PROMO IS LIVE{% else %}⚫ PROMO IS OFF{% endif %}
+                        </span>
+                    </div>
+                    <h4 class="admin-card-title" style="margin-bottom: 8px;">14-Day Free Trial Campaign</h4>
+                    <p class="admin-card-text">When activated, any new student who verifies their email will instantly receive 2 weeks of Premium access.</p>
+                </div>
+                <div class="action-group">
+                    <button class="btn" id="promo-btn" 
+                            style="background: {% if promo_active %}#1E293B{% else %}#10b981{% endif %}; color: white;"
+                            onclick="togglePromo(this)">
+                        {% if promo_active %}Turn Off Campaign{% else %}Launch Campaign 🚀{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE: USERS -->
+    <div id="module-users" class="module-content">
+        <h3 class="section-title animate-up delay-1" style="border-top: none; padding-top: 0;">
+            <span>🔍 User Management Engine</span>
+        </h3>
+        <div class="admin-list animate-up delay-1">
+            <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+                <p class="admin-card-text" style="margin-bottom: 20px;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>.</p>
+                
+                <div class="search-box">
+                    <input type="text" id="search-query" placeholder="Enter Email or Reg Number..." onkeypress="if(event.key === 'Enter') searchUser()">
+                    <div class="action-group" style="flex-wrap: nowrap;">
+                        <button class="btn btn-primary" id="search-btn" onclick="searchUser()" style="min-width: 120px;">🔍 Lookup</button>
+                        <button class="btn btn-outline" onclick="viewAllUsers()" style="min-width: 120px;">👥 View All</button>
                     </div>
                     
-                    <h4 class="admin-card-title" style="margin: 10px 0;">{{ call.phone_number }}</h4>
-                    <p class="admin-card-text" style="margin-bottom: 12px;">Reason: {{ call.reason }}</p>
-                    
-                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Requested by: <strong style="color: #cbd5e1;">{{ call.user_name }}</strong> ({{ call.user_id }})</div>
-                </div>
-                
-                <div class="action-group">
-                    <a href="tel:{{ call.phone_number }}" class="btn btn-success" style="text-decoration: none;">Call Now</a>
-                    <button class="btn btn-outline" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark Handled</button>
-                </div>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
-                <div style="font-size: 15px; font-weight: 600;">No pending call requests.</div>
-            </div>
-        {% endif %}
-    </div>
-
-    <h3 class="section-title animate-up delay-3">✉️ Support Tickets & Feedback</h3>
-    <div class="admin-list animate-up delay-3" id="feedback-list">
-        {% if feedbacks %}
-            {% for f in feedbacks %}
-            <div class="admin-card" id="feedback-{{ f.id }}">
-                <div style="flex: 1; min-width: 250px;">
-                    <div class="admin-card-header">
-                        {% if f.type == 'suggestion' %}
-                            <span class="badge badge-blue">💡 SUGGESTION</span>
-                        {% else %}
-                            <span class="badge badge-purple">⚠️ ERROR TICKET</span>
-                        {% endif %}
-                        <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ f.timestamp[:10] if f.timestamp else 'Recent' }}</span>
+                    <div class="quick-filters">
+                        <button class="btn badge-yellow" onclick="searchUser('filter:unverified')">⚠️ Unverified</button>
+                        <button class="btn badge-blue" onclick="searchUser('filter:unpaid')">📧 Verified (Unpaid)</button>
+                        <button class="btn badge-green" onclick="searchUser('filter:paid')">💎 Premium</button>
                     </div>
-                    
-                    <div class="message-bubble {% if f.type == 'ticket' %}message-ticket{% else %}message-feedback{% endif %}">"{{ f.message }}"</div>
-                    
-                    <div style="font-size: 13px; color: #64748b; font-weight: 600;">Submitted by: <strong style="color: #cbd5e1;">{{ f.user_name }}</strong> ({{ f.user_id }})</div>
                 </div>
-                
-                <div class="action-group">
-                    <button class="btn btn-outline" onclick="adminAction(this, 'resolve_feedback', '{{ f.id }}', '{{ f.type }}')">Mark Resolved</button>
+
+                <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 12px; margin-top: 10px;"></div>
+            </div>
+        </div>
+
+        <div class="admin-tabs animate-up delay-2">
+            <button class="tab-btn active" onclick="switchTab('tab-unpaid')">Verified (Unpaid)</button>
+            <button class="tab-btn" onclick="switchTab('tab-premium')">Premium Users</button>
+            <button class="tab-btn" onclick="switchTab('tab-unverified')">Unverified Users</button>
+        </div>
+
+        <div id="tab-unpaid" class="tab-content active">
+            <div class="toolbar">
+                <input type="text" class="admin-input" style="margin-bottom:0; flex:1;" placeholder="Filter unpaid users..." onkeyup="filterGridUsers(this.value, 'tab-unpaid')">
+                <a href="{{ url_for('admin_export_csv', type='unpaid') }}" class="btn-export">📥 Export CSV</a>
+            </div>
+            <div class="users-grid" id="grid-unpaid">
+                {% for user in unpaid_users[:50] %}
+                <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                    <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                    <div>
+                        <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
+                        <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                        <div class="action-group">
+                            <span class="badge badge-blue">Pending 20 KSH</span>
+                            <button class="btn btn-success" style="padding: 4px 10px; font-size: 11px; height: auto;" onclick="adminAction(this, 'mark_premium', '{{ user.id }}')">Grant Premium</button>
+                        </div>
+                        </div>
+                        </div>                {% else %}
+                <p style="color: #64748b;">No unpaid verified users found.</p>
+                {% endfor %}
+            </div>
+            {% if unpaid_users|length > 50 %}
+            <button class="load-more-btn" onclick="loadMore('unpaid', 50)">Load Next 50 Users ⬇️</button>
+            {% endif %}
+        </div>
+
+        <div id="tab-premium" class="tab-content">
+            <div class="toolbar">
+                <input type="text" class="admin-input" style="margin-bottom:0; flex:1;" placeholder="Filter premium users..." onkeyup="filterGridUsers(this.value, 'tab-premium')">
+                <a href="{{ url_for('admin_export_csv', type='premium') }}" class="btn-export">📥 Export CSV</a>
+            </div>
+            <div class="users-grid" id="grid-premium">
+                {% for user in premium_users[:50] %}
+                <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                    <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                    <div>
+                        <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
+                        <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                        <span class="badge badge-green">Premium Active</span>
+                    </div>
                 </div>
+                {% else %}
+                <p style="color: #64748b;">No premium users found.</p>
+                {% endfor %}
             </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 30px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
-                <div style="font-size: 15px; font-weight: 600;">No new suggestions or tickets.</div>
+            {% if premium_users|length > 50 %}
+            <button class="load-more-btn" onclick="loadMore('premium', 50)">Load Next 50 Users ⬇️</button>
+            {% endif %}
+        </div>
+
+        <div id="tab-unverified" class="tab-content">
+            <div class="toolbar">
+                <input type="text" class="admin-input" style="margin-bottom:0; flex:1;" placeholder="Filter unverified users..." onkeyup="filterGridUsers(this.value, 'tab-unverified')">
+                <a href="{{ url_for('admin_export_csv', type='unverified') }}" class="btn-export">📥 Export CSV</a>
             </div>
-        {% endif %}
+            <div class="users-grid" id="grid-unverified">
+                {% for user in unverified_users[:50] %}
+                <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                    <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                    <div>
+                        <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }}</h4>
+                        <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                        <span class="badge badge-yellow">Email Unverified</span>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: #64748b;">No unverified users found.</p>
+                {% endfor %}
+            </div>
+            {% if unverified_users|length > 50 %}
+            <button class="load-more-btn" onclick="loadMore('unverified', 50)">Load Next 50 Users ⬇️</button>
+            {% endif %}
+        </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">🏪 Pending Business Approvals</h3>
-    <div class="admin-list animate-up delay-3" id="business-list">
-        {% if pending_businesses %}
-            {% for biz in pending_businesses %}
-            <div class="admin-card" id="biz-{{ biz.id }}">
-                <input type="checkbox" class="bulk-checkbox" value="{{ biz.id }}" data-type="business" onchange="updateBulkBar()">
-                <div style="flex: 1; min-width: 250px; padding-right: 30px;">
-                    <h4 class="admin-card-title" style="margin-bottom: 10px;">{{ biz.business_name }}</h4>
-                    <p class="admin-card-text" style="margin-bottom: 15px;">
-                        Owner: <strong style="color: #cbd5e1;">{{ biz.owner_name }}</strong><br>
-                        Email: <span style="word-break: break-all;">{{ biz.email }}</span>
-                    </p>
-                    <span class="badge badge-yellow">Awaiting 2000 KSH Payment</span>
-                </div>
+    <!-- MODULE: SUPPORT -->
+    <div id="module-support" class="module-content">
+        <h3 class="section-title animate-up delay-1" id="broadcast-section-anchor">🎯 Targeted Email Engine</h3>
+        <div class="admin-list animate-up delay-1">
+            <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+                <p class="admin-card-text" style="margin-bottom: 20px;">Dispatch an email to specific user cohorts or the entire platform.</p>
+
+                <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 16px;">
+                    <option value="all">📢 All Registered Users</option>
+                    <option value="class">🏫 Specific Class</option>
+                    <option value="premium">💎 Premium Users (Paid)</option>
+                    <option value="verified_unpaid">📧 Verified but Unpaid Users</option>
+                    <option value="unverified">⚠️ Unverified Users</option>
+                    <option value="specific">👤 Specific User (Enter Email)</option>
+                </select>
+
+                <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
+                <input type="text" id="specific-class-input" class="admin-input" placeholder="Enter Exact Class Code (e.g. SAB_B)" style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
                 
-                <div class="action-group">
-                    <button class="btn btn-success" onclick="adminAction(this, 'approve_business', '{{ biz.id }}')">Approve & Activate</button>
+                <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject" style="margin-bottom: 16px;">
+                <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here..." style="resize: vertical;"></textarea>
+
+                <div class="action-group" style="margin-top: 10px;">
+                    <button class="btn btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">🚀 Dispatch System Email</button>
                 </div>
             </div>
-            {% endfor %}
-        {% else %}
-            <div style="padding: 40px 20px; text-align: center; color: #64748b; background: #0F172A; border-radius: 20px; border: 2px dashed #1E293B;">
-                <div style="font-size: 18px; color: #f8fafc; margin-bottom: 5px; font-weight: 800;">Queue is clear.</div>
-                <div style="font-size: 14px;">No new businesses pending approval.</div>
-            </div>
-        {% endif %}
+        </div>
+
+        <h3 class="section-title animate-up delay-2">📞 Callback Requests</h3>
+        <div class="admin-list animate-up delay-2" id="call-list">
+            {% if call_requests %}
+                {% for call in call_requests %}
+                <div class="admin-card" id="call-{{ call.id }}">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div class="admin-card-header">
+                            <span class="badge badge-yellow">URGENT CALLBACK</span>
+                        </div>
+                        <h4 class="admin-card-title" style="margin: 10px 0;">{{ call.phone_number }}</h4>
+                        <p class="admin-card-text">Reason: {{ call.reason }}</p>
+                    </div>
+                    <div class="action-group">
+                        <a href="tel:{{ call.phone_number }}" class="btn btn-success">Call Now</a>
+                        <button class="btn btn-outline" onclick="adminAction(this, 'resolve_call', '{{ call.id }}')">Mark Handled</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 20px;">No pending call requests.</p>
+            {% endif %}
+        </div>
+
+        <h3 class="section-title animate-up delay-3">✉️ Support Tickets & Feedback</h3>
+        <div class="admin-list animate-up delay-3" id="feedback-list">
+            {% if feedbacks %}
+                {% for f in feedbacks %}
+                <div class="admin-card" id="feedback-{{ f.id }}">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div class="admin-card-header">
+                            <span class="badge {% if f.type == 'suggestion' %}badge-blue{% else %}badge-purple{% endif %}">{{ f.type | upper }}</span>
+                        </div>
+                        <div class="message-bubble">"{{ f.message }}"</div>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn btn-outline" onclick="adminAction(this, 'resolve_feedback', '{{ f.id }}', '{{ f.type }}')">Mark Resolved</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 20px;">No new suggestions or tickets.</p>
+            {% endif %}
+        </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">
-        <span>⚠️ THE DANGER ZONE</span>
-        <button class="btn btn-outline" onclick="document.getElementById('auditModal').style.display='flex'" style="font-size:12px; padding: 6px 12px;">📜 View Audit Logs</button>
-    </h3>
-    <div class="danger-zone animate-up delay-3">
-        <h2 style="color: #ef4444; margin-top:0;">Mass Deletion Tools</h2>
-        <form action="{{ url_for('admin_delete_class') }}" method="POST" onsubmit="return confirm('WARNING: Delete EVERY user in this class?');" style="margin-bottom: 20px;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                <input type="text" name="class_code" class="admin-input" placeholder="Enter Class Code (e.g. SAB_B)" required style="margin:0; flex:1; min-width:200px;">
-                <button type="submit" class="btn btn-danger">Purge Class</button>
-            </div>
-        </form>
-        <form action="{{ url_for('admin_delete_all_users') }}" method="POST" onsubmit="return confirm('NUCLEAR WARNING: Wipe the ENTIRE student database?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <button type="submit" class="btn" style="width: 100%; background: #7f1d1d; color: white;">☢️ WIPE ALL USERS</button>
-        </form>
+    <!-- MODULE: SAFETY -->
+    <div id="module-safety" class="module-content">
+        <h3 class="section-title animate-up delay-1">
+            <span>🛡️ AI Moderation Queue</span>
+            <button class="btn btn-outline" onclick="selectAllAlerts()" style="font-size:12px; padding: 6px 12px;">☑️ Select All</button>
+        </h3>
+        <div class="admin-list animate-up delay-1" id="moderation-list">
+            {% if alerts %}
+                {% for alert in alerts %}
+                <div class="admin-card" id="alert-{{ alert.alert_id }}">
+                    <input type="checkbox" class="bulk-checkbox" value="{{ alert.alert_id }}" data-type="alert" onchange="updateBulkBar()">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div class="admin-card-header">
+                            <span class="badge badge-red">VIOLATION: {{ alert.flag | upper }}</span>
+                        </div>
+                        <div class="message-bubble">"{{ alert.message }}"</div>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn btn-outline" onclick="adminAction(this, 'dismiss_alert', '{{ alert.alert_id }}')">Dismiss</button>
+                        <button class="btn btn-danger" onclick="adminAction(this, 'ban_user', '{{ alert.sender }}', '{{ alert.alert_id }}')">Ban</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 40px;">No AI alerts pending.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- MODULE: BUSINESS -->
+    <div id="module-business" class="module-content">
+        <h3 class="section-title animate-up delay-1">🏪 Pending Business Approvals</h3>
+        <div class="admin-list animate-up delay-1" id="business-list">
+            {% if pending_businesses %}
+                {% for biz in pending_businesses %}
+                <div class="admin-card" id="biz-{{ biz.id }}">
+                    <div style="flex: 1; min-width: 250px;">
+                        <h4 class="admin-card-title">{{ biz.business_name }}</h4>
+                        <p class="admin-card-text">Owner: {{ biz.owner_name }}</p>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn btn-success" onclick="adminAction(this, 'approve_business', '{{ biz.id }}')">Approve</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 40px;">No pending businesses.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- MODULE: SYSTEM -->
+    <div id="module-system" class="module-content">
+        <h3 class="section-title animate-up delay-1">
+            <span>⚠️ THE DANGER ZONE</span>
+            <button class="btn btn-outline" onclick="document.getElementById('auditModal').style.display='flex'" style="font-size:12px; padding: 6px 12px;">📜 View Audit Logs</button>
+        </h3>
+        <div class="danger-zone animate-up delay-1">
+            <h2 style="color: #ef4444; margin-top:0;">Mass Deletion Tools</h2>
+            <form action="{{ url_for('admin_delete_class') }}" method="POST" onsubmit="return confirm('WARNING: Delete EVERY user in this class?');" style="margin-bottom: 20px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="text" name="class_code" class="admin-input" placeholder="Class Code" required style="margin:0; flex:1;">
+                    <button type="submit" class="btn btn-danger">Purge Class</button>
+                </div>
+            </form>
+            <form action="{{ url_for('admin_delete_all_users') }}" method="POST" onsubmit="return confirm('NUCLEAR WARNING: Wipe the ENTIRE student database?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn" style="width: 100%; background: #7f1d1d; color: white;">☢️ WIPE ALL USERS</button>
+            </form>
+        </div>
     </div>
 
     <div id="bulkActionBar" class="bulk-bar">
@@ -670,12 +686,16 @@
     <script>
         // Set CSRF globally
         const CSRF_TOKEN = "{{ csrf_token() }}";
+        let growthChart;
 
         // --- 1. CHART.JS INITIALIZATION ---
-        // Expecting backend to provide chart_labels (list of strings) and chart_data (list of ints)
-        const ctx = document.getElementById('growthChart');
-        if (ctx) {
-            new Chart(ctx.getContext('2d'), {
+        function initChart() {
+            const ctx = document.getElementById('growthChart');
+            if (!ctx) return;
+            
+            if (growthChart) growthChart.destroy();
+            
+            growthChart = new Chart(ctx.getContext('2d'), {
                 type: 'line',
                 data: {
                     labels: {{ chart_labels | default(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']) | safe }},
@@ -693,6 +713,8 @@
                 }
             });
         }
+        
+        document.addEventListener('DOMContentLoaded', initChart);
 
         // --- 2. FORMATTING & TOASTS ---
         document.querySelectorAll('.format-num').forEach(el => {
@@ -709,7 +731,26 @@
             clearTimeout(toastTimeout); toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
         }
 
-        // --- 3. UI INTERACTIONS (TABS & FILTERS) ---
+        // --- 3. UI INTERACTIONS (MODULES & TABS) ---
+        function switchModule(moduleId, targetTabId = null) {
+            document.querySelectorAll('.module-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.module-content').forEach(m => m.classList.remove('active'));
+            
+            // If targetTabId is provided, we might be clicking a virtual module button
+            let sourceBtn = event.currentTarget;
+            sourceBtn.classList.add('active');
+            
+            document.getElementById(moduleId).classList.add('active');
+            
+            if (targetTabId) {
+                // Find the tab button for this tabId
+                const tabBtn = document.querySelector(`.tab-btn[onclick*="${targetTabId}"]`);
+                if (tabBtn) tabBtn.click();
+            }
+            
+            if(moduleId === 'module-dashboard') initChart();
+        }
+
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));

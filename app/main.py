@@ -1692,6 +1692,17 @@ def admin_action():
             if target_id:
                 db.reference(f'call_requests/{target_id}').delete()
                 
+        elif action == 'mark_premium':
+            if target_id:
+                db.reference(f'profiles/{target_id}').update({'is_paid': True})
+                # 📜 AUDIT LOG
+                log_ref = db.reference('admin_audit_logs').push()
+                log_ref.set({
+                    'action': f"Manually granted Premium to user: {target_id}",
+                    'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                    'admin_ip': request.remote_addr
+                })
+                
         elif action == 'toggle_promo':
             current_status = db.reference('system_settings/new_user_promo').get()
             new_status = not current_status
