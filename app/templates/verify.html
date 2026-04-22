@@ -144,6 +144,7 @@
         {% endwith %}
 
         <form method="POST" action="{{ url_for('auth.verify_email') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="otp-container">
                 <input type="text" name="otp_code" class="otp-input" maxlength="6" required autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]*" autofocus>
                 
@@ -163,6 +164,7 @@
         <div class="resend-text">
             Didn't receive the email? Check spam or
             <form method="POST" action="{{ url_for('auth.resend_otp') }}" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" id="btn-resend" class="btn-resend" disabled>
                     Resend Code <span id="timer-text">(60s)</span>
                 </button>

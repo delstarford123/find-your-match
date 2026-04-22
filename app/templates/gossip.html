@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === V2 PREMIUM GOSSIP THEME === */
+    .gossip-page {
+        max-width: 650px;
+        margin: 0 auto;
+        padding: 20px 15px 120px;
+    }
+
+    /* The Viral Engine Banner */
+    .referral-viral-card {
+        background: linear-gradient(135deg, rgba(114, 0, 0, 0.6) 0%, rgba(230, 0, 38, 0.3) 100%);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(230, 0, 38, 0.4);
+        border-radius: 20px;
+        padding: 25px 20px;
+        margin-bottom: 35px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 12px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .referral-viral-card::after {
+        content: '🤫';
+        position: absolute;
+        right: -10px;
+        top: -10px;
+        font-size: 80px;
+        opacity: 0.1;
+        pointer-events: none;
+    }
+
+    .referral-viral-card h3 { color: #fff; font-size: 20px; font-weight: 900; margin: 0; letter-spacing: -0.5px; }
+    .referral-viral-card p { color: #cbd5e1; font-size: 14px; margin: 0; line-height: 1.5; }
+    
+    .ref-code-box {
+        background: rgba(0,0,0,0.4);
+        padding: 12px 25px;
+        border-radius: 12px;
+        border: 2px dashed #E60026;
+        color: #ff4d6d;
+        font-family: 'Courier New', monospace;
+        font-weight: 900;
+        font-size: 20px;
+        letter-spacing: 3px;
+        margin: 10px 0;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .ref-code-box:hover { transform: scale(1.05); background: rgba(230, 0, 38, 0.1); }
+    .ref-code-box:active { transform: scale(0.95); }
+
+    /* Feed Controls */
+    .feed-controls {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+    }
+
+    /* V2 Gossip Cards */
+    .gossip-card {
+        background: rgba(20, 31, 46, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 24px;
+        padding: 25px;
+        margin-bottom: 20px;
+        position: relative;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* "Hot" state for popular gossip */
+    .gossip-card.is-hot {
+        border-color: rgba(230, 0, 38, 0.4);
+        box-shadow: 0 0 20px rgba(230, 0, 38, 0.15);
+    }
+
+    .gossip-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #E60026; border-radius: 24px 0 0 24px; }
+    .gossip-card:hover { transform: translateY(-3px); }
+
+    .gossip-text { color: #f8fafc; font-size: 17px; line-height: 1.6; font-weight: 500; margin-bottom: 20px; white-space: pre-wrap; word-break: break-word; }
+
+    .gossip-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
+    .gossip-stats { display: flex; gap: 15px; align-items: center; }
+    
+    .stat-btn {
+        background: rgba(255,255,255,0.05); border: none; color: #94a3b8;
+        padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 700;
+        cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+    }
+    .stat-btn.upvoted { color: #E60026; background: rgba(230, 0, 38, 0.15); }
+    @media (hover: hover) { .stat-btn:hover { background: rgba(255,255,255,0.15); color: #fff; } }
+    .stat-btn:active { transform: scale(0.9); }
+
+    .time-ago { color: #475569; font-size: 13px; font-weight: 600; }
+
+    .share-btn {
+        background: transparent; color: #ff4d6d; border: 1.5px solid #E60026;
+        padding: 8px 18px; border-radius: 30px; font-size: 13px; font-weight: 800;
+        cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .share-btn:hover { background: #E60026; color: white; }
+
+    /* Floating Action Button */
+    .fab-post {
+        position: fixed; bottom: max(90px, var(--safe-bottom)); right: max(25px, var(--safe-right));
+        width: 65px; height: 65px; background: linear-gradient(135deg, #E60026 0%, #720000 100%);
+        color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center;
+        font-size: 32px; border: none; box-shadow: 0 10px 25px rgba(114, 0, 0, 0.5);
+        cursor: pointer; z-index: 100; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .fab-post:hover { transform: scale(1.1) rotate(90deg); }
+
+    /* Glass Modal Styling */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; animation: fadeInModal 0.3s ease;
+    }
+    .modal-card { background: #0B1219; border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 450px; border-radius: 28px; padding: 30px; position: relative; }
+    
+    .modal-card textarea {
+        width: 100%; height: 160px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px; color: white; padding: 18px; font-size: 16px; outline: none; margin: 15px 0 5px; resize: none; font-family: inherit; line-height: 1.5;
+    }
+    .modal-card textarea:focus { border-color: #E60026; background: rgba(0,0,0,0.2); }
+    
+    .char-count { text-align: right; color: #64748b; font-size: 12px; font-weight: 600; margin-bottom: 20px; }
+    .char-count.limit-near { color: #f59e0b; }
+    .char-count.limit-hit { color: #ef4444; }
+
+    @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+</style>
+
+<div class="gossip-page">
+    
+    <div class="referral-viral-card">
+        <h3>Spill the Tea, Earn the Rewards ☕</h3>
+        <p>Drop a secret or share gossip to invite friends. When they join via your link, you unlock premium perks!</p>
+        <div class="ref-code-box" onclick="copyReferralLink()" title="Click to copy your link">
+            {{ session.get('referral_code', 'LOGIN-TO-SEE') }}
+        </div>
+        <p style="font-size: 11px; opacity: 0.7;">(Tap code to copy your direct invite link)</p>
+    </div>
+
+    <div class="feed-controls">
+        <div>
+            <h1 style="color: white; font-weight: 900; font-size: 28px; margin:0;">The Feed 🤫</h1>
+            <p style="color: #94a3b8; font-size: 14px; margin-top:4px;">Real stories. Total anonymity.</p>
+        </div>
+        <button onclick="window.location.reload()" style="background:none; border:none; color:#38BDF8; font-size:24px; cursor:pointer; transition:0.3s;" title="Refresh Feed" id="refreshBtn">
+            ↻
+        </button>
+    </div>
+
+    <div id="gossip-feed">
+        {% if posts %}
+            {% for post in posts %}
+                <div class="gossip-card {% if post.upvotes and post.upvotes >= 5 %}is-hot{% endif %}" id="post-{{ post.id }}">
+                    
+                    <div class="gossip-text">{{ post.text }}</div>
+                    
+                    <div class="gossip-footer">
+                        <div class="gossip-stats">
+                            <button class="stat-btn" onclick="upvotePost('{{ post.id }}', this)">
+                                🚀 <span id="upvotes-{{ post.id }}">{{ post.upvotes or 0 }}</span>
+                            </button>
+                            <span class="raw-time" style="display:none;">{{ post.timestamp }}</span>
+                            <span class="time-ago" id="time-{{ post.id }}">Just now</span>
+                        </div>
+                        
+                        <button class="share-btn" onclick="sharePost('{{ post.id }}', `{{ post.text|replace('\n', ' ')|replace('\"', '\\\"') }}`)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                            Share
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div style="text-align: center; padding: 60px 20px; color: #64748b;">
+                <div style="font-size: 60px; margin-bottom: 20px; opacity:0.5;">👀</div>
+                <h3 style="color:#e2e8f0; margin-bottom:10px;">It's awfully quiet...</h3>
+                <p>Be the first one to drop some campus drama today!</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<button class="fab-post" onclick="document.getElementById('postModal').style.display='flex'">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+</button>
+
+<div class="modal-overlay" id="postModal">
+    <div class="modal-card">
+        <h2 style="color: white; margin: 0; font-size:24px;">Post Anonymously</h2>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 5px;">We don't track your IP. Your secret is safe.</p>
+        
+        <textarea id="gossipText" placeholder="Who did you see at the Student Centre today?" maxlength="300" oninput="updateCharCount(this)"></textarea>
+        <div class="char-count" id="charCounter">0 / 300</div>
+        
+        <button onclick="submitGossip()" id="submitBtn" style="width: 100%; background: #E60026; color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.3);">
+            Post to Feed
+        </button>
+        <button onclick="document.getElementById('postModal').style.display='none'" style="width: 100%; background: transparent; color: #64748b; border: none; padding: 12px; margin-top: 10px; cursor: pointer; font-weight: 700; font-size: 15px;">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<script>
+    const MY_REF_LINK = "{{ request.host_url }}signup?ref={{ session.get('referral_code', '') }}";
+    
+    // Attempt to grab CSRF safely. If using the V2 base.html, this tag exists.
+    let CSRF_TOKEN = '';
+    const metaCsrf = document.querySelector('meta[name="csrf-token"]');
+    if (metaCsrf) { CSRF_TOKEN = metaCsrf.getAttribute('content'); }
+
+    // --- 1. Advanced Web Share API ---
+    function sharePost(postId, rawText) {
+        // Create a truncated hook
+        const excerpt = rawText.length > 60 ? rawText.substring(0, 60) + "..." : rawText;
+        const shareText = `Someone just posted this on the MMUST dating feed 🤫\n\n"${excerpt}"\n\nJoin to read the rest: `;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Campus Gossip',
+                text: shareText,
+                url: MY_REF_LINK,
+            }).catch(console.error);
+        } else {
+            copyToClipboard(shareText + "\n" + MY_REF_LINK);
+            alert("Share text & your referral link copied to clipboard!");
+        }
+    }
+
+    function copyReferralLink() {
+        copyToClipboard(MY_REF_LINK);
+        alert("Your personal invite link has been copied! Drop it in WhatsApp groups to earn points.");
+    }
+
+    function copyToClipboard(text) {
+        const dummy = document.createElement("textarea");
+        document.body.appendChild(dummy);
+        dummy.value = text; dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+    }
+
+    // --- 2. Live Character Counter ---
+    function updateCharCount(textarea) {
+        const count = textarea.value.length;
+        const counterEl = document.getElementById('charCounter');
+        counterEl.innerText = `${count} / 300`;
+        
+        if (count >= 280) { counterEl.className = 'char-count limit-hit'; }
+        else if (count >= 250) { counterEl.className = 'char-count limit-near'; }
+        else { counterEl.className = 'char-count'; }
+    }
+
+    // --- 3. Relative Time Calculator (Twitter Style) ---
+    function timeSince(dateString) {
+        const date = new Date(dateString);
+        const seconds = Math.floor((new Date() - date) / 1000);
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + "y ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + "mo ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + "d ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + "h ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + "m ago";
+        return "Just now";
+    }
+
+    // Parse all dates on page load
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll('.gossip-card').forEach(card => {
+            const rawTimeSpan = card.querySelector('.raw-time');
+            const displayTimeSpan = card.querySelector('.time-ago');
+            if(rawTimeSpan && displayTimeSpan) {
+                displayTimeSpan.innerText = timeSince(rawTimeSpan.innerText);
+            }
+        });
+        
+        // Spin the refresh button slightly on load
+        const refBtn = document.getElementById('refreshBtn');
+        if(refBtn) { refBtn.style.transform = "rotate(180deg)"; }
+    });
+
+    // --- 4. Backend Communications ---
+    async function submitGossip() {
+        const text = document.getElementById('gossipText').value.trim();
+        if (text.length < 10) return alert("Write a little bit more detail!");
+
+        const btn = document.getElementById('submitBtn');
+        btn.innerText = "Posting to Campus..."; btn.disabled = true;
+
+        try {
+            const response = await fetch('/api/post_gossip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
+            if (data.success) { window.location.reload(); } 
+            else { alert(data.message || "Failed to post."); btn.innerText = "Post to Feed"; btn.disabled = false; }
+        } catch (e) { console.error(e); btn.innerText = "Post to Feed"; btn.disabled = false; }
+    }
+
+    async function upvotePost(postId, btnElement) {
+        // Prevent double clicking
+        if (btnElement.classList.contains('upvoted')) return;
+        
+        // Optimistic UI Update (instant visual feedback)
+        btnElement.classList.add('upvoted');
+        const countEl = document.getElementById(`upvotes-${postId}`);
+        const currentCount = parseInt(countEl.innerText) || 0;
+        countEl.innerText = currentCount + 1;
+        
+        // Make the card glow if it just hit the "Hot" threshold (5 votes)
+        if (currentCount + 1 === 5) {
+            document.getElementById(`post-${postId}`).classList.add('is-hot');
+        }
+
+        try {
+            await fetch(`/api/upvote_gossip/${postId}`, {
+                method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN }
+            });
+        } catch (e) { 
+            // Revert on failure
+            console.error(e); 
+            btnElement.classList.remove('upvoted');
+            countEl.innerText = currentCount;
+        }
+    }
+
+    // Close modal on background click
+    window.onclick = function(e) {
+        const modal = document.getElementById('postModal');
+        if (e.target == modal) { modal.style.display = "none"; }
+    }
+</script>
+{% endblock %}

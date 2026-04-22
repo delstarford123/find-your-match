@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
     /* === OVERRIDE BASE THEME FOR ADMIN MODE === */
     body { background-color: #0B1120; color: #f8fafc; font-family: 'Outfit', sans-serif; }
@@ -104,10 +106,10 @@
     .btn-lock:active { transform: scale(0.95); }
     @media (hover: hover) { .btn-lock:hover { background: #ef4444; color: white; border-color: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); } }
     
-    /* === METRICS CARDS === */
+    /* === METRICS CARDS & CHARTS === */
     .metrics-grid { 
         display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); 
-        gap: 16px; margin-bottom: 30px; 
+        gap: 16px; margin-bottom: 20px; 
     }
     .metric-card {
         background: #0F172A; padding: 24px; border-radius: 20px; 
@@ -132,10 +134,30 @@
     }
     .m-value span { font-size: 14px; color: #38bdf8; font-weight: 800; vertical-align: super; margin-right: 4px; letter-spacing: 0; }
 
+    .chart-container { background: #0F172A; border: 1px solid #1E293B; border-radius: 20px; padding: 20px; margin-bottom: 40px; width: 100%; height: 300px; }
+
+    /* === TABS, FILTERS & ACTIONS === */
+    .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; }
+    .admin-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn { background: #0F172A; border: 1px solid #1E293B; color: #cbd5e1; padding: 12px 24px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+    .tab-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+    .tab-content { display: none; animation: fadeSlideUp 0.3s ease; }
+    .tab-content.active { display: block; }
+    
+    .toolbar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+    .btn-export { background: #1E293B; color: #38bdf8; border: 1px solid #334155; padding: 12px 20px; border-radius: 12px; font-weight: 800; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 14px; transition: 0.2s;}
+    .btn-export:hover { background: #334155; color: white; }
+
+    /* === BULK ACTIONS === */
+    .bulk-checkbox { width: 20px; height: 20px; accent-color: #38bdf8; cursor: pointer; position: absolute; top: 15px; right: 15px; z-index: 10; }
+    .bulk-bar { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border: 1px solid #38bdf8; padding: 15px 25px; border-radius: 20px; display: flex; align-items: center; gap: 20px; z-index: 99999; box-shadow: 0 10px 40px rgba(0,0,0,0.8); transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); flex-wrap: wrap; justify-content: center;}
+    .bulk-bar.visible { bottom: 30px; }
+    .bulk-bar-text { color: white; font-weight: 800; font-size: 15px; white-space: nowrap; }
+
     /* === LISTS & CARDS === */
     .section-title { 
         font-size: 22px; color: #f8fafc; margin-top: 30px; margin-bottom: 20px; 
-        font-weight: 900; display: flex; align-items: center; gap: 10px;
+        font-weight: 900; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #1E293B; padding-top: 30px;
     }
     .admin-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
     
@@ -143,7 +165,7 @@
         background: #0F172A; padding: 24px; border-radius: 20px; 
         border: 1px solid #1E293B; display: flex; justify-content: space-between; 
         align-items: flex-start; flex-wrap: wrap; gap: 20px;
-        transition: opacity 0.3s ease, transform 0.3s ease;
+        transition: opacity 0.3s ease, transform 0.3s ease; position: relative;
     }
     .admin-card-header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
     .admin-card-title { color: white; margin: 0; font-size: 20px; font-weight: 900; }
@@ -202,25 +224,37 @@
     .quick-filters { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; padding-top: 15px; border-top: 1px dashed #1E293B; }
     .quick-filters .btn { padding: 8px 14px; font-size: 12px; border-radius: 8px;}
     
-    .user-result-card {
+    .user-result-card, .user-card {
         background: #0B1120; border-radius: 16px; padding: 20px; 
         border: 1px solid #1E293B; display: flex; justify-content: space-between; 
-        flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 10px;
+        flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 10px; position: relative;
     }
-    .user-result-card h4 { margin: 0 0 6px 0; color: white; font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 8px;}
-    .user-result-card h4 span { color: #94a3b8; font-weight: 500; font-size: 14px; }
-    .user-result-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 12px; font-weight: 600; word-break: break-all;}
+    .user-card { flex-direction: column; align-items: stretch; background: #0F172A; }
+    .user-result-card h4, .user-card h4 { margin: 0 0 6px 0; color: white; font-size: 18px; font-weight: 900; display: flex; align-items: center; gap: 8px;}
+    .user-result-card h4 span, .user-card h4 span { color: #94a3b8; font-weight: 500; font-size: 14px; }
+    .user-result-card .email, .user-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 12px; font-weight: 600; word-break: break-all;}
+
+    .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .load-more-btn { width: 100%; background: transparent; border: 2px dashed #1E293B; color: #94a3b8; padding: 15px; border-radius: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-bottom: 30px; font-family: inherit;}
+    .load-more-btn:hover { border-color: #38bdf8; color: #38bdf8; }
 
     .scrollable-results { max-height: 600px; overflow-y: auto; padding-right: 5px; }
     .scrollable-results::-webkit-scrollbar { width: 6px; }
     .scrollable-results::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+
+    /* === THE DANGER ZONE === */
+    .danger-zone { border: 2px dashed #ef4444 !important; background: rgba(239, 68, 68, 0.05) !important; padding: 25px; border-radius: 20px; }
+
+    /* === MODALS === */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 100000; align-items: center; justify-content: center; padding: 15px; }
+    .modal-card { background: #0F172A; border: 1px solid #1E293B; width: 100%; max-width: 600px; border-radius: 20px; padding: 25px; max-height: 80vh; overflow-y: auto; }
 
     /* === ADMIN TOAST NOTIFICATION === */
     .admin-toast {
         display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
         background: #38bdf8; color: #0f172a; padding: 16px 25px; border-radius: 14px;
         font-weight: 900; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        z-index: 10000; animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        z-index: 100000; animation: slideUpToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         width: max-content; max-width: 90%; text-align: center;
     }
     .admin-toast.error { background: #ef4444; color: white; }
@@ -238,6 +272,7 @@
         .message-bubble { font-size: 14px; padding: 15px; }
         .search-box { flex-direction: column; align-items: stretch; padding: 15px;}
         .quick-filters { flex-direction: column; align-items: stretch;}
+        .bulk-bar { width: 90%; flex-direction: column; padding: 15px; border-radius: 15px;}
     }
 </style>
 
@@ -261,6 +296,7 @@
             {% endwith %}
 
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <input type="password" name="password" class="admin-input" placeholder="Master Password" required autocomplete="current-password">
                 <button type="submit" class="btn-admin-login">Authenticate</button>
             </form>
@@ -297,7 +333,14 @@
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-1">🔍 User Management Engine</h3>
+    <div class="chart-container animate-up delay-1">
+        <div class="m-title" style="margin-bottom: 15px; color: white;">🚀 New User Signups (Last 7 Days)</div>
+        <canvas id="growthChart"></canvas>
+    </div>
+
+    <h3 class="section-title animate-up delay-1" style="border-top: none; padding-top: 0;">
+        <span>🔍 User Management Engine</span>
+    </h3>
     <div class="admin-list animate-up delay-1">
         <div class="admin-card" style="flex-direction: column; align-items: stretch;">
             <p class="admin-card-text" style="margin-bottom: 20px;">Lookup users by <strong>Registration Number</strong> or <strong>Email Address</strong>. Use the filters below to isolate specific cohorts.</p>
@@ -319,6 +362,85 @@
             <div id="user-search-results" class="scrollable-results" style="display: none; flex-direction: column; gap: 12px; margin-top: 10px;"></div>
         </div>
     </div>
+
+    <div class="admin-tabs animate-up delay-2">
+        <button class="tab-btn active" onclick="switchTab('tab-unpaid')">Verified (Unpaid)</button>
+        <button class="tab-btn" onclick="switchTab('tab-premium')">Premium Users</button>
+        <button class="tab-btn" onclick="switchTab('tab-unverified')">Unverified Users</button>
+    </div>
+
+    <div id="tab-unpaid" class="tab-content active animate-up delay-2">
+        <div class="toolbar">
+            <input type="text" class="search-bar-dark" placeholder="Filter unpaid users..." onkeyup="filterGridUsers(this.value, 'tab-unpaid')">
+            <a href="{{ url_for('admin_export_csv', type='unpaid') }}" class="btn-export">📥 Export CSV</a>
+        </div>
+        <div class="users-grid" id="grid-unpaid">
+            {% for user in unpaid_users[:50] %}
+            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                <div>
+                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
+                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                    <span class="badge badge-blue">Pending 20 KSH</span>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: #64748b;">No unpaid verified users found.</p>
+            {% endfor %}
+        </div>
+        {% if unpaid_users|length > 50 %}
+        <button class="load-more-btn" onclick="loadMore('unpaid', 50)">Load Next 50 Users ⬇️</button>
+        {% endif %}
+    </div>
+
+    <div id="tab-premium" class="tab-content animate-up delay-2">
+        <div class="toolbar">
+            <input type="text" class="search-bar-dark" placeholder="Filter premium users..." onkeyup="filterGridUsers(this.value, 'tab-premium')">
+            <a href="{{ url_for('admin_export_csv', type='premium') }}" class="btn-export">📥 Export CSV</a>
+        </div>
+        <div class="users-grid" id="grid-premium">
+            {% for user in premium_users[:50] %}
+            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                <div>
+                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }} <span style="color:#94a3b8; font-size:13px; font-weight:500;">({{ user.class_code }})</span></h4>
+                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                    <span class="badge badge-green">Premium Active</span>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: #64748b;">No premium users found.</p>
+            {% endfor %}
+        </div>
+        {% if premium_users|length > 50 %}
+        <button class="load-more-btn" onclick="loadMore('premium', 50)">Load Next 50 Users ⬇️</button>
+        {% endif %}
+    </div>
+
+    <div id="tab-unverified" class="tab-content animate-up delay-2">
+        <div class="toolbar">
+            <input type="text" class="search-bar-dark" placeholder="Filter unverified users..." onkeyup="filterGridUsers(this.value, 'tab-unverified')">
+            <a href="{{ url_for('admin_export_csv', type='unverified') }}" class="btn-export">📥 Export CSV</a>
+        </div>
+        <div class="users-grid" id="grid-unverified">
+            {% for user in unverified_users[:50] %}
+            <div class="user-card" data-search="{{ user.name }} {{ user.email }} {{ user.class_code }}">
+                <input type="checkbox" class="bulk-checkbox" value="{{ user.id }}" onchange="updateBulkBar()">
+                <div>
+                    <h4 style="margin:0 0 5px; color:white; font-size:16px;">{{ user.name or 'Unknown' }}</h4>
+                    <div class="email" style="color:#38bdf8; font-size:13px; margin-bottom:10px;">{{ user.email }}</div>
+                    <span class="badge badge-yellow">Email Unverified</span>
+                </div>
+            </div>
+            {% else %}
+            <p style="color: #64748b;">No unverified users found.</p>
+            {% endfor %}
+        </div>
+        {% if unverified_users|length > 50 %}
+        <button class="load-more-btn" onclick="loadMore('unverified', 50)">Load Next 50 Users ⬇️</button>
+        {% endif %}
+    </div>
+
 
     <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
     <div class="admin-list animate-up delay-2">
@@ -350,6 +472,7 @@
 
             <select id="broadcast-target" class="admin-input" onchange="toggleSpecificEmailInput()" style="margin-bottom: 16px;">
                 <option value="all">📢 All Registered Users</option>
+                <option value="class">🏫 Specific Class</option>
                 <option value="premium">💎 Premium Users (Paid)</option>
                 <option value="verified_unpaid">📧 Verified but Unpaid Users</option>
                 <option value="unverified">⚠️ Unverified Users</option>
@@ -357,6 +480,8 @@
             </select>
 
             <input type="email" id="specific-email-input" class="admin-input" placeholder="User's Exact Email Address..." style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
+            <input type="text" id="specific-class-input" class="admin-input" placeholder="Enter Exact Class Code (e.g. SAB_B)" style="display: none; margin-bottom: 16px; border-color: #38bdf8;">
+            
             <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject (e.g. Action Required: Finish Registration)" style="margin-bottom: 16px;">
             <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here... Plain text only. It will automatically be formatted nicely." style="resize: vertical;"></textarea>
 
@@ -366,12 +491,16 @@
         </div>
     </div>
 
-    <h3 class="section-title animate-up delay-3">🛡️ AI Moderation Queue</h3>
+    <h3 class="section-title animate-up delay-3">
+        <span>🛡️ AI Moderation Queue</span>
+        <button class="btn btn-outline" onclick="selectAllAlerts()" style="font-size:12px; padding: 6px 12px;">☑️ Select All</button>
+    </h3>
     <div class="admin-list animate-up delay-3" id="moderation-list">
         {% if alerts %}
             {% for alert in alerts %}
-            <div class="admin-card" id="alert-{{ alert.alert_id }}">
-                <div style="flex: 1; min-width: 250px;">
+            <div class="admin-card" id="alert-{{ alert.alert_id }}" style="position: relative;">
+                <input type="checkbox" class="bulk-checkbox" value="{{ alert.alert_id }}" data-type="alert" onchange="updateBulkBar()">
+                <div style="flex: 1; min-width: 250px; padding-right: 30px;">
                     <div class="admin-card-header">
                         <span class="badge badge-red">VIOLATION: {{ alert.flag | upper }}</span>
                         <span style="color: #64748b; font-size: 13px; font-weight: 600;">{{ alert.timestamp[:10] }}</span>
@@ -462,7 +591,8 @@
         {% if pending_businesses %}
             {% for biz in pending_businesses %}
             <div class="admin-card" id="biz-{{ biz.id }}">
-                <div style="flex: 1; min-width: 250px;">
+                <input type="checkbox" class="bulk-checkbox" value="{{ biz.id }}" data-type="business" onchange="updateBulkBar()">
+                <div style="flex: 1; min-width: 250px; padding-right: 30px;">
                     <h4 class="admin-card-title" style="margin-bottom: 10px;">{{ biz.business_name }}</h4>
                     <p class="admin-card-text" style="margin-bottom: 15px;">
                         Owner: <strong style="color: #cbd5e1;">{{ biz.owner_name }}</strong><br>
@@ -484,10 +614,87 @@
         {% endif %}
     </div>
 
+    <h3 class="section-title animate-up delay-3">
+        <span>⚠️ THE DANGER ZONE</span>
+        <button class="btn btn-outline" onclick="document.getElementById('auditModal').style.display='flex'" style="font-size:12px; padding: 6px 12px;">📜 View Audit Logs</button>
+    </h3>
+    <div class="danger-zone animate-up delay-3">
+        <h2 style="color: #ef4444; margin-top:0;">Mass Deletion Tools</h2>
+        <form action="{{ url_for('admin_delete_class') }}" method="POST" onsubmit="return confirm('WARNING: Delete EVERY user in this class?');" style="margin-bottom: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <input type="text" name="class_code" class="admin-input" placeholder="Enter Class Code (e.g. SAB_B)" required style="margin:0; flex:1; min-width:200px;">
+                <button type="submit" class="btn btn-danger">Purge Class</button>
+            </div>
+        </form>
+        <form action="{{ url_for('admin_delete_all_users') }}" method="POST" onsubmit="return confirm('NUCLEAR WARNING: Wipe the ENTIRE student database?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn" style="width: 100%; background: #7f1d1d; color: white;">☢️ WIPE ALL USERS</button>
+        </form>
+    </div>
+
+    <div id="bulkActionBar" class="bulk-bar">
+        <span class="bulk-bar-text"><span id="bulkCount">0</span> Selected</span>
+        <select id="bulkActionSelect" class="admin-input" style="width: auto; margin:0; padding: 10px;">
+            <option value="delete_users">Delete Selected Users</option>
+            <option value="mark_premium">Mark Users as Premium</option>
+            <option value="dismiss_alerts">Dismiss Selected Alerts</option>
+            <option value="approve_biz">Approve Selected Businesses</option>
+        </select>
+        <button class="btn btn-primary" onclick="executeBulkAction()">Execute Bulk Action</button>
+    </div>
+
+    <div class="modal-overlay" id="auditModal">
+        <div class="modal-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h3 style="color:white; margin:0;">System Audit Logs</h3>
+                <button onclick="document.getElementById('auditModal').style.display='none'" style="background:none; border:none; color:#ef4444; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px; max-height: 50vh; overflow-y: auto;">
+                {% if audit_logs %}
+                    {% for log in audit_logs %}
+                    <div style="background: #0B1120; padding: 12px; border-radius: 8px; border-left: 3px solid #38bdf8;">
+                        <span style="color:#64748b; font-size:11px;">[{{ log.timestamp }}] Admin: {{ log.admin_ip }}</span>
+                        <p style="color:#e2e8f0; font-size:13px; margin: 4px 0 0;">{{ log.action }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="color: #64748b; text-align: center; padding: 20px;">No critical actions logged yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div id="admin-toast" class="admin-toast">Action completed successfully.</div>
 
     <script>
-        // Format large revenue numbers with commas
+        // Set CSRF globally
+        const CSRF_TOKEN = "{{ csrf_token() }}";
+
+        // --- 1. CHART.JS INITIALIZATION ---
+        // Expecting backend to provide chart_labels (list of strings) and chart_data (list of ints)
+        const ctx = document.getElementById('growthChart');
+        if (ctx) {
+            new Chart(ctx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ chart_labels | default(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']) | safe }},
+                    datasets: [{
+                        label: 'New Signups',
+                        data: {{ chart_data | default([5, 12, 8, 25, 40, 32, 60]) | safe }},
+                        borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderWidth: 3, tension: 0.4, fill: true, pointBackgroundColor: '#0F172A',
+                        pointBorderColor: '#38bdf8', pointBorderWidth: 2, pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
+                }
+            });
+        }
+
+        // --- 2. FORMATTING & TOASTS ---
         document.querySelectorAll('.format-num').forEach(el => {
             const num = parseFloat(el.innerText);
             if(!isNaN(num)) el.innerText = num.toLocaleString('en-KE');
@@ -498,16 +705,174 @@
             const toast = document.getElementById('admin-toast');
             toast.innerText = message;
             toast.className = isError ? 'admin-toast error' : 'admin-toast';
-            
-            toast.style.display = 'none';
-            void toast.offsetWidth; // Trigger reflow
-            toast.style.display = 'block';
-            
-            clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+            toast.style.display = 'none'; void toast.offsetWidth; toast.style.display = 'block';
+            clearTimeout(toastTimeout); toastTimeout = setTimeout(() => { toast.style.display = 'none'; }, 3500);
         }
 
-        // Action dispatcher with loading states and row removal
+        // --- 3. UI INTERACTIONS (TABS & FILTERS) ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+        
+        function filterGridUsers(query, tabId) {
+            const q = query.toLowerCase();
+            document.querySelectorAll(`#${tabId} .user-card`).forEach(card => {
+                card.style.display = card.getAttribute('data-search').toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        }
+
+        // --- 4. BULK ACTIONS ---
+        function updateBulkBar() {
+            const checked = document.querySelectorAll('.bulk-checkbox:checked');
+            const bar = document.getElementById('bulkActionBar');
+            document.getElementById('bulkCount').innerText = checked.length;
+            if(checked.length > 0) bar.classList.add('visible');
+            else bar.classList.remove('visible');
+        }
+
+        function selectAllAlerts() {
+            const checkboxes = document.querySelectorAll('#moderation-list .bulk-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            updateBulkBar();
+        }
+
+        function executeBulkAction() {
+            const checked = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value);
+            const action = document.getElementById('bulkActionSelect').value;
+            
+            if(!confirm(`Are you sure you want to execute '${action}' on ${checked.length} items?`)) return;
+
+            document.querySelector('#bulkActionBar .btn-primary').innerText = "Processing...";
+
+            fetch('/api/admin/bulk_action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: action, item_ids: checked })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { 
+                    alert("Bulk action successful."); 
+                    window.location.reload(); 
+                } else { 
+                    showToast("Error: " + data.message, true); 
+                    document.querySelector('#bulkActionBar .btn-primary').innerText = "Execute Bulk Action";
+                }
+            }).catch(err => { showToast("Network error.", true); });
+        }
+
+        // --- 5. LOAD MORE (PAGINATION) ---
+        function loadMore(type, currentOffset) {
+            const btn = event.currentTarget;
+            btn.innerText = "Loading...";
+            
+            fetch(`/api/admin/load_more?type=${type}&offset=${currentOffset}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.html) {
+                    document.getElementById(`grid-${type}`).insertAdjacentHTML('beforeend', data.html);
+                    btn.setAttribute('onclick', `loadMore('${type}', ${currentOffset + 50})`);
+                    btn.innerText = "Load Next 50 Users ⬇️";
+                    if(!data.has_more) btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'none';
+                }
+            }).catch(err => { btn.innerText = "Error Loading. Try Again."; });
+        }
+
+        // --- 6. TARGETED EMAILS ---
+        function toggleSpecificEmailInput() {
+            const targetSelect = document.getElementById('broadcast-target').value;
+            const emailInput = document.getElementById('specific-email-input');
+            const classInput = document.getElementById('specific-class-input');
+            
+            emailInput.style.display = 'none';
+            classInput.style.display = 'none';
+
+            if (targetSelect === 'specific') {
+                emailInput.style.display = 'block';
+                emailInput.focus();
+            } else if (targetSelect === 'class') {
+                classInput.style.display = 'block';
+                classInput.focus();
+            }
+        }
+
+        function prepTargetedEmail(userEmail) {
+            const targetSelect = document.getElementById('broadcast-target');
+            const emailInput = document.getElementById('specific-email-input');
+            const classInput = document.getElementById('specific-class-input');
+            
+            targetSelect.value = 'specific';
+            classInput.style.display = 'none';
+            emailInput.style.display = 'block';
+            emailInput.value = userEmail;
+            
+            document.getElementById('broadcast-section-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => { document.getElementById('broadcast-subject').focus(); }, 500);
+            showToast("Email Engine primed for " + userEmail);
+        }
+
+        function sendBroadcastEmail(btn) {
+            const targetGroup = document.getElementById('broadcast-target').value;
+            const specificEmail = document.getElementById('specific-email-input').value.trim();
+            const specificClass = document.getElementById('specific-class-input').value.trim();
+            const subject = document.getElementById('broadcast-subject').value.trim();
+            const message = document.getElementById('broadcast-message').value.trim();
+
+            if (!subject || !message) { showToast("Subject and message are required.", true); return; }
+            if (targetGroup === 'specific' && !specificEmail) { showToast("Please provide the specific user's email.", true); return; }
+            if (targetGroup === 'class' && !specificClass) { showToast("Please provide the specific class code.", true); return; }
+
+            let confirmMsg = "Are you sure you want to send this email?";
+            if (targetGroup === 'all') confirmMsg = "⚠️ WARNING: Sending email to EVERY registered user. Proceed?";
+            else if (targetGroup === 'class') confirmMsg = `Send email to everyone in class ${specificClass}?`;
+            else if (targetGroup === 'premium') confirmMsg = "Send email to all Premium (Paid) users?";
+            else if (targetGroup === 'verified_unpaid') confirmMsg = "Send email to all Verified but Unpaid users?";
+            else if (targetGroup === 'unverified') confirmMsg = "Send email to all Unverified users?";
+            else if (targetGroup === 'specific') confirmMsg = `Send email directly to ${specificEmail}?`;
+
+            if (!confirm(confirmMsg)) return;
+
+            const originalText = btn.innerText;
+            btn.innerText = "Sending... ⏳";
+            btn.disabled = true;
+
+            fetch('/api/admin/broadcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({ 
+                    target_group: targetGroup, 
+                    specific_email: specificEmail, 
+                    target_class: specificClass,
+                    subject: subject, 
+                    message: message 
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                if (data.success) {
+                    showToast("Email(s) dispatched to background queue!");
+                    document.getElementById('broadcast-subject').value = '';
+                    document.getElementById('broadcast-message').value = '';
+                    if (targetGroup === 'specific') document.getElementById('specific-email-input').value = '';
+                    if (targetGroup === 'class') document.getElementById('specific-class-input').value = '';
+                } else {
+                    showToast("Failed to send: " + data.message, true);
+                }
+            }).catch(err => {
+                btn.disabled = false; btn.innerText = originalText; showToast("Network error. Check console.", true); console.error(err);
+            });
+        }
+
+        // --- 7. INDIVIDUAL ACTIONS & SEARCH ---
         function adminAction(btn, actionType, targetId, alertId = null) {
             if (!confirm("Are you sure you want to execute this action?")) return;
             
@@ -517,7 +882,7 @@
 
             fetch('/api/admin/action', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
                 body: JSON.stringify({ action: actionType, target_id: targetId, alert_id: alertId })
             })
             .then(res => res.json())
@@ -553,127 +918,34 @@
                     if (btn) { btn.disabled = false; btn.innerText = originalText; }
                     showToast("Action failed: " + data.message, true);
                 }
-            })
-            .catch(err => {
+            }).catch(err => {
                 if (btn) { btn.disabled = false; btn.innerText = originalText; }
                 showToast("Network error. Check console.", true);
-                console.error(err);
             });
         }
-        
-        // --- TOGGLE MARKETING PROMO ---
+
         function togglePromo(btn) {
             if (!confirm("Are you sure you want to toggle the 14-Day Free Trial campaign?")) return;
-            
-            const originalText = btn.innerText;
-            btn.innerText = "Updating...";
-            btn.disabled = true;
-
+            const originalText = btn.innerText; btn.innerText = "Updating..."; btn.disabled = true;
             fetch('/api/admin/action', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'toggle_promo' })
-            })
-            .then(res => res.json())
-            .then(data => {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN }, body: JSON.stringify({ action: 'toggle_promo' })
+            }).then(res => res.json()).then(data => {
                 btn.disabled = false;
                 if (data.success) {
                     const badge = document.getElementById('promo-badge');
                     if (data.new_status) {
-                        btn.innerText = "Turn Off Campaign";
-                        btn.style.background = "#1E293B";
-                        badge.innerText = "🟢 PROMO IS LIVE";
-                        badge.className = "badge badge-green";
+                        btn.innerText = "Turn Off Campaign"; btn.style.background = "#1E293B";
+                        badge.innerText = "🟢 PROMO IS LIVE"; badge.className = "badge badge-green";
                         showToast("Campaign Launched! New users get 14 days free.");
                     } else {
-                        btn.innerText = "Launch Campaign 🚀";
-                        btn.style.background = "#10b981";
-                        badge.innerText = "⚫ PROMO IS OFF";
-                        badge.className = "badge badge-gray";
+                        btn.innerText = "Launch Campaign 🚀"; btn.style.background = "#10b981";
+                        badge.innerText = "⚫ PROMO IS OFF"; badge.className = "badge badge-gray";
                         showToast("Campaign Stopped.");
                     }
-                } else {
-                    btn.innerText = originalText;
-                    showToast("Failed to toggle promo.", true);
-                }
-            })
-            .catch(err => {
-                btn.disabled = false;
-                btn.innerText = originalText;
-                showToast("Network error.", true);
-            });
+                } else { btn.innerText = originalText; showToast("Failed to toggle promo.", true); }
+            }).catch(err => { btn.disabled = false; btn.innerText = originalText; showToast("Network error.", true); });
         }
 
-        // --- TARGETED EMAIL ENGINE FUNCTIONS ---
-        function toggleSpecificEmailInput() {
-            const targetSelect = document.getElementById('broadcast-target').value;
-            const emailInput = document.getElementById('specific-email-input');
-            if (targetSelect === 'specific') {
-                emailInput.style.display = 'block';
-                emailInput.focus();
-            } else {
-                emailInput.style.display = 'none';
-            }
-        }
-
-        function prepTargetedEmail(userEmail) {
-            const targetSelect = document.getElementById('broadcast-target');
-            const emailInput = document.getElementById('specific-email-input');
-            
-            targetSelect.value = 'specific';
-            emailInput.style.display = 'block';
-            emailInput.value = userEmail;
-            
-            document.getElementById('broadcast-section-anchor').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            setTimeout(() => { document.getElementById('broadcast-subject').focus(); }, 500);
-            showToast("Email Engine primed for " + userEmail);
-        }
-
-        function sendBroadcastEmail(btn) {
-            const targetGroup = document.getElementById('broadcast-target').value;
-            const specificEmail = document.getElementById('specific-email-input').value.trim();
-            const subject = document.getElementById('broadcast-subject').value.trim();
-            const message = document.getElementById('broadcast-message').value.trim();
-
-            if (!subject || !message) { showToast("Subject and message are required.", true); return; }
-            if (targetGroup === 'specific' && !specificEmail) { showToast("Please provide the specific user's email.", true); return; }
-
-            let confirmMsg = "Are you sure you want to send this email?";
-            if (targetGroup === 'all') confirmMsg = "⚠️ WARNING: Sending email to EVERY registered user. Proceed?";
-            else if (targetGroup === 'premium') confirmMsg = "Send email to all Premium (Paid) users?";
-            else if (targetGroup === 'verified_unpaid') confirmMsg = "Send email to all Verified but Unpaid users?";
-            else if (targetGroup === 'unverified') confirmMsg = "Send email to all Unverified users?";
-            else if (targetGroup === 'specific') confirmMsg = `Send email directly to ${specificEmail}?`;
-
-            if (!confirm(confirmMsg)) return;
-
-            const originalText = btn.innerText;
-            btn.innerText = "Sending... ⏳";
-            btn.disabled = true;
-
-            fetch('/api/admin/broadcast', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ target_group: targetGroup, specific_email: specificEmail, subject: subject, message: message })
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.innerText = originalText;
-                if (data.success) {
-                    showToast("Email(s) dispatched to background queue!");
-                    document.getElementById('broadcast-subject').value = '';
-                    document.getElementById('broadcast-message').value = '';
-                    if (targetGroup === 'specific') document.getElementById('specific-email-input').value = '';
-                } else {
-                    showToast("Failed to send: " + data.message, true);
-                }
-            }).catch(err => {
-                btn.disabled = false; btn.innerText = originalText; showToast("Network error. Check console.", true); console.error(err);
-            });
-        }
-
-        // --- ADVANCED USER SEARCH ---
         function searchUser(forcedQuery = null) {
             let inputField = document.getElementById('search-query');
             let query = forcedQuery || inputField.value.trim();
@@ -681,28 +953,19 @@
             if (!query) { showToast("Please enter an Email or Registration Number.", true); return; }
             
             const btn = document.getElementById('search-btn');
-            const originalText = btn.innerText;
-            btn.innerText = "Searching... ⏳";
-            btn.disabled = true;
+            const originalText = btn.innerText; btn.innerText = "Searching... ⏳"; btn.disabled = true;
             
             let resultsContainer = document.getElementById('user-search-results');
-            resultsContainer.innerHTML = '';
-            resultsContainer.style.display = 'none';
+            resultsContainer.innerHTML = ''; resultsContainer.style.display = 'none';
 
             fetch('/api/admin/search_user', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ query: query })
-            })
-            .then(res => res.json())
-            .then(data => {
-                btn.disabled = false;
-                btn.innerText = originalText;
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN }, body: JSON.stringify({ query: query })
+            }).then(res => res.json()).then(data => {
+                btn.disabled = false; btn.innerText = originalText;
                 
                 if (data.success && data.users.length > 0) {
                     data.users.forEach(user => {
                         let safeId = user.reg_number.replace(/\//g, '_');
-                        
                         let statusHtml = '';
                         if (user.is_verified && user.has_paid) statusHtml += '<span class="badge badge-green">💎 Premium</span>';
                         else if (user.is_verified && !user.has_paid) statusHtml += '<span class="badge badge-blue">📧 Verified (Unpaid)</span>';
@@ -711,8 +974,7 @@
                         if (user.is_locked) statusHtml += ' <span class="badge badge-red" style="margin-left:5px;">🚫 Locked Out</span>';
                         
                         let card = document.createElement('div');
-                        card.className = 'user-result-card';
-                        card.id = 'search-res-' + safeId;
+                        card.className = 'user-result-card'; card.id = 'search-res-' + safeId;
                         
                         card.innerHTML = `
                             <div>
@@ -727,21 +989,12 @@
                         `;
                         resultsContainer.appendChild(card);
                     });
-                    resultsContainer.style.display = 'flex';
-                    showToast(`Found ${data.users.length} matching user(s).`);
-                } else {
-                    showToast("No users found matching that criteria.", true);
-                }
-            })
-            .catch(err => {
-                btn.disabled = false; btn.innerText = originalText; showToast("Search failed.", true); console.error(err);
-            });
+                    resultsContainer.style.display = 'flex'; showToast(`Found ${data.users.length} matching user(s).`);
+                } else { showToast("No users found matching that criteria.", true); }
+            }).catch(err => { btn.disabled = false; btn.innerText = originalText; showToast("Search failed.", true); console.error(err); });
         }
 
-        function viewAllUsers() {
-            document.getElementById('search-query').value = '';
-            searchUser('all');
-        }
+        function viewAllUsers() { document.getElementById('search-query').value = ''; searchUser('all'); }
     </script>
 {% endif %}
 

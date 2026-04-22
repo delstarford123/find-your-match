@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Mysterious Dark Theme */
+    .lights-out-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 40px 20px 100px;
+        color: #fff;
+        text-align: center;
+        position: relative;
+        z-index: 10;
+    }
+
+    .neon-title {
+        font-size: 36px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #fff;
+        text-shadow: 0 0 10px #E60026, 0 0 20px #E60026, 0 0 40px #E60026;
+        margin-bottom: 10px;
+        animation: flicker 3s infinite alternate;
+    }
+
+    @keyframes flicker {
+        0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { text-shadow: 0 0 10px #E60026, 0 0 20px #E60026; opacity: 1; }
+        20%, 24%, 55% { text-shadow: none; opacity: 0.5; }
+    }
+
+    /* Lobby State */
+    #lobby-state {
+        margin-top: 50px;
+    }
+
+    .btn-join-queue {
+        background: #E60026;
+        color: white;
+        border: none;
+        padding: 18px 40px;
+        font-size: 20px;
+        font-weight: 900;
+        border-radius: 30px;
+        cursor: pointer;
+        box-shadow: 0 0 20px rgba(230, 0, 38, 0.6);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .btn-join-queue:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 40px rgba(230, 0, 38, 0.8);
+    }
+
+    .spinner {
+        display: none;
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(255,255,255,0.1);
+        border-top-color: #E60026;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 30px auto;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Chat State */
+    #chat-state {
+        display: none;
+        flex-direction: column;
+        height: 70vh;
+        background: rgba(11, 18, 25, 0.8);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(230, 0, 38, 0.3);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    .timer-display {
+        font-size: 32px;
+        font-weight: 900;
+        color: #E60026;
+        margin-bottom: 15px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .chat-box {
+        flex-grow: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+        text-align: left;
+    }
+
+    .msg-bubble {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+
+    .msg-sent {
+        background: #E60026;
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-received {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+
+    .chat-input-area {
+        display: flex;
+        gap: 10px;
+    }
+
+    .chat-input-area input {
+        flex-grow: 1;
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 15px;
+        border-radius: 30px;
+        outline: none;
+    }
+
+    .chat-input-area button {
+        background: #E60026;
+        color: white;
+        border: none;
+        width: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    /* Reveal Modal */
+    #reveal-modal {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.9);
+        border-radius: 20px;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        z-index: 100;
+    }
+</style>
+
+<div class="lights-out-container">
+    <h1 class="neon-title">Lights Out</h1>
+    <p style="color: #94A3B8;">3 minutes. Pure conversation. No pictures.</p>
+
+    <div id="lobby-state">
+        <button class="btn-join-queue" id="btn-join" onclick="joinQueue()">Enter the Dark</button>
+        <div class="spinner" id="queue-spinner"></div>
+        <p id="queue-status" style="margin-top: 20px; color: #E60026; font-weight: bold; display: none;">Searching for a stranger in the dark...</p>
+    </div>
+
+    <div id="chat-state">
+        <div class="timer-display" id="timer">03:00</div>
+        <div class="chat-box" id="chat-box">
+            <div class="msg-bubble msg-received">A stranger has entered the chat. Say hi!</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off" onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()">➤</button>
+        </div>
+
+        <div id="reveal-modal">
+            <h2 style="color:white; margin-bottom: 20px;">Time's Up!</h2>
+            <p style="margin-bottom: 30px;">Did you feel a spark? Reveal identities?</p>
+            <div style="display: flex; gap: 15px;">
+                <button class="btn-join-queue" style="padding: 10px 30px; font-size:16px;" onclick="voteReveal()">Yes</button>
+                <button class="btn-join-queue" style="background: #333; padding: 10px 30px; font-size:16px;" onclick="window.location.href='/dashboard'">No, Leave</button>
+            </div>
+            <p id="reveal-status" style="margin-top: 20px; font-size: 13px;"></p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    const socket = io();
+    let currentRoom = null;
+    let timerInterval;
+    let secondsLeft = 180; // 3 minutes
+
+    const lobbyState = document.getElementById('lobby-state');
+    const chatState = document.getElementById('chat-state');
+    const btnJoin = document.getElementById('btn-join');
+    const spinner = document.getElementById('queue-spinner');
+    const statusTxt = document.getElementById('queue-status');
+    const chatBox = document.getElementById('chat-box');
+    const timerDisplay = document.getElementById('timer');
+    const revealModal = document.getElementById('reveal-modal');
+    const revealStatus = document.getElementById('reveal-status');
+
+    function joinQueue() {
+        btnJoin.style.display = 'none';
+        spinner.style.display = 'block';
+        statusTxt.style.display = 'block';
+        socket.emit('join_lights_out_queue');
+    }
+
+    socket.on('waiting_in_queue', () => {
+        statusTxt.innerText = "Waiting in the dark for a match...";
+    });
+
+    socket.on('force_join_room', (data) => {
+        socket.emit('lights_out_client_join_room', {room: data.room});
+    });
+
+    socket.on('lights_out_match_found', (data) => {
+        currentRoom = data.room;
+        lobbyState.style.display = 'none';
+        chatState.style.display = 'flex';
+        startTimer();
+    });
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            secondsLeft--;
+            let m = Math.floor(secondsLeft / 60).toString().padStart(2, '0');
+            let s = (secondsLeft % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${m}:${s}`;
+
+            if (secondsLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('msg-input').disabled = true;
+                revealModal.style.display = 'flex';
+            }
+        }, 1000);
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('msg-input');
+        const text = input.value.trim();
+        if (text && currentRoom) {
+            // Add my message to UI
+            chatBox.innerHTML += `<div class="msg-bubble msg-sent">${text}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Send to server
+            socket.emit('send_lights_out_message', { room: currentRoom, message: text });
+            input.value = '';
+        }
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    socket.on('receive_lights_out_message', (data) => {
+        chatBox.innerHTML += `<div class="msg-bubble msg-received">${data.message}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // === REVEAL LOGIC ===
+    let iVoted = false;
+    let partnerVoted = false;
+
+    function voteReveal() {
+        iVoted = true;
+        socket.emit('lights_out_reveal_vote', { room: currentRoom });
+        checkRevealStatus();
+    }
+
+    socket.on('partner_voted_reveal', () => {
+        partnerVoted = true;
+        checkRevealStatus();
+    });
+
+    function checkRevealStatus() {
+        if (iVoted && !partnerVoted) {
+            revealStatus.innerText = "Waiting for stranger's choice...";
+        } else if (iVoted && partnerVoted) {
+            revealStatus.innerText = "It's a Match! Generating connection...";
+            revealStatus.style.color = "#10B981";
+            // In a real app, you would make an AJAX call here to save them to your Firebase matches node
+            setTimeout(() => {
+                window.location.href = "/dashboard"; // Redirect back to see the match
+            }, 2000);
+        }
+    }
+</script>
+{% endblock %}

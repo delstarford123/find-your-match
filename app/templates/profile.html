@@ -239,6 +239,7 @@
         
         <h2>Edit Public Profile</h2>
         <form action="{{ url_for('profile') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <h4 class="section-title">Basic Info</h4>
             
@@ -336,6 +337,7 @@
         </form>
 
         <form action="{{ url_for('settings') }}" method="POST" style="margin-top: 50px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <h4 class="section-title">Discovery Preferences</h4>
             
             <div class="input-group">
@@ -406,6 +408,7 @@
             <small style="color: #888; font-size: 13px; display: block; margin-top: 15px; font-weight: 500;">Core details cannot be changed after signup.</small>
             
             <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <button type="submit" class="btn-delete">Delete Account Permanently</button>
             </form>
         </div>

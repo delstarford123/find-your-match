@@ -407,9 +407,11 @@
                             {% if booking.status == 'Pending' %}
                             <div class="action-flex">
                                 <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST" style="margin: 0; flex: 1;" onsubmit="showActionLoading(this)">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="btn-approve" style="width: 100%;">Approve</button>
                                 </form>
                                 <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='decline') }}" method="POST" style="margin: 0; flex: 1;" onsubmit="showActionLoading(this)">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <button type="submit" class="btn-decline" style="width: 100%;">Decline</button>
                                 </form>
                             </div>

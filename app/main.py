@@ -138,7 +138,26 @@ def get_real_ip():
     if request.headers.getlist("X-Forwarded-For"):
         return request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
     return request.remote_addr
+# app/main.py
 
+# ==========================================
+# 🛡️ SESSION HARDENING CONFIG
+# ==========================================
+app.config.update(
+    # Prevents JavaScript from reading the cookie (prevents XSS hijacking)
+    SESSION_COOKIE_HTTPONLY=True,
+    
+    # Ensures the cookie is only sent over HTTPS (Prevents Wi-Fi sniffing)
+    # Note: If you are running locally (http://127.0.0.1:5000), 
+    # set this to False, but ALWAYS True for your live site.
+    SESSION_COOKIE_SECURE=True, 
+    
+    # Prevents CSRF (already handled by Flask-WTF, but this is an extra layer)
+    SESSION_COOKIE_SAMESITE='Lax',
+    
+    # Hardens the session length to 7 days
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7)
+)
 def is_safaricom_ip(ip_str):
     """Verifies if an incoming request is actually from Safaricom."""
     try:
@@ -157,7 +176,10 @@ def is_safaricom_ip(ip_str):
 mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
 app.config['VAPID_PRIVATE_KEY'] = "private_key.pem" 
 app.config['VAPID_CLAIMS'] = {"sub": f"mailto:{mail_username}"}
+import os
 
+# Secure in production, False in development
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Register Blueprints
@@ -1237,7 +1259,7 @@ def business_dashboard():
                            pending_count=pending_count, 
                            approved_count=approved_count)
                            
-@app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
+@app.route('/busi+63ness/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
     """ALLOWS RESTAURANTS TO ACCEPT/DECLINE RESERVATIONS AND NOTIFIES USERS"""
     if session.get('role') != 'business': 
@@ -1483,15 +1505,17 @@ logger = logging.getLogger(__name__)
 
 # Define East Africa Time (EAT)
 EAT = timezone(timedelta(hours=3))
-
 # ==========================================
-# GOD MODE: SUPER ADMIN DASHBOARD
+# 🚨 GOD MODE: SUPER ADMIN DASHBOARD
+# ==========================================
+# ==========================================
+# 🚨 GOD MODE: SUPER ADMIN DASHBOARD
 # ==========================================
 @app.route('/admin/super', methods=['GET', 'POST'])
 def super_admin():
     # 1. Handle Login Attempt
     if request.method == 'POST':
-        # SECURITY: Never use a fallback password in production. Pull from .env
+        # SECURITY: Pull from .env
         ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
         
         if not ADMIN_PASSWORD:
@@ -1536,6 +1560,26 @@ def super_admin():
         b2b_revenue = sum(2000 for r in all_restaurants.values() if isinstance(r, dict) and r.get('subscription_active'))
         total_revenue = student_revenue + b2b_revenue
 
+        # --- CATEGORIZE USERS FOR THE FRONTEND TABS ---
+        unpaid_users = []
+        premium_users = []
+        unverified_users = []
+
+        for uid, user_data in all_profiles.items():
+            if isinstance(user_data, dict):
+                # Inject the ID into the dictionary so HTML can use it for deletion loops
+                user_data['id'] = uid 
+                
+                is_verified = user_data.get('is_verified', False)
+                has_paid = user_data.get('is_paid', False)
+
+                if not is_verified:
+                    unverified_users.append(user_data)
+                elif is_verified and not has_paid:
+                    unpaid_users.append(user_data)
+                elif is_verified and has_paid:
+                    premium_users.append(user_data)
+
         # Format and Sort AI Alerts (Newest First)
         alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items() if isinstance(v, dict)]
         alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
@@ -1562,6 +1606,16 @@ def super_admin():
             if isinstance(v, dict) and not v.get('subscription_active')
         ]
 
+        # 🚀 THE FIX: Safely fetch Audit Logs and sort in Python to bypass Firebase Index errors
+        logs_dict = db.reference('admin_audit_logs').get() or {}
+        audit_logs = list(logs_dict.values()) if isinstance(logs_dict, dict) else []
+        audit_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        audit_logs = audit_logs[:20] # Keep only the 20 most recent logs for the UI
+
+        # Dummy Chart Data (You can replace this with a real DB query of signups per day later)
+        chart_labels = ['6 Days Ago', '5 Days Ago', '4 Days Ago', '3 Days Ago', '2 Days Ago', 'Yesterday', 'Today']
+        chart_data = [5, 12, 15, 22, 18, 30, 45]
+        
         return render_template('super_admin.html', 
                                logged_in=True,
                                total_users=total_users,
@@ -1572,12 +1626,19 @@ def super_admin():
                                feedbacks=feedbacks,
                                call_requests=call_requests,
                                pending_businesses=pending_businesses,
-                               promo_active=promo_active)
+                               promo_active=promo_active,
+                               unpaid_users=unpaid_users,
+                               premium_users=premium_users,
+                               unverified_users=unverified_users,
+                               audit_logs=audit_logs,
+                               chart_labels=chart_labels,
+                               chart_data=chart_data)
+                               
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return "Failed to load dashboard data.", 500
     
-
+    
 @app.route('/api/admin/action', methods=['POST'])
 def admin_action():
     if not session.get('is_super_admin'):
@@ -1589,24 +1650,26 @@ def admin_action():
     
     try:
         if action == 'ban_user':
-            # NEW: Send the ban email BEFORE deleting the account from Firebase
             user_data = db.reference(f'profiles/{target_id}').get()
             if user_data and user_data.get('email'):
-                send_admin_alert_email(
-                    recipient_email=user_data.get('email'),
-                    recipient_name=user_data.get('name', 'Student').split()[0],
-                    action_type='ban',
-                    reason="Violation of Community Guidelines and Terms of Service."
-                )
+                try:
+                    send_admin_alert_email(
+                        recipient_email=user_data.get('email'),
+                        recipient_name=user_data.get('name', 'Student').split()[0],
+                        action_type='ban',
+                        reason="Violation of Community Guidelines and Terms of Service."
+                    )
+                except Exception as mail_err:
+                    logger.warning(f"Could not send ban email: {mail_err}")
             
-            delete_user_account(target_id) # Assuming this is your existing helper
+            # Wipes from DB
+            db.reference(f'profiles/{target_id}').delete() 
             
             if data.get('alert_id'):
                 db.reference(f"admin_alerts/{data.get('alert_id')}").delete()
             logger.info(f"GOD_MODE: User {target_id} banned.")
                 
         elif action == 'approve_business':
-            # Use East Africa Time for accurate 30-day windows
             now_eat = datetime.now(EAT)
             expiry = (now_eat + timedelta(days=30)).isoformat()
             
@@ -1620,9 +1683,8 @@ def admin_action():
         elif action == 'dismiss_alert':
             db.reference(f'admin_alerts/{target_id}').delete()
             
-        # --- SUPPORT SYSTEM ACTIONS ---
         elif action == 'resolve_feedback':
-            feedback_type = data.get('alert_id') 
+            feedback_type = data.get('alert_id') # Stored type in alert_id variable from JS
             if feedback_type and target_id:
                 db.reference(f'feedbacks/{feedback_type}/{target_id}').delete()
                 
@@ -1630,10 +1692,9 @@ def admin_action():
             if target_id:
                 db.reference(f'call_requests/{target_id}').delete()
                 
-        # --- TOGGLE MARKETING CAMPAIGN ---
         elif action == 'toggle_promo':
             current_status = db.reference('system_settings/new_user_promo').get()
-            new_status = not current_status # Flip it (True to False, False to True)
+            new_status = not current_status
             db.reference('system_settings/new_user_promo').set(new_status)
             return jsonify({'success': True, 'new_status': new_status})
             
@@ -1641,7 +1702,6 @@ def admin_action():
     except Exception as e:
         logger.error(f"Admin Action Error ({action}): {e}")
         return jsonify({'success': False, 'message': "Internal server error."}), 500
-
 
 @app.route('/api/admin/broadcast', methods=['POST'])
 def admin_broadcast():
@@ -1652,6 +1712,7 @@ def admin_broadcast():
     data = request.json
     target_group = data.get('target_group', 'all')
     specific_email = data.get('specific_email', '').strip().lower()
+    target_class = data.get('target_class', '').strip().upper()  # 👈 Added Class Extractor
     subject = data.get('subject')
     message = data.get('message')
     
@@ -1659,11 +1720,10 @@ def admin_broadcast():
         return jsonify({'success': False, 'message': 'Subject and message required.'}), 400
         
     try:
-        # Fetch all user profiles
         all_profiles = db.reference('profiles').get() or {}
         
-        # NEW: Added targeting logic so it actually filters based on the admin's selection!
-        def dispatch_emails(profiles, target, specific_mail, subj, msg):
+        # 👈 Updated function to accept specific_cls
+        def dispatch_emails(profiles, target, specific_mail, specific_cls, subj, msg):
             success_count = 0
             for uid, user_data in profiles.items():
                 if not isinstance(user_data, dict):
@@ -1676,11 +1736,13 @@ def admin_broadcast():
                 name = user_data.get('name', 'Student').split(' ')[0]
                 is_verified = user_data.get('is_verified', False)
                 is_paid = user_data.get('is_paid', False)
+                user_class = user_data.get('class_code', '').upper() # 👈 Extracted class code
 
-                # Determine if this user matches the targeted group
                 should_send = False
                 
                 if target == 'all':
+                    should_send = True
+                elif target == 'class' and user_class == specific_cls: # 👈 Added Class Targeting
                     should_send = True
                 elif target == 'premium' and is_verified and is_paid:
                     should_send = True
@@ -1692,20 +1754,23 @@ def admin_broadcast():
                     should_send = True
 
                 if should_send:
-                    send_broadcast_email(email, name, subj, msg)
-                    success_count += 1
+                    try:
+                        send_broadcast_email(email, name, subj, msg)
+                        success_count += 1
+                    except Exception as email_err:
+                        logger.warning(f"Failed sending to {email}: {email_err}")
             
             logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users in group '{target}'.")
 
-        # Trigger background task using SocketIO
-        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, subject, message)
+        # Process in background so the UI doesn't freeze
+        # 👈 Added target_class to the arguments passed to the background task
+        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, target_class, subject, message)
         
         return jsonify({'success': True, 'message': 'Broadcast queued for dispatch.'})
         
     except Exception as e:
         logger.error(f"Broadcast Error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 @app.route('/api/admin/search_user', methods=['POST'])
 def admin_search_user():
@@ -1723,7 +1788,6 @@ def admin_search_user():
         all_profiles = db.reference('profiles').get() or {}
         matched_users = []
         
-        # Format the query to match how reg numbers are stored (e.g. SAB_B_...)
         safe_query_id = query.upper().replace('/', '_')
         
         for user_id, user_data in all_profiles.items():
@@ -1732,7 +1796,6 @@ def admin_search_user():
                 is_verified = user_data.get('is_verified', False)
                 has_paid = user_data.get('is_paid', False)
                 
-                # Check mapping logic against user commands
                 matches = False
                 
                 if query == 'all':
@@ -1752,13 +1815,12 @@ def admin_search_user():
                         'reg_number': user_data.get('reg_number', user_id),
                         'email': user_data.get('email', 'No email'),
                         'is_verified': is_verified,
-                        'has_paid': has_paid, # Required for frontend Premium Badge
+                        'has_paid': has_paid,
                         'is_locked': user_data.get('is_locked', False)
                     }
                     matched_users.append(safe_data)
 
         if matched_users:
-            # Sort users alphabetically by email so duplicates are right next to each other!
             matched_users.sort(key=lambda x: x.get('email', ''))
             return jsonify({'success': True, 'users': matched_users})
         else:
@@ -1767,6 +1829,7 @@ def admin_search_user():
     except Exception as e:
         logger.error(f"Search User Error: {e}")
         return jsonify({'success': False, 'message': 'Database error'}), 500
+
 
 @app.route('/admin/ledger')
 def admin_ledger():
@@ -1784,8 +1847,6 @@ def admin_ledger():
         merchant_revenue = len(active_merchants) * 2000
         
         total_revenue = student_revenue + merchant_revenue
-
-        # Print current time in EAT
         current_time_eat = datetime.now(EAT).strftime("%Y-%m-%d %H:%M EAT")
 
         return render_template('admin_ledger.html', 
@@ -1805,6 +1866,183 @@ def admin_logout():
     session.pop('is_super_admin', None)
     flash("Securely logged out of Command Center.", "info")
     return redirect(url_for('super_admin'))
+
+
+# ==========================================
+# 🚨 DESTRUCTIVE MASS ACTIONS (HTML FORMS)
+# ==========================================
+
+@app.route('/admin/delete_user/<user_id>', methods=['POST'])
+def admin_delete_user(user_id):
+    """Deletes a single specific user from the database."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    try:
+        db.reference(f'profiles/{user_id}').delete()
+        flash(f"User {user_id} permanently deleted.", "success")
+    except Exception as e:
+        flash(f"Error deleting user: {str(e)}", "error")
+        
+    return redirect(url_for('super_admin'))
+
+@app.route('/admin/delete_class', methods=['POST'])
+def admin_delete_class():
+    """Wipes all users belonging to a specific class code."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    class_code = request.form.get('class_code', '').strip().upper()
+    
+    if not class_code:
+        flash("You must specify a class code.", "error")
+        return redirect(url_for('super_admin'))
+        
+    try:
+        # Fetch all profiles and filter manually to avoid complex indexing
+        profiles_ref = db.reference('profiles').get() or {}
+        deleted_count = 0
+        
+        for uid, user_data in profiles_ref.items():
+            if isinstance(user_data, dict) and user_data.get('class_code', '').upper() == class_code:
+                db.reference(f'profiles/{uid}').delete()
+                deleted_count += 1
+                
+        flash(f"Purge complete: {deleted_count} users in class {class_code} have been deleted.", "warning")
+    except Exception as e:
+        logger.error(f"Class Purge Error: {e}")
+        flash("An error occurred while deleting the class.", "error")
+        
+    return redirect(url_for('super_admin'))
+
+@app.route('/admin/delete_all', methods=['POST'])
+def admin_delete_all_users():
+    """THE NUCLEAR OPTION: Wipes the entire student database."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+    
+    # ⚠️ ACTIVATED NUCLEAR OPTION ⚠️
+    try:
+        db.reference('profiles').delete()
+        flash("NUCLEAR OPTION EXECUTED: Entire user database wiped clean.", "danger")
+    except Exception as e:
+        logger.error(f"Nuclear Option Error: {e}")
+        flash("System failed to execute full wipe.", "error")
+        
+    return redirect(url_for('super_admin'))
+import io
+import csv
+from flask import Response
+
+# ==========================================
+# 🚀 ENTERPRISE ADMIN FEATURES
+# ==========================================
+
+@app.route('/admin/export_csv')
+def admin_export_csv():
+    """Generates an Excel-compatible CSV file of users based on their status."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+
+    list_type = request.args.get('type', 'all')
+    all_profiles = db.reference('profiles').get() or {}
+
+    # Setup CSV writing in memory
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['User ID', 'Full Name', 'Email Address', 'Class Code', 'Account Status'])
+
+    for uid, user in all_profiles.items():
+        if not isinstance(user, dict):
+            continue
+
+        is_verified = user.get('is_verified', False)
+        is_paid = user.get('is_paid', False)
+
+        # Filter based on what tab the admin clicked "Export" on
+        if list_type == 'unverified' and is_verified: continue
+        if list_type == 'unpaid' and (not is_verified or is_paid): continue
+        if list_type == 'premium' and not is_paid: continue
+
+        # Determine readable status
+        if is_paid:
+            status = "Premium"
+        elif is_verified:
+            status = "Verified (Unpaid)"
+        else:
+            status = "Unverified"
+
+        cw.writerow([
+            uid,
+            user.get('name', 'Unknown'),
+            user.get('email', 'No Email'),
+            user.get('class_code', 'N/A'),
+            status
+        ])
+
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment;filename=mmust_users_{list_type}.csv"}
+    )
+
+@app.route('/api/admin/bulk_action', methods=['POST'])
+def admin_bulk_action():
+    """Handles executing a single action across dozens of selected items at once."""
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    data = request.json
+    action = data.get('action')
+    item_ids = data.get('item_ids', [])
+
+    if not item_ids:
+        return jsonify({'success': False, 'message': 'No items selected.'})
+
+    try:
+        for item_id in item_ids:
+            if action == 'delete_users':
+                db.reference(f'profiles/{item_id}').delete()
+            elif action == 'mark_premium':
+                db.reference(f'profiles/{item_id}').update({'is_paid': True})
+            elif action == 'dismiss_alerts':
+                db.reference(f'admin_alerts/{item_id}').delete()
+            elif action == 'approve_biz':
+                now_eat = datetime.now(EAT)
+                expiry = (now_eat + timedelta(days=30)).isoformat()
+                db.reference(f'restaurants/{item_id}').update({
+                    'subscription_active': True,
+                    'subscription_start': now_eat.isoformat(),
+                    'subscription_expiry': expiry
+                })
+
+        # 📜 SECURE AUDIT LOG
+        # Records who did what, and when.
+        log_ref = db.reference('admin_audit_logs').push()
+        log_ref.set({
+            'action': f"Executed Bulk Action: '{action}' on {len(item_ids)} items.",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Bulk Action Error: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/admin/load_more')
+def admin_load_more():
+    """Server-side pagination endpoint to prevent browser freezing with 5,000+ users."""
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False}), 403
+        
+    list_type = request.args.get('type')
+    offset = int(request.args.get('offset', 50))
+    
+    # NOTE: To fully implement this, you slice the dictionary here and return an HTML string.
+    # For now, we return 'has_more: False' to hide the button so it doesn't throw a 404 error.
+    return jsonify({'success': True, 'html': '', 'has_more': False})
 
 
 # ==========================================
@@ -1952,7 +2190,7 @@ def record_swipe():
         logger.error(f"Swipe Error: {e}")
         return jsonify({"status": "error", "message": "Database error"}), 500
       
-@app.route('/api/save-subscription', methods=['POST'])
+@app.route('/api/save_subscription', methods=['POST'])
 def save_subscription():
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
@@ -3727,7 +3965,154 @@ def full_directory():
         u['last_online']
     ), reverse=False)
 
-    return render_template('directory.html', directory_users=directory_users, search_query=search_query)        
+    return render_template('directory.html', directory_users=directory_users, search_query=search_query)   
+import uuid
+from flask_socketio import join_room, leave_room, emit
+from datetime import datetime
+import pytz
+
+# ==========================================
+# 🔦 FRIDAY NIGHT "LIGHTS OUT" ENGINE
+# ==========================================
+
+# Temporary in-memory queue for matchmaking
+lights_out_queue = {
+    'male': [],
+    'female': []
+}
+
+@app.route('/lights-out')
+@requires_subscription
+def lights_out():
+    """Renders the Lights Out lobby."""
+    # Optional: You can enforce the Friday 9 PM rule here.
+    # eat_tz = pytz.timezone('Africa/Nairobi')
+    # now = datetime.now(eat_tz)
+    # if now.weekday() != 4 or not (21 <= now.hour < 22):
+    #     flash("Lights Out is only active on Fridays between 9 PM and 10 PM!", "warning")
+    #     return redirect(url_for('dashboard'))
+        
+    return render_template('lights_out.html')
+
+@socketio.on('join_lights_out_queue')
+def handle_join_lights_out():
+    user_id = session.get('user_id')
+    if not user_id:
+        return
+
+    # 1. Get user gender to enforce opposite-gender matching
+    profile = db.reference(f'profiles/{user_id}').get() or {}
+    gender = profile.get('gender', '').strip().lower()
+    
+    if gender not in ['male', 'female']:
+        emit('queue_error', {'message': 'Gender must be specified in profile to join.'})
+        return
+
+    target_queue = 'female' if gender == 'male' else 'male'
+    my_queue = 'male' if gender == 'male' else 'female'
+
+    # 2. Check if there is someone in the opposite queue
+    if len(lights_out_queue[target_queue]) > 0:
+        # Match found!
+        partner = lights_out_queue[target_queue].pop(0)
+        room_id = f"lights_out_{uuid.uuid4().hex[:8]}"
+        
+        # Add current user to room
+        join_room(room_id)
+        
+        # Tell both clients they matched and give them the room ID
+        emit('lights_out_match_found', {'room': room_id}, room=room_id)
+        emit('lights_out_match_found', {'room': room_id}, to=partner['sid'])
+        
+        # Add the partner to the SocketIO room as well
+        # (In Flask-SocketIO, you can't easily force another SID into a room from here 
+        # without client action, so we tell the partner's client to join via an event)
+        emit('force_join_room', {'room': room_id}, to=partner['sid'])
+    else:
+        # No match yet, add to my queue
+        # Ensure not already in queue
+        lights_out_queue[my_queue] = [u for u in lights_out_queue[my_queue] if u['user_id'] != user_id]
+        lights_out_queue[my_queue].append({'user_id': user_id, 'sid': request.sid})
+        emit('waiting_in_queue')
+
+@socketio.on('lights_out_client_join_room')
+def client_join_room(data):
+    """Partner client responds to force_join_room"""
+    room_id = data.get('room')
+    if room_id:
+        join_room(room_id)
+
+@socketio.on('send_lights_out_message')
+def handle_lights_out_message(data):
+    room = data.get('room')
+    message = data.get('message')
+    # Emit to everyone in the room EXCEPT the sender
+    emit('receive_lights_out_message', {'message': message}, room=room, include_self=False)
+
+@socketio.on('lights_out_reveal_vote')
+def handle_reveal_vote(data):
+    room = data.get('room')
+    user_id = session.get('user_id')
+    # Emit to the room that a user voted yes. The frontend will count if both voted.
+    emit('partner_voted_reveal', {'user_id': user_id}, room=room, include_self=False) 
+from datetime import datetime
+
+# ==========================================
+# 🤫 CAMPUS GOSSIP & MISSED CONNECTIONS
+# ==========================================
+
+@app.route('/campus-gossip')
+def campus_gossip():
+    """
+    Renders the anonymous gossip feed, sorting newest posts first.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Please log in to view the campus gossip.", "warning")
+        return redirect(url_for('auth.login'))
+        
+    # Fetch the last 50 posts from Firebase
+    gossip_ref = db.reference('missed_connections').order_by_child('timestamp').limit_to_last(50).get() or {}
+    
+    posts = []
+    for post_id, data in gossip_ref.items():
+        data['id'] = post_id
+        posts.append(data)
+        
+    # Sort posts newest first
+    posts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    
+    # We pass 'current_user' if your base.html requires it for the navbar!
+    current_user_name = session.get('user_name', 'Student')
+    
+    return render_template('gossip.html', posts=posts, current_user={'name': current_user_name})
+
+@app.route('/api/post_gossip', methods=['POST'])
+def post_gossip():
+    """
+    Saves an anonymous post to the database.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+        
+    data = request.json
+    text = data.get('text', '').strip()
+    
+    if not text or len(text) < 10:
+        return jsonify({'success': False, 'message': 'Your confession is too short!'}), 400
+        
+    # Save the post anonymously (author_id is hidden from the public feed)
+    db.reference('missed_connections').push({
+        'text': text,
+        'author_id': user_id, 
+        'timestamp': datetime.now().isoformat(),
+        'upvotes': 0
+    })
+    
+    return jsonify({'success': True, 'message': 'Confession posted anonymously!'})
+   
+    
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

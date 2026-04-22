@@ -146,6 +146,7 @@
         {% endwith %}
         
         <form action="{{ url_for('settings') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <div class="settings-group">
                 <label class="field-label">I am looking for</label>
@@ -227,6 +228,7 @@
         <hr style="border: 0; border-top: 2px dashed #f0f0f0; margin: 40px 0;">
         
         <form action="{{ url_for('auth.delete_account') }}" method="POST" onsubmit="return confirm('Are you sure? This will permanently delete your account, chats, schedules, and matches. This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <button type="submit" class="btn-delete">
                 <span></span> Delete Account Permanently
             </button>

@@ -163,6 +163,7 @@
         {% endwith %}
 
         <form id="b2b-login-form" action="{{ url_for('business_login') }}" method="POST" onsubmit="showLoading()">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <div class="input-group">
                 <label for="email">Business Email</label>

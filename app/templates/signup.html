@@ -199,6 +199,7 @@
         </div>
 
         <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" onsubmit="return validateAndSubmit(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <div class="flex-row">
                 <div class="input-group">

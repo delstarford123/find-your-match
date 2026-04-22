@@ -44,6 +44,7 @@
         {% endwith %}
 
         <form action="{{ url_for('auth.unlock_account') }}" method="POST" onsubmit="showLoading()">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="input-group">
                 <label for="reg_number">Registration Number</label>
                 <input type="text" id="reg_number" name="reg_number" required placeholder="e.g. SAB/B/01-0000/2023" autocapitalize="characters" autocomplete="username">
