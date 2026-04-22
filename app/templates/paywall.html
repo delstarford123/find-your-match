@@ -182,6 +182,8 @@
 </div>
 
 <script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+
     function payStudentFee() {
         const phoneInput = document.getElementById('student-phone');
         // Clean the input of any spaces or weird characters
@@ -206,7 +208,10 @@
 
         fetch('/api/pay_student_fee', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
             body: JSON.stringify({ phone_number: phone })
         })
         .then(res => res.json())
