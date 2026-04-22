@@ -141,7 +141,7 @@
     .admin-tabs::-webkit-scrollbar { display: none; }
     .tab-btn { background: #0F172A; border: 1px solid #1E293B; color: #cbd5e1; padding: 12px 24px; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: 0.2s; }
     .tab-btn.active { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
-    .tab-content { display: none; animation: fadeSlideUp 0.3s ease; }
+    .tab-content { display: none; animation: fadeSlideUp 0.3s ease forwards; }
     .tab-content.active { display: block; }
     
     .toolbar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -369,7 +369,7 @@
         <button class="tab-btn" onclick="switchTab('tab-unverified')">Unverified Users</button>
     </div>
 
-    <div id="tab-unpaid" class="tab-content active animate-up delay-2">
+    <div id="tab-unpaid" class="tab-content active"></div>
         <div class="toolbar">
             <input type="text" class="search-bar-dark" placeholder="Filter unpaid users..." onkeyup="filterGridUsers(this.value, 'tab-unpaid')">
             <a href="{{ url_for('admin_export_csv', type='unpaid') }}" class="btn-export">📥 Export CSV</a>
@@ -393,7 +393,7 @@
         {% endif %}
     </div>
 
-    <div id="tab-premium" class="tab-content animate-up delay-2">
+    <div id="tab-premium" class="tab-content"></div>
         <div class="toolbar">
             <input type="text" class="search-bar-dark" placeholder="Filter premium users..." onkeyup="filterGridUsers(this.value, 'tab-premium')">
             <a href="{{ url_for('admin_export_csv', type='premium') }}" class="btn-export">📥 Export CSV</a>
@@ -417,7 +417,7 @@
         {% endif %}
     </div>
 
-    <div id="tab-unverified" class="tab-content animate-up delay-2">
+    <div id="tab-unverified" class="tab-content"></div>
         <div class="toolbar">
             <input type="text" class="search-bar-dark" placeholder="Filter unverified users..." onkeyup="filterGridUsers(this.value, 'tab-unverified')">
             <a href="{{ url_for('admin_export_csv', type='unverified') }}" class="btn-export">📥 Export CSV</a>

@@ -1,25 +1,39 @@
-# Web Framework & Server
+# ==========================================
+# 🌐 WEB FRAMEWORK & SERVER
+# ==========================================
 Flask
 Flask-SocketIO
+Flask-WTF
+Flask-Mail
+Flask-Cors
 gunicorn
 eventlet
 
-# Database & Environment
+# ==========================================
+# 🗄️ DATABASE & ENVIRONMENT
+# ==========================================
 firebase-admin
-psycopg2-binary
 python-dotenv
+psycopg2-binary
+
+# ==========================================
+# 🛠️ UTILITIES & COMMUNICATIONS
+# ==========================================
 twilio
-# Utilities (Push Notifications & QR Codes)
 pywebpush
 qrcode
 Pillow
 
-# Data Science & Machine Learning
+# ==========================================
+# 📊 DATA SCIENCE & MACHINE LEARNING
+# ==========================================
 pandas
 numpy
 scikit-learn
 
-# AI & External APIs
+# ==========================================
+# 🧠 AI, NLP & EXTERNAL APIs
+# ==========================================
 groq
 requests
 torch
