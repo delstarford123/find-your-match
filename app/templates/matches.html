@@ -179,7 +179,7 @@
     .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: auto; }
     
     /* === CHAT BUBBLES WITH AVATARS === */
-    .bubble-wrapper { display: flex; width: 100%; margin-bottom: 6px; position: relative; }
+    .bubble-wrapper { display: flex; width: 100%; margin-bottom: 6px; position: relative; transition: transform 0.2s ease-out; }
     .bubble-wrapper.me { justify-content: flex-end; align-items: flex-end; }
     .bubble-wrapper.them { justify-content: flex-start; align-items: flex-end; gap: 8px; }
     .bubble-wrapper.system { justify-content: center; }
@@ -243,6 +243,20 @@
     .deleted-bubble {
         font-style: italic; color: #888 !important; background: transparent !important;
         border: 1px solid #ddd; box-shadow: none; padding-right: 14px !important;
+    }
+
+    /* === REPLY UI === */
+    .reply-context {
+        background: rgba(0,0,0,0.05); border-left: 3px solid #E60026; 
+        padding: 4px 8px; border-radius: 4px; margin-bottom: 5px; 
+        font-size: 12px; color: #555; max-height: 50px; overflow: hidden;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .reply-preview-bar {
+        background: #f0f0f0; padding: 10px 15px; display: none; align-items: center; gap: 10px; border-top: 1px solid #ddd;
+    }
+    .reply-preview-content {
+        flex: 1; background: white; border-left: 4px solid #E60026; padding: 5px 10px; border-radius: 8px; font-size: 13px;
     }
 
     /* === CHAT INPUT & MAGIC BUTTON === */
@@ -422,7 +436,8 @@
         
         <div class="chat-history" id="chat-history">
             {% if chat_history %}
-                {% for msg_id, msg in chat_history.items() %}
+                {% set sorted_history = chat_history.items()|list|sort(attribute='1.timestamp') %}
+                {% for msg_id, msg in sorted_history %}
                     {% if session.get('user_id') not in msg.get('deleted_for', []) %}
                         
                         {% set sender_safe = msg.get('sender_id', msg.get('sender')) %}
@@ -434,17 +449,26 @@
                                     <div class="chat-bubble bubble-system">{{ msg.get('text', '') }}</div>
                                 </div>
                             {% else %}
-                                <div class="bubble-wrapper {{ 'me' if is_me else 'them' }}" id="msg-wrap-{{ msg_id }}">
+                                <div class="bubble-wrapper {{ 'me' if is_me else 'them' }}" id="msg-wrap-{{ msg_id }}" 
+                                     data-msg-id="{{ msg_id }}" data-sender-name="{{ 'You' if is_me else active_partner.name }}" data-text="{{ msg.get('text', '') }}"
+                                     ontouchstart="handleTouchStart(event, '{{ msg_id }}')" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd()">
                                     {% if not is_me %}
                                         <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur({{ current_blur | default(0) }}px);">
                                     {% endif %}
                                     
                                     <div class="chat-bubble {{ 'bubble-me' if is_me else 'bubble-them' }} {{ 'deleted-bubble' if msg.get('is_deleted') else '' }}" id="bubble-{{ msg_id }}">
-                                        {{ msg.get('text', '') }}
+                                        {% if msg.get('reply_to') and chat_history.get(msg.get('reply_to')) %}
+                                        <div class="reply-context">
+                                            {{ chat_history[msg.get('reply_to')].text }}
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="msg-text-content">{{ msg.get('text', '') }}</div>
                                         
                                         {% if not msg.get('is_deleted') %}
                                             <button class="msg-dropdown-btn" onclick="toggleMsgMenu('{{ msg_id }}', event)">⌄</button>
                                             <div class="msg-menu" id="menu-{{ msg_id }}">
+                                                <button class="msg-menu-btn" onclick="prepareReply('{{ msg_id }}')">↩ Reply</button>
                                                 <button class="msg-menu-btn" onclick="deleteMessage('{{ msg_id }}', 'me')">🗑 Delete for me</button>
                                                 {% if is_me %}
                                                 <button class="msg-menu-btn danger" onclick="deleteMessage('{{ msg_id }}', 'everyone')">🚫 Delete for everyone</button>
@@ -488,6 +512,14 @@
                     <div class="typing-dot"></div>
                 </div>
             </div>
+        </div>
+
+        <div class="reply-preview-bar" id="reply-preview-bar">
+            <div class="reply-preview-content" id="reply-preview-content">
+                <div style="font-weight: 800; color: #E60026; margin-bottom: 2px;" id="reply-to-name">Name</div>
+                <div id="reply-to-text" style="color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Message...</div>
+            </div>
+            <button onclick="cancelReply()" style="background: none; border: none; font-size: 20px; color: #888; cursor: pointer;">×</button>
         </div>
         
         <div class="chat-input-area">
@@ -722,6 +754,7 @@
     // ==========================================
     const myId = "{{ session.get('user_id') }}";
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
+    const partnerName = "{{ active_partner.name if active_partner else '' }}";
 
     let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
@@ -767,7 +800,7 @@
                 const timeString = timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const cleanText = escapeHTML(msg.text);
                 const html = `
-                    <div class="bubble-wrapper them bubble-enter">
+                    <div class="bubble-wrapper them bubble-enter" data-text="${cleanText}" data-sender-name="${partnerName}">
                         <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur(${currentBlurPx}px);">
                         <div class="chat-bubble bubble-them">
                             ${cleanText}
@@ -859,8 +892,52 @@
     updateBellUI();
 
     // ==========================================
-    // MESSAGE DELETION LOGIC
+    // MESSAGE DELETION & SWIPE TO REPLY LOGIC
     // ==========================================
+    let replyToId = null;
+    let touchStartX = 0;
+    let currentSwipeElement = null;
+
+    function handleTouchStart(e, msgId) {
+        touchStartX = e.touches[0].clientX;
+        currentSwipeElement = document.getElementById(`msg-wrap-${msgId}`);
+    }
+
+    function handleTouchMove(e) {
+        if (!currentSwipeElement) return;
+        let diff = e.touches[0].clientX - touchStartX;
+        if (diff > 0 && diff < 80) {
+            currentSwipeElement.style.transform = `translateX(${diff}px)`;
+        }
+    }
+
+    function handleTouchEnd() {
+        if (!currentSwipeElement) return;
+        let diff = parseInt(currentSwipeElement.style.transform.replace('translateX(', '')) || 0;
+        if (diff > 50) {
+            prepareReply(currentSwipeElement.getAttribute('data-msg-id'));
+        }
+        currentSwipeElement.style.transform = 'translateX(0px)';
+        currentSwipeElement = null;
+    }
+
+    function prepareReply(msgId) {
+        replyToId = msgId;
+        const msgEl = document.getElementById(`msg-wrap-${msgId}`);
+        const text = msgEl.getAttribute('data-text');
+        const sender = msgEl.getAttribute('data-sender-name');
+        
+        document.getElementById('reply-preview-bar').style.display = 'flex';
+        document.getElementById('reply-to-name').innerText = sender;
+        document.getElementById('reply-to-text').innerText = text;
+        document.getElementById('chat-input').focus();
+    }
+
+    function cancelReply() {
+        replyToId = null;
+        document.getElementById('reply-preview-bar').style.display = 'none';
+    }
+
     function toggleMsgMenu(msgId, event) {
         event.stopPropagation();
         document.querySelectorAll('.msg-menu.active').forEach(menu => menu.classList.remove('active'));
@@ -883,7 +960,6 @@
         .then(data => {
             if(data.success) {
                 const wrapper = document.getElementById(`msg-wrap-${msgId}`);
-                
                 if (type === 'me') {
                     if (wrapper) wrapper.remove(); 
                 } else if (type === 'everyone') {
@@ -891,6 +967,8 @@
                     if (bubble) {
                         bubble.classList.add('deleted-bubble');
                         bubble.innerHTML = '🚫 This message was deleted.';
+                        const dropdown = bubble.querySelector('.msg-dropdown-btn');
+                        if(dropdown) dropdown.remove();
                     }
                 }
             }
@@ -968,20 +1046,27 @@
 
     if (activePartnerId !== 'none') {
         window.onload = () => {
-            // Ensures the chat drops to the bottom perfectly upon loading
             setTimeout(forceScrollToBottom, 100);
             if (window.innerWidth > 768 && chatInput) chatInput.focus();
         };
         
-        function renderMyMessageInstantly(text, tempId) {
+        function renderMyMessageInstantly(text, tempId, replyToId) {
             const timeString = getCurrentTime();
             const cleanText = escapeHTML(text);
+            let replyHtml = '';
+            if(replyToId) {
+                const origText = document.getElementById('reply-to-text').innerText;
+                replyHtml = `<div class="reply-context">${escapeHTML(origText)}</div>`;
+            }
+
             const html = `
-                <div class="bubble-wrapper me bubble-enter" id="msg-wrap-${tempId}">
+                <div class="bubble-wrapper me bubble-enter" id="msg-wrap-${tempId}" data-msg-id="${tempId}" data-sender-name="You" data-text="${cleanText}">
                     <div class="chat-bubble bubble-me" id="bubble-${tempId}">
-                        ${cleanText}
+                        ${replyHtml}
+                        <div class="msg-text-content">${cleanText}</div>
                         <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${tempId}', event)">⌄</button>
                         <div class="msg-menu" id="menu-${tempId}">
+                            <button class="msg-menu-btn" onclick="prepareReply('${tempId}')">↩ Reply</button>
                             <button class="msg-menu-btn" onclick="deleteMessage('${tempId}', 'me')">🗑 Delete for me</button>
                             <button class="msg-menu-btn danger" onclick="deleteMessage('${tempId}', 'everyone')">🚫 Delete for everyone</button>
                         </div>
@@ -1001,21 +1086,25 @@
             if (!text) return;
             
             const tempId = Math.random().toString(36).substr(2, 9);
-            renderMyMessageInstantly(text, tempId);
+            renderMyMessageInstantly(text, tempId, replyToId);
+            
+            const payload = { 
+                type: 'text', 
+                receiver_id: activePartnerId,
+                text: text,
+                temp_id: tempId,
+                reply_to: replyToId
+            };
             
             chatInput.value = '';
+            cancelReply();
             updateBlurUI(); 
             
             socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
             if(typingIndicator) typingIndicator.style.display = 'none';
             chatInput.focus();
 
-            socket.emit('send_message', { 
-                type: 'text', 
-                receiver_id: activePartnerId,
-                text: text,
-                temp_id: tempId 
-            });
+            socket.emit('send_message', payload);
         }
 
         if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
@@ -1044,7 +1133,6 @@
     });
 
     socket.on('receive_message', function(data) {
-        // If the server confirms our own message was saved
         if (data.sender === myId || data.sender_id === myId) {
             const statusElement = document.getElementById(`status-${data.temp_id}`);
             if (statusElement) {
@@ -1054,7 +1142,6 @@
             return;
         }
 
-        // If the message is from someone else, handle background queues and red dots
         if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
             let currentCount = 0;
             if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
@@ -1088,7 +1175,6 @@
             return;
         }
         
-        // If the message is from the active partner we are currently staring at
         if(typingIndicator) typingIndicator.style.display = 'none';
         
         updateBlurUI(); 
@@ -1100,14 +1186,21 @@
             html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${cleanText}</div></div>`;
         } else {
             const timeString = getCurrentTime();
+            let replyHtml = '';
+            if(data.reply_to) {
+                replyHtml = `<div class="reply-context">Replying to message...</div>`;
+            }
+
             html = `
-            <div class="bubble-wrapper them bubble-enter" id="msg-wrap-${data.temp_id}">
+            <div class="bubble-wrapper them bubble-enter" id="msg-wrap-${data.msg_id || data.temp_id}" data-msg-id="${data.msg_id || data.temp_id}" data-sender-name="${partnerName}" data-text="${cleanText}" ontouchstart="handleTouchStart(event, '${data.msg_id || data.temp_id}')" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd()">
                 <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur(${currentBlurPx}px);">
-                <div class="chat-bubble bubble-them" id="bubble-${data.temp_id}">
-                    ${cleanText}
-                    <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${data.temp_id}', event)">⌄</button>
-                    <div class="msg-menu" id="menu-${data.temp_id}">
-                        <button class="msg-menu-btn" onclick="deleteMessage('${data.temp_id}', 'me')">🗑 Delete for me</button>
+                <div class="chat-bubble bubble-them" id="bubble-${data.msg_id || data.temp_id}">
+                    ${replyHtml}
+                    <div class="msg-text-content">${cleanText}</div>
+                    <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${data.msg_id || data.temp_id}', event)">⌄</button>
+                    <div class="msg-menu" id="menu-${data.msg_id || data.temp_id}">
+                        <button class="msg-menu-btn" onclick="prepareReply('${data.msg_id || data.temp_id}')">↩ Reply</button>
+                        <button class="msg-menu-btn" onclick="deleteMessage('${data.msg_id || data.temp_id}', 'me')">🗑 Delete for me</button>
                     </div>
                     <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
                         <span class="msg-time">${timeString}</span>

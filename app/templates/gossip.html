@@ -87,6 +87,27 @@
 
     .gossip-text { color: #f8fafc; font-size: 17px; line-height: 1.6; font-weight: 500; margin-bottom: 20px; white-space: pre-wrap; word-break: break-word; }
 
+    /* Blur for non-users */
+    .blurred-content {
+        filter: blur(5px);
+        user-select: none;
+        pointer-events: none;
+    }
+
+    .paywall-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: rgba(11, 18, 25, 0.4);
+        z-index: 10;
+        border-radius: 24px;
+        text-align: center;
+        padding: 20px;
+    }
+
     .gossip-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
     .gossip-stats { display: flex; gap: 15px; align-items: center; }
     
@@ -107,6 +128,44 @@
         cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px;
     }
     .share-btn:hover { background: #E60026; color: white; }
+
+    /* Comment Section */
+    .comments-section {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .comment-item {
+        background: rgba(255,255,255,0.03);
+        border-radius: 12px;
+        padding: 10px 15px;
+        margin-bottom: 8px;
+        font-size: 14px;
+        color: #cbd5e1;
+    }
+    .comment-input-area {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .comment-input-area input {
+        flex: 1;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 8px 15px;
+        color: white;
+        outline: none;
+    }
+    .comment-input-area button {
+        background: #E60026;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 10px;
+        font-weight: bold;
+        cursor: pointer;
+    }
 
     /* Floating Action Button */
     .fab-post {
@@ -140,6 +199,7 @@
 
 <div class="gossip-page">
     
+    {% if session.get('user_id') %}
     <div class="referral-viral-card">
         <h3>Spill the Tea, Earn the Rewards ☕</h3>
         <p>Drop a secret or share gossip to invite friends. When they join via your link, you unlock premium perks!</p>
@@ -148,6 +208,7 @@
         </div>
         <p style="font-size: 11px; opacity: 0.7;">(Tap code to copy your direct invite link)</p>
     </div>
+    {% endif %}
 
     <div class="feed-controls">
         <div>
@@ -162,9 +223,18 @@
     <div id="gossip-feed">
         {% if posts %}
             {% for post in posts %}
+                {% set is_locked = not session.get('user_id') and not single_post %}
                 <div class="gossip-card {% if post.upvotes and post.upvotes >= 5 %}is-hot{% endif %}" id="post-{{ post.id }}">
                     
-                    <div class="gossip-text">{{ post.text }}</div>
+                    {% if not session.get('user_id') %}
+                        <div class="gossip-text blurred-content">{{ post.text[:50] }}... [LOCKED]</div>
+                        <div class="paywall-overlay">
+                            <h4 style="color: white; margin-bottom: 10px;">🤫 Shhh! This story is juicy.</h4>
+                            <a href="{{ url_for('auth.signup') }}" class="share-btn" style="background: #E60026; color: white;">Create Account to Read</a>
+                        </div>
+                    {% else %}
+                        <div class="gossip-text">{{ post.text }}</div>
+                    {% endif %}
                     
                     <div class="gossip-footer">
                         <div class="gossip-stats">
@@ -180,6 +250,24 @@
                             Share
                         </button>
                     </div>
+
+                    {% if session.get('user_id') %}
+                    <div class="comments-section">
+                        <div id="comments-{{ post.id }}">
+                            {% if post.comments %}
+                                {% for cid, comment in post.comments.items() %}
+                                    <div class="comment-item">
+                                        {{ comment.text }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="comment-input-area">
+                            <input type="text" id="input-{{ post.id }}" placeholder="Add a comment anonymously..." onkeypress="if(event.key === 'Enter') submitComment('{{ post.id }}')">
+                            <button onclick="submitComment('{{ post.id }}')">Send</button>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             {% endfor %}
         {% else %}
@@ -192,17 +280,19 @@
     </div>
 </div>
 
+{% if session.get('user_id') %}
 <button class="fab-post" onclick="document.getElementById('postModal').style.display='flex'">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
 </button>
+{% endif %}
 
 <div class="modal-overlay" id="postModal">
     <div class="modal-card">
         <h2 style="color: white; margin: 0; font-size:24px;">Post Anonymously</h2>
         <p style="color: #94a3b8; font-size: 13px; margin-top: 5px;">We don't track your IP. Your secret is safe.</p>
         
-        <textarea id="gossipText" placeholder="Who did you see at the Student Centre today?" maxlength="300" oninput="updateCharCount(this)"></textarea>
-        <div class="char-count" id="charCounter">0 / 300</div>
+        <textarea id="gossipText" placeholder="Who did you see at the Student Centre today?" maxlength="500" oninput="updateCharCount(this)"></textarea>
+        <div class="char-count" id="charCounter">0 / 500</div>
         
         <button onclick="submitGossip()" id="submitBtn" style="width: 100%; background: #E60026; color: white; border: none; padding: 16px; border-radius: 14px; font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.3);">
             Post to Feed
@@ -214,7 +304,8 @@
 </div>
 
 <script>
-    const MY_REF_LINK = "{{ request.host_url }}signup?ref={{ session.get('referral_code', '') }}";
+    const MY_REF_LINK = "{{ request.host_url }}join?ref={{ session.get('referral_code', '') }}";
+    const BASE_URL = "{{ request.host_url }}";
     
     // Attempt to grab CSRF safely. If using the V2 base.html, this tag exists.
     let CSRF_TOKEN = '';
@@ -225,17 +316,18 @@
     function sharePost(postId, rawText) {
         // Create a truncated hook
         const excerpt = rawText.length > 60 ? rawText.substring(0, 60) + "..." : rawText;
-        const shareText = `Someone just posted this on the MMUST dating feed 🤫\n\n"${excerpt}"\n\nJoin to read the rest: `;
+        const shareLink = `${BASE_URL}gossip/${postId}`;
+        const shareText = `Someone just posted this juicy drama on MMUST Gossip 🤫\n\n"${excerpt}"\n\nRead the full tea here: `;
         
         if (navigator.share) {
             navigator.share({
                 title: 'Campus Gossip',
                 text: shareText,
-                url: MY_REF_LINK,
+                url: shareLink,
             }).catch(console.error);
         } else {
-            copyToClipboard(shareText + "\n" + MY_REF_LINK);
-            alert("Share text & your referral link copied to clipboard!");
+            copyToClipboard(shareText + "\n" + shareLink);
+            alert("Share link copied to clipboard! Drop it in WhatsApp groups.");
         }
     }
 
@@ -256,10 +348,10 @@
     function updateCharCount(textarea) {
         const count = textarea.value.length;
         const counterEl = document.getElementById('charCounter');
-        counterEl.innerText = `${count} / 300`;
+        counterEl.innerText = `${count} / 500`;
         
-        if (count >= 280) { counterEl.className = 'char-count limit-hit'; }
-        else if (count >= 250) { counterEl.className = 'char-count limit-near'; }
+        if (count >= 450) { counterEl.className = 'char-count limit-hit'; }
+        else if (count >= 400) { counterEl.className = 'char-count limit-near'; }
         else { counterEl.className = 'char-count'; }
     }
 
@@ -340,6 +432,30 @@
             btnElement.classList.remove('upvoted');
             countEl.innerText = currentCount;
         }
+    }
+
+    async function submitComment(postId) {
+        const input = document.getElementById(`input-${postId}`);
+        const text = input.value.trim();
+        if(!text) return;
+
+        try {
+            const response = await fetch(`/api/comment_gossip/${postId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
+            if(data.success) {
+                // Add comment to UI instantly
+                const container = document.getElementById(`comments-${postId}`);
+                const commentEl = document.createElement('div');
+                commentEl.className = 'comment-item';
+                commentEl.innerText = text;
+                container.appendChild(commentEl);
+                input.value = '';
+            }
+        } catch (e) { console.error(e); }
     }
 
     // Close modal on background click

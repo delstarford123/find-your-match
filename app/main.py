@@ -4068,8 +4068,10 @@ def campus_gossip():
     """
     user_id = session.get('user_id')
     if not user_id:
-        flash("Please log in to view the campus gossip.", "warning")
-        return redirect(url_for('auth.login'))
+        # Allow logged out users to see the page but with "blurred" content 
+        # actually we handle that in the template logic or here.
+        # For now, let's allow viewing the feed but with restricted interactions.
+        pass
         
     # Fetch the last 50 posts from Firebase
     gossip_ref = db.reference('missed_connections').order_by_child('timestamp').limit_to_last(50).get() or {}
@@ -4082,16 +4084,28 @@ def campus_gossip():
     # Sort posts newest first
     posts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
     
-    # We pass 'current_user' if your base.html requires it for the navbar!
-    current_user_name = session.get('user_name', 'Student')
+    current_user_name = session.get('user_name', 'Guest')
     
     return render_template('gossip.html', posts=posts, current_user={'name': current_user_name})
 
+@app.route('/gossip/<post_id>')
+def view_gossip_post(post_id):
+    """Publicly accessible link for a specific gossip post."""
+    post = db.reference(f'missed_connections/{post_id}').get()
+    if not post:
+        return "Gossip post not found.", 404
+        
+    post['id'] = post_id
+    user_id = session.get('user_id')
+    
+    # If not logged in, we'll show a "Join to read more" version in the template
+    is_logged_in = bool(user_id)
+    
+    return render_template('gossip.html', posts=[post], single_post=True, is_logged_in=is_logged_in)
+
 @app.route('/api/post_gossip', methods=['POST'])
 def post_gossip():
-    """
-    Saves an anonymous post to the database.
-    """
+    """Saves an anonymous post to the database."""
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({'success': False, 'message': 'Not logged in'}), 401
@@ -4102,15 +4116,48 @@ def post_gossip():
     if not text or len(text) < 10:
         return jsonify({'success': False, 'message': 'Your confession is too short!'}), 400
         
-    # Save the post anonymously (author_id is hidden from the public feed)
     db.reference('missed_connections').push({
         'text': text,
         'author_id': user_id, 
         'timestamp': datetime.now().isoformat(),
-        'upvotes': 0
+        'upvotes': 0,
+        'comments': {}
     })
     
     return jsonify({'success': True, 'message': 'Confession posted anonymously!'})
+
+@app.route('/api/upvote_gossip/<post_id>', methods=['POST'])
+def upvote_gossip(post_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Log in to upvote'}), 401
+        
+    post_ref = db.reference(f'missed_connections/{post_id}')
+    post = post_ref.get()
+    if not post:
+        return jsonify({'success': False, 'message': 'Post not found'}), 404
+        
+    current_upvotes = post.get('upvotes', 0)
+    post_ref.update({'upvotes': current_upvotes + 1})
+    return jsonify({'success': True})
+
+@app.route('/api/comment_gossip/<post_id>', methods=['POST'])
+def comment_gossip(post_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': 'Log in to comment'}), 401
+        
+    data = request.json
+    text = data.get('text', '').strip()
+    if not text:
+        return jsonify({'success': False, 'message': 'Comment cannot be empty'}), 400
+        
+    db.reference(f'missed_connections/{post_id}/comments').push({
+        'text': text,
+        'timestamp': datetime.now().isoformat(),
+        'user_id': user_id # still stored for moderation but hidden in UI
+    })
+    return jsonify({'success': True})
    
     
 if __name__ == '__main__':
