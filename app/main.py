@@ -385,11 +385,11 @@ def handle_message(data):
 @app.route('/party')
 @requires_subscription
 def party():
-    """Renders the Wednesday Virtual Club Room."""
-    # Enforce time constraint: Wednesday at 10:00 PM (22:00)
+    """Renders the Virtual Club Room."""
+    # Enforce time constraint: Every day except Friday starting at 10:00 PM (22:00)
     now = datetime.now(EAT)
-    if now.weekday() != 2 or now.hour < 22: # 2 is Wednesday in Python (Mon=0)
-        flash("The Virtual Club is only open on Wednesdays starting at 10:00 PM!", "warning")
+    if now.weekday() == 4 or now.hour < 22: # 4 is Friday in Python (Mon=0)
+        flash("The Virtual Club is open every night except Friday starting at 10:00 PM!", "warning")
         return redirect(url_for('home'))
 
     user_id = session.get('user_id')

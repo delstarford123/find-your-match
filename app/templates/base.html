@@ -527,7 +527,7 @@
                         <a href="{{ url_for('campus_gossip') }}">🤫 Campus Gossip</a>
                         <a href="{{ url_for('lights_out') }}">🌙 Lights Out</a>
                         <a href="{{ url_for('secret_admirer') }}">💘 Secret Admirer</a>
-                        <a href="{{ url_for('party') }}">💘 Wednesday Party</a>
+                        <a href="{{ url_for('party') }}">💘 Comrades Party</a>
                     </div>
                 </div>
 
@@ -588,12 +588,12 @@
     </div>
 
     <main class="container">
-        <!-- === WEDNESDAY PARTY INVITATION === -->
+        <!-- === PARTY INVITATION === -->
         <div id="partyInviteModal" class="party-invite-overlay" style="display: none;">
             <div class="party-invite-card">
                 <div class="neon-badge">TONIGHT</div>
-                <h2>WEDNESDAY PARTY</h2>
-                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously?</p>
+                <h2>COMRADES NIGHT CLUB</h2>
+                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously? (Open every night except Friday)</p>
                 <div class="invite-actions">
                     <button onclick="acceptParty()" class="btn-accept">ENTER CLUB 🔥</button>
                     <button onclick="closePartyInvite()" class="btn-close">Maybe Later</button>
@@ -629,13 +629,13 @@
         </style>
 
         <script>
-            function checkWednesdayParty() {
+            function checkDailyParty() {
                 const now = new Date();
-                const isWednesday = now.getDay() === 3; // 3 = Wednesday
+                const isFriday = now.getDay() === 5; // 5 = Friday in JS
                 const isAfter10PM = now.getHours() >= 22; // 10 PM
                 const hasJoinedToday = localStorage.getItem('party_joined_' + now.toDateString());
 
-                if (isWednesday && isAfter10PM && !hasJoinedToday && window.location.pathname !== '/party') {
+                if (!isFriday && isAfter10PM && !hasJoinedToday && window.location.pathname !== '/party') {
                     document.getElementById('partyInviteModal').style.display = 'flex';
                     // Try to play audio (will require user interaction first usually)
                     const audio = document.getElementById('partyAudio');
@@ -652,7 +652,7 @@
             }
 
             // Run on load
-            setTimeout(checkWednesdayParty, 3000); // Wait 3 seconds to not overwhelm
+            setTimeout(checkDailyParty, 3000); // Wait 3 seconds to not overwhelm
         </script>
 
         {% block content %}{% endblock %}
