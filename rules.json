@@ -1,0 +1,113 @@
+{
+  "rules": {
+    // ========================================================
+    // 1. DEFAULT SECURITY (FLASK BACKEND OVERRIDE)
+    // Blocks all public access by default. 
+    // Your Flask Admin SDK (Python) bypasses this securely.
+    // ========================================================
+    ".read": false,
+    ".write": false,
+
+    // ========================================================
+    // 2. FRONTEND EXCEPTIONS (PAGES REQUIRING REAL-TIME UI)
+    // ========================================================
+    
+    // --- Merchant Notifications ---
+    "merchant_alerts": {
+      "$restaurant_id": {
+        ".read": true, 
+        "$alert_id": {
+          "status": {
+            ".write": "newData.val() === 'read'"
+          }
+        }
+      }
+    },
+
+    // --- ⚡ NEW: Wednesday Party Presence ---
+    // Required so that the party.html can see avatars in real-time
+    "party_participants": {
+      ".read": true,
+      "$user_id": {
+        // Only the actual user can update their own presence via the client if needed, 
+        // though the Python backend usually handles this.
+        ".write": "auth != null && auth.uid === $user_id",
+        ".indexOn": ["joined_at", "shape_seed"]
+      },
+      ".indexOn": ["joined_at"]
+    },
+
+    // ========================================================
+    // 3. PERFORMANCE INDEXES (Speeds up Python/Groq Queries)
+    // ========================================================
+    "profiles": {
+      ".indexOn": ["email", "phone", "referral_code", "wingman_code", "is_paid", "is_online", "gender", "daily_streak", "class_code", "created_at"]
+    },
+    
+    "schedules": {
+      ".indexOn": ["user_id"]
+    },
+    
+    "swipes": {
+      ".indexOn": ["user_id", "target_id"]
+    },
+    
+    "bookings": {
+      ".indexOn": ["restaurant_id", "user_a_id", "user_b_id", "status", "timestamp"]
+    },
+    
+    "restaurants": {
+      ".indexOn": ["subscription_active", "email"]
+    },
+    
+    "matches": {
+      ".indexOn": ["users"]
+    },
+
+    "messages": {
+      "$match_id": {
+        ".indexOn": ["timestamp"]
+      }
+    },
+
+    "missed_connections": {
+      ".indexOn": ["timestamp", "upvotes"]
+    },
+
+    "gossip": {
+      ".indexOn": ["timestamp", "upvotes"]
+    },
+
+    "secret_crushes": {
+      ".indexOn": ["status", "timestamp"]
+    },
+
+    "daily_prompts": {
+      ".indexOn": ["date"]
+    },
+
+    "prompt_answers": {
+      ".indexOn": ["timestamp"]
+    },
+
+    "admin_alerts": {
+      ".indexOn": ["timestamp"]
+    },
+    
+    "call_requests": {
+      ".indexOn": ["timestamp", "status"]
+    },
+    
+    "feedbacks": {
+      ".indexOn": ["timestamp", "type"]
+    },
+
+    "call_reviews": {
+      ".indexOn": ["timestamp", "quality"]
+    },
+
+    "admin_audit_logs": {
+      ".indexOn": ["timestamp"]
+    }
+  }
+}

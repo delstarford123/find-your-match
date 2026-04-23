@@ -527,6 +527,7 @@
                         <a href="{{ url_for('campus_gossip') }}">🤫 Campus Gossip</a>
                         <a href="{{ url_for('lights_out') }}">🌙 Lights Out</a>
                         <a href="{{ url_for('secret_admirer') }}">💘 Secret Admirer</a>
+                        <a href="{{ url_for('party') }}">💘 Wednesday Party</a>
                     </div>
                 </div>
 
@@ -587,8 +588,74 @@
     </div>
 
     <main class="container">
-        {% block content %}
-        {% endblock %}
+        <!-- === WEDNESDAY PARTY INVITATION === -->
+        <div id="partyInviteModal" class="party-invite-overlay" style="display: none;">
+            <div class="party-invite-card">
+                <div class="neon-badge">TONIGHT</div>
+                <h2>WEDNESDAY PARTY</h2>
+                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously?</p>
+                <div class="invite-actions">
+                    <button onclick="acceptParty()" class="btn-accept">ENTER CLUB 🔥</button>
+                    <button onclick="closePartyInvite()" class="btn-close">Maybe Later</button>
+                </div>
+            </div>
+        </div>
+
+        <audio id="partyAudio" src="/static/audio/1.mp3" preload="auto"></audio>
+
+        <style>
+            .party-invite-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+                display: flex; align-items: center; justify-content: center; z-index: 100020;
+                animation: fadeIn 0.5s ease;
+            }
+            .party-invite-card {
+                background: #111; border: 3px solid #f0f; border-radius: 30px;
+                padding: 40px 30px; width: 90%; max-width: 400px; text-align: center;
+                box-shadow: 0 0 50px rgba(255,0,255,0.4); position: relative;
+            }
+            .neon-badge {
+                position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+                background: #0ff; color: #000; padding: 5px 15px; border-radius: 10px;
+                font-weight: 900; font-size: 12px; box-shadow: 0 0 15px #0ff;
+            }
+            .party-invite-card h2 { color: #fff; font-size: 28px; font-weight: 900; margin: 15px 0 10px; text-shadow: 0 0 10px #f0f; }
+            .party-invite-card p { color: #ccc; font-size: 15px; line-height: 1.5; margin-bottom: 30px; }
+            .invite-actions { display: flex; flex-direction: column; gap: 12px; }
+            .btn-accept { background: #f0f; color: #fff; border: none; padding: 15px; border-radius: 30px; font-weight: 900; cursor: pointer; font-size: 16px; box-shadow: 0 0 20px #f0f; }
+            .btn-close { background: transparent; color: #888; border: 1px solid #333; padding: 12px; border-radius: 30px; cursor: pointer; }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        </style>
+
+        <script>
+            function checkWednesdayParty() {
+                const now = new Date();
+                const isWednesday = now.getDay() === 3; // 3 = Wednesday
+                const isAfter10PM = now.getHours() >= 22; // 10 PM
+                const hasJoinedToday = localStorage.getItem('party_joined_' + now.toDateString());
+
+                if (isWednesday && isAfter10PM && !hasJoinedToday && window.location.pathname !== '/party') {
+                    document.getElementById('partyInviteModal').style.display = 'flex';
+                    // Try to play audio (will require user interaction first usually)
+                    const audio = document.getElementById('partyAudio');
+                    audio.play().catch(e => console.log("Audio autoplay blocked, waiting for interaction"));
+                }
+            }
+            function acceptParty() {
+                localStorage.setItem('party_joined_' + new Date().toDateString(), 'true');
+                window.location.href = '/party';
+            }
+
+            function closePartyInvite() {
+                document.getElementById('partyInviteModal').style.display = 'none';
+            }
+
+            // Run on load
+            setTimeout(checkWednesdayParty, 3000); // Wait 3 seconds to not overwhelm
+        </script>
+
+        {% block content %}{% endblock %}
     </main>
     
     <div id="install-banner" class="pwa-banner">

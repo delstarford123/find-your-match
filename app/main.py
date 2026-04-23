@@ -382,6 +382,84 @@ def handle_message(data):
     
     
 # Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
+@app.route('/party')
+@requires_subscription
+def party():
+    """Renders the Wednesday Virtual Club Room."""
+    # Enforce time constraint: Wednesday at 10:00 PM (22:00)
+    now = datetime.now(EAT)
+    if now.weekday() != 2 or now.hour < 22: # 2 is Wednesday in Python (Mon=0)
+        flash("The Virtual Club is only open on Wednesdays starting at 10:00 PM!", "warning")
+        return redirect(url_for('home'))
+
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Mark user as present in the party room in Firebase
+    timestamp = datetime.now(EAT).isoformat()
+    db.reference(f'party_participants/{user_id}').set({
+        'name': user_data.get('name', 'Anonymous').split(' ')[0],
+        'img': user_data.get('img', '/static/img/placeholder.png'),
+        'joined_at': timestamp,
+        'shape_seed': random.randint(1, 8) # Used for dynamic CSS shapes
+    })
+    
+    return render_template('party.html', 
+                           current_user=session.get('user_name'),
+                           user_id=user_id)
+
+# ==========================================
+# 7. PARTY SOCKET EVENTS
+# ==========================================
+
+@socketio.on('join_party')
+def on_join_party(data):
+    user_id = session.get('user_id')
+    if user_id:
+        join_room('wednesday_party')
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
+        # Notify others that a new user joined
+        emit('party_update', {
+            'type': 'join',
+            'user_id': user_id,
+            'name': user_data.get('name', 'Student').split(' ')[0],
+            'img': user_data.get('img', '/static/img/placeholder.png')
+        }, to='wednesday_party', include_self=False)
+
+@socketio.on('send_party_msg')
+def on_send_party_msg(data):
+    sender_id = session.get('user_id')
+    if not sender_id: return
+    
+    text = data.get('text', '').strip()
+    target_id = data.get('target_id') # If target_id exists, it's a whisper
+    
+    sender_name = session.get('user_name', 'Student').split(' ')[0]
+    timestamp = datetime.now(EAT).strftime("%H:%M")
+
+    payload = {
+        'sender_id': sender_id,
+        'sender_name': sender_name,
+        'text': text,
+        'timestamp': timestamp,
+        'is_whisper': bool(target_id)
+    }
+
+    if target_id:
+        # Private Whisper
+        emit('receive_party_msg', payload, to=target_id)
+        emit('receive_party_msg', payload, to=sender_id) # Echo to sender
+    else:
+        # Public Group Chat
+        emit('receive_party_msg', payload, to='wednesday_party')
+
+@socketio.on('leave_party')
+def on_leave_party(data):
+    user_id = session.get('user_id')
+    if user_id:
+        db.reference(f'party_participants/{user_id}').delete()
+        emit('party_update', {'type': 'leave', 'user_id': user_id}, to='wednesday_party')
+
 # ==========================================
 # CORE B2C PAGES (STUDENTS)
 # ==========================================
