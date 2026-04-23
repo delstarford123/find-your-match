@@ -498,30 +498,32 @@
             
             {% elif session.get('user_id') %}
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">Discover ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Dating ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('swipe') }}">Swipe Deck</a>
-                        <a href="{{ url_for('campus_feed') }}">Daily Campus News</a>
-                        <a href="{{ url_for('campus_gossip') }}">Campus Gossip 🤫</a>
-                        <a href="{{ url_for('lights_out') }}">Lights Out 🌙</a>
-                        <a href="{{ url_for('secret_admirer') }}">Secret Admirer 🤫</a>
-                        <a href="{{ url_for('discover_venues') }}">Approved Date Spots</a>
-                        <a href="{{ url_for('ai_wingman') }}">JivoT AI</a>
-                        <a href="{{ url_for('venues') }}">All Dating Spots</a>
+                        <a href="{{ url_for('swipe') }}">🔥 Swipe Deck</a>
+                        <a href="{{ url_for('ai_wingman') }}">🕶️ JivoT AI Wingman</a>
+                        <a href="{{ url_for('discover_venues') }}">📍 Date Spots</a>
+                        <a href="{{ url_for('venues') }}">🏢 All Venues</a>
                     </div>
                 </div>
 
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">Dashboard ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Social ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('dashboard') }}">Overview</a>
-                        
-                        
+                        <a href="{{ url_for('campus_feed') }}">📰 Campus News</a>
+                        <a href="{{ url_for('campus_gossip') }}">🤫 Campus Gossip</a>
+                        <a href="{{ url_for('lights_out') }}">🌙 Lights Out</a>
+                        <a href="{{ url_for('secret_admirer') }}">💘 Secret Admirer</a>
+                    </div>
+                </div>
+
+                <div class="dropdown">
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Messenger ▾</button>
+                    <div class="dropdown-content">
                         <a href="/directory" class="premium-nav-link">
                             💬 <span>Wee Chat</span>
                             <span class="pulse-dot"></span>
                         </a>
-                        
                         <a href="{{ url_for('talk_directory') }}" class="premium-nav-link">
                             🎙 <span>Live Talk</span>
                         </a>
@@ -529,12 +531,13 @@
                 </div>
 
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">My Account ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Account ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('profile') }}">Edit Profile</a>
-                        <a href="{{ url_for('settings') }}">Preferences & Settings</a>
-                        <a href="{{ url_for('safety') }}">Safety Center</a>
-                        <a href="{{ url_for('setup_notifications') }}">Push Notifications 🔔</a>
+                        <a href="{{ url_for('dashboard') }}">📊 Dashboard</a>
+                        <a href="{{ url_for('profile') }}">👤 Edit Profile</a>
+                        <a href="{{ url_for('settings') }}">⚙️ Preferences</a>
+                        <a href="{{ url_for('safety') }}">🛡️ Safety Center</a>
+                        <a href="{{ url_for('setup_notifications') }}">🔔 Notifications</a>
                     </div>
                 </div>
                 
