@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="party-container">
+    <div class="party-header">
+        <h1 class="neon-text">THURSDAY NIGHT PARTY</h1>
+        <p class="party-tagline">Go Anonymous. Share Numbers. Vibe Hard.</p>
+        <div class="live-indicator">
+            <span class="pulse-dot"></span> LIVE PARTY
+        </div>
+    </div>
+
+    <div class="party-grid" id="partyGrid">
+        {% for profile in profiles %}
+        <div class="party-card" onclick="openAnonymousChat('{{ profile.id }}', '{{ profile.nickname }}')">
+            <div class="party-avatar-wrap">
+                <img src="/static/img/placeholder.png" class="party-avatar" alt="Anonymous">
+                <div class="party-overlay">
+                    <span>VIBE: {{ profile.vibe or 'Mysterious' }}</span>
+                </div>
+            </div>
+            <div class="party-info">
+                <h3>{{ profile.nickname }}</h3>
+                <p>{{ (profile.bio or 'No bio provided.')[:50] }}...</p>
+                <button class="chat-btn">Say Hi 👋</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="anonymousChatModal" class="modal">
+    <div class="modal-content party-modal">
+        <span class="close" onclick="closeChatModal()">&times;</span>
+        <h2 id="chatWith">Chatting with...</h2>
+        <div id="partyMessages" class="chat-messages"></div>
+        <div class="chat-input-area">
+            <input type="text" id="partyMsgInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendPartyMessage()">Send</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .party-container {
+        padding: 20px;
+        background: #0a0a0a;
+        min-height: 100vh;
+        color: white;
+    }
+
+    .neon-text {
+        text-align: center;
+        font-size: 3rem;
+        color: #fff;
+        text-shadow: 
+            0 0 7px #fff,
+            0 0 10px #fff,
+            0 0 21px #fff,
+            0 0 42px #f0f,
+            0 0 82px #f0f,
+            0 0 92px #f0f,
+            0 0 102px #f0f,
+            0 0 151px #f0f;
+        margin-bottom: 10px;
+    }
+
+    .party-tagline {
+        text-align: center;
+        color: #0ff;
+        font-weight: bold;
+        margin-bottom: 20px;
+    }
+
+    .live-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        font-weight: 800;
+        color: #ff0055;
+        margin-bottom: 40px;
+    }
+
+    .party-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .party-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(0, 255, 255, 0.3);
+        border-radius: 15px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .party-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+
+    .party-avatar-wrap {
+        position: relative;
+        height: 200px;
+    }
+
+    .party-avatar {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: grayscale(100%) brightness(0.7);
+    }
+
+    .party-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(transparent, rgba(0,0,0,0.8));
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+
+    .party-info {
+        padding: 15px;
+        text-align: center;
+    }
+
+    .chat-btn {
+        background: linear-gradient(45deg, #f0f, #0ff);
+        border: none;
+        padding: 8px 15px;
+        border-radius: 20px;
+        color: white;
+        font-weight: bold;
+        margin-top: 10px;
+        cursor: pointer;
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 100001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.9);
+    }
+
+    .party-modal {
+        background: #1a1a1a;
+        border: 2px solid #f0f;
+        box-shadow: 0 0 30px #f0f;
+        color: white;
+        width: 90%;
+        max-width: 500px;
+        margin: 10% auto;
+        padding: 20px;
+        border-radius: 15px;
+    }
+
+    .chat-messages {
+        height: 300px;
+        overflow-y: auto;
+        padding: 10px;
+        background: rgba(0,0,0,0.3);
+        margin: 15px 0;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .msg {
+        padding: 8px 12px;
+        border-radius: 15px;
+        max-width: 80%;
+    }
+
+    .msg.sent {
+        background: #f0f;
+        align-self: flex-end;
+    }
+
+    .msg.received {
+        background: #333;
+        align-self: flex-start;
+    }
+
+    .chat-input-area {
+        display: flex;
+        gap: 10px;
+    }
+
+    .chat-input-area input {
+        flex: 1;
+        background: #333;
+        border: 1px solid #555;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+    }
+</style>
+
+<script>
+    let currentChatPartnerId = null;
+    const socket = window.globalSocket || io();
+
+    function openAnonymousChat(id, nickname) {
+        currentChatPartnerId = id;
+        document.getElementById('chatWith').innerText = "Chatting with " + nickname;
+        document.getElementById('anonymousChatModal').style.display = 'block';
+        document.getElementById('partyMessages').innerHTML = ''; // Clear previous
+        
+        // Emit join room for this anonymous chat
+        socket.emit('join_party_chat', { target_id: id });
+    }
+
+    function closeChatModal() {
+        document.getElementById('anonymousChatModal').style.display = 'none';
+        currentChatPartnerId = null;
+    }
+
+    function sendPartyMessage() {
+        const input = document.getElementById('partyMsgInput');
+        const text = input.value.trim();
+        if (text && currentChatPartnerId) {
+            socket.emit('party_message', {
+                target_id: currentChatPartnerId,
+                message: text
+            });
+            appendMessage(text, 'sent');
+            input.value = '';
+        }
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') sendPartyMessage();
+    }
+
+    function appendMessage(text, type) {
+        const wrap = document.getElementById('partyMessages');
+        const div = document.createElement('div');
+        div.className = `msg ${type}`;
+        div.innerText = text;
+        wrap.appendChild(div);
+        wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    socket.on('new_party_message', (data) => {
+        if (data.sender_id === currentChatPartnerId) {
+            appendMessage(data.message, 'received');
+        } else {
+            // Show notification for other chats
+            alert("New message in the party from " + data.sender_nickname);
+        }
+    });
+
+    socket.on('party_invite', (data) => {
+        if (confirm(`${data.sender_nickname} wants to vibe with you in the party! Accept?`)) {
+            openAnonymousChat(data.sender_id, data.sender_nickname);
+        }
+    });
+</script>
+{% endblock %}

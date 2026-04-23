@@ -111,14 +111,37 @@ def signup():
         existing_user = db.reference(f'profiles/{safe_reg_number}').get()
         
         if existing_user:
-            flash("This Registration Number is already registered. Try logging in.", "error")
-            return redirect(url_for('auth.login'))
+            if existing_user.get('is_verified'):
+                flash("This Registration Number is already registered. Try logging in.", "error")
+                return redirect(url_for('auth.login'))
+            else:
+                # Check if unverified account has expired (2 minutes)
+                created_at_str = existing_user.get('created_at')
+                if created_at_str:
+                    try:
+                        created_at = datetime.fromisoformat(created_at_str)
+                        # Ensure we compare naive with naive or aware with aware
+                        now = datetime.now(EAT)
+                        if now > created_at + timedelta(minutes=2):
+                            # Expired unverified account, allow overwrite
+                            pass
+                        else:
+                            flash("This account is awaiting verification. Please wait 2 minutes to try again or log in to resend code.", "warning")
+                            return redirect(url_for('auth.login'))
+                    except Exception as e:
+                        print(f"Error checking created_at: {e}")
+                        # If error, safer to allow overwrite for unverified
+                        pass
+                else:
+                    # Legacy unverified account without created_at, allow overwrite
+                    pass
 
         profile_img = "" if skip_pic else "https://via.placeholder.com/400"
         
         # 6. Hash Password and Calculate Expiry
         hashed_password = generate_password_hash(password)
         expiry_date = calculate_account_expiry(reg_number)
+        created_at = datetime.now(EAT).isoformat()
 
         # 7. GENERATE OTP & SAVE TO FIREBASE
         try:
@@ -132,6 +155,7 @@ def signup():
                 'reg_number': reg_number,
                 'password': hashed_password,        # 🔒 Securely hashed password
                 'account_expiry': expiry_date,      # ⏳ Automated Deletion Date
+                'created_at': created_at,           # 🕒 Creation timestamp for verification window
                 'failed_attempts': 0,               # 🛡️ Brute-force tracker
                 'is_locked': False,                 # 🔒 Lockout status
                 'age': age,
@@ -329,15 +353,15 @@ def login():
                         flash("Account locked due to too many failed attempts. Please unlock it.", "error")
                         return redirect(url_for('auth.unlock_account'))
 
-                    # 4. Security Check: Did they verify their OTP?
-                    if not user.get('is_verified'):
-                        session['temp_user_id'] = safe_reg_number
-                        session['temp_user_email'] = user.get('email')
-                        flash("Please verify your account to continue.", "warning")
-                        return redirect(url_for('auth.verify_email'))
-
-                    # 5. 🔒 VERIFY PASSWORD
+                    # 4. 🔒 VERIFY PASSWORD
                     if check_password_hash(user.get('password', ''), password):
+                        # Security Check: Did they verify their OTP?
+                        if not user.get('is_verified'):
+                            session['temp_user_id'] = safe_reg_number
+                            session['temp_user_email'] = user.get('email')
+                            flash("Please verify your account to continue. We've redirected you to the verification page.", "warning")
+                            return redirect(url_for('auth.verify_email'))
+
                         # Success! Reset failed attempts
                         user_ref.update({'failed_attempts': 0})
                         
