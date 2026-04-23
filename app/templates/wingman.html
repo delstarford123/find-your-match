@@ -337,7 +337,8 @@
         const typingIndicator = document.getElementById('typing-indicator');
         const copyBtn = document.getElementById('copy-btn');
         
-        let payload = { action: actionType };
+        // Map frontend actions to backend expected strings
+        let payload = { action: actionType === 'roast_profile' ? 'roast' : 'icebreaker' };
         
         if (actionType === 'generate_icebreaker') {
             if (!selectedIcebreakerTarget) {
@@ -357,9 +358,12 @@
         terminalOutput.innerHTML = ''; 
         typingIndicator.style.display = 'flex';
 
-        fetch('/api/wingman_action', {
+        fetch('/api/wingman/execute', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
             body: JSON.stringify(payload)
         })
         .then(res => res.json())

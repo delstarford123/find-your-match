@@ -707,34 +707,43 @@
 
         function submitSupport() {
             const type = document.getElementById('support_type').value;
-            
+            const message = document.getElementById('support_message').value;
+
             if (type === 'call') {
                 const phone = document.getElementById('support_phone').value;
-                if(!phone) { alert("Please enter a phone number."); return; }
-                
-                fetch('/api/request_call', {
+                if(!phone) { alert("Please enter your phone number."); return; }
+
+                fetch('/api/support/submit', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone_number: phone })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ type: 'call_request', message: `Call requested at: ${phone}` })
                 }).then(res => res.json()).then(data => {
                     alert(data.message);
                     closeSupportModal();
                 });
             } else {
-                const message = document.getElementById('support_message').value;
-                if(!message) { alert("Please enter a message."); return; }
-                
-                fetch('/api/submit_feedback', {
+                if(!message) { alert("Please type your message."); return; }
+
+                fetch('/api/support/submit', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
                     body: JSON.stringify({ type: type, message: message })
                 }).then(res => res.json()).then(data => {
                     alert(data.message);
-                    document.getElementById('support_message').value = '';
-                    closeSupportModal();
+                    if(data.success) {
+                        document.getElementById('support_message').value = '';
+                        closeSupportModal();
+                    }
                 });
             }
         }
+
     </script>
 
     <script>

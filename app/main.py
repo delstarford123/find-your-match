@@ -2862,7 +2862,81 @@ def api_wingman_action():
     except Exception as e:
         logger.error(f"Wingman API Error: {e}")
         return jsonify({'success': False, 'message': 'The Wingman is currently busy. Try again later!'}), 500
-     
+
+@app.route('/api/support/submit', methods=['POST'])
+@login_required
+def support_submit():
+    """Professional Support & Feedback Route"""
+    data = request.json
+    user_id = session.get('user_id')
+    support_type = data.get('type', 'feedback')
+    message = data.get('message', '').strip()
+    
+    if not message:
+        return jsonify({'success': False, 'message': 'Message cannot be empty.'}), 400
+        
+    try:
+        db.reference(f'feedbacks/{support_type}').push({
+            'user_id': user_id,
+            'user_name': session.get('user_name', 'Student'),
+            'message': message,
+            'timestamp': datetime.now(EAT).isoformat(),
+            'status': 'open'
+        })
+        return jsonify({'success': True, 'message': 'Successfully submitted! Our team will review this shortly.'})
+    except Exception as e:
+        logger.error(f"Support API Error: {e}")
+        return jsonify({'success': False, 'message': 'Failed to submit. Try again later.'}), 500
+
+@app.route('/api/wingman/execute', methods=['POST'])
+@login_required
+@limiter.limit("5 per minute")
+def wingman_execute():
+    """Premium AI Wingman Route using Groq LLaMA-3"""
+    data = request.json
+    action = data.get('action') # 'roast' or 'icebreaker'
+    user_id = session.get('user_id')
+    
+    try:
+        user_profile = db.reference(f'profiles/{user_id}').get() or {}
+        bio = user_profile.get('bio', 'No bio provided.')
+        interests = user_profile.get('interests', 'No interests listed.')
+        course = user_profile.get('course', user_profile.get('major', 'MMUST Student'))
+        gender = user_profile.get('gender', 'unknown')
+
+        if action == 'roast':
+            prompt = (
+                f"Act as a brutally honest but funny college dating coach. "
+                f"Roast this MMUST student's profile: \n"
+                f"Bio: {bio}\nInterests: {interests}\nCourse: {course}\n"
+                f"Use Kenyan campus slang (comrade, rizz, character development). "
+                f"Finish with 2 actionable tips for improvement. Keep it sharp and witty."
+            )
+        elif action == 'icebreaker':
+            partner_id = data.get('partner_id')
+            if not partner_id:
+                return jsonify({'success': False, 'message': 'Please select a student first.'}), 400
+            
+            partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+            p_name = partner_profile.get('name', 'Match').split()[0]
+            p_bio = partner_profile.get('bio', 'No bio.')
+            p_interests = partner_profile.get('interests', 'No interests listed.')
+            
+            prompt = (
+                f"You are a smooth AI wingman. Generate 3 creative and funny icebreakers for {p_name} "
+                f"based on their profile: \nBio: {p_bio}\nInterests: {p_interests}\n"
+                f"Avoid generic 'Hey'. Use the details to be specific and engaging."
+            )
+        else:
+            return jsonify({'success': False, 'message': 'Invalid action.'}), 400
+
+        response = get_ai_companion_response(prompt, user_gender=gender)
+        return jsonify({'success': True, 'response': response})
+
+    except Exception as e:
+        logger.error(f"Wingman Execute Error: {e}")
+        return jsonify({'success': False, 'message': 'The AI Wingman is taking a break. Try again later.'}), 500
+
 import hashlib
 
 def hash_reg_number(reg_num):
@@ -4170,7 +4244,59 @@ def comment_gossip(post_id):
     })
     return jsonify({'success': True})
    
+import os
+from groq import Groq
+from flask import request, jsonify, session
+
+# Initialize Groq Client (Make sure GROQ_API_KEY is in your .env file)
+groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+
+@app.route('/api/wingman/execute', methods=['POST'])
+def api_wingman_execute():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Log in required.'}), 401
+        
+    data = request.json
+    action = data.get('action')
     
+    if action not in ['roast', 'icebreaker']:
+        return jsonify({'success': False, 'message': 'Invalid action.'}), 400
+
+    try:
+        # 1. Fetch user's profile data
+        user_id = session['user_id']
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
+        
+        bio = user_data.get('bio', 'No bio provided.')
+        interests = ", ".join(user_data.get('interests', ['Nothing specific']))
+        course = user_data.get('course', 'Unknown Course')
+        
+        # 2. Construct the AI Prompt
+        if action == 'roast':
+            system_prompt = "You are a savage, funny, but ultimately helpful dating coach. Your goal is to roast the user's dating profile and tell them how to fix it. Keep it under 150 words."
+            user_prompt = f"Roast my dating profile: I am a university student studying {course}. My bio is: '{bio}'. My interests are: {interests}."
+        elif action == 'icebreaker':
+            system_prompt = "You are a master at flirting and smooth conversation starters. Provide exactly 3 highly creative, witty, and unique icebreakers the user can send to their matches. Format them clearly with numbers."
+            user_prompt = f"I need 3 icebreakers. My personality/interests involve: {interests}. I study {course}."
+
+        # 3. Call Groq API (Using LLaMA-3 or Mixtral for speed)
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            model="llama3-8b-8192", # Groq's extremely fast model
+            temperature=0.8,
+            max_tokens=300,
+        )
+        
+        ai_response = chat_completion.choices[0].message.content
+        
+        return jsonify({'success': True, 'response': ai_response})
+        
+    except Exception as e:
+        logger.error(f"Groq Wingman Error: {e}")
+        return jsonify({'success': False, 'message': 'The AI engine is currently overloaded. Try again in a moment.'}), 500    
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
