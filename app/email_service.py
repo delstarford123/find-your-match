@@ -206,10 +206,10 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
                 </div>
                 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://mmust-dating.app/business-login" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
-                        Open Merchant Dashboard
-                    </a>
-                </div>
+    <a href="{{ url_for('business_login', _external=True) }}" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+        Open Merchant Dashboard
+    </a>
+</div>
                 
                 <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
                     Manage your bookings and grow your business with MMUST Dating.
