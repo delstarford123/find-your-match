@@ -1322,12 +1322,32 @@ def business_dashboard():
 
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')
     approved_count = sum(1 for b in bookings if b.get('status') == 'Approved')
-    
+
+    # Calculate Subscription Days Remaining
+    days_remaining = 0
+    if restaurant.get('subscription_expiry'):
+        try:
+            expiry = datetime.fromisoformat(restaurant['subscription_expiry'])
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=EAT)
+
+            now = datetime.now(EAT)
+            delta = expiry - now
+            days_remaining = max(0, delta.days)
+
+            # If expired, mark as inactive in DB so they have to pay again
+            if delta.total_seconds() <= 0:
+                db.reference(f'restaurants/{restaurant_id}').update({'subscription_active': False})
+                restaurant['subscription_active'] = False
+                flash("Your subscription has expired. Please renew to continue.", "warning")
+        except Exception as e:
+            logger.error(f"Expiry Calculation Error: {e}")
+
     for b in bookings:
         try:
             user_a = db.reference(f"profiles/{b.get('user_a_id')}").get() or {}
             user_b = db.reference(f"profiles/{b.get('user_b_id')}").get() or {}
-            
+
             b['user_a_name'] = user_a.get('name', 'Student 1').split(' ')[0] if user_a.get('name') else 'Student 1'
             b['user_b_name'] = user_b.get('name', 'Student 2').split(' ')[0] if user_b.get('name') else 'Student 2'
         except Exception as e:
@@ -1338,9 +1358,9 @@ def business_dashboard():
     return render_template('business_dashboard.html', 
                            restaurant=restaurant, 
                            bookings=bookings,
-                           pending_count=pending_count, 
-                           approved_count=approved_count)
-                           
+                           pending_count=pending_count,
+                           approved_count=approved_count,
+                           days_remaining=days_remaining)                           
 @app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
     """ALLOWS RESTAURANTS TO ACCEPT/DECLINE RESERVATIONS AND NOTIFIES USERS"""
