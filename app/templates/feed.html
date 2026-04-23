@@ -54,37 +54,31 @@
 
     /* === UNLOCKED STATE (THE FEED) === */
     .my-answer-box {
-        background: #FEF2F4; border-left: 4px solid #E60026; padding: 15px 20px; border-radius: 0 16px 16px 0;
-        margin-bottom: 40px; font-size: 15px; font-weight: 600; color: #4A0008; line-height: 1.5;
+        background: #FEF2F4; border-left: 6px solid #E60026; padding: clamp(15px, 4vw, 25px); border-radius: 0 20px 20px 0;
+        margin-bottom: 40px; font-size: 16px; font-weight: 700; color: #4A0008; line-height: 1.6;
+        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.05);
     }
     
     .feed-card {
-        background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px;
-        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.06); border: 1px solid #FFD6DD;
-        animation: slideUpFade 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; opacity: 0;
+        background: white; border-radius: 28px; padding: clamp(20px, 5vw, 30px); margin-bottom: 25px;
+        box-shadow: 0 12px 35px rgba(114, 0, 0, 0.08); border: 2px solid #FFD6DD;
+        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
     }
-    @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUpFade { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* Staggered animation delays for the feed */
-    .feed-card:nth-child(1) { animation-delay: 0.1s; }
-    .feed-card:nth-child(2) { animation-delay: 0.2s; }
-    .feed-card:nth-child(3) { animation-delay: 0.3s; }
-    .feed-card:nth-child(4) { animation-delay: 0.4s; }
-    .feed-card:nth-child(n+5) { animation-delay: 0.5s; }
-
-    .feed-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .feed-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #FFD6DD; }
-    .feed-name { font-weight: 900; color: #720000; font-size: 16px; margin: 0;}
-    .feed-time { font-size: 12px; color: #888; font-weight: 600; }
+    .feed-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+    .feed-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 3px solid #FEF2F4; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .feed-name { font-weight: 950; color: #720000; font-size: 17px; margin: 0; letter-spacing: -0.5px; }
+    .feed-time { font-size: 13px; color: #888; font-weight: 600; opacity: 0.8; }
     
-    .feed-text { font-size: 16px; color: #111; line-height: 1.5; font-weight: 500; margin: 0 0 15px 0; }
+    .feed-text { font-size: 17px; color: #111; line-height: 1.6; font-weight: 500; margin: 0 0 20px 0; }
     
     .btn-reply {
-        background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 10px 15px; border-radius: 12px;
-        font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
-        transition: 0.2s; width: max-content;
+        background: #FEF2F4; color: #E60026; border: 2px solid #FFD6DD; padding: 12px 20px; border-radius: 14px;
+        font-weight: 900; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+        transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: max-content;
     }
-    @media (hover: hover) { .btn-reply:hover { background: #E60026; color: white; border-color: #E60026; } }
+    @media (hover: hover) { .btn-reply:hover { background: #E60026; color: white; border-color: #E60026; transform: translateY(-3px); box-shadow: 0 8px 20px rgba(230,0,38,0.2); } }
     .btn-reply:active { transform: scale(0.95); }
 </style>
 
@@ -147,9 +141,14 @@
         btn.disabled = true;
         btn.innerText = "Submitting...";
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
         fetch('/api/answer_prompt', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({ answer: answer })
         })
         .then(res => res.json())

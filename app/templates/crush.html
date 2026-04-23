@@ -5,71 +5,74 @@
     .crush-wrapper {
         max-width: 600px;
         margin: 0 auto;
-        padding: clamp(20px, 5vw, 40px) 15px;
+        padding: clamp(30px, 8vw, 60px) 15px;
         min-height: calc(100dvh - var(--nav-height, 70px) - 40px);
         text-align: center;
     }
 
     .crush-header h1 {
-        color: #720000; font-size: clamp(28px, 8vw, 36px); font-weight: 900; margin-bottom: 10px; letter-spacing: -1px;
+        color: #720000; font-size: clamp(32px, 8vw, 46px); font-weight: 950; margin-bottom: 12px; letter-spacing: -2px;
     }
-    .crush-header p { color: #666; font-size: 15px; line-height: 1.5; margin-bottom: 30px; font-weight: 500; }
+    .crush-header p { color: #666; font-size: 16px; line-height: 1.6; margin-bottom: 40px; font-weight: 600; opacity: 0.8; }
 
     /* === THE CURIOSITY CARD === */
     .admirer-card {
         background: linear-gradient(135deg, #4A0008 0%, #E60026 100%);
-        border-radius: 24px; padding: 30px 20px; color: white; margin-bottom: 40px;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.25); position: relative; overflow: hidden;
+        border-radius: 32px; padding: 45px 25px; color: white; margin-bottom: 45px;
+        box-shadow: 0 25px 60px rgba(114, 0, 0, 0.3); position: relative; overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.2);
     }
     .admirer-card::before {
         content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%); pointer-events: none;
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%); pointer-events: none;
     }
-    .admirer-count { font-size: 60px; font-weight: 900; line-height: 1; margin-bottom: 5px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-    .admirer-text { font-size: 18px; font-weight: 800; opacity: 0.9; letter-spacing: 1px; text-transform: uppercase;}
+    .admirer-count { font-size: 72px; font-weight: 950; line-height: 1; margin-bottom: 8px; text-shadow: 0 8px 20px rgba(0,0,0,0.3); letter-spacing: -3px; }
+    .admirer-text { font-size: 14px; font-weight: 900; opacity: 0.9; letter-spacing: 2px; text-transform: uppercase;}
 
     /* Blurred faces to build curiosity */
-    .mystery-faces { display: flex; justify-content: center; margin-top: 20px; gap: -15px; }
+    .mystery-faces { display: flex; justify-content: center; margin-top: 25px; gap: -20px; }
     .mystery-face {
-        width: 50px; height: 50px; border-radius: 50%; background: #fff; border: 3px solid rgba(255,255,255,0.5);
-        margin-left: -15px; filter: blur(4px); opacity: 0.8; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        width: 60px; height: 60px; border-radius: 50%; background: #fff; border: 4px solid rgba(255,255,255,0.3);
+        filter: blur(5px); opacity: 0.8; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
     }
-    .mystery-face:first-child { margin-left: 0; }
 
     /* === THE INPUT FORM === */
     .crush-form {
-        background: white; border-radius: 24px; padding: 30px 20px;
-        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.08); border: 1px solid #FFD6DD; margin-bottom: 40px;
+        background: white; border-radius: 32px; padding: clamp(30px, 6vw, 45px) 25px;
+        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.08); border: 2px solid #FFD6DD; margin-bottom: 45px;
     }
-    .crush-form h2 { color: #111; font-size: 20px; font-weight: 900; margin-bottom: 15px; }
+    .crush-form h2 { color: #111; font-size: 22px; font-weight: 900; margin-bottom: 20px; letter-spacing: -0.5px; }
     
     .reg-input {
-        width: 100%; border: 2px solid #f0f0f0; background: #fafafa; border-radius: 16px; padding: 16px;
-        font-size: 18px; font-family: monospace; font-weight: 700; outline: none; transition: 0.3s;
-        text-align: center; text-transform: uppercase; margin-bottom: 20px; box-sizing: border-box;
-        letter-spacing: 2px;
+        width: 100%; border: 3px solid #f0f0f0; background: #fafafa; border-radius: 20px; padding: 20px;
+        font-size: 18px; font-family: 'Inter', monospace; font-weight: 800; outline: none; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        text-align: center; text-transform: uppercase; margin-bottom: 25px; box-sizing: border-box;
+        letter-spacing: 1px;
     }
-    .reg-input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 4px rgba(230,0,38,0.1); }
+    .reg-input:focus { border-color: #E60026; background: white; box-shadow: 0 0 0 5px rgba(230,0,38,0.1); transform: scale(1.02); }
     
     .btn-crush {
-        width: 100%; background: #111; color: white; border: none; padding: 18px; border-radius: 16px;
-        font-size: 16px; font-weight: 900; cursor: pointer; transition: 0.2s; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        width: 100%; background: #111; color: white; border: none; padding: 20px; border-radius: 20px;
+        font-size: 17px; font-weight: 950; cursor: pointer; transition: 0.3s; box-shadow: 0 12px 25px rgba(0, 0, 0, 0.2);
     }
     .btn-crush:active { transform: scale(0.97); }
+    @media (hover: hover) { .btn-crush:hover { background: #000; transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.3); } }
 
     /* === SENT CRUSHES LIST === */
     .sent-crushes { text-align: left; }
-    .sent-crushes h3 { font-size: 18px; font-weight: 900; color: #720000; margin-bottom: 15px; padding-left: 5px;}
+    .sent-crushes h3 { font-size: 20px; font-weight: 950; color: #720000; margin-bottom: 20px; padding-left: 5px; letter-spacing: -0.5px;}
     .sent-card {
         display: flex; align-items: center; justify-content: space-between; background: white;
-        padding: 15px; border-radius: 16px; margin-bottom: 10px; border: 1px solid #f0f0f0;
+        padding: 18px; border-radius: 20px; margin-bottom: 12px; border: 2px solid #f0f0f0;
+        transition: 0.2s;
     }
-    .sent-info { display: flex; align-items: center; gap: 12px; }
-    .sent-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
-    .sent-name { font-weight: 800; color: #111; font-size: 15px;}
-    .status-badge { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 12px; }
-    .status-pending { background: #f1f5f9; color: #64748b; }
-    .status-matched { background: #dcfce7; color: #059669; }
+    .sent-info { display: flex; align-items: center; gap: 15px; }
+    .sent-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #FFD6DD; }
+    .sent-name { font-weight: 900; color: #111; font-size: 16px;}
+    .status-badge { font-size: 13px; font-weight: 900; padding: 6px 14px; border-radius: 14px; }
+    .status-pending { background: #FEF2F4; color: #E60026; }
+    .status-matched { background: #dcfce7; color: #059669; animation: pulse-green 2s infinite; }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); } 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); } }
 
 </style>
 
@@ -135,9 +138,14 @@
         btn.disabled = true;
         btn.innerText = "Sending Ping...";
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
         fetch('/api/submit_crush', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({ target_reg: regInput })
         })
         .then(res => res.json())

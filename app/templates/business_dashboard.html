@@ -512,9 +512,14 @@
         statusDiv.style.display = "block";
         statusDiv.innerText = "Initiating M-Pesa STK Push. Please check your phone...";
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
         fetch('/api/pay_subscription', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({ phone_number: cleanPhone })
         })
         .then(res => res.json())

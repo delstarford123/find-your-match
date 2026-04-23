@@ -38,7 +38,11 @@ logger = logging.getLogger(__name__)
 # 2. LOCAL APP IMPORTS
 # ==========================================
 #  NOW it is safe to import from 'app' because the path is set up above! 👇
-from app.email_service import send_date_approval_email
+from app.email_service import (
+    send_date_approval_email, 
+    send_date_request_to_merchant_email,
+    send_verification_email
+)
 
 from app.database import (
     db, get_all_profiles, save_schedule, update_user_bio, 
@@ -1259,7 +1263,7 @@ def business_dashboard():
                            pending_count=pending_count, 
                            approved_count=approved_count)
                            
-@app.route('/busi+63ness/booking/<booking_id>/<action>', methods=['POST'])
+@app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
     """ALLOWS RESTAURANTS TO ACCEPT/DECLINE RESERVATIONS AND NOTIFIES USERS"""
     if session.get('role') != 'business': 
@@ -2745,6 +2749,26 @@ def propose_date():
 
         # Start the background task immediately
         socketio.start_background_task(emit_date_notifications)
+
+        # 4. NOTIFY MERCHANT VIA EMAIL
+        try:
+            restaurant = get_restaurant(venue_id)
+            if restaurant and restaurant.get('email'):
+                user_a_name = session.get('user_name', 'Student').split(' ')[0]
+                # Fetch partner name
+                partner_profile = db.reference(f"profiles/{partner_id}").get() or {}
+                user_b_name = partner_profile.get('name', 'Their Match').split(' ')[0]
+                
+                threading.Thread(target=send_date_request_to_merchant_email, args=(
+                    restaurant['email'], 
+                    restaurant.get('business_name', 'Merchant'),
+                    user_a_name,
+                    user_b_name,
+                    date_day,
+                    date_time
+                )).start()
+        except Exception as e:
+            logger.warning(f"Failed to send email to merchant: {e}")
 
         return jsonify({'success': True, 'message': 'Invitation sent!'})
         
