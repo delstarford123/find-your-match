@@ -142,6 +142,19 @@ def get_real_ip():
     if request.headers.getlist("X-Forwarded-For"):
         return request.headers.getlist("X-Forwarded-For")[0].split(',')[0].strip()
     return request.remote_addr
+
+def get_base_url():
+    """Dynamically determines the base URL for callbacks and referrals."""
+    # Use environment variable if provided (best for production)
+    env_url = os.getenv("BASE_URL")
+    if env_url:
+        return env_url.rstrip('/')
+    
+    # Fallback to request host, but force https if not on localhost
+    base_url = request.host_url.rstrip('/')
+    if not any(local in base_url for local in ['127.0.0.1', 'localhost']) and base_url.startswith('http://'):
+        base_url = base_url.replace('http://', 'https://')
+    return base_url
 # app/main.py
 
 # ==========================================
@@ -2333,56 +2346,100 @@ def end_date():
 # ==========================================
 # M-PESA B2C: STUDENT SUBSCRIPTIONS
 # ==========================================
+import pytz
+from datetime import datetime, timedelta
+from flask import request, session, jsonify
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Ensure East Africa Time is explicitly defined so your 30-day expiry is perfectly accurate
+EAT = pytz.timezone('Africa/Nairobi')
 
 @app.route('/api/pay_student_fee', methods=['POST'])
 @limiter.limit("3 per minute") # 🚨 STOPS STK PUSH SPAM
 def pay_student_fee():
+    # 1. Ensure user is logged in and handle unauthorized requests properly
     if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 403
+        return jsonify({'success': False, 'message': 'Unauthorized. Please log in.'}), 401
 
-    phone_number = request.json.get('phone_number')
+    # 2. Safely parse JSON (prevents 500 errors if the frontend sends bad data)
+    data = request.get_json(silent=True) or {}
+    phone_number = data.get('phone_number')
     user_id = session.get('user_id')
 
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
-    base_url = "https://www.findyourmatch.co.ke"
+    # 3. Use Flask's native URL generator (guarantees Safaricom gets the exact Render URL)
+    base_url = request.url_root.rstrip('/')
     callback_url = f"{base_url}/api/mpesa/student_callback"
     
-    response = initiate_stk_push(phone_number, 20, user_id, callback_url)
+    try:
+        response = initiate_stk_push(phone_number, 20, user_id, callback_url)
 
-    if 'error' in response:
-        return jsonify({'success': False, 'message': 'Payment failed to initiate. Try again.'})
+        if not response or 'error' in response:
+            return jsonify({'success': False, 'message': 'Payment gateway busy. Please try again.'})
 
-    if 'CheckoutRequestID' in response:
-        checkout_id = response['CheckoutRequestID']
-        db.reference(f'pending_payments/{checkout_id}').set(user_id)
-        return jsonify({'success': True, 'message': 'Check your phone for the M-Pesa PIN prompt!'})
-    
-    return jsonify({'success': False, 'message': 'Payment failed to initiate.'})
+        if 'CheckoutRequestID' in response:
+            checkout_id = response['CheckoutRequestID']
+            # Store the checkout ID so the webhook knows exactly who paid
+            db.reference(f'pending_payments/{checkout_id}').set({
+                'user_id': user_id,
+                'status': 'pending',
+                'created_at': datetime.now(EAT).isoformat()
+            })
+            # Save to session so check_access knows which checkout to track
+            session['checkout_id'] = checkout_id
+            
+            return jsonify({
+                'success': True, 
+                'checkout_id': checkout_id,
+                'message': 'Check your phone for the M-Pesa PIN prompt!'
+            })
+        
+        return jsonify({'success': False, 'message': 'Invalid response from payment gateway.'})
+        
+    except Exception as e:
+        logger.error(f"STK Push Error: {e}")
+        return jsonify({'success': False, 'message': 'Server error initiating payment.'}), 500
+
 
 @app.route('/api/mpesa/student_callback', methods=['POST'])
 @limiter.exempt # Webhooks shouldn't be rate-limited by user IP rules
 def mpesa_student_callback():
-    # 🚨 CRITICAL FIX: Block fake Postman payloads
-    client_ip = get_real_ip()
-    if not is_safaricom_ip(client_ip):
-        logger.critical(f"🚨 FAKE MPESA CALLBACK BLOCKED! Origin IP: {client_ip}")
-        return jsonify({"ResultCode": 1, "ResultDesc": "Unauthorized IP. Go away hacker."}), 403
-
-    data = request.json
+    # Safely get JSON (Safaricom payloads can sometimes act weird)
+    data = request.get_json(silent=True) or {}
+    
     try:
-        stk_callback = data['Body']['stkCallback']
-        result_code = stk_callback['ResultCode']
-        checkout_id = stk_callback['CheckoutRequestID']
+        # Use .get() chaining to safely navigate Safaricom's deeply nested JSON
+        body = data.get('Body', {})
+        stk_callback = body.get('stkCallback', {})
+        
+        if not stk_callback:
+            logger.warning("Received M-Pesa webhook with no stkCallback body.")
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        result_code = stk_callback.get('ResultCode')
+        checkout_id = stk_callback.get('CheckoutRequestID')
+        
+        pending_ref = db.reference(f'pending_payments/{checkout_id}')
+        pending_data = pending_ref.get()
+
+        if not pending_data:
+            logger.warning(f"⚠️ Webhook received for unknown checkout {checkout_id}")
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        # Normalize pending_data if it's just a string (legacy compatibility)
+        if isinstance(pending_data, str):
+            user_id = pending_data
+        else:
+            user_id = pending_data.get('user_id')
 
         if result_code == 0:
-            metadata = stk_callback['CallbackMetadata']['Item']
+            metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
             mpesa_receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             
-            pending_ref = db.reference(f'pending_payments/{checkout_id}')
-            user_id = pending_ref.get()
-
             if user_id:
                 expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
                 db.reference(f'profiles/{user_id}').update({
@@ -2390,19 +2447,30 @@ def mpesa_student_callback():
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': mpesa_receipt
                 })
-                pending_ref.delete()
+                # Update status to success instead of deleting immediately
+                pending_ref.update({'status': 'success', 'receipt': mpesa_receipt})
                 logger.info(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
+            else:
+                logger.warning(f"⚠️ Payment received for {checkout_id} but no user_id found!")
         else:
-            fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
-            logger.info(f"❌ STUDENT PAYMENT FAILED: {fail_reason}")
+            fail_reason = stk_callback.get('ResultDesc', 'User cancelled or insufficient funds')
+            # Map common Safaricom error codes to user-friendly messages
+            if result_code == 1032:
+                fail_reason = "Transaction cancelled by user."
+            elif result_code == 1:
+                fail_reason = "Insufficient funds in your M-Pesa account."
+                
+            pending_ref.update({
+                'status': 'failed',
+                'reason': fail_reason,
+                'result_code': result_code
+            })
+            logger.info(f"❌ STUDENT PAYMENT FAILED: {fail_reason} (Code: {result_code})")
 
     except Exception as e:
-        logger.error(f"⚠️ Student Callback Error: {e}")
+        logger.error(f"⚠️ Student Callback Parsing Error: {e}")
 
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
-
-
-
 # ==========================================
 # M-PESA B2B: MERCHANT SUBSCRIPTIONS
 # ==========================================
@@ -2422,7 +2490,7 @@ def pay_subscription():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
 
-    base_url = "https://www.findyourmatch.co.ke"
+    base_url = get_base_url()
     callback_url = f"{base_url}/api/mpesa/b2b_callback"
     
     # Initiate the STK Push request to Safaricom
@@ -3104,21 +3172,37 @@ def join():
     return redirect(url_for('auth.signup'))
 
 
+import random
+import string
+import logging
+from flask import request, session, flash, redirect, url_for, render_template, jsonify
+
+logger = logging.getLogger(__name__)
+
+# ==========================================
+# 1. REFERRALS DASHBOARD ROUTE
+# ==========================================
 @app.route('/referrals')
 def referrals():
+    # Defensive check: Ensure user is logged in
     if 'user_id' not in session:
         flash("Please log in to view your VIP Dashboard.", "error")
-        return redirect(url_for('auth.login')) 
+        # Note: Change 'login' to 'auth.login' if you are using Flask Blueprints
+        return redirect(url_for('login')) 
     
     user_id = session['user_id']
     user_ref = db.reference(f'profiles/{user_id}')
     user_data = user_ref.get()
     
+    # Defensive check: Ensure user profile actually exists in Firebase
     if not user_data:
         flash("Profile not found. Please log in again.", "error")
         session.pop('user_id', None)
-        return redirect(url_for('auth.login'))
+        return redirect(url_for('login'))
         
+    # --- Generate Missing Codes on the Fly ---
+    updates = {}
+    
     # 1. Ensure Referral Code Exists
     if 'referral_code' not in user_data:
         first_name = user_data.get('name', 'VIP').split(' ')[0].upper()
@@ -3126,37 +3210,80 @@ def referrals():
         random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         new_ref_code = f"MMUST-{clean_name}-{random_suffix}"
         
-        user_ref.update({'referral_code': new_ref_code})
+        updates['referral_code'] = new_ref_code
         user_data['referral_code'] = new_ref_code
         
-    # 2. Ensure Wingman Code Exists (NEW)
+    # 2. Ensure Wingman Code Exists
     if 'wingman_code' not in user_data:
-        # Generates a short, clean 6-character hash for the URL
         wingman_hash = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-        user_ref.update({'wingman_code': wingman_hash})
+        
+        updates['wingman_code'] = wingman_hash
         user_data['wingman_code'] = wingman_hash
         
+    # Batch update Firebase if new codes were generated (saves database calls)
+    if updates:
+        user_ref.update(updates)
+        
+    # Ensure default integer values exist for the template
     user_data['referrals_count'] = user_data.get('referrals_count', 0)
     user_data['free_weeks_earned'] = user_data.get('free_weeks_earned', 0)
 
-    # Determine the base URL dynamically
-    base_url = "https://www.findyourmatch.co.ke"
+    # Use Flask's native built-in method to get the base URL automatically
+    base_url = request.url_root.rstrip('/')
+    
     return render_template('referrals.html', user=user_data, base_url=base_url)
 
-@app.route('/api/check_access', methods=['GET'])
-@login_required
-def check_access():
-    """The frontend calls this every 3 seconds to see if the callback arrived."""
-    user_id = session.get('user_id')
-    
-    # Check Firebase to see if the webhook flipped the switch
-    user_data = db.reference(f'profiles/{user_id}').get()
-    
-    if user_data and user_data.get('is_paid') == True:
-        return jsonify({'granted': True})
-        
-    return jsonify({'granted': False})
 
+# ==========================================
+# 2. PAYMENT POLLING API ROUTE
+# ==========================================
+@app.route('/api/check_access', methods=['GET'])
+def check_access():
+    """The frontend calls this every 3 seconds to see if the payment callback arrived."""
+    if 'user_id' not in session:
+        return jsonify({'granted': False, 'error': 'Unauthorized'}), 401
+
+    user_id = session['user_id']
+    checkout_id = session.get('checkout_id')
+
+    try:
+        # 1. First, check the profile - this is the "source of truth" for paid status
+        is_paid = db.reference(f'profiles/{user_id}/is_paid').get()
+        if is_paid is True:
+            return jsonify({
+                'granted': True, 
+                'status': 'success',
+                'message': 'Access granted!'
+            })
+
+        # 2. If not paid, check if there's an active or failed payment via checkout_id
+        if checkout_id:
+            payment_status = db.reference(f'pending_payments/{checkout_id}').get()
+            
+            if payment_status:
+                # If it's a simple string (legacy compatibility), it's just the user_id, status is pending
+                if isinstance(payment_status, str):
+                    return jsonify({'granted': False, 'status': 'pending'})
+                
+                status = payment_status.get('status')
+                if status == 'failed':
+                    return jsonify({
+                        'granted': False, 
+                        'status': 'failed', 
+                        'message': payment_status.get('reason', 'Payment was cancelled or failed.')
+                    })
+                elif status == 'success':
+                    return jsonify({'granted': True, 'status': 'success'})
+                
+                return jsonify({'granted': False, 'status': 'pending'})
+
+    except Exception as e:
+        logger.error(f"❌ Check Access failed for {user_id}: {str(e)}")
+        return jsonify({'granted': False, 'status': 'error'}), 200
+
+    # Default fallback
+    return jsonify({'granted': False, 'status': 'none'})
+    
 # ==========================================
 # PUBLIC WINGMAN ROUTES (VIRAL GROWTH)
 # ==========================================

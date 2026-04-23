@@ -7,7 +7,6 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        /* Using dvh for perfect mobile centering, preventing browser UI jump */
         min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px);
         padding: clamp(20px, 5vw, 40px) 15px;
     }
@@ -88,7 +87,6 @@
         position: relative; z-index: 2; box-sizing: border-box;
     }
     
-    /* Focus state turns M-Pesa Green for trust */
     .mpesa-input-group:focus-within {
         border-color: #28a745; background: white;
         box-shadow: 0 0 0 4px rgba(40, 167, 69, 0.1);
@@ -116,14 +114,7 @@
         position: relative; z-index: 2; min-height: 58px;
     }
     .btn-unlock:active { transform: scale(0.97); }
-
-    @media (hover: hover) {
-        .btn-unlock:not(:disabled):hover {
-            transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3);
-        }
-    }
-    
-    .btn-unlock:disabled { transform: none; cursor: not-allowed; box-shadow: none; opacity: 0.9; }
+    .btn-unlock:disabled { cursor: not-allowed; opacity: 0.9; }
 
     .security-note {
         margin-top: 25px; font-size: 13px; color: #888;
@@ -146,10 +137,24 @@
         line-height: 1.5; position: relative; z-index: 2;
     }
     @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+    /* Success/Error States */
+    .status-alert {
+        display: none;
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .status-error { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+    .status-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
 </style>
 
 <div class="paywall-wrapper">
     <div class="pay-card">
+        <div id="status-box" class="status-alert"></div>
+
         <div class="price-badge">Monthly Access</div>
         <h1 class="pay-title">Unlock Your Match</h1>
         <p class="pay-subtitle">Join hundreds of MMUST students finding connections today.</p>
@@ -183,10 +188,23 @@
 
 <script>
     const CSRF_TOKEN = "{{ csrf_token() }}";
+    let pollInterval = null;
+
+    function showAlert(msg, type) {
+        const box = document.getElementById('status-box');
+        box.innerText = msg;
+        box.className = `status-alert status-${type}`;
+        box.style.display = 'block';
+        
+        if (type === 'error') {
+            setTimeout(() => {
+                box.style.display = 'none';
+            }, 5000);
+        }
+    }
 
     function payStudentFee() {
         const phoneInput = document.getElementById('student-phone');
-        // Clean the input of any spaces or weird characters
         const phone = phoneInput.value.replace(/[^0-9]/g, '').trim();
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
@@ -195,16 +213,17 @@
         const inputContainer = document.getElementById('input-container');
         
         if (phone.length !== 12 || !phone.startsWith("254")) {
-            alert("Please enter a valid Safaricom number starting with 254 (e.g., 254712345678)");
+            showAlert("Please enter a valid Safaricom number (2547XXXXXXXX)", "error");
             return;
         }
 
-        // 1. Update UI to "Processing" state
+        // 1. UI Loading State
         btnText.innerText = "Requesting M-Pesa...";
         spinner.style.display = "block";
         btn.disabled = true;
         phoneInput.disabled = true;
         inputContainer.style.opacity = "0.5";
+        document.getElementById('status-box').style.display = 'none';
 
         fetch('/api/pay_student_fee', {
             method: 'POST',
@@ -217,23 +236,22 @@
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                // 2. Update UI to "Waiting for PIN" state
+                // 2. Waiting for PIN State
                 btnText.innerText = "Waiting for Payment...";
-                btn.style.background = "#720000"; // Darken button to show it's waiting
+                btn.style.background = "#720000";
                 waitingMsg.style.display = "block";
 
-                // 3. Start Smart Polling via the lightweight JSON API
+                // 3. Start Polling
                 pollForPaymentSuccess();
                 
             } else {
-                // Reset UI on failure
-                alert(data.message || "Failed to initiate payment.");
+                showAlert(data.message || "Failed to initiate payment.", "error");
                 resetUI();
             }
         })
         .catch(err => {
             console.error(err);
-            alert("Network error. Please try again.");
+            showAlert("Network error. Please try again.", "error");
             resetUI();
         });
     }
@@ -244,39 +262,43 @@
         const spinner = document.getElementById('btn-spinner');
         const waitingMsg = document.getElementById('waiting-msg');
 
-        // Check the server every 3 seconds using the lightweight API route
-        const checkInterval = setInterval(async () => {
+        let attempts = 0;
+        const maxAttempts = 40; // ~2 minutes
+
+        pollInterval = setInterval(async () => {
+            attempts++;
             try {
-                const response = await fetch('/api/check_access');
+                const response = await fetch('/api/check_access?t=' + new Date().getTime());
                 const data = await response.json();
                 
                 if (data.granted === true) {
-                    clearInterval(checkInterval);
+                    clearInterval(pollInterval);
                     
-                    // 4. Update UI to "Success" state
+                    // 4. Success State
                     waitingMsg.style.display = "none";
                     spinner.style.display = "none";
-                    btn.style.background = "#28a745"; // Success Green
+                    btn.style.background = "#28a745"; 
                     btnText.innerText = "Payment Received! ✅";
+                    showAlert("Access Granted! Redirecting...", "success");
                     
-                    // Smoothly redirect to the dashboard
                     setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1000);
+                        window.location.href = '/swipe';
+                    }, 1500);
+                } else if (data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showAlert(data.message || "Subscription process was cancelled.", "error");
+                    resetUI();
                 }
             } catch (error) {
                 console.error("Polling error:", error);
             }
-        }, 3000);
-        
-        // Timeout after 2 minutes (Safaricom STK push expires in about 60-90 seconds)
-        setTimeout(() => {
-            clearInterval(checkInterval);
-            if (btnText.innerText !== "Payment Received! ✅") {
-                alert("Payment request timed out. Please try again.");
+
+            if (attempts >= maxAttempts) {
+                clearInterval(pollInterval);
+                showAlert("Request timed out. If you paid, please refresh the page.", "error");
                 resetUI();
             }
-        }, 120000);
+        }, 3000);
     }
     
     function resetUI() {
