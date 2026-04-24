@@ -138,7 +138,15 @@ def signup():
 
         profile_img = "" if skip_pic else "https://via.placeholder.com/400"
         
-        # 6. Hash Password and Calculate Expiry
+        # 6. Generate Referral and Wingman Codes
+        import string
+        first_name = name.split(' ')[0].upper()
+        clean_name = ''.join(e for e in first_name if e.isalnum())[:5]
+        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        referral_code = f"MMUST-{clean_name}-{random_suffix}"
+        wingman_code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+
+        # 7. Hash Password and Calculate Expiry
         hashed_password = generate_password_hash(password)
         expiry_date = calculate_account_expiry(reg_number)
         created_at = datetime.now(EAT).isoformat()
@@ -168,7 +176,11 @@ def signup():
                 'vibe_vector': [0.0, 0.0, 0.0, 0.0],
                 'is_verified': False,            # User must verify via code
                 'verification_code': str(otp_code), # Store code as string for exact matching
-                'referred_by': ref_code          # Saves who invited them!
+                'referred_by': ref_code,         # Saves who invited them!
+                'referral_code': referral_code,   # 🎁 Their own invite code
+                'wingman_code': wingman_code,     # 🕵️‍♀️ Their bestie review code
+                'referrals_count': 0,
+                'free_weeks_earned': 0
             })
             
             # Send the Email 
@@ -253,8 +265,19 @@ def verify_email():
                         
                         ref_exp_str = referrer_data.get('subscription_expiry')
                         # If they already have premium, ADD 7 days to their current expiry
-                        if ref_exp_str and datetime.fromisoformat(ref_exp_str) > now_eat.replace(tzinfo=None):
-                            new_ref_exp = (datetime.fromisoformat(ref_exp_str) + timedelta(days=7)).isoformat()
+                        if ref_exp_str:
+                            try:
+                                ref_dt = datetime.fromisoformat(ref_exp_str)
+                                # Ensure ref_dt is aware for comparison
+                                if ref_dt.tzinfo is None:
+                                    ref_dt = ref_dt.replace(tzinfo=EAT)
+                                
+                                if ref_dt > now_eat:
+                                    new_ref_exp = (ref_dt + timedelta(days=7)).isoformat()
+                                else:
+                                    new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
+                            except ValueError:
+                                new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
                         else:
                             new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
 

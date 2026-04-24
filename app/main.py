@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import random
+import string
 import io
 import base64
 import qrcode
@@ -3206,13 +3207,6 @@ def join():
     return redirect(url_for('auth.signup'))
 
 
-import random
-import string
-import logging
-from flask import request, session, flash, redirect, url_for, render_template, jsonify
-
-logger = logging.getLogger(__name__)
-
 # ==========================================
 # 1. REFERRALS DASHBOARD ROUTE
 # ==========================================
@@ -3221,8 +3215,7 @@ def referrals():
     # Defensive check: Ensure user is logged in
     if 'user_id' not in session:
         flash("Please log in to view your VIP Dashboard.", "error")
-        # Note: Change 'login' to 'auth.login' if you are using Flask Blueprints
-        return redirect(url_for('login')) 
+        return redirect(url_for('auth.login')) 
     
     user_id = session['user_id']
     user_ref = db.reference(f'profiles/{user_id}')
@@ -3232,9 +3225,9 @@ def referrals():
     if not user_data:
         flash("Profile not found. Please log in again.", "error")
         session.pop('user_id', None)
-        return redirect(url_for('login'))
+        return redirect(url_for('auth.login'))
         
-    # --- Generate Missing Codes on the Fly ---
+    # --- Generate Missing Codes on the Fly (Safety Fallback) ---
     updates = {}
     
     # 1. Ensure Referral Code Exists
