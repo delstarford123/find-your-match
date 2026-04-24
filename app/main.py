@@ -2380,6 +2380,7 @@ def end_date():
         flash("Date terminated. All data and chats have been securely deleted.", "success")
         return jsonify({'success': True})
     return jsonify({'success': False}), 500
+
 # ==========================================
 # M-PESA B2C: STUDENT SUBSCRIPTIONS
 # ==========================================
@@ -2396,11 +2397,9 @@ EAT = pytz.timezone('Africa/Nairobi')
 @app.route('/api/pay_student_fee', methods=['POST'])
 @limiter.limit("3 per minute") # 🚨 STOPS STK PUSH SPAM
 def pay_student_fee():
-    # 1. Ensure user is logged in and handle unauthorized requests properly
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Unauthorized. Please log in.'}), 401
 
-    # 2. Safely parse JSON (prevents 500 errors if the frontend sends bad data)
     data = request.get_json(silent=True) or {}
     phone_number = data.get('phone_number')
     user_id = session.get('user_id')
@@ -2408,9 +2407,8 @@ def pay_student_fee():
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
-    # 3. Use Flask's native URL generator (guarantees Safaricom gets the exact Render URL)
-    base_url = request.url_root.rstrip('/')
-    callback_url = f"{base_url}/api/mpesa/student_callback"
+    # 🚨 ULTIMATE FIX: Hardcode your exact custom domain so Safaricom never gets confused
+    callback_url = "https://www.findyourmatch.co.ke/api/mpesa/student_callback"
     
     try:
         response = initiate_stk_push(phone_number, 20, user_id, callback_url)
@@ -2420,13 +2418,11 @@ def pay_student_fee():
 
         if 'CheckoutRequestID' in response:
             checkout_id = response['CheckoutRequestID']
-            # Store the checkout ID so the webhook knows exactly who paid
             db.reference(f'pending_payments/{checkout_id}').set({
                 'user_id': user_id,
                 'status': 'pending',
                 'created_at': datetime.now(EAT).isoformat()
             })
-            # Save to session so check_access knows which checkout to track
             session['checkout_id'] = checkout_id
             
             return jsonify({
@@ -2441,15 +2437,12 @@ def pay_student_fee():
         logger.error(f"STK Push Error: {e}")
         return jsonify({'success': False, 'message': 'Server error initiating payment.'}), 500
 
-
 @app.route('/api/mpesa/student_callback', methods=['POST'])
-@limiter.exempt # Webhooks shouldn't be rate-limited by user IP rules
+@limiter.exempt 
 def mpesa_student_callback():
-    # Safely get JSON (Safaricom payloads can sometimes act weird)
     data = request.get_json(silent=True) or {}
     
     try:
-        # Use .get() chaining to safely navigate Safaricom's deeply nested JSON
         body = data.get('Body', {})
         stk_callback = body.get('stkCallback', {})
         
@@ -2467,7 +2460,6 @@ def mpesa_student_callback():
             logger.warning(f"⚠️ Webhook received for unknown checkout {checkout_id}")
             return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
-        # Normalize pending_data if it's just a string (legacy compatibility)
         if isinstance(pending_data, str):
             user_id = pending_data
         else:
@@ -2484,14 +2476,12 @@ def mpesa_student_callback():
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': mpesa_receipt
                 })
-                # Update status to success instead of deleting immediately
                 pending_ref.update({'status': 'success', 'receipt': mpesa_receipt})
                 logger.info(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
             else:
                 logger.warning(f"⚠️ Payment received for {checkout_id} but no user_id found!")
         else:
             fail_reason = stk_callback.get('ResultDesc', 'User cancelled or insufficient funds')
-            # Map common Safaricom error codes to user-friendly messages
             if result_code == 1032:
                 fail_reason = "Transaction cancelled by user."
             elif result_code == 1:
@@ -2508,66 +2498,67 @@ def mpesa_student_callback():
         logger.error(f"⚠️ Student Callback Parsing Error: {e}")
 
     return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
 # ==========================================
 # M-PESA B2B: MERCHANT SUBSCRIPTIONS
 # ==========================================
 
 @app.route('/api/pay_subscription', methods=['POST'])
 def pay_subscription():
-    # 🚨 CRITICAL FIX 1: Use 'role' instead of 'account_type'
     if session.get('role') != 'business':
         return jsonify({'error': 'Unauthorized. Please log in as a merchant.'}), 403
 
-    data = request.json
+    data = request.get_json(silent=True) or {}
     phone_number = data.get('phone_number')
-    
-    # 🚨 CRITICAL FIX 2: Use 'user_id' instead of 'business_id'
     restaurant_id = session.get('user_id')
 
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
 
-    base_url = get_base_url()
-    callback_url = f"{base_url}/api/mpesa/b2b_callback"
+    # 🚨 ULTIMATE FIX: Hardcode your exact custom domain
+    callback_url = "https://www.findyourmatch.co.ke/api/mpesa/b2b_callback"
     
-    # Initiate the STK Push request to Safaricom
-    response = initiate_stk_push(phone_number, 2000, restaurant_id, callback_url)
-
-    if 'error' in response:
-        logger.error(f"STK Push Failed: {response.get('error')}")
-        return jsonify({'success': False, 'message': 'Payment initiation failed. Try again.'})
-    
-    if 'CheckoutRequestID' in response:
-        checkout_id = response['CheckoutRequestID']
-        # Securely link the transaction to the merchant in Firebase
-        db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
-        return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
-
-    return jsonify({'success': False, 'message': 'Payment failed to initiate.'})
-
-
-@app.route('/api/mpesa/b2b_callback', methods=['POST'])
-def mpesa_b2b_callback():
-    """WEBHOOK: Safaricom hits this URL when a B2B payment completes."""
-    data = request.get_json()
-    if not data:
-        return "No data", 400
-
     try:
-        stk_callback = data['Body']['stkCallback']
-        result_code = stk_callback['ResultCode']
-        checkout_id = stk_callback['CheckoutRequestID']
+        response = initiate_stk_push(phone_number, 2000, restaurant_id, callback_url)
+
+        if not response or 'error' in response:
+            logger.error(f"STK Push Failed: {response.get('error')}")
+            return jsonify({'success': False, 'message': 'Payment initiation failed. Try again.'})
+        
+        if 'CheckoutRequestID' in response:
+            checkout_id = response['CheckoutRequestID']
+            db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
+            return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
+
+        return jsonify({'success': False, 'message': 'Invalid response from payment gateway.'})
+    except Exception as e:
+        logger.error(f"STK Push Error: {e}")
+        return jsonify({'success': False, 'message': 'Server error initiating payment.'}), 500
+    
+    
+@app.route('/api/mpesa/b2b_callback', methods=['POST'])
+@limiter.exempt
+def mpesa_b2b_callback():
+    data = request.get_json(silent=True) or {}
+    
+    try:
+        body = data.get('Body', {})
+        stk_callback = body.get('stkCallback', {})
+        
+        if not stk_callback:
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        result_code = stk_callback.get('ResultCode')
+        checkout_id = stk_callback.get('CheckoutRequestID')
         
         if result_code == 0:
-            metadata = stk_callback['CallbackMetadata']['Item']
+            metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
             amount = next((item['Value'] for item in metadata if item['Name'] == 'Amount'), None)
             receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             phone = next((item['Value'] for item in metadata if item['Name'] == 'PhoneNumber'), None)
             
-            # 🚨 CRITICAL FIX 3: Use EAT (East Africa Time) to ensure accurate Kenyan timestamps
             current_time_eat = datetime.now(EAT).isoformat()
 
-            # 1. Save to Financial Ledger
             db.reference('ledger').push({
                 'type': 'B2B',
                 'amount': amount,
@@ -2578,38 +2569,35 @@ def mpesa_b2b_callback():
             })
             logger.info(f"💰 M-Pesa B2B Payment Received: {amount} KSH (Receipt: {receipt})")
 
-            # 2. ACTIVATE THE MERCHANT
             pending_ref = db.reference(f'pending_b2b_payments/{checkout_id}')
             restaurant_id = pending_ref.get()
 
             if restaurant_id:
-                # Add exactly 30 days using the EAT timezone
                 expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
                 
                 db.reference(f'restaurants/{restaurant_id}').update({
                     'subscription_active': True,
-                    'subscription_start': current_time_eat, # Good to track when it started
+                    'subscription_start': current_time_eat, 
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': receipt
                 })
                 
-                # Clean up the pending payment record
                 pending_ref.delete()
                 logger.info(f"✅ MERCHANT ACTIVATED: ID {restaurant_id}")
             else:
-                logger.warning(f"⚠️ Payment received, but could not find matching merchant for checkout: {checkout_id}")
+                logger.warning(f"⚠️ Payment received, but could not find merchant for checkout: {checkout_id}")
 
         else:
             fail_reason = stk_callback.get('ResultDesc', 'Unknown Error')
             logger.info(f"❌ M-Pesa B2B Payment Failed: {fail_reason}")
 
-        # Always return a 0 response to Safaricom so they stop retrying the webhook
-        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
-
     except Exception as e:
         logger.error(f"Error processing B2B M-Pesa Callback: {e}")
-        return jsonify({"ResultCode": 1, "ResultDesc": "Internal Error"}), 500
-    
+
+    # ALWAYS return a 0 response to Safaricom so they stop retrying the webhook
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
 # ==========================================
 # WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
 # ==========================================

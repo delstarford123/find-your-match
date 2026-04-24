@@ -28,8 +28,18 @@ _token_cache = {
     "expires_at": None
 }
 
+def validate_credentials():
+    """Ensures the server has all required M-Pesa keys before attempting a request."""
+    if not all([CONSUMER_KEY, CONSUMER_SECRET, BUSINESS_SHORTCODE, PASSKEY]):
+        logger.error("🚨 CRITICAL: Missing one or more M-Pesa Environment Variables!")
+        return False
+    return True
+
 def format_phone_number(phone: str) -> str:
     """Ensures the phone number is strictly in the 254XXXXXXXXX format."""
+    if not phone:
+        return ""
+        
     phone = ''.join(filter(str.isdigit, str(phone)))
     
     if phone.startswith('0') and len(phone) == 10:
@@ -43,14 +53,18 @@ def format_phone_number(phone: str) -> str:
 
 def get_access_token():
     """Generates or retrieves a valid OAuth token required by Safaricom."""
+    if not validate_credentials():
+        return None
+
     global _token_cache
     
+    # Use cached token if it is still valid for at least another 60 seconds
     if _token_cache["token"] and _token_cache["expires_at"]:
         if datetime.now() < (_token_cache["expires_at"] - timedelta(seconds=60)):
             return _token_cache["token"]
 
     try:
-        response = requests.get(OAUTH_URL, auth=(CONSUMER_KEY, CONSUMER_SECRET), timeout=10)
+        response = requests.get(OAUTH_URL, auth=(CONSUMER_KEY, CONSUMER_SECRET), timeout=15)
         response.raise_for_status()
         data = response.json()
         
@@ -58,8 +72,13 @@ def get_access_token():
         _token_cache["expires_at"] = datetime.now() + timedelta(seconds=int(data.get('expires_in', 3599)))
         
         return _token_cache["token"]
+        
     except requests.exceptions.RequestException as e:
         logger.error(f"❌ Failed to get M-Pesa access token: {e}")
+        return None
+    except ValueError:
+        # Catches cases where Daraja returns a 503 HTML page instead of JSON
+        logger.error("❌ Daraja returned a non-JSON response during Auth.")
         return None
 
 def generate_password(timestamp: str) -> str:
@@ -69,7 +88,6 @@ def generate_password(timestamp: str) -> str:
 
 def initiate_stk_push(phone_number, amount, account_reference, callback_url, transaction_desc="MMUST Subscription"):
     """Triggers the PIN prompt on the user's phone."""
-    
     token = get_access_token()
     if not token:
         return {"error": "Failed to authenticate with M-Pesa Servers."}
@@ -87,9 +105,6 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         "BusinessShortCode": BUSINESS_SHORTCODE,
         "Password": password,
         "Timestamp": timestamp,
-        # Note: Use "CustomerPayBillOnline" for Paybills. 
-        # If using a Till Number (Buy Goods), change this to "CustomerBuyGoodsOnline"
-        # and ensure "PartyB" is the Till Number, not the Head Office Shortcode.
         "TransactionType": "CustomerPayBillOnline", 
         "Amount": int(amount),
         "PartyA": formatted_phone,
@@ -101,12 +116,12 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
     }
 
     try:
-        response = requests.post(STK_PUSH_URL, json=payload, headers=headers, timeout=15)
+        response = requests.post(STK_PUSH_URL, json=payload, headers=headers, timeout=20)
         response.raise_for_status()
         return response.json() 
         
     except requests.exceptions.RequestException as e:
-        logger.error(f"❌ STK Push Error: {e}")
+        logger.error(f"❌ STK Push Network Error: {e}")
         
         if getattr(e, 'response', None) is not None:
             try:
@@ -114,10 +129,12 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
                 error_msg = safaricom_error.get('errorMessage', str(e))
                 logger.error(f"Safaricom Exact Response: {error_msg}")
                 return {"error": f"Safaricom: {error_msg}"}
-            except Exception:
-                return {"error": f"Safaricom returned an error: {e.response.text}"}
+            except ValueError:
+                # Safaricom sent back HTML instead of JSON
+                logger.error(f"Safaricom returned an invalid format: {e.response.text[:200]}")
+                return {"error": "Safaricom gateway is currently unstable."}
                 
-        return {"error": str(e)}
+        return {"error": "Network timeout reaching Safaricom."}
 
 def check_payment_status(checkout_request_id):
     """ACTIVELY asks Safaricom if a specific transaction was paid successfully."""
@@ -158,9 +175,11 @@ def check_payment_status(checkout_request_id):
         if getattr(e, 'response', None) is not None:
             try:
                 error_data = e.response.json()
-                if "invalid" in error_data.get('errorMessage', '').lower() or "not found" in error_data.get('errorMessage', '').lower():
+                # Safaricom returns "Invalid CheckoutRequestID" if the user hasn't put in their PIN yet
+                err_msg = error_data.get('errorMessage', '').lower()
+                if "invalid" in err_msg or "not found" in err_msg:
                     return {"status": "PENDING"}
-            except Exception:
-                pass
+            except ValueError:
+                pass # Daraja returned HTML
                 
         return {"status": "PENDING"}
