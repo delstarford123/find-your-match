@@ -581,6 +581,17 @@
                     <div style="flex: 1; min-width: 250px;">
                         <div class="admin-card-header">
                             <span class="badge {% if f.type == 'suggestion' %}badge-blue{% else %}badge-purple{% endif %}">{{ f.type | upper }}</span>
+                            <span style="font-size: 11px; color: #94a3b8; margin-left: auto;">{{ f.timestamp }}</span>
+                        </div>
+                        <div style="margin: 10px 0; padding: 10px; background: #1e293b; border-radius: 8px;">
+                            <div style="font-size: 13px; margin-bottom: 4px;">
+                                <span style="color: #94a3b8;">From:</span> <strong>{{ f.user_name }}</strong>
+                            </div>
+                            <div style="font-size: 12px; color: #cbd5e1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <div>📧 {{ f.user_email }}</div>
+                                <div>🆔 {{ f.user_reg }}</div>
+                                <div style="grid-column: span 2;">📞 {{ f.user_phone }}</div>
+                            </div>
                         </div>
                         <div class="message-bubble">"{{ f.message }}"</div>
                     </div>

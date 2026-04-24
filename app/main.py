@@ -1725,10 +1725,27 @@ def super_admin():
 
         suggestions = feedbacks_dict.get('suggestion', {})
         tickets = feedbacks_dict.get('ticket', {})
+        
+        raw_feedbacks = []
         if isinstance(suggestions, dict):
-            feedbacks.extend([{'id': k, 'type': 'suggestion', **v} for k, v in suggestions.items() if isinstance(v, dict)])
+            raw_feedbacks.extend([{'id': k, 'type': 'suggestion', **v} for k, v in suggestions.items() if isinstance(v, dict)])
         if isinstance(tickets, dict):
-            feedbacks.extend([{'id': k, 'type': 'ticket', **v} for k, v in tickets.items() if isinstance(v, dict)])
+            raw_feedbacks.extend([{'id': k, 'type': 'ticket', **v} for k, v in tickets.items() if isinstance(v, dict)])
+        
+        # Enrich feedback with user details (Email, Reg No, Phone)
+        for f in raw_feedbacks:
+            uid = f.get('user_id')
+            if uid and uid in all_profiles:
+                u_profile = all_profiles[uid]
+                f['user_email'] = u_profile.get('email', 'N/A')
+                f['user_reg'] = u_profile.get('reg_no', 'N/A')
+                f['user_phone'] = u_profile.get('phone', 'N/A')
+            else:
+                f['user_email'] = 'Unknown'
+                f['user_reg'] = 'Unknown'
+                f['user_phone'] = 'N/A'
+        
+        feedbacks = raw_feedbacks
         feedbacks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
         call_requests = [{'id': k, **v} for k, v in call_requests_dict.items() if isinstance(v, dict)]
