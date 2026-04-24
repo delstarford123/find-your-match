@@ -333,11 +333,11 @@
                 showToast("Access Granted! Redirecting...", "success");
                 setTimeout(() => {
                     window.location.href = '/swipe';
-                }, 1000);
+                }, 100);
             } else {
                 btn.disabled = false;
                 text.innerText = "I've Already Paid - Check Status";
-                showToast('Payment not yet received from Safaricom. Retrying...', 'error');
+                showToast(data.message || 'Payment not yet received from Safaricom. Retrying...', 'error');
             }
         } catch (error) {
             console.error("Manual check error:", error);
@@ -407,7 +407,7 @@
         const pollingView = document.getElementById('polling-view');
 
         let attempts = 0;
-        const maxAttempts = 40; // ~2 minutes
+        const maxAttempts = 80; // ~2 minutes with 1.5s intervals
 
         // Make sure to clear any existing intervals just in case
         if (pollInterval) clearInterval(pollInterval);
@@ -431,10 +431,12 @@
                     
                     setTimeout(() => {
                         window.location.href = '/swipe';
-                    }, 1500);
-                } 
-                // Notice: We removed the data.status === 'failed' check here because 
-                // your Python check_access route currently only returns granted: true/false.
+                    }, 100);
+                } else if (data.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showAlert(data.message || "Payment failed or was cancelled.", "error");
+                    resetUI();
+                }
             } catch (error) {
                 console.error("Polling error:", error);
             }
@@ -446,7 +448,7 @@
                 btnText.innerText = "Timeout. Check manually.";
                 spinner.style.display = "none";
             }
-        }, 3000);
+        }, 1500);
     }
     
     function resetUI() {

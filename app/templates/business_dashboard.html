@@ -476,8 +476,34 @@
         .then(data => {
             if(data.success) {
                 statusDiv.style.color = "#28a745";
-                statusDiv.innerText = "Success! PIN requested.";
-                setTimeout(() => window.location.reload(), 15000); 
+                statusDiv.innerText = "PIN requested. Waiting for payment...";
+                
+                // Active polling for instant feedback
+                let attempts = 0;
+                const poll = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const res = await fetch('/api/check_access?t=' + Date.now());
+                        const check = await res.json();
+                        if (check.granted) {
+                            clearInterval(poll);
+                            statusDiv.innerText = "Payment Received! ✅";
+                            setTimeout(() => window.location.reload(), 500);
+                        } else if (check.status === 'failed') {
+                            clearInterval(poll);
+                            statusDiv.style.color = "#E60026";
+                            statusDiv.innerText = "Payment failed.";
+                            btn.innerText = "Retry";
+                            btn.disabled = false;
+                        }
+                    } catch (e) {}
+                    
+                    if (attempts > 80) { // ~2 mins
+                        clearInterval(poll);
+                        statusDiv.innerText = "Timeout. Please refresh if you paid.";
+                        btn.disabled = false;
+                    }
+                }, 1500);
             } else {
                 statusDiv.style.color = "#E60026";
                 statusDiv.innerText = "Failed.";

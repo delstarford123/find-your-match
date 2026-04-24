@@ -54,7 +54,7 @@ from app.database import (
 
 from app.services.recommendation_engine import generate_ranked_deck
 from app.services.moderation import contains_phone_number, analyze_safety
-from app.payments import initiate_stk_push
+from app.payments import initiate_stk_push, check_payment_status
 
 # ==========================================
 # 3. AI COMPANION SERVICE (GROQ)
@@ -2527,7 +2527,16 @@ def pay_subscription():
         
         if 'CheckoutRequestID' in response:
             checkout_id = response['CheckoutRequestID']
+            # Store in both for legacy and consistency
             db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
+            db.reference(f'pending_payments/{checkout_id}').set({
+                'user_id': restaurant_id,
+                'role': 'business',
+                'status': 'pending',
+                'amount': 2000,
+                'created_at': datetime.now(EAT).isoformat()
+            })
+            session['checkout_id'] = checkout_id
             return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
 
         return jsonify({'success': False, 'message': 'Invalid response from payment gateway.'})
@@ -3264,16 +3273,25 @@ def referrals():
 # ==========================================
 @app.route('/api/check_access', methods=['GET'])
 def check_access():
-    """The frontend calls this every 3 seconds to see if the payment callback arrived."""
+    """The frontend calls this every 1.5-3 seconds to see if the payment callback arrived."""
     if 'user_id' not in session:
         return jsonify({'granted': False, 'error': 'Unauthorized'}), 401
 
     user_id = session['user_id']
+    role = session.get('role', 'student') # Default to student
     checkout_id = session.get('checkout_id')
 
     try:
-        # 1. First, check the profile - this is the "source of truth" for paid status
-        is_paid = db.reference(f'profiles/{user_id}/is_paid').get()
+        # 1. First, check the profile/restaurant - this is the "source of truth"
+        if role == 'business':
+            user_ref = db.reference(f'restaurants/{user_id}')
+            user_data = user_ref.get() or {}
+            is_paid = user_data.get('subscription_active', False)
+        else:
+            user_ref = db.reference(f'profiles/{user_id}')
+            user_data = user_ref.get() or {}
+            is_paid = user_data.get('is_paid', False)
+        
         if is_paid is True:
             return jsonify({
                 'granted': True, 
@@ -3281,16 +3299,16 @@ def check_access():
                 'message': 'Access granted!'
             })
 
-        # 2. If not paid, check if there's an active or failed payment via checkout_id
+        # 2. If not paid in DB, check if there's an active checkout_id
         if checkout_id:
-            payment_status = db.reference(f'pending_payments/{checkout_id}').get()
+            pending_ref = db.reference(f'pending_payments/{checkout_id}')
+            payment_status = pending_ref.get()
             
             if payment_status:
-                # If it's a simple string (legacy compatibility), it's just the user_id, status is pending
-                if isinstance(payment_status, str):
-                    return jsonify({'granted': False, 'status': 'pending'})
+                status = 'pending'
+                if isinstance(payment_status, dict):
+                    status = payment_status.get('status', 'pending')
                 
-                status = payment_status.get('status')
                 if status == 'failed':
                     return jsonify({
                         'granted': False, 
@@ -3300,6 +3318,39 @@ def check_access():
                 elif status == 'success':
                     return jsonify({'granted': True, 'status': 'success'})
                 
+                # 3. ⚡ SUPER-REALTIME FIX: Actively ask Safaricom!
+                logger.info(f"🔄 Actively querying Safaricom for {role} CheckoutID: {checkout_id}")
+                safaricom_check = check_payment_status(checkout_id)
+                
+                if safaricom_check.get('status') == 'PAID':
+                    mpesa_receipt = "QUERY_SUCCESS" 
+                    
+                    if role == 'business':
+                        # Business subscription is 1 year? Let's check b2b_callback
+                        # In b2b_callback it adds 365 days
+                        expiry_date = (datetime.now(EAT) + timedelta(days=365)).isoformat()
+                        user_ref.update({
+                            'subscription_active': True,
+                            'subscription_expiry': expiry_date,
+                            'last_payment_receipt': mpesa_receipt
+                        })
+                    else:
+                        expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
+                        user_ref.update({
+                            'is_paid': True,
+                            'subscription_expiry': expiry_date,
+                            'last_payment_receipt': mpesa_receipt
+                        })
+                        
+                    pending_ref.update({'status': 'success', 'receipt': mpesa_receipt})
+                    logger.info(f"✅ ACTIVE ACTIVATION: {user_id} ({role}) confirmed paid.")
+                    return jsonify({'granted': True, 'status': 'success'})
+                
+                elif safaricom_check.get('status') in ['CANCELED', 'FAILED']:
+                    fail_reason = "Transaction failed or was cancelled."
+                    pending_ref.update({'status': 'failed', 'reason': fail_reason})
+                    return jsonify({'granted': False, 'status': 'failed', 'message': fail_reason})
+
                 return jsonify({'granted': False, 'status': 'pending'})
 
     except Exception as e:
