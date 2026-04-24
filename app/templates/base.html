@@ -634,8 +634,9 @@
                 const isFriday = now.getDay() === 5; // 5 = Friday in JS
                 const isAfter10PM = now.getHours() >= 22; // 10 PM
                 const hasJoinedToday = localStorage.getItem('party_joined_' + now.toDateString());
+                const isForceParty = {{ 'true' if force_party else 'false' }};
 
-                if (!isFriday && isAfter10PM && !hasJoinedToday && window.location.pathname !== '/party') {
+                if ((isForceParty || (!isFriday && isAfter10PM)) && !hasJoinedToday && window.location.pathname !== '/party') {
                     document.getElementById('partyInviteModal').style.display = 'flex';
                     // Try to play audio (will require user interaction first usually)
                     const audio = document.getElementById('partyAudio');

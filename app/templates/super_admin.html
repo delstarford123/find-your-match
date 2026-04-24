@@ -392,6 +392,25 @@
                     </button>
                 </div>
             </div>
+
+            <div class="admin-card">
+                <div style="flex: 1; min-width: 250px;">
+                    <div class="admin-card-header">
+                        <span class="badge {% if force_party %}badge-purple{% else %}badge-gray{% endif %}" id="party-badge">
+                            {% if force_party %}🔥 PARTY IS FORCED ON{% else %}🌙 SCHEDULED MODE{% endif %}
+                        </span>
+                    </div>
+                    <h4 class="admin-card-title" style="margin-bottom: 8px;">Override Party Schedule</h4>
+                    <p class="admin-card-text">Bypass the "No Friday" and "After 10PM" rules. When active, all students will see the party invitation immediately.</p>
+                </div>
+                <div class="action-group">
+                    <button class="btn" id="party-toggle-btn" 
+                            style="background: {% if force_party %}#1E293B{% else %}#a855f7{% endif %}; color: white;"
+                            onclick="togglePartyOverride(this)">
+                        {% if force_party %}Resume Normal Schedule{% else %}FORCE START PARTY 🔥{% endif %}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -984,6 +1003,28 @@
                         showToast("Campaign Stopped.");
                     }
                 } else { btn.innerText = originalText; showToast("Failed to toggle promo.", true); }
+            }).catch(err => { btn.disabled = false; btn.innerText = originalText; showToast("Network error.", true); });
+        }
+
+        function togglePartyOverride(btn) {
+            if (!confirm("Force Party Mode? This bypasses all schedule rules for all users.")) return;
+            const originalText = btn.innerText; btn.innerText = "Updating..."; btn.disabled = true;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN }, body: JSON.stringify({ action: 'toggle_party_override' })
+            }).then(res => res.json()).then(data => {
+                btn.disabled = false;
+                if (data.success) {
+                    const badge = document.getElementById('party-badge');
+                    if (data.new_status) {
+                        btn.innerText = "Resume Normal Schedule"; btn.style.background = "#1E293B";
+                        badge.innerText = "🔥 PARTY IS FORCED ON"; badge.className = "badge badge-purple";
+                        showToast("Party Mode is now FORCED ON system-wide!");
+                    } else {
+                        btn.innerText = "FORCE START PARTY 🔥"; btn.style.background = "#a855f7";
+                        badge.innerText = "🌙 SCHEDULED MODE"; badge.className = "badge badge-gray";
+                        showToast("Party Mode returned to normal schedule.");
+                    }
+                } else { btn.innerText = originalText; showToast("Failed to toggle party override.", true); }
             }).catch(err => { btn.disabled = false; btn.innerText = originalText; showToast("Network error.", true); });
         }
 

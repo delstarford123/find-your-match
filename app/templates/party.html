@@ -1,7 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="club-wrapper">
+<style>
+    /* Force hide the global footer from base.html on this page only */
+    footer, .footer-bottom, .bottom-nav {
+        display: none !important;
+    }
+    
+    /* Ensure the main container fills the screen without scrollbars from the footer */
+    main, body {
+        overflow: hidden !important;
+        height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .club-wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
     <!-- 1. Background Video -->
     <video autoplay loop muted playsinline class="club-bg-video">
         <source src="/static/video/12.mp4" type="video/mp4">

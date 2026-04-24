@@ -199,6 +199,23 @@ import os
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+# ==========================================
+# 🎁 GLOBAL TEMPLATE CONTEXT
+# ==========================================
+@app.context_processor
+def inject_system_settings():
+    """Injects system-wide settings like Party Mode into all HTML templates."""
+    try:
+        # We fetch from Firebase once per page load to keep things real-time
+        system_settings = db.reference('system_settings').get() or {}
+        return {
+            'force_party': system_settings.get('force_party', False),
+            'promo_active': system_settings.get('new_user_promo', False)
+        }
+    except Exception as e:
+        print(f"⚠️ Context Processor Error: {e}")
+        return {'force_party': False, 'promo_active': False}
+
 # Register Blueprints
 from app.routes.auth import auth_bp
 app.register_blueprint(auth_bp)
@@ -399,11 +416,16 @@ def handle_message(data):
 @requires_subscription
 def party():
     """Renders the Virtual Club Room."""
-    # Enforce time constraint: Every day except Friday starting at 10:00 PM (22:00)
+    # Fetch force_party flag from Firebase
+    system_settings = db.reference('system_settings').get() or {}
+    force_party = system_settings.get('force_party', False)
+
+    # Enforce time constraint unless forced
     now = datetime.now(EAT)
-    if now.weekday() == 4 or now.hour < 22: # 4 is Friday in Python (Mon=0)
-        flash("The Virtual Club is open every night except Friday starting at 10:00 PM!", "warning")
-        return redirect(url_for('home'))
+    if not force_party:
+        if now.weekday() == 4 or now.hour < 22: # 4 is Friday in Python (Mon=0)
+            flash("The Virtual Club is open every night except Friday starting at 10:00 PM!", "warning")
+            return redirect(url_for('home'))
 
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
@@ -1630,19 +1652,16 @@ EAT = timezone(timedelta(hours=3))
 def super_admin():
     # 1. Handle Login Attempt
     if request.method == 'POST':
-        # SECURITY: Pull from .env
         ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
-        
         if not ADMIN_PASSWORD:
             logger.critical("SUPER_ADMIN_PASS environment variable is missing!")
             flash("CRITICAL ERROR: Admin environment not configured safely.", "error")
             return redirect(url_for('super_admin'))
 
         entered_password = request.form.get('password')
-
         if entered_password == ADMIN_PASSWORD:
             session['is_super_admin'] = True
-            session.permanent = False  # Forces session to expire when browser closes
+            session.permanent = False
             flash("Welcome to God Mode, Creator.", "success")
             return redirect(url_for('super_admin'))
         else:
@@ -1650,41 +1669,47 @@ def super_admin():
             flash("Access Denied. Incorrect Master Password.", "error")
             return redirect(url_for('super_admin'))
         
-    # 2. Gatekeeper: Ensure only authenticated admins can see the dashboard
     if not session.get('is_super_admin'):
         return render_template('super_admin.html', logged_in=False)
 
     # 3. Load Dashboard Data
     try:
-        # Fetch Core Data
+        # Initialize defaults to prevent NameErrors
+        total_users = 0
+        total_revenue = 0
+        student_revenue = 0
+        b2b_revenue = 0
+        alerts = []
+        feedbacks = []
+        call_requests = []
+        pending_businesses = []
+        unpaid_users = []
+        premium_users = []
+        unverified_users = []
+        audit_logs = []
+        promo_active = False
+        force_party = False
+
+        # Fetch Data
         all_profiles = db.reference('profiles').get() or {}
         all_restaurants = db.reference('restaurants').get() or {}
         alerts_dict = db.reference('admin_alerts').get() or {}
-        
-        # Fetch Support System Data
         feedbacks_dict = db.reference('feedbacks').get() or {}
         call_requests_dict = db.reference('call_requests').get() or {}
-        
-        # Fetch System Settings for Marketing
         system_settings = db.reference('system_settings').get() or {}
-        promo_active = system_settings.get('new_user_promo', False)
         
-        # Calculate Analytics & Revenue
-        total_users = sum(1 for p in all_profiles.values() if isinstance(p, dict)) 
+        promo_active = system_settings.get('new_user_promo', False)
+        force_party = system_settings.get('force_party', False)
+
+        # Calculations
+        total_users = sum(1 for p in all_profiles.values() if isinstance(p, dict))
         student_revenue = sum(20 for p in all_profiles.values() if isinstance(p, dict) and p.get('is_paid'))
         b2b_revenue = sum(2000 for r in all_restaurants.values() if isinstance(r, dict) and r.get('subscription_active'))
         total_revenue = student_revenue + b2b_revenue
 
-        # --- CATEGORIZE USERS FOR THE FRONTEND TABS ---
-        unpaid_users = []
-        premium_users = []
-        unverified_users = []
-
         for uid, user_data in all_profiles.items():
             if isinstance(user_data, dict):
-                # Inject the ID into the dictionary so HTML can use it for deletion loops
                 user_data['id'] = uid 
-                
                 is_verified = user_data.get('is_verified', False)
                 has_paid = user_data.get('is_paid', False)
 
@@ -1695,39 +1720,27 @@ def super_admin():
                 elif is_verified and has_paid:
                     premium_users.append(user_data)
 
-        # Format and Sort AI Alerts (Newest First)
         alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items() if isinstance(v, dict)]
         alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
-        # Format and Sort Feedbacks (Combine Suggestions & Tickets)
-        feedbacks = []
         suggestions = feedbacks_dict.get('suggestion', {})
         tickets = feedbacks_dict.get('ticket', {})
-        
         if isinstance(suggestions, dict):
             feedbacks.extend([{'id': k, 'type': 'suggestion', **v} for k, v in suggestions.items() if isinstance(v, dict)])
         if isinstance(tickets, dict):
             feedbacks.extend([{'id': k, 'type': 'ticket', **v} for k, v in tickets.items() if isinstance(v, dict)])
-            
         feedbacks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
-        # Format and Sort Call Requests
         call_requests = [{'id': k, **v} for k, v in call_requests_dict.items() if isinstance(v, dict)]
         call_requests.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
-        # Filter Pending Businesses
-        pending_businesses = [
-            {'id': k, **v} for k, v in all_restaurants.items() 
-            if isinstance(v, dict) and not v.get('subscription_active')
-        ]
+        pending_businesses = [{'id': k, **v} for k, v in all_restaurants.items() if isinstance(v, dict) and not v.get('subscription_active')]
 
-        # 🚀 THE FIX: Safely fetch Audit Logs and sort in Python to bypass Firebase Index errors
         logs_dict = db.reference('admin_audit_logs').get() or {}
         audit_logs = list(logs_dict.values()) if isinstance(logs_dict, dict) else []
         audit_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
-        audit_logs = audit_logs[:20] # Keep only the 20 most recent logs for the UI
+        audit_logs = audit_logs[:20]
 
-        # Dummy Chart Data (You can replace this with a real DB query of signups per day later)
         chart_labels = ['6 Days Ago', '5 Days Ago', '4 Days Ago', '3 Days Ago', '2 Days Ago', 'Yesterday', 'Today']
         chart_data = [5, 12, 15, 22, 18, 30, 45]
         
@@ -1742,6 +1755,7 @@ def super_admin():
                                call_requests=call_requests,
                                pending_businesses=pending_businesses,
                                promo_active=promo_active,
+                               force_party=force_party,
                                unpaid_users=unpaid_users,
                                premium_users=premium_users,
                                unverified_users=unverified_users,
@@ -1751,7 +1765,7 @@ def super_admin():
                                
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
-        return "Failed to load dashboard data.", 500
+        return f"Failed to load dashboard data: {e}", 500
     
     
 @app.route('/api/admin/action', methods=['POST'])
@@ -1822,6 +1836,12 @@ def admin_action():
             current_status = db.reference('system_settings/new_user_promo').get()
             new_status = not current_status
             db.reference('system_settings/new_user_promo').set(new_status)
+            return jsonify({'success': True, 'new_status': new_status})
+
+        elif action == 'toggle_party_override':
+            current_status = db.reference('system_settings/force_party').get()
+            new_status = not current_status
+            db.reference('system_settings/force_party').set(new_status)
             return jsonify({'success': True, 'new_status': new_status})
             
         return jsonify({'success': True})
