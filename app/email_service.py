@@ -2,6 +2,7 @@ import os
 import logging
 import smtplib
 import textwrap
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr
@@ -54,19 +55,34 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
         return False
 
 
-def send_verification_email(recipient_email, user_name, otp_code):
-    """Sends a formatted HTML verification email with a plain-text fallback."""
-    subject = "Your MMUST AI Powered Dating Verification Code"
+def send_verification_email(recipient_email, user_name, otp_code, purpose="signup"):
+    """
+    Sends a formatted HTML verification email with a context-aware message.
+    Purposes: 'signup', 'reset', 'resend'
+    """
+    if purpose == "reset":
+        subject = "Reset Your MMUST Dating AI Password"
+        headline = "Password Reset Request 🔑"
+        message = "We received a request to reset your password. Use the code below to securely update your credentials. This code will expire soon."
+    elif purpose == "resend":
+        subject = "Your New Verification Code - MMUST Dating AI"
+        headline = "New Verification Code 📩"
+        message = "You requested a new verification code. Please enter the 6-digit code below to activate your account and start matching!"
+    else:
+        subject = "Welcome to MMUST Dating AI - Verify Your Email"
+        headline = f"Welcome to FYM, {user_name}! ✨"
+        message = "You are one step away from finding your perfect match at MMUST. Please enter the verification code below to activate your account."
     
     text_content = textwrap.dedent(f"""\
-        Welcome to FYM, {user_name}!
+        {headline}
         
-        You are one step away from finding your perfect match at MMUST. 
-        Please enter the verification code below to activate your account:
+        {message}
         
-        {otp_code}
+        Verification Code: {otp_code}
         
-        If you did not sign up for this account, please ignore this email.
+        If you did not request this, please ignore this email.
+        
+        - The {SENDER_NAME_DEFAULT} Team
     """)
 
     html_content = textwrap.dedent(f"""\
@@ -77,31 +93,37 @@ def send_verification_email(recipient_email, user_name, otp_code):
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border: 1px solid #FFD6DD; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(114,0,0,0.05);">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border: 1px solid #FFD6DD; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 35px rgba(114,0,0,0.08);">
                 
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 35px 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px;">
-                        Welcome to FYM, {user_name}! ✨
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 45px 20px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <span style="font-size: 30px;">🔥</span>
+                    </div>
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.2;">
+                        {headline}
                     </h1>
                 </div>
                 
-                <div style="padding: 40px 30px; text-align: center;">
-                    <p style="font-size: 16px; color: #4A0008; line-height: 1.6; margin-top: 0;">
-                        You are one step away from finding your perfect match at MMUST. Please enter the verification code below to activate your account:
+                <div style="padding: 40px 35px; text-align: center;">
+                    <p style="font-size: 17px; color: #4A0008; line-height: 1.6; margin-top: 0; font-weight: 500;">
+                        {message}
                     </p>
                     
-                    <div style="font-size: 36px; font-weight: 900; color: #720000; letter-spacing: 8px; background: #FEF2F4; padding: 20px; border-radius: 12px; border: 2px dashed #E60026; margin: 35px auto; width: fit-content;">
+                    <div style="font-size: 42px; font-weight: 900; color: #720000; letter-spacing: 10px; background: #FEF2F4; padding: 25px 30px; border-radius: 16px; border: 2px dashed #E60026; margin: 35px auto; width: fit-content; display: inline-block;">
                         {otp_code}
                     </div>
                     
-                    <p style="font-size: 13px; color: #888; margin-bottom: 0;">
-                        If you did not sign up for this account, please ignore this email.
+                    <p style="font-size: 14px; color: #888; margin-top: 30px; line-height: 1.5;">
+                        If you did not request this code, you can safely ignore this email. Someone may have entered your email address by mistake.
                     </p>
                 </div>
                 
-                <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0; font-size: 12px; color: #aaa; font-weight: bold;">
-                        Powered by Delstarford Works
+                <div style="background: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="margin: 0 0 10px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+                        MMUST AI Powered Dating
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
                     </p>
                 </div>
             </div>
@@ -109,7 +131,7 @@ def send_verification_email(recipient_email, user_name, otp_code):
         </html>
     """)
 
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="Delstarford Works")
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT)
 
 
 def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):

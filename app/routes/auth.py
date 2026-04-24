@@ -607,7 +607,7 @@ def resend_otp():
         
         # Fire your email sending function here!
         # (Pass 'Student' as name fallback since we don't fetch it here)
-        send_verification_email(email, "Student", new_otp)
+        send_verification_email(email, "Student", new_otp, purpose='resend')
         
         print(f"📧 NEW OTP SENT TO {email}: {new_otp}")
         flash("A new 6-digit code has been sent to your email.", "success")
