@@ -149,6 +149,48 @@
     }
     .status-error { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
     .status-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+    /* === MANUAL CHECK BUTTON === */
+    .btn-secondary {
+        width: 100%;
+        background: transparent;
+        color: #E60026;
+        border: 2px solid #FFD6DD;
+        padding: 14px;
+        border-radius: 16px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        margin-top: 15px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s ease;
+        position: relative;
+        z-index: 2;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .btn-secondary:hover {
+        background: #FEF2F4;
+        border-color: #E60026;
+        transform: translateY(-1px);
+    }
+    .btn-secondary:active {
+        transform: translateY(0);
+    }
+    .btn-secondary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: #f8f8f8;
+    }
+    .polling-view {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
 </style>
 
 <div class="paywall-wrapper">
@@ -176,8 +218,15 @@
             <div class="spinner" id="btn-spinner"></div>
         </button>
         
-        <div id="waiting-msg" class="waiting-text">
-            Please enter your M-Pesa PIN on your phone.<br>Do not close this page...
+        <div id="polling-view" class="polling-view">
+            <div id="waiting-msg" class="waiting-text" style="display: block; margin-top: 15px;">
+                Please enter your M-Pesa PIN on your phone.<br>Do not close this page...
+            </div>
+            
+            <button id="btn-manual-check" onclick="manualCheck()" class="btn-secondary">
+                <span id="manual-check-text">I've Already Paid - Check Status</span>
+                <span id="manual-check-icon">🔄</span>
+            </button>
         </div>
 
         <div class="security-note">
@@ -189,6 +238,56 @@
 <script>
     const CSRF_TOKEN = "{{ csrf_token() }}";
     let pollInterval = null;
+
+    function showToast(msg, type) {
+        const container = document.getElementById('toast-container');
+        if (!container) {
+            showAlert(msg, type);
+            return;
+        }
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.innerHTML = `
+            ${msg}
+            <button class="close-toast" onclick="closeToast(this)">&times;</button>
+        `;
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                toast.style.animation = 'slideOut 0.4s forwards';
+                setTimeout(() => toast.remove(), 400);
+            }
+        }, 5000);
+    }
+
+    async function manualCheck() {
+        const btn = document.getElementById('btn-manual-check');
+        const text = document.getElementById('manual-check-text');
+        
+        btn.disabled = true;
+        text.innerText = "Checking...";
+        
+        try {
+            const response = await fetch(`/api/check_access?t=${new Date().getTime()}`, {
+                cache: 'no-store'
+            });
+            const data = await response.json();
+            
+            if (data.granted === true) {
+                window.location.href = '/swipe';
+            } else {
+                btn.disabled = false;
+                text.innerText = "I've Already Paid - Check Status";
+                showToast('Payment not yet received from Safaricom. Retrying...', 'error');
+            }
+        } catch (error) {
+            console.error("Manual check error:", error);
+            btn.disabled = false;
+            text.innerText = "I've Already Paid - Check Status";
+            showToast('Network error. Please try again.', 'error');
+        }
+    }
 
     function showAlert(msg, type) {
         const box = document.getElementById('status-box');
@@ -209,7 +308,7 @@
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
         const spinner = document.getElementById('btn-spinner');
-        const waitingMsg = document.getElementById('waiting-msg');
+        const pollingView = document.getElementById('polling-view');
         const inputContainer = document.getElementById('input-container');
         
         if (phone.length !== 12 || !phone.startsWith("254")) {
@@ -239,7 +338,7 @@
                 // 2. Waiting for PIN State
                 btnText.innerText = "Waiting for Payment...";
                 btn.style.background = "#720000";
-                waitingMsg.style.display = "block";
+                pollingView.style.display = "flex";
 
                 // 3. Start Polling
                 pollForPaymentSuccess();
@@ -260,7 +359,7 @@
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
         const spinner = document.getElementById('btn-spinner');
-        const waitingMsg = document.getElementById('waiting-msg');
+        const pollingView = document.getElementById('polling-view');
 
         let attempts = 0;
         const maxAttempts = 40; // ~2 minutes
@@ -275,7 +374,7 @@
                     clearInterval(pollInterval);
                     
                     // 4. Success State
-                    waitingMsg.style.display = "none";
+                    pollingView.style.display = "none";
                     spinner.style.display = "none";
                     btn.style.background = "#28a745"; 
                     btnText.innerText = "Payment Received! ✅";
@@ -305,9 +404,11 @@
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
         const spinner = document.getElementById('btn-spinner');
-        const waitingMsg = document.getElementById('waiting-msg');
+        const pollingView = document.getElementById('polling-view');
         const phoneInput = document.getElementById('student-phone');
         const inputContainer = document.getElementById('input-container');
+        const manualBtn = document.getElementById('btn-manual-check');
+        const manualText = document.getElementById('manual-check-text');
         
         btnText.innerText = "Pay KSH 20 to Unlock";
         spinner.style.display = "none";
@@ -315,7 +416,12 @@
         btn.disabled = false;
         phoneInput.disabled = false;
         inputContainer.style.opacity = "1";
-        waitingMsg.style.display = "none";
+        pollingView.style.display = "none";
+        
+        if (manualBtn) {
+            manualBtn.disabled = false;
+            manualText.innerText = "I've Already Paid - Check Status";
+        }
     }
 </script>
 {% endblock %}
