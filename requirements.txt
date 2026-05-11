@@ -6,7 +6,7 @@ Flask-SocketIO
 Flask-WTF
 Flask-Mail
 Flask-Cors
-gunicorn
+gunicorn[eventlet]
 eventlet
 pytz
 # ==========================================
