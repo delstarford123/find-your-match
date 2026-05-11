@@ -46,7 +46,7 @@ from app.email_service import (
 )
 
 from app.database import (
-    db, get_all_profiles, save_schedule, update_user_bio, 
+    db, storage, get_all_profiles, save_schedule, update_user_bio, 
     save_chat_message, get_chat_history, save_swipe, save_date_feedback,
     get_restaurant, get_restaurant_bookings, update_booking_status, terminate_connection,
     get_all_restaurants, delete_user_account, increment_restaurant_view,
@@ -219,7 +219,9 @@ def inject_system_settings():
 
 # Register Blueprints
 from app.routes.auth import auth_bp
+from app.routes.v2.auth import auth_v2_bp
 app.register_blueprint(auth_bp)
+app.register_blueprint(auth_v2_bp)
 
 
 # ==========================================
@@ -1100,11 +1102,33 @@ def profile():
         new_avatar = request.form.get('avatar') # For the new 20 avatars feature!
 
         try:
+            # 1.5 Handle Photo Upload to Firebase Storage
+            profile_image = request.files.get('profile_image')
+            image_url = None
+            if profile_image and profile_image.filename:
+                try:
+                    bucket = storage.bucket()
+                    # Generate a unique filename to prevent overwrites
+                    ext = os.path.splitext(profile_image.filename)[1]
+                    filename = f"profile_{int(time.time())}{ext}"
+                    blob = bucket.blob(f"profiles/{user_id}/{filename}")
+                    
+                    blob.upload_from_file(profile_image, content_type=profile_image.content_type)
+                    blob.make_public()
+                    image_url = blob.public_url
+                    logger.info(f"Successfully uploaded image for user {user_id}: {image_url}")
+                except Exception as upload_err:
+                    logger.error(f"Image Upload Error: {upload_err}")
+                    flash("Failed to upload image. Please try again.", "error")
+
             # 2. Build an update dictionary dynamically (Cleaner & Safer)
             update_data = {}
             if new_bio: update_data['bio'] = new_bio.strip()
             if new_religion: update_data['religion'] = new_religion.strip()
-            if new_avatar: update_data['img'] = new_avatar.strip()
+            if image_url: 
+                update_data['img'] = image_url
+            elif new_avatar: 
+                update_data['img'] = new_avatar.strip()
             
             # Prevent crashes by ensuring 'age' is actually a number before casting to int
             if new_age and new_age.isdigit():
@@ -4620,3 +4644,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # You must listen on '0.0.0.0' for external traffic on a server!
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    

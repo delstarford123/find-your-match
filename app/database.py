@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime, timedelta, timezone
 import firebase_admin
-from firebase_admin import credentials, db
+from firebase_admin import credentials, db, storage
 
 # ==========================================
 # 1. CONFIGURATION & INITIALIZATION
@@ -26,7 +26,8 @@ def initialize_firebase():
                 
             cred = credentials.Certificate(CREDENTIALS_PATH)
             firebase_admin.initialize_app(cred, {
-                'databaseURL': DATABASE_URL
+                'databaseURL': DATABASE_URL,
+                'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET", "mmust-dating-site.firebasestorage.app")
             })
             logger.info("🔥 Firebase Realtime Database connected successfully!")
         except Exception as e:

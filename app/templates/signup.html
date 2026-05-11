@@ -181,7 +181,7 @@
                 </div>
             </div>
             <h1 class="auth-title">Join the Network</h1>
-            <p class="auth-subtitle">Create your verified MMUST Dating profile.</p>
+            <p class="auth-subtitle">Connect with students across all institutions.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -194,130 +194,293 @@
           {% endif %}
         {% endwith %}
 
-        <div id="password-error" class="flash-msg" style="display: none;">
-            ⚠️ Passwords do not match. Please try again.
-        </div>
+        <div id="api-error" class="flash-msg" style="display: none;"></div>
 
-        <form action="{{ url_for('auth.signup') }}" method="POST" id="signupForm" onsubmit="return validateAndSubmit(event)">
+        <form id="signupForm" onsubmit="return handleSignup(event)">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
             <div class="flex-row">
                 <div class="input-group">
-                    <label for="name">First Name</label>
-                    <input type="text" id="name" name="name" required placeholder="e.g., Ochieng" autocomplete="given-name" autocapitalize="words">
+                    <label>Full Name</label>
+                    <input type="text" name="name" placeholder="Kevin" required autocomplete="name">
                 </div>
                 <div class="input-group">
-                    <label for="reg_number">Reg Number</label>
-                    <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" oninput="this.value = this.value.toUpperCase();">
+                    <label>Email Address</label>
+                    <input type="email" name="email" placeholder="kevin@gmail.com" required autocomplete="email">
                 </div>
-            </div>
-
-            <div class="input-group">
-                <label for="email">Email Address <span style="color:#E60026; font-weight:normal; text-transform:none;">(Requires Verification)</span></label>
-                <input type="email" id="email" name="email" required placeholder="e.g. name@example.com" autocomplete="email">
             </div>
 
             <div class="flex-row">
                 <div class="input-group">
-                    <label for="password">Create Password</label>
+                    <label>Institution Type</label>
+                    <select name="institution_type" id="institution_type" required onchange="updateInstitutionOptions()">
+                        <option value="University">University</option>
+                        <option value="College">College</option>
+                        <option value="TVET">TVET</option>
+                        <option value="Polytechnic">Polytechnic</option>
+                        <option value="Other">Other / Professional</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Institution Name</label>
+                    <select name="institution_name" id="institution_name" required>
+                        <option value="MMUST">Masinde Muliro (MMUST)</option>
+                        <option value="UoN">University of Nairobi</option>
+                        <option value="KU">Kenyatta University</option>
+                        <option value="JKUAT">JKUAT</option>
+                        <option value="MUK">Makerere University</option>
+                        <option value="Other">Other Institution</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group" id="reg_group">
+                <label id="reg_label">Registration Number</label>
+                <input type="text" name="reg_number" id="reg_number" placeholder="SAB/B/01-04774/2023" required oninput="this.value = this.value.toUpperCase();">
+                <small id="reg_hint" style="font-size: 11px; color: #888; margin-top: 5px; display: block;">MMUST Format: SAB/B/01-04774/2023</small>
+            </div>
+
+            <div class="flex-row">
+                <div class="input-group">
+                    <label>Create Password</label>
                     <div class="password-container">
-                        <input type="password" id="password" name="password" required minlength="6" placeholder="At least 6 characters" autocomplete="new-password">
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('password')" aria-label="Toggle password visibility">👁️</button>
+                        <input type="password" name="password" id="password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password">
+                        <button type="button" class="toggle-password" onclick="togglePass('password')">👁️</button>
                     </div>
                 </div>
                 <div class="input-group">
-                    <label for="confirm_password">Confirm Password</label>
+                    <label>Confirm Password</label>
                     <div class="password-container">
-                        <input type="password" id="confirm_password" name="confirm_password" required minlength="6" placeholder="Type it again" autocomplete="new-password">
-                        <button type="button" class="toggle-password" onclick="toggleVisibility('confirm_password')" aria-label="Toggle password visibility">👁️</button>
+                        <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" required minlength="6" autocomplete="new-password">
+                        <button type="button" class="toggle-password" onclick="togglePass('confirm_password')">👁️</button>
                     </div>
                 </div>
             </div>
-            
+
             <div class="flex-row">
                 <div class="input-group">
-                    <label for="age">Age</label>
-                    <input type="number" id="age" name="age" required min="18" max="40" placeholder="18+" inputmode="numeric" pattern="[0-9]*">
+                    <label>Your Age</label>
+                    <input type="number" name="age" min="18" max="45" value="18" required>
                 </div>
                 <div class="input-group">
-                    <label for="gender">Gender</label>
-                    <select id="gender" name="gender" required style="width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px; font-size: 16px; background: #fafafa; font-family: inherit; font-weight: 600; outline: none; color: #111; -webkit-appearance: none;">
+                    <label>Gender</label>
+                    <select name="gender" required>
                         <option value="" disabled selected>Select</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                     </select>
                 </div>
-                <div class="input-group">
-                    <label for="religion">Religion</label>
-                    <select id="religion" name="religion" required style="width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px; font-size: 16px; background: #fafafa; font-family: inherit; font-weight: 600; outline: none; color: #111; -webkit-appearance: none;">
-                        <option value="Christian">Christian</option>
-                        <option value="Muslim">Muslim</option>
-                        <option value="Hindu">Hindu</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
             </div>
 
-            <div class="kinship-box">
-                <div class="kinship-header">
-                    <span>🛡️</span> Kinship Safety Filter <span class="kinship-badge">OPTIONAL</span>
-                </div>
-                <p class="kinship-desc">
-                    Enter your parents' surnames to avoid matching with close relatives. <strong>Data is instantly encrypted.</strong> We never store the plain text.
-                </p>
-                <div class="flex-row kinship-inputs" style="margin-bottom: 0;">
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <input type="text" id="father_surname" name="father_surname" placeholder="Father's Surname" autocapitalize="words">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <input type="text" id="mother_maiden" name="mother_maiden" placeholder="Mother's Maiden Name" autocapitalize="words">
-                    </div>
-                </div>
+            <div class="input-group">
+                <label>Religion</label>
+                <select name="religion">
+                    <option value="Christian">Christian</option>
+                    <option value="Muslim">Muslim</option>
+                    <option value="Other">Other / Prefer not to say</option>
+                </select>
             </div>
 
-            <label class="checkbox-group">
-                <input type="checkbox" id="skip_pic" name="skip_pic">
-                <span>Skip adding a profile picture for now</span>
-            </label>
+            <div class="checkbox-group">
+                <input type="checkbox" name="skip_pic" id="skip_pic">
+                <label for="skip_pic" style="margin:0; font-weight: 700;">Skip profile picture for now</label>
+            </div>
 
             <button type="submit" class="btn-submit" id="submitBtn">Create Account</button>
         </form>
-        
+
         <div class="auth-footer">
             Already have an account? <a href="{{ url_for('auth.login') }}">Log in here</a>.
         </div>
-        
     </div>
 </div>
 
 <script>
-    function toggleVisibility(fieldId) {
-        const input = document.getElementById(fieldId);
-        const toggleBtn = input.nextElementSibling;
-        if (input.type === "password") {
-            input.type = "text";
-            toggleBtn.innerHTML = "👁️‍🗨️";
+    function togglePass(id) {
+        const input = document.getElementById(id);
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function updateInstitutionOptions() {
+        const type = document.getElementById('institution_type').value;
+        const nameSelect = document.getElementById('institution_name');
+        const regGroup = document.getElementById('reg_group');
+        const regInput = document.getElementById('reg_number');
+        const regLabel = document.getElementById('reg_label');
+        const regHint = document.getElementById('reg_hint');
+
+        nameSelect.innerHTML = '';
+
+        const universities = [
+            {val: 'MMUST', label: 'Masinde Muliro University (MMUST)'},
+            {val: 'UoN', label: 'University of Nairobi (UoN)'},
+            {val: 'KU', label: 'Kenyatta University (KU)'},
+            {val: 'JKUAT', label: 'Jomo Kenyatta University (JKUAT)'},
+            {val: 'MU', label: 'Moi University'},
+            {val: 'EU', label: 'Egerton University'},
+            {val: 'MSU', label: 'Maseno University'},
+            {val: 'DeKUT', label: 'Dedan Kimathi University (DeKUT)'},
+            {val: 'CU', label: 'Chuka University'},
+            {val: 'Karatina', label: 'Karatina University'},
+            {val: 'Kisii', label: 'Kisii University'},
+            {val: 'MUST', label: 'Meru University (MUST)'},
+            {val: 'MMU', label: 'Multi-Media University (MMU)'},
+            {val: 'PU', label: 'Pwani University'},
+            {val: 'SEKU', label: 'South Eastern Kenya University (SEKU)'},
+            {val: 'TUK', label: 'Technical University of Kenya (TU-K)'},
+            {val: 'TUM', label: 'Technical University of Mombasa (TUM)'},
+            {val: 'UoE', label: 'University of Eldoret'},
+            {val: 'UoK', label: 'University of Kabianga'},
+            {val: 'Laikipia', label: 'Laikipia University'},
+            {val: 'MaasaiMara', label: 'Maasai Mara University'},
+            {val: 'Machakos', label: 'Machakos University'},
+            {val: 'Muranga', label: 'Murang\'a University of Technology'},
+            {val: 'TTU', label: 'Taita Taveta University'},
+            {val: 'Rongo', label: 'Rongo University'},
+            {val: 'Kibabii', label: 'Kibabii University'},
+            {val: 'Strathmore', label: 'Strathmore University'},
+            {val: 'Daystar', label: 'Daystar University'},
+            {val: 'MKU', label: 'Mount Kenya University (MKU)'},
+            {val: 'USIU', label: 'USIU-Africa'},
+            {val: 'CUEA', label: 'Catholic University (CUEA)'},
+            {val: 'Zetech', label: 'Zetech University'},
+            {val: 'KCA', label: 'KCA University'},
+            {val: 'KeMU', label: 'Kenya Methodist University (KeMU)'},
+            {val: 'Other', label: 'Other University'}
+        ];
+
+        const colleges = [
+            {val: 'KMTC', label: 'Kenya Medical Training College (KMTC)'},
+            {val: 'Utalii', label: 'Kenya Utalii College'},
+            {val: 'KSL', label: 'Kenya School of Law'},
+            {val: 'KSG', label: 'Kenya School of Government'},
+            {val: 'Other', label: 'Other College'}
+        ];
+
+        const tvets = [
+            {val: 'EldoretPoly', label: 'Eldoret National Polytechnic'},
+            {val: 'KisumuPoly', label: 'Kisumu National Polytechnic'},
+            {val: 'SigalagalaPoly', label: 'Sigalagala National Polytechnic'},
+            {val: 'NyeriPoly', label: 'Nyeri National Polytechnic'},
+            {val: 'KabetePoly', label: 'Kabete National Polytechnic'},
+            {val: 'CoastPoly', label: 'Kenya Coast National Polytechnic'},
+            {val: 'MeruPoly', label: 'Meru National Polytechnic'},
+            {val: 'KisiiPoly', label: 'Kisii National Polytechnic'},
+            {val: 'KitalePoly', label: 'Kitale National Polytechnic'},
+            {val: 'RVIST', label: 'Rift Valley Institute (RVIST)'},
+            {val: 'KIST', label: 'Kiambu Institute (KIST)'},
+            {val: 'RIAT', label: 'Ramogi Institute (RIAT)'},
+            {val: 'FriendsKaimosi', label: 'Friends College Kaimosi'},
+            {val: 'ThikaTTI', label: 'Thika Technical Training Institute'},
+            {val: 'Other', label: 'Other TVET/Polytechnic'}
+        ];
+
+        if (type === 'Other') {
+            nameSelect.innerHTML = '<option value="None">Not Applicable</option>';
+            regGroup.style.display = 'none';
+            regInput.required = false;
         } else {
-            input.type = "password";
-            toggleBtn.innerHTML = "👁️";
+            regGroup.style.display = 'block';
+            regInput.required = true;
+            
+            let options = [];
+            if (type === 'University') {
+                options = universities;
+                regLabel.textContent = 'Registration Number';
+                regInput.placeholder = 'SAB/B/01-04774/2023';
+            } else if (type === 'College') {
+                options = colleges;
+                regLabel.textContent = 'Student ID / Reg Number';
+                regInput.placeholder = 'ID Number or Reg Number';
+            } else {
+                options = tvets;
+                regLabel.textContent = 'Student ID / Reg Number';
+                regInput.placeholder = 'ID Number or Reg Number';
+            }
+
+            options.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.val;
+                el.textContent = opt.label;
+                nameSelect.appendChild(el);
+            });
+
+            if (nameSelect.value === 'MMUST') {
+                regHint.style.display = 'block';
+            } else {
+                regHint.style.display = 'none';
+            }
         }
     }
 
-    function validateAndSubmit(e) {
-        const password = document.getElementById('password').value;
-        const confirm = document.getElementById('confirm_password').value;
-        const errorDiv = document.getElementById('password-error');
+    // Add listener for name change to toggle MMUST hint
+    document.getElementById('institution_name').addEventListener('change', function() {
+        const regHint = document.getElementById('reg_hint');
+        if (this.value === 'MMUST') {
+            regHint.style.display = 'block';
+        } else {
+            regHint.style.display = 'none';
+        }
+    });
+
+    async function handleSignup(event) {
+        event.preventDefault();
+        const form = event.target;
         const btn = document.getElementById('submitBtn');
+        const errorDiv = document.getElementById('api-error');
+        
+        const password = form.password.value;
+        const confirm = form.confirm_password.value;
 
         if (password !== confirm) {
             errorDiv.style.display = 'block';
-            return false; // Stop form submission
+            errorDiv.innerText = "⚠️ Passwords do not match.";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
         }
 
-        errorDiv.style.display = 'none';
-        btn.innerText = "Creating Account... ⏳";
+        btn.innerText = "Processing... ⏳";
+        btn.disabled = true;
         btn.classList.add('loading');
-        return true; // Allow form submission
+        errorDiv.style.display = 'none';
+
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.is_student = document.getElementById('institution_type').value !== 'Other';
+
+        try {
+            const response = await fetch('/api/v2/auth/signup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                window.location.href = "{{ url_for('auth.verify_email') }}";
+            } else {
+                errorDiv.style.display = 'block';
+                errorDiv.innerText = "⚠️ " + (result.message || "Signup failed.");
+                btn.innerText = "Create Account";
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        } catch (error) {
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = "⚠️ Connection error. Please try again.";
+            btn.innerText = "Create Account";
+            btn.disabled = false;
+            btn.classList.remove('loading');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        return false;
     }
 </script>
 {% endblock %}

@@ -24,8 +24,8 @@
       }
     },
 
-    // --- ⚡ NEW: Wednesday Party Presence ---
-    // Required so that the party.html can see avatars in real-time
+    // --- ⚡ NEW: Real-Time Event Presence ---
+    // Required so that live event pages can see participants in real-time
     "party_participants": {
       ".read": true,
       "$user_id": {
@@ -38,10 +38,10 @@
     },
 
     // ========================================================
-    // 3. PERFORMANCE INDEXES (Speeds up Python/Groq Queries)
+    // 3. PERFORMANCE INDEXES (Speeds up Python Queries)
     // ========================================================
     "profiles": {
-      ".indexOn": ["email", "phone", "referral_code", "wingman_code", "is_paid", "is_online", "gender", "daily_streak", "class_code", "created_at"]
+      ".indexOn": ["email", "phone", "referral_code", "wingman_code", "is_paid", "is_online", "gender", "daily_streak", "class_code", "created_at", "institution_name", "institution_type"]
     },
     
     "schedules": {
@@ -74,6 +74,7 @@
       ".indexOn": ["timestamp", "upvotes"]
     },
 
+    
     "gossip": {
       ".indexOn": ["timestamp", "upvotes"]
     },

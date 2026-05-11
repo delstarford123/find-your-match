@@ -547,7 +547,7 @@
             They will disappear from your matches immediately. They will not be notified, and they won't be able to message you again.
         </p>
 
-        <textarea id="report-reason" placeholder="Optional: Did they do something wrong? Help keep MMUST safe by reporting them..." style="width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 20px; resize: none; height: 90px; font-family: inherit; font-size: 14px; box-sizing: border-box;"></textarea>
+        <textarea id="report-reason" placeholder="Optional: Did they do something wrong? Help keep our community safe by reporting them..." style="width: 100%; padding: 15px; border-radius: 12px; border: 1px solid #ddd; margin-bottom: 20px; resize: none; height: 90px; font-family: inherit; font-size: 14px; box-sizing: border-box;"></textarea>
 
         <button onclick="confirmUnmatch(event)" style="width: 100%; padding: 15px; border-radius: 30px; background: #E60026; color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 12px; transition: 0.2s;">Yes, Unmatch</button>
         
@@ -621,7 +621,7 @@
             swatch.onclick = (e) => {
                 e.stopPropagation();
                 root.style.setProperty('--my-bubble-color', color);
-                localStorage.setItem('mmust_bubble_color', color);
+                localStorage.setItem('fym_bubble_color', color);
                 
                 const isDark = isColorDark(color);
                 root.style.setProperty('--my-bubble-text', isDark ? '#fff' : '#111');
@@ -638,15 +638,15 @@
                 e.stopPropagation();
                 root.style.setProperty('--chat-bg-image', bg.url);
                 root.style.setProperty('--chat-bg', bg.color);
-                localStorage.setItem('mmust_bg_image', bg.url);
-                localStorage.setItem('mmust_bg_color', bg.color);
+                localStorage.setItem('fym_bg_image', bg.url);
+                localStorage.setItem('fym_bg_color', bg.color);
             };
             bgContainer.appendChild(swatch);
         });
 
-        const savedBubble = localStorage.getItem('mmust_bubble_color');
-        const savedBgImg = localStorage.getItem('mmust_bg_image');
-        const savedBgColor = localStorage.getItem('mmust_bg_color');
+        const savedBubble = localStorage.getItem('fym_bubble_color');
+        const savedBgImg = localStorage.getItem('fym_bg_image');
+        const savedBgColor = localStorage.getItem('fym_bg_color');
 
         if (savedBubble) {
             root.style.setProperty('--my-bubble-color', savedBubble);
@@ -694,7 +694,7 @@
         const restaurantName = "a partner restaurant";
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
-        const message = `Hey! I'm going on a date via the MMUST Dating App. \n\n📍 I am meeting ${dateName} at ${restaurantName}.\n🕒 Time: ${time}.\n\nI am sharing my live location with you now. If I don't text you by 9 PM, please call me!`;
+        const message = `Hey! I'm going on a date via the Find Your Match App. \n\n📍 I am meeting ${dateName} at ${restaurantName}.\n🕒 Time: ${time}.\n\nI am sharing my live location with you now. If I don't text you by 9 PM, please call me!`;
         const encodedMessage = encodeURIComponent(message);
         
         window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
@@ -756,8 +756,8 @@
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
     const partnerName = "{{ active_partner.name if active_partner else '' }}";
 
-    let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
-    let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
+    let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
+    let offlineQueue = JSON.parse(localStorage.getItem('fym_offline_queue')) || {};
 
     // 🔥 BLURRED LINES JS STATE 🔥
     const MAX_MESSAGES = 20;
@@ -790,7 +790,7 @@
     if (activePartnerId !== 'none') {
         if (unreadMap[activePartnerId]) {
             delete unreadMap[activePartnerId];
-            localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+            localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
         }
         if (offlineQueue[activePartnerId] && offlineQueue[activePartnerId].length > 0) {
             const chatHistory = document.getElementById('chat-history');
@@ -814,7 +814,7 @@
                 }
             });
             delete offlineQueue[activePartnerId];
-            localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+            localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
         }
     }
 
@@ -1151,14 +1151,14 @@
             }
 
             unreadMap[data.sender] = { count: currentCount + 1, text: data.text };
-            localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+            localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
             
             if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
             offlineQueue[data.sender].push({
                 text: data.text,
                 timestamp: data.timestamp || new Date().toISOString()
             });
-            localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+            localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
 
             updateBellUI();
 

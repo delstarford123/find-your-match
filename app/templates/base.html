@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
     <meta name="google-site-verification" content="o-FuWsUbs8Yoz8wQZSzgAoPlr_Pr-P5l4qCaEsZ-iw0" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>FIND YOUR MATCH - MMUST AI Powered Dating</title>
+    <title>FIND YOUR MATCH - Multi-Institution AI Dating</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,21 +19,21 @@
     <meta name="apple-mobile-web-app-title" content="Match AI">
     <link rel="apple-touch-icon" href="/static/img/icon-192.png">
     
-    <meta name="title" content="FIND YOUR MATCH | MMUST AI Powered Dating">
-    <meta name="description" content="Stop guessing. Start connecting. We use AI to sync your campus schedules, match your photo aesthetics, and align your vibes in Kakamega.">
+    <meta name="title" content="FIND YOUR MATCH | Multi-Institution AI Dating">
+    <meta name="description" content="Connect with students across all institutions. We use AI to sync schedules, match aesthetics, and align vibes for verified campus dating in Kenya.">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:title" content="MMUST Dating AI - Find Your Campus Match">
-    <meta property="og:description" content="Join the most advanced dating app for MMUST. AI-powered matching, schedule syncing, and more!">
+    <meta property="og:title" content="Find Your Match - Cross-Institution Dating AI">
+    <meta property="og:description" content="Join the most advanced dating network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta property="og:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="{{ request.url }}">
-    <meta property="twitter:title" content="MMUST Dating AI - Find Your Campus Match">
-    <meta property="twitter:description" content="Join the most advanced dating app for MMUST. AI-powered matching, schedule syncing, and more!">
+    <meta property="twitter:title" content="Find Your Match - Cross-Institution Dating AI">
+    <meta property="twitter:description" content="Join the most advanced dating network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta property="twitter:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
     
     <style>
@@ -735,7 +735,7 @@
             <button class="close-modal-btn" onclick="closeSupportModal()">&times;</button>
             
             <h3 style="margin: 0 0 10px 0; color: #720000; font-size: 22px; font-weight: 900;">How can we improve?</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">We read every submission. Help us make MMUST Dating better for everyone!</p>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">We read every submission. Help us make Find Your Match better for everyone!</p>
             
             <div style="margin-bottom: 15px;">
                 <select id="support_type" class="support-input">
@@ -776,10 +776,10 @@
 
         // 1. FIRST VISIT LOGIC
         document.addEventListener("DOMContentLoaded", () => {
-            if (!localStorage.getItem('mmust_has_visited')) {
+            if (!localStorage.getItem('fym_has_visited')) {
                 setTimeout(() => {
                     openSupportModal();
-                    localStorage.setItem('mmust_has_visited', 'true');
+                    localStorage.setItem('fym_has_visited', 'true');
                 }, 4000); 
             }
         });

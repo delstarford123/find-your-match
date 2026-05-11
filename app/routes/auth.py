@@ -63,6 +63,14 @@ def calculate_account_expiry(reg_number):
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
+    # Notification for existing clients
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({
+            "status": "deprecated",
+            "message": "This API version is deprecated. Please update your system to the new version at findyourmatch.co.ke",
+            "update_url": "https://www.findyourmatch.co.ke/signup"
+        }), 299
+
     if request.method == 'POST':
         # 1. Grab all fields from the HTML form
         name = request.form.get('name')
@@ -332,6 +340,14 @@ def verify_email():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    # Notification for existing clients
+    if request.headers.get('Accept') == 'application/json':
+        return jsonify({
+            "status": "deprecated",
+            "message": "This API version is deprecated. Please update your system to the new version at findyourmatch.co.ke",
+            "update_url": "https://www.findyourmatch.co.ke/login"
+        }), 299
+
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         reg_number = request.form.get('reg_number')

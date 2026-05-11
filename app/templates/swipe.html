@@ -341,7 +341,7 @@
                         <h2 id="profile-name">Connecting...</h2>
                         <span id="profile-age"></span>
                     </div>
-                    <p id="profile-bio">Searching for students at MMUST...</p>
+                    <p id="profile-bio">Searching for your perfect match...</p>
                 </div>
             </div>
 
@@ -378,10 +378,10 @@
 
 <div id="crush-modal" class="crush-modal">
     <div class="crush-modal-content">
-        <div style="font-size: 65px; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));"></div>
+        <div style="font-size: 65px; margin-bottom: 10px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));">🎯</div>
         <h2 style="color: #111; margin-top: 0; font-weight: 900; font-size: 28px; letter-spacing: -0.5px;">Secret Radar</h2>
         <p style="color: #666; font-size: 15px; margin-bottom: 25px; line-height: 1.5;">
-            Got a crush on campus? Enter their <b>MMUST Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly!
+            Got a crush? Enter their <b>Student ID / Reg Number</b>. It's 100% anonymous. If they enter yours, you both get matched instantly!
         </p>
         <input type="text" id="crush-input" class="crush-input" placeholder="e.g. SAB/B/01-044/2023" autocapitalize="characters">
         <button id="btn-submit-crush" onclick="submitCrush()" style="width: 100%; padding: 18px; border-radius: 16px; background: linear-gradient(135deg, #6610f2, #e83e8c); color: white; border: none; font-weight: 900; font-size: 16px; cursor: pointer; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 8px 25px rgba(102, 16, 242, 0.3);">Lock it in 🔒</button>
@@ -414,8 +414,8 @@
     const myId = "{{ session.get('user_id') }}";
     const socket = io();
 
-    let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
-    let offlineQueue = JSON.parse(localStorage.getItem('mmust_offline_queue')) || {};
+    let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
+    let offlineQueue = JSON.parse(localStorage.getItem('fym_offline_queue')) || {};
 
     function escapeHTML(str) {
         if (!str) return '';
@@ -481,11 +481,11 @@
         }
 
         unreadMap[senderId] = { count: currentCount + 1, text: data.text };
-        localStorage.setItem('mmust_unread_counts', JSON.stringify(unreadMap));
+        localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
         
         if (!offlineQueue[senderId]) offlineQueue[senderId] = [];
         offlineQueue[senderId].push({ text: data.text, timestamp: data.timestamp || new Date().toISOString() });
-        localStorage.setItem('mmust_offline_queue', JSON.stringify(offlineQueue));
+        localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
 
         updateBellUI();
         
@@ -731,7 +731,7 @@
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ match_bio: matchData.bio || "MMUST Student" })
+                body: JSON.stringify({ match_bio: matchData.bio || "Verified Student" })
             })
             .then(res => res.json())
             .then(data => {

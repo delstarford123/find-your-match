@@ -302,7 +302,7 @@
 
 <div class="discover-wrapper">
     <div class="venue-hero">
-        <h1>MMUST's Top Date Spots</h1>
+        <h1>Find Your Match Partner Spots</h1>
         <p>Book a table through the app to claim exclusive student discounts at our verified partner restaurants in Kakamega.</p>
     </div>
 
@@ -358,7 +358,7 @@
                         <div class="fallback-bg">🍽️</div>
                     {% endif %}
                     <div class="discount-badge">{{ venue.conditions.split(',')[0][:15] | default('Student Perk') }}</div>
-                    <div class="verified-badge">✓ MMUST Verified</div>
+                    <div class="verified-badge">✓ Verified Partner</div>
                 </div>
                 
                 <div class="venue-info">
@@ -367,7 +367,7 @@
                     
                     <div class="perk-box">
                         <span style="font-size: 18px;">🎁</span> 
-                        <span>{{ venue.conditions | default('Show your MMUST profile for a special discount!') }}</span>
+                        <span>{{ venue.conditions | default('Show your Find Your Match profile for a special discount!') }}</span>
                     </div>
                     
                     <button class="btn-propose" 

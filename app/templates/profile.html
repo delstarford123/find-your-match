@@ -245,7 +245,7 @@
             
             <div class="input-group">
                 <label for="bio">Your Bio</label>
-                <textarea id="bio" name="bio" rows="4" required placeholder="Tell MMUST about yourself...">{{ user.bio }}</textarea>
+                <textarea id="bio" name="bio" rows="4" required placeholder="Tell others about yourself...">{{ user.bio }}</textarea>
                 <small style="color: #888; font-size: 13px; margin-top: 8px; display: block; font-weight: 600;">Include your major and hobbies to get better AI matches!</small>
             </div>
 
@@ -350,9 +350,9 @@
             </div>
 
             <div class="input-group">
-                <label class="field-label">Major / Study Field Filter</label>
+                <label for="major_filter">Major / Study Field Filter</label>
                 <select name="major_filter">
-                    <option value="All" {% if user.major_filter == 'All' %}selected{% endif %}>Anyone in MMUST</option>
+                    <option value="All" {% if user.major_filter == 'All' %}selected{% endif %}>Anyone in my institution</option>
                     <option value="CS_IT" {% if user.major_filter == 'CS_IT' %}selected{% endif %}>Computer Science & IT</option>
                     <option value="Health" {% if user.major_filter == 'Health' %}selected{% endif %}>Health Sciences (Nursing, Med)</option>
                     <option value="Engineering" {% if user.major_filter == 'Engineering' %}selected{% endif %}>Engineering</option>
@@ -441,7 +441,7 @@
                 </span>
                 {% endif %}
                 
-                <p id="preview-bio">{{ user.bio or "Tell MMUST about yourself..." }}</p>
+                <p id="preview-bio">{{ user.bio or "Tell us about yourself..." }}</p>
             </div>
         </div>
     </div>
@@ -462,7 +462,7 @@
 
     for(let i = 1; i <= 50; i++) {
         let style = avatarStyles[i % avatarStyles.length];
-        let url = `https://api.dicebear.com/7.x/${style}/svg?seed=LoveDatingMMUST${i}&backgroundColor=${romanticColors}`;
+        let url = `https://api.dicebear.com/7.x/${style}/svg?seed=FindYourMatch${i}&backgroundColor=${romanticColors}`;
         let isSelected = hiddenInput.value === url ? 'selected' : '';
         
         avatarHtml += `
@@ -486,7 +486,7 @@
 
     // --- OTHER LIVE PREVIEWS ---
     document.getElementById('bio').addEventListener('input', function() {
-        document.getElementById('preview-bio').innerText = this.value || "Tell MMUST about yourself...";
+        document.getElementById('preview-bio').innerText = this.value || "Tell us about yourself...";
     });
     
     document.getElementById('age').addEventListener('input', function() {

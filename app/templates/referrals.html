@@ -141,13 +141,13 @@
         <div class="banner reward">
             <div class="banner-icon">🎁</div>
             <h2 class="banner-title">Earn Free Premium</h2>
-            <p class="banner-desc">Invite a single friend to MMUST Dating. When they sign up, <strong>you both get 1 week of Premium Access (Free).</strong></p>
+            <p class="banner-desc">Invite a single friend to Find Your Match. When they sign up, <strong>you both get 1 week of Premium Access (Free).</strong></p>
         </div>
 
         <div style="text-align: left;">
             <label class="link-label" style="color: #E60026;">Your VIP Invite Link</label>
             <div class="link-container">
-                <input type="text" id="ref-link" class="link-input" value="{{ base_url }}/join?ref={{ user.referral_code | default('MMUST-VIP-26') }}" readonly>
+                <input type="text" id="ref-link" class="link-input" value="{{ base_url }}/join?ref={{ user.referral_code | default('FYM-VIP-26') }}" readonly>
                 <button class="btn-copy" onclick="copyLink('ref-link')">Copy</button>
             </div>
         </div>
@@ -210,13 +210,13 @@
 
     function shareReferral() {
         const link = document.getElementById('ref-link').value;
-        const text = `Hey! I'm using the new AI-powered MMUST Dating app. Use my VIP link to get a free week of premium access when you sign up! 🔥\n\n${link}`;
+        const text = `Hey! I'm using the new AI-powered Find Your Match app. Use my VIP link to get a free week of premium access when you sign up! 🔥\n\n${link}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
 
     function shareWingman() {
         const link = document.getElementById('wingman-link').value;
-        const text = `Hey bestie! 👀 I just made a profile on the new MMUST Dating app. Can you check it out and tell me if it's giving 'Catch' or 'Red Flag'? Be honest! 😂👇\n\n${link}`;
+        const text = `Hey bestie! 👀 I just made a profile on the new Find Your Match app. Can you check it out and tell me if it's giving 'Catch' or 'Red Flag'? Be honest! 😂👇\n\n${link}`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
     }
 </script>

@@ -160,7 +160,7 @@
             <div class="settings-group">
                 <label class="field-label">Major / Study Field Filter</label>
                 <select name="major_filter">
-                    <option value="All" {% if user.major_filter == 'All' %}selected{% endif %}>Anyone in MMUST</option>
+                    <option value="All" {% if user.major_filter == 'All' %}selected{% endif %}>Anyone in my institution</option>
                     <option value="CS_IT" {% if user.major_filter == 'CS_IT' %}selected{% endif %}>Computer Science & IT</option>
                     <option value="Health" {% if user.major_filter == 'Health' %}selected{% endif %}>Health Sciences (Nursing, Med)</option>
                     <option value="Engineering" {% if user.major_filter == 'Engineering' %}selected{% endif %}>Engineering</option>

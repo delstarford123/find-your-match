@@ -1,0 +1,78 @@
+FIND YOUR MATCH - SYSTEM OPERATIONAL WORKFLOW
+=========================================
+
+1. ONBOARDING & VERIFICATION (Institutional Entry)
+--------------------------------------------------
+- Landing Page (index.html): Professional introduction to the AI-powered student network.
+- Account Creation (signup.html): 
+    * User selects Institution Type (University, College, TVET, etc.).
+    * Dynamic selection of 30+ Kenyan Institutions.
+    * V2 API processes request with cross-institutional validation protocols.
+- Identity Verification (verify.html): Multi-factor authentication via 6-digit OTP sent through secure email gateways to ensure verified student status.
+
+2. DISCOVERY & CURATION (Strategic Selection)
+---------------------------------------------
+- Personal Dashboard (dashboard.html): High-level overview of account status, subscription metrics, and direct interest notifications.
+- Discovery Interface (swipe.html): 
+    * AI-driven card stack optimization.
+    * Advanced filtering based on Institutional Data, Major/Course of Study, and Schedule Alignment.
+    * High-performance 3D UI components (GSAP integration).
+- ID-Match Protocol (Direct Interest Validation): Strategic tool allowing users to enter a Student ID/Reg Number to anonymously validate direct interest.
+
+3. MATCHING & COMPATIBILITY (Network Synergy)
+---------------------------------------------
+- Verified Connection: When two students express mutual interest, a real-time connection event is triggered via the Match Overlay.
+- AI Compatibility Analysis: Proprietary neural network calculates a compatibility index based on behavioral data, profile aesthetics, and schedule synchronization.
+- Protocol Reveal: Instant network connection is established when mutual ID validation occurs within the ID-Match Protocol.
+
+4. ENGAGEMENT & CONTEXTUAL COMMUNICATION
+---------------------------------------
+- Communication Hub (matches.html): Centralized repository for all active peer-to-peer conversations.
+- Real-Time Messaging Hub: Low-latency communication and data synchronization via Socket.io architecture.
+- Contextual AI (Wingman): LLM-powered icebreaker generation specifically tailored to analyzed user interests and behavioral data.
+- Privacy-First Interaction: Integrated "Blind Date" mode featuring Progressive Image Unblurring based on interaction depth and mutual engagement thresholds.
+- Presence Awareness: Distributed pulse indicators showing real-time network activity and active users across multi-campus environments.
+
+5. OFFLINE CONVERSION & SAFETY (Real-World Integration)
+-------------------------------------------------------
+- Institutional Partner Network (venues.html): Directory of verified, student-centric hospitality partners.
+- Experience Bookings (bookings.html): Integrated reservation system for partner venues.
+- Dynamic Safety Protocols (Safe Walk): Integrated security feature allowing users to share real-time location and date parameters with designated emergency contacts.
+- Incident Reporting UI: Formalized path for reporting harassment or community violations, featuring automated "Shadow Banning" protocols during administrative investigation.
+- Partner Perk Redemption: Institutional QR validation at physical points of sale to activate student-specific benefits.
+
+6. DATA PRIVACY & FOOTPRINT PROTECTION
+--------------------------------------
+- Encryption Standards: All sensitive student identifiers (Student IDs/Reg Numbers) are hashed using industry-standard protocols before storage.
+- Digital Footprint Protection: No plain-text institutional identifiers are stored in the primary database, ensuring full compliance with Data Privacy regulations.
+- Ephemeral Messaging: Strategic implementation of data retention policies to minimize long-term exposure of peer-to-peer interactions.
+
+7. FEED & SOCIAL PROOF (Community Insights)
+-------------------------------------------
+- Campus Feed (feed.html): Anonymous Campus Insights allowing users to post professional hot takes or view verified institutional discourse.
+- Referral Network (referrals.html): Strategic growth mechanism allowing users to incentivize network expansion for premium access.
+
+8. ADMINISTRATION, SECURITY & MONETIZATION
+------------------------------------------
+- User Management (settings.html): Administrative control over discovery preferences, privacy modes, and account lifecycle.
+- AI-Driven Moderation: Automated background monitoring for platform integrity, harassment prevention, and profile authenticity.
+- Revenue Management (paywall.html): Integrated billing system via M-Pesa API for premium student service tiers.
+
+-----------------------------------------
+Final Project Architecture Highlights:
+   * V2 API Protocol: Advanced cross-institutional
+     validation and path-based versioning.
+   * Intelligent Engagement: Real-time communication
+     via Socket.io and NLP-powered AI Wingman.
+   * Privacy-First Design: Progressive Image Unblurring
+     (Blind Date mode) and encrypted student ID
+     hashing.
+   * Safe-Mate Ecosystem: Formalized incident
+     reporting, automated shadow banning, and secure
+     location sharing.
+   * Strategic Monetization: Integrated M-Pesa billing
+     for student and partner service tiers.
+
+-----------------------------------------
+Find Your Match - Optimizing Student Connections Through AI.
+www.findyourmatch.co.ke

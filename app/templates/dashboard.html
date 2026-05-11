@@ -276,7 +276,7 @@
     <div class="alert-box fee-alert" onclick="openFeeModal()">
         <div class="alert-icon">💰</div>
         <div class="alert-text">
-            <strong>MMUST Fee Balance Portal</strong>
+            <strong>Institutional Fee Portal</strong>
             <span>Check your outstanding university fees.</span>
         </div>
         <div class="alert-arrow">→</div>
@@ -347,7 +347,7 @@
         <div class="date-checklist">
             <h4>What you need to know:</h4>
             <ul>
-                <li><strong>Bring Student ID:</strong> Verify you are an MMUST student.</li>
+                <li><strong>Bring Student ID:</strong> Verify you are a registered student.</li>
                 <li><strong>Scan QR Code:</strong> When you arrive, scan the restaurant's app QR code to claim your table & discounts.</li>
                 <li><strong>Stay Safe:</strong> Read our <a href="{{ url_for('safety') }}" style="color: #E60026; font-weight: bold;">safety guidelines</a>.</li>
             </ul>
@@ -493,7 +493,7 @@
             
         // --- Calculate Unread Chats ---
         try {
-            let unreadMap = JSON.parse(localStorage.getItem('mmust_unread_counts')) || {};
+            let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
             let totalUnread = 0;
             for (const uid in unreadMap) {
                 if (typeof unreadMap[uid] === 'object') {
