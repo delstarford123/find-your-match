@@ -245,6 +245,12 @@
         border: 1px solid #ddd; box-shadow: none; padding-right: 14px !important;
     }
 
+    /* === MEDIA BUBBLES === */
+    .media-content { border-radius: 12px; overflow: hidden; margin-top: 5px; max-width: 100%; display: block; }
+    .media-content img { max-width: 100%; border-radius: 8px; cursor: pointer; display: block; max-height: 300px; object-fit: cover; }
+    .media-content video { max-width: 100%; border-radius: 8px; display: block; max-height: 300px; }
+    .media-content audio { width: 100%; min-width: 200px; margin-top: 5px; }
+
     /* === REPLY UI === */
     .reply-context {
         background: rgba(0,0,0,0.05); border-left: 3px solid #E60026; 
@@ -524,6 +530,20 @@
         
         <div class="chat-input-area">
             <button class="btn-magic" id="btn-magic" onclick="generateIcebreakerInChat()" title="AI Wingman: Write an opener">🪄</button>
+            
+            <div style="position: relative;">
+                <button class="btn-magic" style="background: #6c757d;" onclick="toggleAttachmentMenu(event)" title="Attach media">📎</button>
+                <div id="attachment-menu" class="theme-modal" style="width: 150px; bottom: 60px; right: 0; top: auto; padding: 10px;">
+                    <button onclick="document.getElementById('attach-image').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🖼️ Image</button>
+                    <button onclick="document.getElementById('attach-audio').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🎵 Audio</button>
+                    <button onclick="document.getElementById('attach-video').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🎬 Video</button>
+                </div>
+            </div>
+
+            <input type="file" id="attach-image" accept="image/*" style="display: none;" onchange="uploadFile(this, 'image')">
+            <input type="file" id="attach-audio" accept="audio/*" style="display: none;" onchange="uploadFile(this, 'audio')">
+            <input type="file" id="attach-video" accept="video/*" style="display: none;" onchange="uploadFile(this, 'video')">
+
             <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
             <button class="btn-send" id="btn-send">➤</button>
         </div>
@@ -975,6 +995,38 @@
         });
     }
 
+    function toggleAttachmentMenu(e) {
+        e.stopPropagation();
+        document.getElementById('attachment-menu').classList.toggle('active');
+        document.getElementById('theme-modal').classList.remove('active');
+        document.getElementById('action-menu').classList.remove('active');
+    }
+
+    function uploadFile(input, type) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        const tempId = Math.random().toString(36).substr(2, 9);
+
+        reader.onload = function(e) {
+            // Render instantly with the local data URL
+            renderMyMessageInstantly(`Sharing ${type}...`, tempId, null, type, e.target.result);
+            
+            const payload = {
+                type: type,
+                receiver_id: activePartnerId,
+                file_data: e.target.result,
+                filename: file.name,
+                temp_id: tempId
+            };
+            socket.emit('send_message', payload);
+            document.getElementById('attachment-menu').classList.remove('active');
+            input.value = ''; // Reset input
+        };
+        reader.readAsDataURL(file);
+    }
+
     // ==========================================
     // REAL-TIME CHAT WEBSOCKETS & ICEBREAKER
     // ==========================================
@@ -1050,7 +1102,7 @@
             if (window.innerWidth > 768 && chatInput) chatInput.focus();
         };
         
-        function renderMyMessageInstantly(text, tempId, replyToId) {
+        function renderMyMessageInstantly(text, tempId, replyToId, type = 'text', fileUrl = null) {
             const timeString = getCurrentTime();
             const cleanText = escapeHTML(text);
             let replyHtml = '';
@@ -1059,11 +1111,20 @@
                 replyHtml = `<div class="reply-context">${escapeHTML(origText)}</div>`;
             }
 
+            let contentHtml = `<div class="msg-text-content">${cleanText}</div>`;
+            if (type === 'image') {
+                contentHtml = `<div class="media-content"><img src="${fileUrl || '#'}" id="media-${tempId}"></div>`;
+            } else if (type === 'video') {
+                contentHtml = `<div class="media-content"><video controls src="${fileUrl || '#'}" id="media-${tempId}"></video></div>`;
+            } else if (type === 'audio') {
+                contentHtml = `<div class="media-content"><audio controls src="${fileUrl || '#'}" id="media-${tempId}"></audio></div>`;
+            }
+
             const html = `
                 <div class="bubble-wrapper me bubble-enter" id="msg-wrap-${tempId}" data-msg-id="${tempId}" data-sender-name="You" data-text="${cleanText}">
                     <div class="chat-bubble bubble-me" id="bubble-${tempId}">
                         ${replyHtml}
-                        <div class="msg-text-content">${cleanText}</div>
+                        ${contentHtml}
                         <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${tempId}', event)">⌄</button>
                         <div class="msg-menu" id="menu-${tempId}">
                             <button class="msg-menu-btn" onclick="prepareReply('${tempId}')">↩ Reply</button>
@@ -1138,6 +1199,12 @@
             if (statusElement) {
                 statusElement.innerText = '✓✓';
                 statusElement.className = 'msg-status status-sent';
+                
+                // If it was a media file, update the source
+                if (data.file_url) {
+                    const mediaEl = document.getElementById(`media-${data.temp_id}`);
+                    if (mediaEl) mediaEl.src = data.file_url;
+                }
             }
             return;
         }
@@ -1150,12 +1217,13 @@
                  currentCount = unreadMap[data.sender];
             }
 
-            unreadMap[data.sender] = { count: currentCount + 1, text: data.text };
+            const previewText = data.type === 'text' ? data.text : `Sent a ${data.type}`;
+            unreadMap[data.sender] = { count: currentCount + 1, text: previewText };
             localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
             
             if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
             offlineQueue[data.sender].push({
-                text: data.text,
+                text: previewText,
                 timestamp: data.timestamp || new Date().toISOString()
             });
             localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
@@ -1167,7 +1235,7 @@
                 sidebarItem.style.background = '#FEF2F4';
                 const sidebarMsg = sidebarItem.querySelector('.sidebar-last-msg');
                 if (sidebarMsg) {
-                    sidebarMsg.innerText = escapeHTML(data.text);
+                    sidebarMsg.innerText = previewText;
                     sidebarMsg.style.color = '#E60026';
                     sidebarMsg.style.fontWeight = 'bold';
                 }
@@ -1180,7 +1248,7 @@
         updateBlurUI(); 
         
         let html = '';
-        const cleanText = escapeHTML(data.text);
+        const cleanText = escapeHTML(data.text || '');
         
         if (data.sender === 'SYSTEM_AI') {
             html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${cleanText}</div></div>`;
@@ -1191,12 +1259,21 @@
                 replyHtml = `<div class="reply-context">Replying to message...</div>`;
             }
 
+            let contentHtml = `<div class="msg-text-content">${cleanText}</div>`;
+            if (data.type === 'image') {
+                contentHtml = `<div class="media-content"><img src="${data.file_url}"></div>`;
+            } else if (data.type === 'video') {
+                contentHtml = `<div class="media-content"><video controls src="${data.file_url}"></video></div>`;
+            } else if (data.type === 'audio') {
+                contentHtml = `<div class="media-content"><audio controls src="${data.file_url}"></audio></div>`;
+            }
+
             html = `
             <div class="bubble-wrapper them bubble-enter" id="msg-wrap-${data.msg_id || data.temp_id}" data-msg-id="${data.msg_id || data.temp_id}" data-sender-name="${partnerName}" data-text="${cleanText}" ontouchstart="handleTouchStart(event, '${data.msg_id || data.temp_id}')" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd()">
                 <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur(${currentBlurPx}px);">
                 <div class="chat-bubble bubble-them" id="bubble-${data.msg_id || data.temp_id}">
                     ${replyHtml}
-                    <div class="msg-text-content">${cleanText}</div>
+                    ${contentHtml}
                     <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${data.msg_id || data.temp_id}', event)">⌄</button>
                     <div class="msg-menu" id="menu-${data.msg_id || data.temp_id}">
                         <button class="msg-menu-btn" onclick="prepareReply('${data.msg_id || data.temp_id}')">↩ Reply</button>

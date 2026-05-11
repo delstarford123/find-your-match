@@ -306,114 +306,6 @@ def handle_typing(data):
         data['sender'] = sender_id
         emit('user_typing', data, to=receiver_id)
 
-@socketio.on('send_message')
-def handle_message(data):
-    # 1. SECURITY: Ensure user is authenticated
-    sender_id = session.get('user_id')
-    if not sender_id:
-        return
-
-    receiver_id = data.get('receiver_id')
-    msg_text = data.get('text', '').strip()
-    msg_type = data.get('type', 'text')
-
-    # Prevent empty "ghost" messages
-    if not receiver_id or not msg_text:
-        return
-
-    # 2. SERVER-SIDE STAMPING: Overwrite payload to prevent client spoofing
-    data['sender'] = sender_id
-    data['timestamp'] = datetime.now().isoformat()
-
-    # ==========================================
-    # ROUTE A: AI COMPANION LOGIC
-    # ==========================================
-    if receiver_id == 'AI_COMPANION':
-        # Echo to all of the user's active devices (phone, laptop, etc.)
-        emit('receive_message', data, to=sender_id)
-        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=sender_id)
-        
-        # Safely fetch gender
-        current_user_gender = "unknown"
-        try:
-            user_profile = db.reference(f'profiles/{sender_id}').get()
-            if user_profile and 'gender' in user_profile:
-                current_user_gender = user_profile['gender']
-        except Exception:
-            pass
-        
-        # Async worker for AI generation
-        def ai_worker(query, user_room, gender):
-            try:
-                ai_reply = get_ai_companion_response(query, user_gender=gender)
-                socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=user_room)
-                socketio.emit('receive_message', {
-                    'sender': 'AI_COMPANION',
-                    'type': 'text',
-                    'text': ai_reply,
-                    'timestamp': datetime.now().isoformat()
-                }, to=user_room)
-            except Exception as e:
-                print(f"AI Worker Error: {e}")
-
-        # Use SocketIO's safe background task manager instead of standard threading
-        socketio.start_background_task(ai_worker, msg_text, sender_id, current_user_gender)
-        return
-
-    # ==========================================
-    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
-    # ==========================================
-    if msg_type == 'text':
-        try:
-            safety_check = analyze_safety(msg_text)
-            
-            if not safety_check.get('is_safe', True):
-                if safety_check.get('flag') in ['self_harm', 'violence']:
-                    # Offload DB write to prevent blocking the socket
-                    def save_alert():
-                        db.reference('admin_alerts').push({
-                            'sender': sender_id,
-                            'receiver': receiver_id,
-                            'message': msg_text,
-                            'flag': safety_check['flag'],
-                            'timestamp': datetime.now().isoformat()
-                        })
-                    socketio.start_background_task(save_alert)
-                
-                # Warn the sender privately across all their devices
-                warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check.get('system_reply', 'Message flagged.')}
-                emit('receive_message', warning_msg, to=sender_id) 
-                return
-
-            if contains_phone_number(msg_text):
-                warning_msg = {
-                    'sender': 'SYSTEM_AI',
-                    'type': 'text',
-                    'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
-                }
-                emit('receive_message', warning_msg, to=sender_id) 
-                return
-        except Exception as e:
-            print(f"Safety Check Error: {e}")
-
-    # ==========================================
-    # ROUTE C: LIGHTNING FAST MESSAGE DELIVERY
-    # ==========================================
-    
-    # 1. Deliver instantly to UI (Zero-latency feel)
-    emit('receive_message', data, to=receiver_id)
-    emit('receive_message', data, to=sender_id)
-    
-    # 2. Save to database in the background
-    def background_db_save():
-        try:
-            save_chat_message(sender_id, receiver_id, msg_text, msg_type)
-        except Exception as e:
-            print(f"DB Save Error: {e}")
-
-    socketio.start_background_task(background_db_save)
-    
-    
 # Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
 @app.route('/party')
 @requires_subscription
@@ -1897,21 +1789,40 @@ def admin_broadcast():
     if not session.get('is_super_admin'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-    data = request.json
+    # Handle both JSON and Multipart (for attachments)
+    if request.is_json:
+        data = request.json
+    else:
+        data = request.form
+
     target_group = data.get('target_group', 'all')
     specific_email = data.get('specific_email', '').strip().lower()
-    target_class = data.get('target_class', '').strip().upper()  # 👈 Added Class Extractor
+    target_class = data.get('target_class', '').strip().upper()
     subject = data.get('subject')
     message = data.get('message')
     
     if not subject or not message:
         return jsonify({'success': False, 'message': 'Subject and message required.'}), 400
         
+    # Process Attachments
+    attachments = []
+    for key in ['image', 'audio', 'video']:
+        file = request.files.get(key)
+        if file and file.filename:
+            try:
+                content = file.read()
+                if content:
+                    attachments.append({
+                        'filename': file.filename,
+                        'content': content
+                    })
+            except Exception as e:
+                logger.error(f"Error reading attachment {key}: {e}")
+
     try:
         all_profiles = db.reference('profiles').get() or {}
         
-        # 👈 Updated function to accept specific_cls
-        def dispatch_emails(profiles, target, specific_mail, specific_cls, subj, msg):
+        def dispatch_emails(profiles, target, specific_mail, specific_cls, subj, msg, atts):
             success_count = 0
             for uid, user_data in profiles.items():
                 if not isinstance(user_data, dict):
@@ -1924,13 +1835,13 @@ def admin_broadcast():
                 name = user_data.get('name', 'Student').split(' ')[0]
                 is_verified = user_data.get('is_verified', False)
                 is_paid = user_data.get('is_paid', False)
-                user_class = user_data.get('class_code', '').upper() # 👈 Extracted class code
+                user_class = user_data.get('class_code', '').upper()
 
                 should_send = False
                 
                 if target == 'all':
                     should_send = True
-                elif target == 'class' and user_class == specific_cls: # 👈 Added Class Targeting
+                elif target == 'class' and user_class == specific_cls:
                     should_send = True
                 elif target == 'premium' and is_verified and is_paid:
                     should_send = True
@@ -1943,7 +1854,7 @@ def admin_broadcast():
 
                 if should_send:
                     try:
-                        send_broadcast_email(email, name, subj, msg)
+                        send_broadcast_email(email, name, subj, msg, attachments=atts)
                         success_count += 1
                     except Exception as email_err:
                         logger.warning(f"Failed sending to {email}: {email_err}")
@@ -1951,8 +1862,7 @@ def admin_broadcast():
             logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users in group '{target}'.")
 
         # Process in background so the UI doesn't freeze
-        # 👈 Added target_class to the arguments passed to the background task
-        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, target_class, subject, message)
+        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, target_class, subject, message, attachments)
         
         return jsonify({'success': True, 'message': 'Broadcast queued for dispatch.'})
         
@@ -2704,8 +2614,9 @@ def handle_message(data):
     msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
     temp_id = data.get('temp_id') # Crucial for the ✓✓ frontend confirmation
+    file_data = data.get('file_data') # For image, audio, video
 
-    if not receiver_id or not msg_text:
+    if not receiver_id or (not msg_text and not file_data):
         return
 
     now_eat = datetime.now(EAT).isoformat()
@@ -2716,6 +2627,10 @@ def handle_message(data):
     # ROUTE A: AI COMPANION LOGIC
     # ------------------------------------------
     if receiver_id == 'AI_COMPANION':
+        # AI Companion currently only handles text
+        if msg_type != 'text':
+            return
+            
         # Emit to sender's room so all their open tabs stay in sync
         emit('receive_message', data, to=sender_id)
         emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=sender_id)
@@ -2788,13 +2703,35 @@ def handle_message(data):
     # ------------------------------------------
     match_id = f"match_{min(sender_id, receiver_id)}_{max(sender_id, receiver_id)}"
     
+    # Handle File Uploads (Save to a separate node to keep match history clean and manageable)
+    file_url = None
+    if msg_type in ['image', 'video', 'audio'] and file_data:
+        try:
+            # For simplicity and "short time" storage, we'll store it as a dedicated entry
+            # In a real production app, you'd use Firebase Storage or S3
+            media_ref = db.reference('chat_media').push({
+                'sender_id': sender_id,
+                'match_id': match_id,
+                'type': msg_type,
+                'data': file_data,
+                'timestamp': now_eat
+            })
+            # We use the Base64 data directly for now as "url" to avoid complex hosting logic
+            file_url = file_data 
+        except Exception as e:
+            logger.error(f"Media save error: {e}")
+            return
+
     message_payload = {
         'sender_id': sender_id,
-        'text': msg_text,
+        'text': msg_text if msg_type == 'text' else f"Sent a {msg_type}",
         'timestamp': now_eat,
         'type': msg_type,
         'status': 'sent'
     }
+    
+    if file_url:
+        message_payload['file_url'] = file_url
 
     try:
         # 1. Save to Firebase permanently
@@ -2802,27 +2739,34 @@ def handle_message(data):
         
         # 2. Update the parent match node for the inbox sidebar sorting
         db.reference(f'matches/{match_id}').update({
-            'last_message': msg_text,
+            'last_message': message_payload['text'],
             'last_message_time': now_eat,
             f'users/{sender_id}': True,
             f'users/{receiver_id}': True
         })
 
         # 3. Deliver to Receiver's screen
-        emit('receive_message', {
+        receive_payload = {
             'sender': sender_id,
-            'text': msg_text,
+            'text': message_payload['text'],
             'timestamp': now_eat,
             'temp_id': temp_id,
-            'msg_id': new_msg_ref.key
-        }, to=receiver_id)
+            'msg_id': new_msg_ref.key,
+            'type': msg_type
+        }
+        if file_url:
+            receive_payload['file_url'] = file_url
+            
+        emit('receive_message', receive_payload, to=receiver_id)
 
         # 4. Deliver CONFIRMATION back to Sender's screen (Turns 🕒 to ✓✓)
         emit('receive_message', {
             'sender': sender_id,
             'temp_id': temp_id,
             'msg_id': new_msg_ref.key,
-            'status': 'sent'
+            'status': 'sent',
+            'type': msg_type,
+            'file_url': file_url
         }, to=sender_id)
 
     except Exception as e:
@@ -3504,18 +3448,18 @@ def merchant_dashboard():
 def create_flash_perk():
     merchant_id = session.get('user_id')
     data = request.json
-    
+
     offer_text = data.get('offer_text') # e.g., "30% off for the next 5 couples!"
     max_claims = data.get('max_claims', 5) # How many couples can claim it
     expires_in_hours = data.get('expires_in', 2)
-    
+
     if not offer_text:
         return jsonify({'success': False, 'message': 'Offer text is required.'}), 400
-        
+
     try:
         # Calculate expiration time
         expiration_time = datetime.now(EAT) + timedelta(hours=int(expires_in_hours))
-        
+
         perk_data = {
             'offer_text': offer_text,
             'max_claims': int(max_claims),
@@ -3524,20 +3468,48 @@ def create_flash_perk():
             'expires_at': expiration_time.isoformat(),
             'is_active': True
         }
-        
+
         # Save to the database under this specific merchant
         # We use push() to generate a unique ID for this specific perk
         new_perk_ref = db.reference(f'flash_perks/{merchant_id}').push(perk_data)
-        
-        # Optional: You could trigger a WebSocket event here to instantly notify 
+
+        # Optional: You could trigger a WebSocket event here to instantly notify
         # all online students that a new Flash Perk is available!
-        
+
         return jsonify({'success': True, 'message': 'Flash Perk is live! ⚡'})
-        
+
     except Exception as e:
         logger.error(f"Error creating Flash Perk: {e}")
         return jsonify({'success': False, 'message': 'Failed to create perk.'}), 500
-    
+
+@app.route('/api/merchant/update_image', methods=['POST'])
+@login_required
+def update_merchant_image():
+    """Allows a merchant to upload a venue image."""
+    merchant_id = session.get('user_id')
+
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'message': 'No image provided'}), 400
+
+    file = request.files['image']
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Invalid file'}), 400
+
+    try:
+        # 1. Read the image and convert to Base64 (simplest for small apps without S3/Firebase Storage setup)
+        img_data = file.read()
+        base64_img = base64.b64encode(img_data).decode('utf-8')
+        img_url = f"data:{file.content_type};base64,{base64_img}"
+
+        # 2. Update the restaurant data in Firebase
+        # We store it in a list as expected by the frontend
+        db.reference(f'restaurants/{merchant_id}/images').set([img_url])
+
+        return jsonify({'success': True, 'message': 'Image updated successfully!'})
+
+    except Exception as e:
+        logger.error(f"Merchant Image Upload Error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500    
 # ==========================================
 # SUPPORT, SUGGESTIONS & CALL REQUESTS
 # ==========================================

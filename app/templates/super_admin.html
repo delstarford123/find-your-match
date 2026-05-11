@@ -544,6 +544,33 @@
                 <input type="text" id="broadcast-subject" class="admin-input" placeholder="Email Subject" style="margin-bottom: 16px;">
                 <textarea id="broadcast-message" class="admin-input" rows="6" placeholder="Type your message here..." style="resize: vertical;"></textarea>
 
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 800;">📎 ATTACHMENTS (Optional)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label for="broadcast-image" class="btn btn-outline" style="font-size: 11px; padding: 10px; cursor: pointer; flex-direction: column;">
+                                🖼️ Image
+                                <input type="file" id="broadcast-image" accept="image/*" style="display: none;" onchange="updateFileLabel(this, 'img-label')">
+                            </label>
+                            <div id="img-label" style="font-size: 10px; color: #38bdf8; margin-top: 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        </div>
+                        <div>
+                            <label for="broadcast-audio" class="btn btn-outline" style="font-size: 11px; padding: 10px; cursor: pointer; flex-direction: column;">
+                                🎵 Audio
+                                <input type="file" id="broadcast-audio" accept="audio/*" style="display: none;" onchange="updateFileLabel(this, 'audio-label')">
+                            </label>
+                            <div id="audio-label" style="font-size: 10px; color: #38bdf8; margin-top: 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        </div>
+                        <div>
+                            <label for="broadcast-video" class="btn btn-outline" style="font-size: 11px; padding: 10px; cursor: pointer; flex-direction: column;">
+                                🎬 Video
+                                <input type="file" id="broadcast-video" accept="video/*" style="display: none;" onchange="updateFileLabel(this, 'video-label')">
+                            </label>
+                            <div id="video-label" style="font-size: 10px; color: #38bdf8; margin-top: 4px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="action-group" style="margin-top: 10px;">
                     <button class="btn btn-primary" id="broadcast-btn" onclick="sendBroadcastEmail(this)" style="width: 100%;">🚀 Dispatch System Email</button>
                 </div>
@@ -886,12 +913,25 @@
             showToast("Email Engine primed for " + userEmail);
         }
 
+        function updateFileLabel(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files[0]) {
+                label.innerText = input.files[0].name;
+            } else {
+                label.innerText = '';
+            }
+        }
+
         function sendBroadcastEmail(btn) {
             const targetGroup = document.getElementById('broadcast-target').value;
             const specificEmail = document.getElementById('specific-email-input').value.trim();
             const specificClass = document.getElementById('specific-class-input').value.trim();
             const subject = document.getElementById('broadcast-subject').value.trim();
             const message = document.getElementById('broadcast-message').value.trim();
+            
+            const imageFile = document.getElementById('broadcast-image').files[0];
+            const audioFile = document.getElementById('broadcast-audio').files[0];
+            const videoFile = document.getElementById('broadcast-video').files[0];
 
             if (!subject || !message) { showToast("Subject and message are required.", true); return; }
             if (targetGroup === 'specific' && !specificEmail) { showToast("Please provide the specific user's email.", true); return; }
@@ -911,19 +951,23 @@
             btn.innerText = "Sending... ⏳";
             btn.disabled = true;
 
+            const formData = new FormData();
+            formData.append('target_group', targetGroup);
+            formData.append('specific_email', specificEmail);
+            formData.append('target_class', specificClass);
+            formData.append('subject', subject);
+            formData.append('message', message);
+            
+            if (imageFile) formData.append('image', imageFile);
+            if (audioFile) formData.append('audio', audioFile);
+            if (videoFile) formData.append('video', videoFile);
+
             fetch('/api/admin/broadcast', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'X-CSRFToken': CSRF_TOKEN
                 },
-                body: JSON.stringify({ 
-                    target_group: targetGroup, 
-                    specific_email: specificEmail, 
-                    target_class: specificClass,
-                    subject: subject, 
-                    message: message 
-                })
+                body: formData
             })
             .then(res => res.json())
             .then(data => {
@@ -935,6 +979,14 @@
                     document.getElementById('broadcast-message').value = '';
                     if (targetGroup === 'specific') document.getElementById('specific-email-input').value = '';
                     if (targetGroup === 'class') document.getElementById('specific-class-input').value = '';
+                    
+                    // Reset files
+                    document.getElementById('broadcast-image').value = '';
+                    document.getElementById('broadcast-audio').value = '';
+                    document.getElementById('broadcast-video').value = '';
+                    document.getElementById('img-label').innerText = '';
+                    document.getElementById('audio-label').innerText = '';
+                    document.getElementById('video-label').innerText = '';
                 } else {
                     showToast("Failed to send: " + data.message, true);
                 }
