@@ -550,7 +550,7 @@ def swipe():
             'name': p.get('name', 'Student').split(' ')[0],
             'age': p.get('age', 18),
             'major': p.get('major', 'MMUST Student'),
-            'bio': p.get('bio', 'Hey! I am using MMUST Dating AI.'),
+            'bio': p.get('bio', 'Hey! I am using FIND YOUR MATCH.'),
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
             'phone': p.get('phone'), # Direct access for professional profile contact
             'intent': p_intent, # Passes the intent so the frontend tag works!
@@ -1577,12 +1577,12 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
                 </div>
                 
                 <p style="color: #555; font-size: 15px; line-height: 1.5;">
-                    A special table has been specifically reserved for you. When you arrive, simply open your MMUST Dating App and scan the merchant's QR code at the counter to verify your student status and claim your table!
+                    A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
                 </p>
                 
                 <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
                     Have fun and stay safe! <br>
-                    <strong>- The MMUST Dating AI Powered Team</strong>
+                    <strong>- The FIND YOUR MATCH Team</strong>
                 </p>
             </div>
         </body>
@@ -1590,7 +1590,7 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
     """
 
     msg = MIMEMultipart()
-    msg['From'] = f"MMUST Dating App <{sender_email}>"
+    msg['From'] = f"FIND YOUR MATCH <{sender_email}>"
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(html_body, 'html'))
@@ -4720,4 +4720,6 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # You must listen on '0.0.0.0' for external traffic on a server!
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
+    
+e)
     

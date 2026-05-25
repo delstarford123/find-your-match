@@ -12,7 +12,7 @@ from email.utils import formataddr
 logger = logging.getLogger(__name__)
 
 # Define standard sender name for consistency
-SENDER_NAME_DEFAULT = "MMUST AI Powered Dating"
+SENDER_NAME_DEFAULT = "FIND YOUR MATCH AI"
 
 def _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT, attachments=None):
     """
@@ -78,17 +78,17 @@ def send_verification_email(recipient_email, user_name, otp_code, purpose="signu
     Purposes: 'signup', 'reset', 'resend'
     """
     if purpose == "reset":
-        subject = "Reset Your MMUST Dating AI Password"
+        subject = "Reset Your FIND YOUR MATCH Password"
         headline = "Password Reset Request 🔑"
         message = "We received a request to reset your password. Use the code below to securely update your credentials. This code will expire soon."
     elif purpose == "resend":
-        subject = "Your New Verification Code - MMUST Dating AI"
+        subject = "Your New Verification Code - FIND YOUR MATCH"
         headline = "New Verification Code 📩"
         message = "You requested a new verification code. Please enter the 6-digit code below to activate your account and start matching!"
     else:
-        subject = "Welcome to MMUST Dating AI - Verify Your Email"
+        subject = "Welcome to FIND YOUR MATCH - Verify Your Email"
         headline = f"Welcome to FYM, {user_name}! ✨"
-        message = "You are one step away from finding your perfect match at MMUST. Please enter the verification code below to activate your account."
+        message = "You are one step away from finding your perfect match. Please enter the verification code below to activate your account."
     
     text_content = textwrap.dedent(f"""\
         {headline}
@@ -137,7 +137,7 @@ def send_verification_email(recipient_email, user_name, otp_code, purpose="signu
                 
                 <div style="background: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
                     <p style="margin: 0 0 10px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        MMUST AI Powered Dating
+                        FIND YOUR MATCH AI Powered Dating
                     </p>
                     <p style="margin: 0; font-size: 11px; color: #ccc;">
                         &copy; {datetime.now().year} Delstarford Works. All rights reserved.
@@ -164,7 +164,7 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
         When: {date_day} at {date_time}
         Where: {restaurant_name} ({location})
         
-        A special table has been specifically reserved for you. When you arrive, simply open your MMUST Dating App and scan the merchant's QR code at the counter to verify your student status and claim your table!
+        A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
         
         Have fun and stay safe!
         - {SENDER_NAME_DEFAULT} Team
@@ -192,7 +192,7 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
                 </div>
                 
                 <p style="color: #555; font-size: 15px; line-height: 1.6;">
-                    A special table has been specifically reserved for you. When you arrive, simply open your MMUST Dating App and scan the merchant's QR code at the counter to verify your student status and claim your table!
+                    A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
                 </p>
                 
                 <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
@@ -221,7 +221,7 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
         
         Please log in to your Merchant Dashboard to approve or decline this reservation.
         
-        - MMUST AI Powered Dating Team
+        - FIND YOUR MATCH AI Team
     """)
     
     html_content = textwrap.dedent(f"""\
@@ -251,7 +251,7 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
 </div>
                 
                 <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
-                    Manage your bookings and grow your business with MMUST Dating.
+                    Manage your bookings and grow your business with FIND YOUR MATCH.
                 </p>
             </div>
         </body>
