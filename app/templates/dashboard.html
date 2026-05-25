@@ -129,19 +129,6 @@
         box-shadow: 0 2px 8px rgba(230,0,38,0.3);
     }
 
-    /* === PWA INSTALL BANNER (INLINE) === */
-    #install-container {
-        display: none; max-width: 600px; margin: 0 auto 35px auto; padding: 0 clamp(15px, 5vw, 30px);
-    }
-    .btn-install {
-        width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; border: none; padding: 16px; border-radius: 16px;
-        font-size: 16px; font-weight: 900; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 10px;
-        box-shadow: 0 8px 20px rgba(230,0,38,0.25); transition: transform 0.2s;
-    }
-    .btn-install:active { transform: scale(0.98); }
-
     /* === UPCOMING DATES SECTION === */
     .section-title {
         color: #720000; font-size: clamp(20px, 5vw, 24px); font-weight: 900;
@@ -354,12 +341,6 @@
             </div>
         {% endif %}
     </div>
-</div>
-
-<div id="install-container">
-    <button id="btn-install" class="btn-install">
-        <span style="font-size: 22px;">📲</span> Install App for Full Experience
-    </button>
 </div>
 
 {% if upcoming_dates and upcoming_dates|length > 0 %}
@@ -579,27 +560,6 @@
         });
     }
     
-    // --- PWA INSTALLATION LOGIC ---
-    let deferredPrompt;
-    const installContainer = document.getElementById('install-container');
-    const btnInstall = document.getElementById('btn-install');
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        installContainer.style.display = 'block';
-    });
-
-    btnInstall.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            installContainer.style.display = 'none';
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User ${outcome === 'accepted' ? 'accepted' : 'dismissed'} the install prompt`);
-            deferredPrompt = null;
-        }
-    });
-
     function submitDailyAnswer() {
         const text = document.getElementById('daily-answer-text').value.trim();
         if (!text) return alert("Please type an answer first!");

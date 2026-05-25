@@ -338,21 +338,50 @@
             position: relative; z-index: 10; 
         }
 
-        /* === APP INSTALL BANNER === */
-        .pwa-banner {
-            display: none; position: fixed; 
-            top: calc(var(--nav-height) + var(--safe-top) + 15px); 
-            right: 15px; left: 15px;
-            background: white; padding: 15px; border-radius: 16px; 
-            box-shadow: 0 10px 30px rgba(114,0,0,0.2); z-index: 100015; 
-            border-left: 6px solid var(--primary); align-items: center; justify-content: space-between; 
-            animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* === 📲 PROFESSIONAL PWA INSTALL OVERLAY === */
+        .pwa-install-overlay {
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); 
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            z-index: 200000; display: none; align-items: center; justify-content: center;
+            padding: 20px; animation: fadeInModal 0.4s ease;
         }
-        .pwa-banner h4 { margin: 0 0 5px; color: var(--secondary); font-weight: 900; font-size: 15px; }
-        .pwa-banner p { margin: 0; font-size: 12px; color: #666; line-height: 1.4; }
-        .pwa-btn { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 20px; font-weight: 900; cursor: pointer; box-shadow: 0 4px 10px rgba(230,0,38,0.2); font-size: 13px; }
-        @media (min-width: 600px) { .pwa-banner { left: auto; max-width: 350px; right: 20px; } }
-        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pwa-install-card {
+            background: white; width: 100%; max-width: 400px; border-radius: 32px;
+            padding: 40px 30px; text-align: center; position: relative;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.5); border: 1px solid #FFD6DD;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pwa-close {
+            position: absolute; top: 20px; right: 20px; background: #f1f5f9;
+            border: none; width: 36px; height: 36px; border-radius: 50%;
+            font-size: 20px; font-weight: bold; color: #64748b; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .pwa-close:hover { background: #fee2e2; color: #ef4444; }
+        
+        .pwa-icon-wrap {
+            width: 80px; height: 80px; margin: 0 auto 25px; border-radius: 20px;
+            overflow: hidden; box-shadow: 0 10px 25px rgba(230,0,38,0.2);
+            border: 2px solid #FEF2F4;
+        }
+        .pwa-icon-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .pwa-install-card h3 { font-size: 24px; font-weight: 900; color: #720000; margin-bottom: 12px; letter-spacing: -0.5px; }
+        .pwa-install-card p { color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
+        
+        .pwa-actions { display: flex; flex-direction: column; gap: 12px; }
+        .btn-pwa-install {
+            background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+            color: white; border: none; padding: 16px; border-radius: 14px;
+            font-size: 16px; font-weight: 900; cursor: pointer;
+            box-shadow: 0 8px 20px rgba(230,0,38,0.25); transition: transform 0.2s;
+        }
+        .btn-pwa-install:active { transform: scale(0.97); }
+        .btn-pwa-later {
+            background: transparent; color: #64748b; border: 1px solid #e2e8f0;
+            padding: 12px; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer;
+        }
+        .btn-pwa-later:hover { background: #f8fafc; color: #1e293b; }
 
         /* === SUPPORT BUTTON === */
         .support-trigger-btn {
@@ -687,12 +716,20 @@
         {% block content %}{% endblock %}
     </main>
     
-    <div id="install-banner" class="pwa-banner">
-        <div>
-            <h4>Get the FIND YOUR MATCH App!</h4>
-            <p>Install on your home screen for a faster, full-screen experience.</p>
+    <!-- === 📲 PROFESSIONAL PWA INSTALL POP-UP === -->
+    <div id="install-banner" class="pwa-install-overlay">
+        <div class="pwa-install-card">
+            <button class="pwa-close" onclick="closeInstallBanner()">&times;</button>
+            <div class="pwa-icon-wrap">
+                <img src="{{ url_for('static', filename='img/icon-192.png') }}" alt="App Icon">
+            </div>
+            <h3>Install FIND YOUR MATCH</h3>
+            <p>Add to home screen for faster swiping, instant notifications, and a full-screen experience.</p>
+            <div class="pwa-actions">
+                <button id="install-btn" class="btn-pwa-install">INSTALL NOW</button>
+                <button class="btn-pwa-later" onclick="closeInstallBanner()">Maybe Later</button>
+            </div>
         </div>
-        <button id="install-btn" class="pwa-btn">Install</button>
     </div>
 
     <footer>
@@ -1005,6 +1042,10 @@
             console.log('App was successfully installed!');
         });
 
+        window.closeInstallBanner = function() {
+            document.getElementById('install-banner').style.display = 'none';
+        };
+
         // ==========================================
         // MOBILE MEMORY OPTIMIZER
         // ==========================================
@@ -1188,45 +1229,109 @@
 <div id="emergencyOverlay" class="emergency-overlay">
     <div class="emergency-card">
         <button class="emergency-close" onclick="stopEmergencyAlert()" title="Stop Local Alarm">&times;</button>
+        
         <div class="emergency-icon-wrap">
             <div class="emergency-pulse"></div>
             <div class="emergency-pulse-2"></div>
             <span class="emergency-emoji">🚨</span>
         </div>
-        <h2 class="emergency-title">EMERGENCY ALERT</h2>
-        <div class="emergency-info">
+        
+        <h2 class="emergency-title">SOS EMERGENCY</h2>
+        
+        <div class="sos-user-hero">
             <img id="sosUserImg" src="/static/img/placeholder.png" class="sos-user-img">
-            <div style="flex: 1; min-width: 0;">
-                <p id="sosUserName" class="sos-user-name">A Student</p>
-                <div id="sosUserPhone" style="color: #E60026; font-weight: 900; font-size: 16px; margin: 4px 0;">📞 +254XXXXXXXX</div>
-                <p class="sos-danger-text">IS IN IMMEDIATE DANGER!</p>
+            <div class="sos-user-details">
+                <h3 id="sosUserName">A Comrade</h3>
+                <div id="sosUserPhone" class="sos-phone-display">📞 +254XXXXXXXX</div>
+                <div class="sos-status-tag">IMMEDIATE DANGER</div>
             </div>
         </div>
         
         <div class="sos-location-box">
-            <div style="font-weight: 900; color: #E60026; font-size: 11px; text-transform: uppercase; margin-bottom: 5px;">Last Known Location</div>
-            <div id="sosLocationText" class="sos-location-text">Fetching location...</div>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">📍 Open in Google Maps</a>
-                <a id="sosFullPageLink" href="#" class="btn btn-outline" style="font-size: 12px; padding: 10px; border-radius: 12px; text-decoration: none; color: #111; border: 1px solid #ccc; font-weight: 800;">🔍 View Full Alert Page</a>
+            <div class="sos-loc-header">📍 LAST KNOWN LOCATION</div>
+            <div id="sosLocationText" class="sos-location-text">Fetching live GPS data...</div>
+            <div class="sos-action-links">
+                <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">GET DIRECTIONS</a>
+                <a id="sosFullPageLink" href="#" class="sos-report-btn">VIEW FULL REPORT</a>
             </div>
         </div>
 
-        <div id="sosSenderControls" style="display: none; margin-top: 20px; border-top: 2px dashed #eee; padding-top: 20px;">
-            <button onclick="stopGlobalEmergencySOS()" style="background: #22C55E; color: white; border: none; padding: 15px 25px; border-radius: 50px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);">
-                ✅ I AM SAFE NOW - STOP GLOBAL ALARM
+        <div id="sosSenderControls" class="sos-controls-box" style="display: none;">
+            <button onclick="stopGlobalEmergencySOS()" class="btn-global-stop">
+                ✅ I AM SAFE - STOP GLOBAL ALARM
             </button>
+            <p class="sos-control-hint">This will notify everyone that you are safe.</p>
         </div>
 
-        <div id="receiver-stop-btn" style="display: none; margin-top: 20px; border-top: 2px dashed #eee; padding-top: 20px;">
-            <button onclick="stopEmergencyAlert()" style="background: #111; color: white; border: none; padding: 15px 25px; border-radius: 50px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
-                🔇 STOP MY ALARM
+        <div id="receiver-stop-btn" class="sos-controls-box" style="display: none;">
+            <button onclick="stopEmergencyAlert()" class="btn-local-stop">
+                🔇 STOP ALARM ON MY DEVICE
             </button>
+            <p class="sos-control-hint">Please call for help if you are nearby!</p>
         </div>
-        
-        <div class="sos-action-text" style="margin-top: 15px;">ALL ONLINE USERS HAVE BEEN NOTIFIED</div>
     </div>
 </div>
+
+<style>
+    /* SOS OVERLAY & CARD STYLES */
+    .emergency-overlay {
+        position: fixed; inset: 0; background: rgba(74, 0, 8, 0.95);
+        z-index: 2000000; display: none; align-items: center; justify-content: center;
+        padding: 20px; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        animation: fadeIn 0.3s ease;
+    }
+    .emergency-overlay.active { display: flex; }
+    
+    .emergency-card {
+        background: white; width: 100%; max-width: 440px; border-radius: 32px;
+        padding: 35px 25px; position: relative; text-align: center;
+        box-shadow: 0 40px 100px rgba(0,0,0,0.6); border: 5px solid #E60026;
+        animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .emergency-close {
+        position: absolute; top: 15px; right: 15px; background: #f1f5f9;
+        border: none; width: 36px; height: 36px; border-radius: 50%;
+        font-size: 20px; font-weight: bold; color: #64748b; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; z-index: 10;
+    }
+
+    .emergency-icon-wrap { position: relative; width: 70px; height: 70px; margin: 0 auto 15px; }
+    .emergency-pulse, .emergency-pulse-2 { position: absolute; inset: 0; border-radius: 50%; background: #E60026; opacity: 0.3; animation: emergencyPulse 2s infinite; }
+    .emergency-pulse-2 { animation-delay: 1s; }
+    .emergency-emoji { font-size: 40px; position: relative; z-index: 5; line-height: 70px; }
+    
+    .emergency-title { color: #E60026; font-weight: 950; font-size: 24px; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
+    
+    .sos-user-hero { 
+        display: flex; align-items: center; gap: 15px; background: #FEF2F4; 
+        padding: 15px; border-radius: 20px; margin-bottom: 20px; text-align: left;
+        border: 1px solid #FFD6DD;
+    }
+    .sos-user-img { width: 70px; height: 70px; border-radius: 16px; object-fit: cover; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .sos-user-details h3 { font-size: 20px; font-weight: 900; color: #111; margin: 0; }
+    .sos-phone-display { font-size: 16px; font-weight: 800; color: #E60026; margin: 3px 0; }
+    .sos-status-tag { font-size: 9px; font-weight: 900; color: white; background: #E60026; padding: 3px 8px; border-radius: 5px; width: fit-content; }
+
+    .sos-location-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 20px; margin-bottom: 10px; }
+    .sos-loc-header { font-size: 10px; font-weight: 900; color: #64748b; letter-spacing: 1px; margin-bottom: 8px; }
+    .sos-location-text { font-weight: 800; color: #1e293b; font-size: 14px; line-height: 1.4; margin-bottom: 15px; }
+    
+    .sos-action-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sos-map-btn, .sos-report-btn { 
+        padding: 12px; border-radius: 12px; font-size: 11px; font-weight: 900; 
+        text-decoration: none; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+    }
+    .sos-map-btn { background: #111; color: white; }
+    .sos-report-btn { background: white; color: #111; border: 1.5px solid #ddd; }
+
+    .sos-controls-box { margin-top: 15px; padding-top: 15px; border-top: 1.5px dashed #e2e8f0; }
+    .btn-global-stop { background: #10B981; color: white; border: none; padding: 16px; border-radius: 15px; font-weight: 900; font-size: 14px; cursor: pointer; width: 100%; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3); }
+    .btn-local-stop { background: #E60026; color: white; border: none; padding: 16px; border-radius: 15px; font-weight: 900; font-size: 14px; cursor: pointer; width: 100%; box-shadow: 0 8px 20px rgba(230,0,38,0.25); }
+    .sos-control-hint { font-size: 10px; color: #94a3b8; margin-top: 8px; font-weight: 600; }
+
+    @keyframes emergencyPulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.2); opacity: 0; } }
+</style>
 
 <style>
     /* SOS Floating Button */
