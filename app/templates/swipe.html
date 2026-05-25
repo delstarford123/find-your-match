@@ -114,9 +114,9 @@
 
     /* === CORE SWIPE CARD === */
     .deck-container { 
-        position: relative; width: 100%; max-width: 420px; 
-        height: 75dvh; max-height: 700px; min-height: 500px;
-        z-index: 5;
+        position: relative; width: min(100%, 420px); 
+        height: min(80dvh, 700px); min-height: 500px;
+        z-index: 5; margin: 0 auto;
     }
     
     .card { 

@@ -70,16 +70,17 @@
 
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
-        display: flex; width: 100%; max-width: 1000px;
-        height: calc(100vh - var(--nav-height, 70px) - 40px); min-height: 500px;
-        background: white; border-radius: 20px; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
-        overflow: hidden; margin: 20px auto; border: 1px solid #FFD6DD;
+        display: flex; width: 100%; max-width: 1200px;
+        height: calc(100dvh - var(--nav-height, 70px) - 20px); 
+        background: white; border-radius: 24px; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
+        overflow: hidden; margin: 10px auto; border: 1px solid #FFD6DD;
+        position: relative;
     }
     
     /* === SIDEBAR (MATCHES LIST) === */
     .matches-sidebar {
-        width: 35%; border-right: 1px solid #FFD6DD; background: #FEF2F4;
-        overflow-y: auto; display: flex; flex-direction: column;
+        width: clamp(280px, 30%, 350px); border-right: 1px solid #FFD6DD; background: #FEF2F4;
+        overflow-y: auto; display: flex; flex-direction: column; flex-shrink: 0;
     }
     .sidebar-header { 
         padding: 20px; background: #720000; color: white; 
@@ -89,35 +90,19 @@
 
     .match-item { 
         padding: 15px 20px; border-bottom: 1px solid #FFD6DD; cursor: pointer; 
-        display: flex; align-items: center; gap: 15px; transition: all 0.2s ease; 
+        display: flex; align-items: center; gap: 12px; transition: all 0.2s ease; 
     }
-    .match-item:hover { background: #FFD6DD; transform: translateX(5px); }
+    .match-item:hover { background: #FFD6DD; }
     .match-item.active { background: white; border-left: 5px solid #E60026; }
     
     .avatar-wrapper { position: relative; display: inline-block; flex-shrink: 0; }
-    .match-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
+    .match-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.3s; }
     
-    .avatar-match-glow { border: 2px solid #E60026; box-shadow: 0 0 12px rgba(230, 0, 38, 0.4); }
-    .badge-match {
-        background: linear-gradient(90deg, #E60026, #FF4B2B); color: white;
-        font-size: 9px; padding: 3px 8px; border-radius: 12px; font-weight: 900;
-        letter-spacing: 0.5px; box-shadow: 0 2px 5px rgba(230, 0, 38, 0.3);
-        animation: pulseMatch 2s infinite; white-space: nowrap; flex-shrink: 0;
-    }
-    @keyframes pulseMatch { 
-        0% { box-shadow: 0 0 0 0 rgba(230,0,38,0.4); } 
-        70% { box-shadow: 0 0 0 5px rgba(230,0,38,0); } 
-        100% { box-shadow: 0 0 0 0 rgba(230,0,38,0); } 
-    }
-
-    .online-dot { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; background-color: #bbb; border-radius: 50%; border: 2px solid #fff; transition: 0.3s ease;}
-    .online-dot.active { background-color: #28a745; box-shadow: 0 0 5px rgba(40, 167, 69, 0.5); }
-
     /* === CHAT AREA (THEMED) === */
     .chat-area { 
-        width: 65%; display: flex; flex-direction: column; position: relative; 
+        flex: 1; display: flex; flex-direction: column; position: relative; 
         background-color: var(--chat-bg); background-image: var(--chat-bg-image);
-        background-repeat: repeat; background-size: 400px;
+        background-repeat: repeat; background-size: 400px; min-width: 0;
     }
     
     .chat-header { 
@@ -291,30 +276,33 @@
         flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; background: #fafafa;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 900px) {
         .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
         
-        .inbox-container { margin: 0; height: calc(100vh - var(--nav-height, 70px)); border-radius: 0; border: none; }
+        .inbox-container { margin: 0; height: calc(100dvh - var(--nav-height, 70px)); border-radius: 0; border: none; }
         .matches-sidebar { width: 100%; display: flex; }
-        .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; }
+        .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; background-color: var(--chat-bg); }
+        
         .inbox-container.chat-active .matches-sidebar { display: none; }
         .inbox-container.chat-active .chat-area { display: flex; }
         
-        .chat-header { padding: 10px 15px; }
+        .chat-header { padding: 10px 15px; height: 65px; }
         .btn-back { display: block; margin-right: 10px; font-size: 24px; }
         .chat-header-avatar { width: 38px; height: 38px; margin-right: 10px; }
         .chat-partner-name { font-size: 16px; }
         .chat-partner-status { font-size: 11px; }
         
         .theme-modal { width: calc(100vw - 30px); max-width: 320px; right: 15px; top: 65px; padding: 15px; }
-        .color-grid { gap: 6px; }
-        .color-swatch { width: 28px; height: 28px; }
-        .bg-swatch { height: 50px; }
-
-        .chat-bubble { max-width: 88%; }
+        
+        .chat-history { padding: 15px 10px; gap: 8px; }
+        .chat-bubble { max-width: 90%; font-size: 14px; padding: 8px 12px 12px; }
         .empty-chat-state { display: none; }
         .btn-magic { width: 40px; height: 40px; font-size: 18px; }
+        
+        .chat-input-area { padding: 10px; gap: 8px; }
+        .chat-input-area input { padding: 12px 18px; font-size: 14px; }
+        .btn-send { width: 44px; height: 44px; font-size: 18px; }
     }
 </style>
 
