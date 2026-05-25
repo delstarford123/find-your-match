@@ -294,6 +294,16 @@
 </div>
 
 <div class="action-center">
+    {% if badges %}
+    <div style="width: 100%; display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+        {% for badge in badges %}
+        <div title="{{ badge.label }}" style="background: {{ badge.color }}15; border: 1px solid {{ badge.color }}40; color: {{ badge.color }}; padding: 6px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+            <span>{{ badge.icon }}</span> {{ badge.label }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <a href="/matches" class="action-pill">
         Unread Chats
         <div class="badge-count" id="dash-unread-badge" style="background: #ccc;">0</div>
@@ -306,6 +316,35 @@
             <div class="badge-count" style="background: #ccc;">0</div>
         {% endif %}
     </a>
+</div>
+
+<!-- === DAILY PROMPT / ICEBREAKER === -->
+<div style="max-width: 600px; margin: 0 auto 45px auto; padding: 0 clamp(15px, 5vw, 30px);">
+    <div style="background: #F0F9FF; border: 2px solid #BAE6FD; border-radius: 24px; padding: 25px; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(3, 105, 161, 0.1);">
+        <div style="position: absolute; top: -10px; right: -10px; font-size: 50px; opacity: 0.1; transform: rotate(15deg);">💡</div>
+        
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+            <span style="font-size: 20px;">📅</span>
+            <div style="font-weight: 900; font-size: 11px; color: #0369A1; text-transform: uppercase; letter-spacing: 1.5px;">Daily Icebreaker</div>
+        </div>
+
+        <h3 style="color: #0C4A6E; font-weight: 900; font-size: 18px; margin-bottom: 15px; line-height: 1.4;">"{{ daily_prompt.question }}"</h3>
+
+        {% if my_answer %}
+            <div style="background: white; border-radius: 16px; padding: 15px; border: 1px solid #E0F2FE;">
+                <div style="font-size: 11px; font-weight: 800; color: #38BDF8; margin-bottom: 5px; text-transform: uppercase;">Your Response:</div>
+                <div style="font-size: 15px; color: #334155; font-weight: 600;">{{ my_answer.answer }}</div>
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <a href="/feed" style="color: #0369A1; font-weight: 800; text-decoration: none; font-size: 13px;">✨ See what others said →</a>
+            </div>
+        {% else %}
+            <div id="prompt-input-box">
+                <textarea id="daily-answer-text" placeholder="Type your controversial take here..." style="width: 100%; height: 80px; border-radius: 16px; border: 1.5px solid #BAE6FD; padding: 15px; font-family: inherit; font-size: 14px; resize: none; margin-bottom: 15px; box-sizing: border-box;"></textarea>
+                <button onclick="submitDailyAnswer()" id="btn-submit-prompt" style="width: 100%; padding: 14px; border-radius: 30px; background: #0369A1; color: white; border: none; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.2s;">Post My Answer</button>
+            </div>
+        {% endif %}
+    </div>
 </div>
 
 <div id="install-container">
@@ -551,5 +590,35 @@
             deferredPrompt = null;
         }
     });
+
+    function submitDailyAnswer() {
+        const text = document.getElementById('daily-answer-text').value.trim();
+        if (!text) return alert("Please type an answer first!");
+
+        const btn = document.getElementById('btn-submit-prompt');
+        btn.innerText = "Posting...";
+        btn.disabled = true;
+
+        fetch('/api/submit_prompt_answer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ answer: text })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert(data.message || "Something went wrong.");
+                btn.innerText = "Post My Answer";
+                btn.disabled = false;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btn.innerText = "Post My Answer";
+            btn.disabled = false;
+        });
+    }
 </script>
 {% endblock %}

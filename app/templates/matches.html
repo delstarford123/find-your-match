@@ -430,6 +430,9 @@
                     <button onclick="toggleActionMenu(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; font-weight: bold;">⋮</button>
                     
                     <div id="action-menu" class="theme-modal" style="width: 200px; right: 0; top: 40px; padding: 10px;">
+                        <button onclick="openSuggestDateModal()" style="width: 100%; text-align: left; padding: 12px; background: #ECFDF5; border: none; color: #059669; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
+                            ☕ Suggest a Date
+                        </button>
                         <button onclick="triggerSafeWalk()" style="width: 100%; text-align: left; padding: 12px; background: #f8f9fa; border: none; color: #111; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
                             📍 Safe Walk
                         </button>
@@ -566,6 +569,49 @@
         {% endif %}
     </div>
 </div>
+
+<!-- === SUGGEST A DATE MODAL === -->
+<div id="suggest-date-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10001; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px);">
+    <div style="background: white; border-radius: 24px; padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: popIn 0.2s ease-out; display: flex; flex-direction: column; gap: 20px;">
+        <div style="text-align: center;">
+            <h2 style="color: #111; margin: 0; font-weight: 900;">Safe Date Spots ☕</h2>
+            <p style="color: #666; font-size: 13px; margin-top: 5px;">Pick a vetted, secure location for your first meeting.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 5px;">
+            <!-- Spot 1 -->
+            <div class="venue-card" onclick="sendDateSuggestion('MCU Cafeteria', 'Central campus, well-lit and secure.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
+                <div style="font-weight: 800; color: #720000; font-size: 16px;">🏢 MCU Cafeteria</div>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Quick lunch or coffee between classes.</div>
+            </div>
+
+            <!-- Spot 2 -->
+            <div class="venue-card" onclick="sendDateSuggestion('Lurambi Lounge', 'Popular, active, and student-friendly.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
+                <div style="font-weight: 800; color: #720000; font-size: 16px;">🍔 Lurambi Lounge</div>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Relaxed evening vibes and snacks.</div>
+            </div>
+
+            <!-- Spot 3 -->
+            <div class="venue-card" onclick="sendDateSuggestion('The Library Courtyard', 'Quiet, academic, and safe during the day.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
+                <div style="font-weight: 800; color: #720000; font-size: 16px;">📚 Library Courtyard</div>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Study dates and meaningful talks.</div>
+            </div>
+
+            <!-- Spot 4 -->
+            <div class="venue-card" onclick="sendDateSuggestion('Campus Gate Coffee', 'Vibrant, open, and easy to find.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
+                <div style="font-weight: 800; color: #720000; font-size: 16px;">☕ Campus Gate Coffee</div>
+                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Meeting for the first time.</div>
+            </div>
+        </div>
+
+        <button onclick="closeSuggestDateModal()" style="width: 100%; padding: 15px; border-radius: 30px; background: #f0f0f0; color: #333; border: none; font-weight: bold; font-size: 15px; cursor: pointer;">Close</button>
+    </div>
+</div>
+
+<style>
+    .venue-card:hover { border-color: #E60026; background: #FEF2F4; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(230,0,38,0.1); }
+    .venue-card:active { transform: scale(0.98); }
+</style>
 
 <div id="unmatch-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10001; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px);">
     <div style="background: white; border-radius: 24px; padding: 30px; width: 100%; max-width: 350px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3); animation: popIn 0.2s ease-out;">
@@ -714,6 +760,41 @@
     });
 
     document.addEventListener('DOMContentLoaded', initThemePicker);
+
+    // ==========================================
+    // SUGGEST A DATE LOGIC
+    // ==========================================
+    function openSuggestDateModal() {
+        document.getElementById('action-menu').classList.remove('active');
+        document.getElementById('suggest-date-modal').style.display = 'flex';
+    }
+
+    function closeSuggestDateModal() {
+        document.getElementById('suggest-date-modal').style.display = 'none';
+    }
+
+    function sendDateSuggestion(venueName, venueDesc) {
+        if (activePartnerId === 'none') return;
+
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const text = `Hey! I'd love to meet up at ${venueName}. It's ${venueDesc} \n\nAre you free for a coffee date? ☕`;
+        
+        const tempId = Math.random().toString(36).substr(2, 9);
+        renderMyMessageInstantly(text, tempId, null);
+        
+        const payload = { 
+            type: 'text', 
+            receiver_id: activePartnerId,
+            text: text,
+            temp_id: tempId
+        };
+        
+        socket.emit('send_message', payload);
+        closeSuggestDateModal();
+        
+        // Optional: Show a toast
+        alert(`Sent a date suggestion for ${venueName}!`);
+    }
 
     // ==========================================
     // SAFE WALK LOGIC 

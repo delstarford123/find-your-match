@@ -209,6 +209,16 @@
                 <span title="Verified Institutional Identity" style="font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">✅</span>
             </h1>
 
+            {% if badges %}
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; justify-content: center;">
+                {% for badge in badges %}
+                <div title="{{ badge.label }}" style="background: {{ badge.color }}15; border: 1px solid {{ badge.color }}40; color: {{ badge.color }}; padding: 6px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px {{ badge.color }}10;">
+                    <span>{{ badge.icon }}</span> {{ badge.label }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             {% if student.phone %}
             <div style="background: linear-gradient(135deg, #FFF5F6 0%, #FFFFFF 100%); border: 2px solid #FFD6DD; border-radius: 20px; padding: 20px; margin-bottom: 25px; box-shadow: 0 10px 20px rgba(230,0,38,0.05); display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;">
                 <div style="font-weight: 900; font-size: 11px; color: #E60026; text-transform: uppercase; letter-spacing: 1.5px;">Direct Contact Active</div>
@@ -231,6 +241,18 @@
                 <span class="bio-label">The Bio</span>
                 {{ student.bio or "This student is keeping it mysterious... for now!" }}
             </div>
+
+            {% if daily_qa %}
+            <div style="background: #F0F9FF; border: 2px solid #BAE6FD; border-radius: 20px; padding: 20px; margin-bottom: 25px; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -10px; right: -10px; font-size: 40px; opacity: 0.1; transform: rotate(15deg);">💡</div>
+                <div style="font-weight: 900; font-size: 11px; color: #0369A1; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">Icebreaker / Daily Prompt</div>
+                <div style="font-weight: 800; font-size: 15px; color: #0C4A6E; margin-bottom: 12px; line-height: 1.4;">"{{ daily_qa.question }}"</div>
+                <div style="background: white; border-radius: 12px; padding: 15px; font-size: 16px; color: #334155; font-weight: 600; border: 1px solid #E0F2FE;">
+                    {{ daily_qa.answer }}
+                </div>
+                <div style="margin-top: 10px; font-size: 11px; color: #38BDF8; font-weight: 800;">✨ Use this to start a great conversation!</div>
+            </div>
+            {% endif %}
 
             <div class="action-bar">
                 <a href="javascript:history.back()" class="btn-back">Back</a>

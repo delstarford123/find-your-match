@@ -307,6 +307,23 @@ def handle_typing(data):
         emit('user_typing', data, to=receiver_id)
 
 # Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
+def get_current_party_theme():
+    """Returns the themed night based on the day of the week."""
+    now = datetime.now(EAT)
+    day = now.strftime('%A')
+    
+    themes = {
+        'Monday': {'title': 'Motivation Mixer', 'icon': '🎯', 'desc': 'Start your week with high-value connections.'},
+        'Tuesday': {'title': 'Tech & Trivia Night', 'icon': '🧬', 'desc': 'Nerdy is the new sexy. Geeks unite!'},
+        'Wednesday': {'title': 'Wednesday Wildcard', 'icon': '🃏', 'desc': 'Expect the unexpected. Anything goes!'},
+        'Thursday': {'title': 'Throwback Thursday', 'icon': '📼', 'desc': 'Old school vibes and timeless matches.'},
+        'Friday': {'title': "Freshers' Friday", 'icon': '🎓', 'desc': 'Welcome to the party. The ultimate mixer.'},
+        'Saturday': {'title': 'Saturday Soiree', 'icon': '💃', 'desc': 'The peak of campus nightlife, virtually.'},
+        'Sunday': {'title': 'Sunday Serenade', 'icon': '🎸', 'desc': 'Chill vibes and meaningful deep talks.'}
+    }
+    
+    return themes.get(day, {'title': 'MMUST Mixer', 'icon': '✨', 'desc': 'Join the campus community live.'})
+
 @app.route('/party')
 @requires_subscription
 def party():
@@ -325,6 +342,8 @@ def party():
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     
+    theme = get_current_party_theme()
+    
     # Mark user as present in the party room in Firebase
     timestamp = datetime.now(EAT).isoformat()
     db.reference(f'party_participants/{user_id}').set({
@@ -337,7 +356,8 @@ def party():
     
     return render_template('party.html', 
                            current_user=session.get('user_name'),
-                           user_id=user_id)
+                           user_id=user_id,
+                           theme=theme)
 
 # ==========================================
 # 7. PARTY SOCKET EVENTS
@@ -656,13 +676,24 @@ def dashboard():
                     'perk': venue_data.get('conditions', '')
                 })
 
+    # --- NEW: FETCH TODAY'S PROMPT & MY ANSWER ---
+    today_str = datetime.now(EAT).strftime('%Y-%m-%d')
+    prompt_data = get_todays_prompt()
+    my_answer_data = db.reference(f'prompt_answers/{today_str}/{user_id}').get()
+    
+    # --- NEW: CALCULATE BADGES FOR SELF ---
+    badges = calculate_profile_badges(user_data)
+
     return render_template(
         'dashboard.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0], 
         matches=my_matches,
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
-        subscription_expiry=subscription_expiry
+        subscription_expiry=subscription_expiry,
+        daily_prompt=prompt_data,
+        my_answer=my_answer_data,
+        badges=badges
     )
     
 @app.route('/api/unmatch', methods=['POST'])
@@ -1068,6 +1099,36 @@ def profile():
     return render_template('profile.html', current_user=session.get('user_name'), user=user_data)
 
 
+def calculate_profile_badges(user_data):
+    \"\"\"Determines which badges a user has earned based on their activity.\"\"\"
+    badges = []
+    
+    # 1. Verified Badge
+    if user_data.get('is_verified'):
+        badges.append({'id': 'verified', 'icon': '✅', 'label': 'Verified Comrade', 'color': '#38BDF8'})
+    
+    # 2. Profile Pro (Completion Badge)
+    bio = user_data.get('bio', '')
+    img = user_data.get('img')
+    if len(bio) > 20 and img and not img.endswith('placeholder.png'):
+        badges.append({'id': 'pro', 'icon': '💎', 'label': 'Profile Pro', 'color': '#A855F7'})
+        
+    # 3. Highly Responsive (Simulated based on online status/activity)
+    if user_data.get('is_online'):
+        badges.append({'id': 'active', 'icon': '⚡', 'label': 'Highly Responsive', 'color': '#22C55E'})
+        
+    # 4. Legacy Badge (Account Age)
+    created_at = user_data.get('created_at')
+    if created_at:
+        try:
+            created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            if (datetime.now(timezone.utc) - created_dt).days > 30:
+                badges.append({'id': 'legacy', 'icon': '🛡️', 'label': 'Legacy User', 'color': '#EAB308'})
+        except:
+            pass
+            
+    return badges
+
 @app.route('/student/<target_id>')
 @requires_subscription
 def view_student(target_id):
@@ -1078,8 +1139,23 @@ def view_student(target_id):
     if not student_profile:
         flash("Oops! We couldn't find that student's profile.", "error")
         return redirect(url_for('dashboard'))
+
+    # --- NEW: FETCH TODAY'S PROMPT ANSWER ---
+    today_str = datetime.now(EAT).strftime('%Y-%m-%d')
+    prompt_data = get_todays_prompt()
+    answer_data = db.reference(f'prompt_answers/{today_str}/{target_id}').get()
+    
+    daily_qa = None
+    if answer_data:
+        daily_qa = {
+            'question': prompt_data.get('question'),
+            'answer': answer_data.get('answer')
+        }
         
-    return render_template('view_profile.html', student=student_profile)
+    # --- NEW: CALCULATE BADGES ---
+    badges = calculate_profile_badges(student_profile)
+        
+    return render_template('view_profile.html', student=student_profile, daily_qa=daily_qa, badges=badges)
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -3787,20 +3863,21 @@ CAMPUS_PROMPTS = [
     "What's the funniest lie you've used to escape a bad date?",
     "If your current relationship status was a weather forecast, what is it?",
     "What is the most brutal way to friendzone someone?",
-    "Have you ever crushed on a lecturer? (We won't judge).",
-    "What's the worst place to get into an argument with your partner on campus?",
-    "If they say 'I don't want a label right now', what are you doing?",
-    "What is the unwritten rule of dating someone in the same discussion group?",
-    "Is taking someone to a campus event a valid first date?",
-    "What's the most elite response to getting rejected?",
-    "Have you ever matched with someone on a dating app and then seen them in class?",
-    "What's the biggest green flag a comrade can have on their social media profile?",
-    "If they ask 'What are we?', what is the most terrifying answer?",
-    "What's the most overused pickup line by Kakamega guys?",
+    "Best late-night food spot around campus?",
+    "What's your most controversial take on 8-4-5 classes?",
     "Is 'I lost my phone' a valid excuse for ignoring someone for a week?",
     "What's the most iconic way to announce you are officially single?",
     "If you could ban one phrase from campus dating vocabulary, what would it be?",
-    "What's the ultimate secret to surviving MMUST Dating AI?"
+    "What's the ultimate secret to surviving MMUST Dating AI?",
+    "Library or MCU for a study date?",
+    "Which hostel has the best vibes?",
+    "What is the one thing you can't survive campus without?",
+    "Would you rather date someone in your class or from a different faculty?",
+    "What's the worst place to get into an argument with your partner on campus?",
+    "If they say 'I don't want a label right now', what are you doing?",
+    "Is taking someone to a campus event a valid first date?",
+    "What's the most elite response to getting rejected?",
+    "What's the biggest green flag a comrade can have on their social media profile?"
 ]
 def get_todays_prompt():
     """Lazy evaluator: Checks if today has a prompt. If not, sets one."""

@@ -346,7 +346,13 @@
 
     <div class="party-content">
         <div class="party-header">
-            <h1 class="neon-title">COMRADES NIGHT CLUB</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: clamp(2rem, 5vw, 3.5rem); text-shadow: 0 0 15px #f0f;">{{ theme.icon }}</div>
+                <div>
+                    <h1 class="neon-title" style="margin: 0; line-height: 1;">{{ theme.title }}</h1>
+                    <p style="color: #0ff; font-weight: 800; font-size: 14px; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;">{{ theme.desc }}</p>
+                </div>
+            </div>
             <div class="party-stats">
                 <span id="online-count">0</span> COMRADES VIBING
             </div>
