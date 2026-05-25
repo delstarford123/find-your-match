@@ -4195,7 +4195,7 @@ def handle_end_call(data):
 # 🚨 EMERGENCY SOS BROADCAST 🚨
 @socketio.on('emergency_sos')
 def handle_emergency_sos(data):
-    \"\"\"Broadcasts an emergency alert to ALL online users.\"\"\"
+    """Broadcasts an emergency alert to ALL online users."""
     sender_id = data.get('sender_id')
     if not sender_id:
         return
