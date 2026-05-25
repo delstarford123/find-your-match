@@ -353,6 +353,9 @@
                             {% if match.id == 'AI_COMPANION' %} <span title="AI Bot">🤖</span>
                             {% elif match.is_perfect_match %} <span title="High Compatibility!">❤️</span> {% endif %}
                         </div>
+                        {% if match.phone %}
+                            <div style="font-size: 11px; color: #E60026; font-weight: 900; margin-top: 1px;">📞 {{ match.phone }}</div>
+                        {% endif %}
                         
                         {% if match.is_mutual_match %}
                             <span class="badge-match" style="margin-left: 5px;">MATCH!</span>
@@ -388,10 +391,16 @@
                 </div>
                 
                 <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; margin-right: 10px;">
-                    <span class="chat-partner-name">
+                    <span class="chat-partner-name" onclick="window.location.href='/view_profile/{{ active_partner.id }}'" style="cursor: pointer;">
                         {{ active_partner.name }}
                         {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
                     </span>
+                    
+                    {% if active_partner.phone %}
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.9); font-weight: 700; margin-bottom: 2px;">
+                            📞 <a href="tel:{{ active_partner.phone }}" style="color: white; text-decoration: none;">+{{ active_partner.phone }}</a>
+                        </div>
+                    {% endif %}
                     
                     {% if is_blind_date and messages_left > 0 %}
                         <div id="reveal-tracker">

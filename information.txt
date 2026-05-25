@@ -1,0 +1,59 @@
+# FIND YOUR MATCH (FYM) - VERSION 2.0 TECHNICAL SPECIFICATIONS
+
+================================================================================
+1. INFRASTRUCTURE & DATABASE BUCKETS
+================================================================================
+The FYM platform has migrated to a robust Cloud-Native architecture utilizing 
+the Firebase Admin SDK for seamless data and media orchestration.
+
+- DATABASE URL: https://mmust-dating-site-default-rtdb.firebaseio.com/
+- STORAGE BUCKET: mmust-dating-site.firebasestorage.app
+- TIMEZONE: East Africa Time (EAT - UTC+3) for synchronized student schedules.
+- ARCHITECTURE: Singleton pattern implementation for thread-safe Firebase 
+  initialization across the Flask application.
+
+================================================================================
+2. MULTI-INSTITUTION SCALING & VERIFICATION
+================================================================================
+V2 has evolved into a cross-campus network supporting all Kenyan Universities 
+and Colleges through a unified "Institutional Entry" gateway.
+
+- INSTITUTION TYPES: Support for Universities, Colleges, and TIVETs.
+- DYNAMIC VALIDATION: 
+  * MMUST: Specialized Regex validation for reg numbers (e.g., SAB/B/01-04774/2023).
+  * GLOBAL: Generic alphanumeric pattern support for all other institutions.
+- ACCOUNT LIFECYCLE: Automated graduation date calculation based on 
+  institutional program durations (Medicine: 6yrs, Engineering: 5yrs, General: 4yrs).
+- IDENTITY ASSURANCE: Profile verification badges issued upon valid 
+  institutional ID submission and email verification.
+
+================================================================================
+3. MULTIMEDIA & FILE UPLOADS
+================================================================================
+Enhanced vibe-matching capabilities through a decentralized media management system.
+
+- PROFILE ASSETS: High-resolution photo uploads with automatic Firebase Storage 
+  mapping to the /profiles/{user_id}/ directory.
+- B2B MERCHANT PORTAL:
+  * Venue Image Uploads: Restaurants and hotels can upload high-quality vibe 
+    previews directly from their dashboard.
+  * Interactive Merchant QR: Dynamic generation of booking QR codes for 
+    verified student discounts.
+- CHAT MULTIMEDIA: 
+  * Support for Image, Audio (Voice Notes), and Video attachments in real-time.
+  * XTTS v2 Integration: High-fidelity voice synthesis for AI Wingman interactions.
+
+================================================================================
+4. SECURITY & API VERSIONING
+================================================================================
+- VERSION CONTROL: New features are isolated under the /api/v2/ prefix to ensure 
+  backward compatibility with V1 clients.
+- ACCESS CONTROL: 
+  * PBKDF2 Password Hashing.
+  * Automated Account Locking after 5 failed login attempts.
+  * Cross-Site Request Forgery (CSRF) protection on all V2 forms.
+- DATA PRIVACY: Encrypted storage of institutional IDs and sensitive user metadata.
+
+================================================================================
+© 2026 FIND YOUR MATCH AI | CROSS-INSTITUTION NETWORK
+================================================================================

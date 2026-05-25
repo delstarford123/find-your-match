@@ -130,6 +130,9 @@
                     {% if u.is_mutual %}<span class="mutual-badge">MATCH</span>{% endif %}
                 </h3>
                 <p>{{ u.course }}</p>
+                {% if u.phone %}
+                    <p style="color: #E60026; font-weight: 800; font-size: 11px;">📞 +{{ u.phone }}</p>
+                {% endif %}
             </div>
             <div class="action-area">
                 <div class="meta-data">

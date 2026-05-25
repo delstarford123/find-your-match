@@ -519,6 +519,7 @@
             <img src="${data.img || '/static/img/placeholder.png'}" class="modal-img">
             <div class="modal-name">${data.name}</div>
             <div class="modal-bio">Masinde Muliro comrade vibing in the club.</div>
+            ${data.phone ? `<div style="color: #E60026; font-weight: 900; margin-bottom: 10px; font-size: 1.1rem;">📞 +${data.phone}</div>` : ''}
             <button class="modal-btn btn-whisper" onclick="startWhisper('${uid}', '${data.name}')">
                 🤫 Whisper Privately
             </button>

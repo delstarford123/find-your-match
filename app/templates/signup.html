@@ -240,6 +240,12 @@
                 <small id="reg_hint" style="font-size: 11px; color: #888; margin-top: 5px; display: block;">MMUST Format: SAB/B/01-04774/2023</small>
             </div>
 
+            <div class="input-group">
+                <label>M-Pesa / Phone Number</label>
+                <input type="tel" name="phone" id="phone_signup" placeholder="07XXXXXXXX or 2547XXXXXXXX" required oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value.startsWith('0')) { this.value = '254' + this.value.substring(1); }">
+                <small style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Format: 2547XXXXXXXX (Starts with 254)</small>
+            </div>
+
             <div class="flex-row">
                 <div class="input-group">
                     <label>Create Password</label>

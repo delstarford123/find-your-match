@@ -249,7 +249,7 @@ def requires_subscription(f):
         user_data = db.reference(f'profiles/{user_id}').get()
         
         if not user_data or not user_data.get('is_paid', False):
-            flash("Subscription Required: Please pay 20 KSH to access this feature.", "warning")
+            flash("Subscription Required: Please pay 50 KSH to access this feature.", "warning")
             return render_template('paywall.html') 
             
         return f(*args, **kwargs)
@@ -330,6 +330,7 @@ def party():
     db.reference(f'party_participants/{user_id}').set({
         'name': user_data.get('name', 'Anonymous').split(' ')[0],
         'img': user_data.get('img', '/static/img/placeholder.png'),
+        'phone': user_data.get('phone'),
         'joined_at': timestamp,
         'shape_seed': random.randint(1, 8) # Used for dynamic CSS shapes
     })
@@ -531,6 +532,7 @@ def swipe():
             'major': p.get('major', 'MMUST Student'),
             'bio': p.get('bio', 'Hey! I am using MMUST Dating AI.'),
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+            'phone': p.get('phone'), # Direct access for professional profile contact
             'intent': p_intent, # Passes the intent so the frontend tag works!
             'compatibility': final_score,
             'is_perfect_match': final_score >= 80  # Flag for the frontend badge
@@ -901,6 +903,7 @@ def matches(partner_id=None):
                     'id': p_id,
                     'name': p.get('name', 'Student').split(' ')[0], # First Name only
                     'img': p.get('img', '/static/img/placeholder.png'),
+                    'phone': p.get('phone'), # Professional access for mutual matches
                     'is_perfect_match': is_perfect_match, # ❤️ TRIGGERS PERFECT MATCH BADGE
                     'is_online': p.get('is_online', False),
                     'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
@@ -992,6 +995,7 @@ def profile():
         new_age = request.form.get('age')
         new_religion = request.form.get('religion')
         new_avatar = request.form.get('avatar') # For the new 20 avatars feature!
+        new_phone = request.form.get('phone')
 
         try:
             # 1.5 Handle Photo Upload to Firebase Storage
@@ -1017,6 +1021,17 @@ def profile():
             update_data = {}
             if new_bio: update_data['bio'] = new_bio.strip()
             if new_religion: update_data['religion'] = new_religion.strip()
+            if new_phone:
+                new_phone = new_phone.strip().replace('+', '')
+                # If it starts with 0, replace with 254
+                if new_phone.startswith('0'):
+                    new_phone = '254' + new_phone[1:]
+                
+                if new_phone.isdigit() and len(new_phone) >= 9:
+                    update_data['phone'] = new_phone
+                else:
+                    flash("Please enter a valid phone number.", "warning")
+                    
             if image_url: 
                 update_data['img'] = image_url
             elif new_avatar: 
@@ -1421,7 +1436,7 @@ def verify_customer(restaurant_id):
 
     if not user_data or not user_data.get('is_paid'):
         status = "REJECTED"
-        message = "No active subscription found. Pay 20 KSH via M-Pesa to unlock exclusive campus discounts."
+        message = "No active subscription found. Pay 50 KSH via M-Pesa to unlock exclusive campus discounts."
         color = "#E60026"
     else:
         status = "VERIFIED"
@@ -2346,7 +2361,7 @@ def pay_student_fee():
     callback_url = "https://www.findyourmatch.co.ke/api/mpesa/student_callback"
     
     try:
-        response = initiate_stk_push(phone_number, 20, user_id, callback_url)
+        response = initiate_stk_push(phone_number, 50, user_id, callback_url)
 
         if not response or 'error' in response:
             return jsonify({'success': False, 'message': 'Payment gateway busy. Please try again.'})
@@ -4347,6 +4362,7 @@ def full_directory():
             'full_name': partner_name,
             'img': p.get('img') or '/static/img/placeholder.png',
             'course': p.get('course', 'MMUST Student'),
+            'phone': p.get('phone'),
             'is_online': p.get('is_online', False),
             'unread_count': unread_count,
             'is_mutual': is_mutual,
@@ -4558,12 +4574,16 @@ def comment_gossip(post_id):
     })
     return jsonify({'success': True})
    
+   
+   
 import os
 from groq import Groq
 from flask import request, jsonify, session
 
+
 # Initialize Groq Client (Make sure GROQ_API_KEY is in your .env file)
 groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+
 
 @app.route('/api/wingman/execute', methods=['POST'])
 def api_wingman_execute():

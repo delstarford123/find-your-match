@@ -79,6 +79,7 @@ def signup():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         bio = request.form.get('bio', 'Hey! I am using MMUST Dating AI.')
+        phone = request.form.get('phone', '').strip()
         
         # --- REFERRAL LOGIC: Check form first, then check session ---
         ref_code = request.form.get('ref_code', '').strip() or session.get('referred_by', '')
@@ -99,6 +100,10 @@ def signup():
             return redirect(url_for('auth.signup'))
         if password != confirm_password:
             flash("Passwords do not match.", "error")
+            return redirect(url_for('auth.signup'))
+            
+        if not phone.startswith('254') or len(phone) != 12:
+            flash("Phone number must be in format 2547XXXXXXXX", "error")
             return redirect(url_for('auth.signup'))
 
         # 3. Validation: Reg Number Format
@@ -169,6 +174,7 @@ def signup():
                 'name': name,
                 'email': email,
                 'reg_number': reg_number,
+                'phone': phone,
                 'password': hashed_password,        # 🔒 Securely hashed password
                 'account_expiry': expiry_date,      # ⏳ Automated Deletion Date
                 'created_at': created_at,           # 🕒 Creation timestamp for verification window

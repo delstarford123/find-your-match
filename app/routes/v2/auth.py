@@ -76,6 +76,7 @@ def signup():
     religion = data.get('religion')
     bio = data.get('bio', f'Hey! I am a student at {institution_name}.')
     ref_code = data.get('ref_code', '').strip() or session.get('referred_by', '')
+    phone = data.get('phone', '').strip()
     
     # 1. Basic Validations
     if not password or len(password) < 6:
@@ -84,6 +85,8 @@ def signup():
         return jsonify({"status": "error", "message": "Passwords do not match."}), 400
     if not email or not re.match(EMAIL_PATTERN, email):
         return jsonify({"status": "error", "message": "Please enter a valid email address."}), 400
+    if not phone or not phone.startswith('254') or len(phone) != 12:
+        return jsonify({"status": "error", "message": "Phone number must be in format 2547XXXXXXXX"}), 400
 
     # 2. Institution-aware Reg Number Validation
     if reg_number:
@@ -123,6 +126,7 @@ def signup():
             'name': name,
             'email': email,
             'reg_number': reg_number,
+            'phone': phone,
             'institution_name': institution_name,
             'institution_type': institution_type,
             'is_student': is_student,

@@ -266,6 +266,12 @@
                 </div>
             </div>
 
+            <div class="input-group">
+                <label for="phone">M-Pesa / Phone Number</label>
+                <input type="tel" id="phone" name="phone" value="{{ user.phone or '' }}" placeholder="2547XXXXXXXX" pattern="254[0-9]{9}" title="Format: 2547XXXXXXXX">
+                <small style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Used for Match Notifications & M-Pesa payments.</small>
+            </div>
+
             <h4 class="section-title">Profile Picture</h4>
             <div class="file-upload-wrapper">
                 <input type="file" id="image-upload" name="profile_image" accept="image/png, image/jpeg, image/webp">
@@ -434,12 +440,24 @@
                     {{ user.name.split(' ')[0] if user.name else 'Student' }} 
                     <span class="age-badge" id="preview-age-badge">{{ user.age }}</span>
                 </h3>
+
+                <div id="preview-phone-row" style="margin-bottom: 15px; display: {{ 'flex' if user.phone else 'none' }}; flex-direction: column; align-items: center; gap: 5px; background: #FEF2F4; padding: 10px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                    <div style="font-size: 9px; font-weight: 900; color: #E60026; text-transform: uppercase; letter-spacing: 1px;">Contact Ready</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 16px;">📞</span>
+                        <span id="preview-phone" style="color: #720000; font-weight: 900; font-size: 15px;">
+                            +{{ user.phone if user.phone else '' }}
+                        </span>
+                    </div>
+                </div>
                 
-                {% if user.bio and ('' in user.bio or '' in user.bio) %}
-                <span style="background: #E60026; color: white; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 900; display: inline-block; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    AI Optimized
-                </span>
-                {% endif %}
+                <div style="background: linear-gradient(135deg, #FFF5F6 0%, #FFFFFF 100%); border: 2px dashed #FFD6DD; padding: 12px; border-radius: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 5px 15px rgba(230,0,38,0.05);">
+                    <div style="font-size: 20px;">✨</div>
+                    <div>
+                        <div style="font-weight: 900; font-size: 10px; color: #720000; letter-spacing: 0.5px; margin-bottom: 1px;">AI OPTIMIZED</div>
+                        <div style="font-size: 11px; color: #555; font-weight: 600;">Match Algorithm Verified</div>
+                    </div>
+                </div>
                 
                 <p id="preview-bio">{{ user.bio or "Tell us about yourself..." }}</p>
             </div>
@@ -492,6 +510,17 @@
     document.getElementById('age').addEventListener('input', function() {
         const badge = document.getElementById('preview-age-badge');
         if(badge) badge.innerText = this.value || "18";
+    });
+
+    document.getElementById('phone').addEventListener('input', function() {
+        const row = document.getElementById('preview-phone-row');
+        const span = document.getElementById('preview-phone');
+        if (this.value) {
+            row.style.display = 'flex';
+            span.innerText = '+' + this.value;
+        } else {
+            row.style.display = 'none';
+        }
     });
 
     document.getElementById('intent-select').addEventListener('change', function() {
