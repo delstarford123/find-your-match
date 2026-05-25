@@ -4240,6 +4240,7 @@ def handle_emergency_sos(data):
             'sender_id': sender_id,
             'sender_name': sender_name,
             'sender_img': sender_img,
+            'sender_phone': sender_phone,
             'latitude': data.get('latitude'),
             'longitude': data.get('longitude'),
             'location_name': "Active Campus Alert", # Default fallback
@@ -4269,6 +4270,16 @@ def handle_emergency_sos(data):
         
     except Exception as e:
         logger.error(f"Error handling SOS broadcast: {e}")
+
+@socketio.on('stop_emergency_sos')
+def handle_stop_emergency_sos(data):
+    """Broadcasts a signal to stop the emergency alert for everyone."""
+    sender_id = data.get('sender_id')
+    if not sender_id:
+        return
+    
+    emit('receive_sos_stop', {'sender_id': sender_id}, broadcast=True)
+    logger.info(f"✅ SOS STOPPED by sender {sender_id}")
 
 # ─────────────────────────────────────────────────────────────
 #  4. LIVE TALK DIRECTORY

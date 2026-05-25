@@ -1179,7 +1179,7 @@
 <!-- === 🚨 EMERGENCY ALERT OVERLAY 🚨 === -->
 <div id="emergencyOverlay" class="emergency-overlay">
     <div class="emergency-card">
-        <button class="emergency-close" onclick="stopEmergencyAlert()">&times;</button>
+        <button class="emergency-close" onclick="stopEmergencyAlert()" title="Stop Local Alarm">&times;</button>
         <div class="emergency-icon-wrap">
             <div class="emergency-pulse"></div>
             <div class="emergency-pulse-2"></div>
@@ -1188,8 +1188,9 @@
         <h2 class="emergency-title">EMERGENCY ALERT</h2>
         <div class="emergency-info">
             <img id="sosUserImg" src="/static/img/placeholder.png" class="sos-user-img">
-            <div>
+            <div style="flex: 1; min-width: 0;">
                 <p id="sosUserName" class="sos-user-name">A Student</p>
+                <div id="sosUserPhone" style="color: #E60026; font-weight: 900; font-size: 16px; margin: 4px 0;">📞 +254XXXXXXXX</div>
                 <p class="sos-danger-text">IS IN IMMEDIATE DANGER!</p>
             </div>
         </div>
@@ -1199,8 +1200,14 @@
             <div id="sosLocationText" class="sos-location-text">Fetching location...</div>
             <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">📍 Open in Google Maps</a>
         </div>
+
+        <div id="sosSenderControls" style="display: none; margin-top: 20px; border-top: 2px dashed #eee; padding-top: 20px;">
+            <button onclick="stopGlobalEmergencySOS()" style="background: #22C55E; color: white; border: none; padding: 15px 25px; border-radius: 50px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);">
+                ✅ I AM SAFE NOW - STOP GLOBAL ALARM
+            </button>
+        </div>
         
-        <div class="sos-action-text">ALL ONLINE USERS HAVE BEEN NOTIFIED</div>
+        <div class="sos-action-text" style="margin-top: 15px;">ALL ONLINE USERS HAVE BEEN NOTIFIED</div>
     </div>
 </div>
 
@@ -1407,14 +1414,23 @@
             let sosTimeout = null;
 
             globalSocket.on('receive_sos', (data) => {
-                if (data.sender_id === myUserId) return; // Don't alert self
-
-                // Update UI with the name of the person in trouble
+                // Update UI with the name and phone of the person in trouble
                 document.getElementById('sosUserImg').src = data.sender_img || '/static/img/placeholder.png';
                 document.getElementById('sosUserName').innerText = data.sender_name || 'A Comrade';
-                document.getElementById('sosLocationText').innerText = data.location_name || "Unknown Location";
+                document.getElementById('sosUserPhone').innerText = '📞 +' + (data.sender_phone || '254XXXXXXXX');
+                document.getElementById('sosLocationText').innerText = data.location_name || "Active Campus Alert";
                 
-                // Show the card
+                // Show/Hide controls based on who sent it
+                const isMe = data.sender_id === myUserId;
+                document.getElementById('sosSenderControls').style.display = isMe ? 'block' : 'none';
+                
+                if (isMe) {
+                    // Don't play alarm for self, but show the card so they can stop it
+                    document.getElementById('emergencyOverlay').classList.add('active');
+                    return; 
+                }
+
+                // Show the card for others
                 document.getElementById('emergencyOverlay').classList.add('active');
 
                 if (data.latitude && data.longitude) {
@@ -1447,6 +1463,20 @@
                     navigator.vibrate([500, 200, 500, 200, 500]);
                 }
             });
+
+            globalSocket.on('receive_sos_stop', (data) => {
+                // Remote signal to stop the alarm
+                stopEmergencyAlert();
+                if (data.sender_id !== myUserId) {
+                    alert("✅ Emergency Resolved: The student is now safe.");
+                }
+            });
+
+            window.stopGlobalEmergencySOS = function() {
+                if (!confirm("Confirm you are safe? This will silence the alarm for ALL students.")) return;
+                globalSocket.emit('stop_emergency_sos', { sender_id: myUserId });
+                stopEmergencyAlert();
+            };
 
             window.stopEmergencyAlert = function() {
                 document.getElementById('emergencyOverlay').classList.remove('active');
