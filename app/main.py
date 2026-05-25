@@ -462,8 +462,9 @@ def terms():
     return render_template('terms.html', current_user=session.get('user_name'))
 
 @app.route('/venues')
+@requires_subscription
 def venues():
-    # Public route
+    # Only active subscribers can view venues
     active_venues = get_all_restaurants(active_only=True)
     return render_template('venues.html', current_user=session.get('user_name'), venues=active_venues)
 
@@ -718,13 +719,18 @@ def dashboard():
     # --- NEW: CALCULATE BADGES FOR SELF ---
     badges = calculate_profile_badges(user_data)
 
+    # 5. Get unread notification count
+    unread_ref = db.reference(f'notifications/{user_id}').order_by_child('status').equal_to('unread').get()
+    unread_count = len(unread_ref) if unread_ref else 0
+
     return render_template(
         'dashboard.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0], 
         matches=my_matches,
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
-        subscription_expiry=subscription_expiry,
+        subscription_active=subscription_active,
+        unread_count=unread_count,
         daily_prompt=prompt_data,
         my_answer=my_answer_data,
         badges=badges
@@ -3150,7 +3156,7 @@ def propose_date():
 # ==========================================
 
 @app.route('/wingman')
-@login_required
+@requires_subscription
 def ai_wingman():
     """Renders the AI Wingman dashboard."""
     user_id = session.get('user_id')
@@ -4766,6 +4772,7 @@ from datetime import datetime
 # ==========================================
 
 @app.route('/campus-gossip')
+@requires_subscription
 def campus_gossip():
     """
     Renders the anonymous gossip feed, sorting newest posts first.
