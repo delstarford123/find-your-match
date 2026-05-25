@@ -4192,6 +4192,48 @@ def handle_end_call(data):
     if target_id:
         emit('call_ended', room=target_id)
 
+# 🚨 EMERGENCY SOS BROADCAST 🚨
+@socketio.on('emergency_sos')
+def handle_emergency_sos(data):
+    \"\"\"Broadcasts an emergency alert to ALL online users.\"\"\"
+    sender_id = data.get('sender_id')
+    if not sender_id:
+        return
+
+    try:
+        # Fetch sender info for the alert
+        user_ref = db.reference(f'profiles/{sender_id}')
+        user = user_ref.get() or {}
+        
+        sender_name = user.get('name', 'A Student')
+        sender_img = user.get('img', '/static/img/placeholder.png')
+        
+        payload = {
+            'sender_id': sender_id,
+            'sender_name': sender_name,
+            'sender_img': sender_img,
+            'latitude': data.get('latitude'),
+            'longitude': data.get('longitude'),
+            'location_name': "MMUST Campus / Environs", # Default fallback
+            'timestamp': datetime.now(EAT).isoformat()
+        }
+        
+        # Emit to EVERYONE connected
+        emit('receive_sos', payload, broadcast=True)
+        logger.warning(f"🚨 SOS TRIGGERED by {sender_name} ({sender_id})")
+        
+        # Log to admin audit for safety
+        db.reference('admin_audit_logs').push({
+            'action': 'SOS_TRIGGERED',
+            'user_id': sender_id,
+            'user_name': sender_name,
+            'details': f"Location: {data.get('latitude')}, {data.get('longitude')}",
+            'timestamp': datetime.now(EAT).isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error handling SOS broadcast: {e}")
+
 # ─────────────────────────────────────────────────────────────
 #  4. LIVE TALK DIRECTORY
 # ─────────────────────────────────────────────────────────────
@@ -4721,5 +4763,5 @@ if __name__ == '__main__':
     # You must listen on '0.0.0.0' for external traffic on a server!
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
     
-e)
+    
     

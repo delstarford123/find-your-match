@@ -1170,6 +1170,175 @@
     </div>
 </a>
 
+<!-- === 🆘 SOS EMERGENCY BUTTON === -->
+<button class="sos-floating-btn" id="sosTriggerBtn" onclick="triggerEmergencySOS()" title="EMERGENCY SOS">
+    <div class="sos-ring"></div>
+    <div class="sos-inner">SOS</div>
+</button>
+
+<!-- === 🚨 EMERGENCY ALERT OVERLAY 🚨 === -->
+<div id="emergencyOverlay" class="emergency-overlay">
+    <div class="emergency-card">
+        <button class="emergency-close" onclick="stopEmergencyAlert()">&times;</button>
+        <div class="emergency-icon-wrap">
+            <div class="emergency-pulse"></div>
+            <div class="emergency-pulse-2"></div>
+            <span class="emergency-emoji">🚨</span>
+        </div>
+        <h2 class="emergency-title">EMERGENCY ALERT</h2>
+        <div class="emergency-info">
+            <img id="sosUserImg" src="/static/img/placeholder.png" class="sos-user-img">
+            <div>
+                <p id="sosUserName" class="sos-user-name">A Student</p>
+                <p class="sos-danger-text">IS IN IMMEDIATE DANGER!</p>
+            </div>
+        </div>
+        
+        <div class="sos-location-box">
+            <div style="font-weight: 900; color: #E60026; font-size: 11px; text-transform: uppercase; margin-bottom: 5px;">Last Known Location</div>
+            <div id="sosLocationText" class="sos-location-text">Fetching location...</div>
+            <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">📍 Open in Google Maps</a>
+        </div>
+        
+        <div class="sos-action-text">ALL ONLINE USERS HAVE BEEN NOTIFIED</div>
+    </div>
+</div>
+
+<style>
+    /* SOS Floating Button */
+    .sos-floating-btn {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #E60026;
+        padding: 18px 12px;
+        border-radius: 20px 0 0 20px;
+        border: 2px solid white;
+        border-right: none;
+        z-index: 9991;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: -5px 0 20px rgba(230, 0, 38, 0.4);
+        transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .sos-floating-btn:hover {
+        transform: translateY(-50%) translateX(-10px);
+        background: #720000;
+    }
+    .sos-inner {
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        transform: rotate(180deg);
+        color: white;
+        font-weight: 900;
+        font-size: 16px;
+        letter-spacing: 2px;
+    }
+    .sos-ring {
+        position: absolute;
+        inset: -5px;
+        border: 2px solid #E60026;
+        border-radius: 25px 0 0 25px;
+        animation: sosPing 1.5s infinite;
+        opacity: 0;
+    }
+    @keyframes sosPing {
+        0% { transform: scale(1); opacity: 1; }
+        100% { transform: scale(1.3); opacity: 0; }
+    }
+
+    /* Emergency Overlay */
+    .emergency-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(114, 0, 0, 0.95);
+        z-index: 20000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        backdrop-filter: blur(10px);
+        animation: fadeIn 0.3s ease;
+    }
+    .emergency-overlay.active { display: flex; }
+    
+    .emergency-card {
+        background: white;
+        width: 100%;
+        max-width: 450px;
+        border-radius: 32px;
+        padding: 40px 30px;
+        position: relative;
+        text-align: center;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+        border: 4px solid #E60026;
+        animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes emergencyPop {
+        0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+        100% { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    
+    .emergency-close {
+        position: absolute;
+        top: 20px; right: 20px;
+        background: #f0f0f0;
+        border: none;
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: 0.2s;
+    }
+    .emergency-close:hover { background: #e0e0e0; transform: scale(1.1); }
+    
+    .emergency-icon-wrap {
+        position: relative;
+        width: 80px; height: 80px;
+        margin: 0 auto 20px;
+    }
+    .emergency-pulse, .emergency-pulse-2 {
+        position: absolute; inset: 0; border-radius: 50%; background: #E60026; opacity: 0.3;
+        animation: emergencyPulse 2s infinite;
+    }
+    .emergency-pulse-2 { animation-delay: 1s; }
+    .emergency-emoji { font-size: 50px; position: relative; z-index: 5; line-height: 80px; }
+    
+    @keyframes emergencyPulse {
+        0% { transform: scale(1); opacity: 0.6; }
+        100% { transform: scale(2.5); opacity: 0; }
+    }
+    
+    .emergency-title { color: #E60026; font-weight: 900; font-size: 28px; letter-spacing: 2px; margin-bottom: 30px; }
+    
+    .emergency-info {
+        display: flex; align-items: center; gap: 20px; background: #FEF2F4;
+        padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: left;
+    }
+    .sos-user-img { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #E60026; object-fit: cover; }
+    .sos-user-name { font-size: 20px; font-weight: 900; color: #111; margin: 0; }
+    .sos-danger-text { color: #E60026; font-weight: 800; font-size: 14px; margin: 5px 0 0; }
+    
+    .sos-location-box { background: #f8f9fa; border: 1px solid #eee; padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: center; }
+    .sos-location-text { font-weight: 700; color: #444; font-size: 15px; line-height: 1.4; margin-bottom: 15px; }
+    .sos-map-btn {
+        display: inline-block; background: #111; color: white; padding: 12px 20px;
+        border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 13px;
+        transition: 0.2s;
+    }
+    .sos-map-btn:hover { background: #000; transform: translateY(-2px); }
+    
+    .sos-action-text { font-size: 11px; font-weight: 800; color: #aaa; letter-spacing: 1px; }
+</style>
+
 <script>
     function updateLiveOnlineCount() {
         fetch('/api/online_count')
@@ -1230,6 +1399,76 @@
             globalSocket.on('connect', () => { 
                 globalSocket.emit('join_call_room', { user_id: myUserId }); 
             });
+
+            // === 🚨 SOS BROADCAST LISTENER 🚨 ===
+            let sosAudio1 = new Audio('/static/audio/danger1.mp3');
+            let sosAudio2 = new Audio('/static/audio/danger2.mp3');
+            let sosAlarmInterval = null;
+
+            globalSocket.on('receive_sos', (data) => {
+                if (data.sender_id === myUserId) return; // Don't alert self
+
+                // Update UI
+                document.getElementById('sosUserImg').src = data.sender_img || '/static/img/placeholder.png';
+                document.getElementById('sosUserName').innerText = data.sender_name || 'A Comrade';
+                document.getElementById('sosLocationText').innerText = data.location_name || "Unknown Location";
+                
+                if (data.latitude && data.longitude) {
+                    document.getElementById('sosMapLink').href = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+                    document.getElementById('sosMapLink').style.display = 'inline-block';
+                } else {
+                    document.getElementById('sosMapLink').style.display = 'none';
+                }
+
+                document.getElementById('emergencyOverlay').classList.add('active');
+
+                // Start Alarm Loop
+                stopEmergencyAlert(); // Reset any existing
+                sosAlarmInterval = setInterval(() => {
+                    sosAudio1.play().catch(e => console.log("Audio blocked"));
+                    setTimeout(() => {
+                        sosAudio2.play().catch(e => console.log("Audio blocked"));
+                    }, 2000);
+                }, 4000);
+            });
+
+            window.stopEmergencyAlert = function() {
+                document.getElementById('emergencyOverlay').classList.remove('active');
+                clearInterval(sosAlarmInterval);
+                sosAudio1.pause(); sosAudio1.currentTime = 0;
+                sosAudio2.pause(); sosAudio2.currentTime = 0;
+            };
+
+            window.triggerEmergencySOS = function() {
+                if (!confirm("🚨 CONFIRM EMERGENCY 🚨\n\nAre you in immediate danger? This will alert ALL online users and share your current location.")) return;
+
+                const btn = document.getElementById('sosTriggerBtn');
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+
+                // Try to get location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        const payload = {
+                            sender_id: myUserId,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude
+                        };
+                        globalSocket.emit('emergency_sos', payload);
+                        alert("🚨 SOS DISPATCHED! Stay safe, help is being notified.");
+                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                    }, (err) => {
+                        // Emit even without location
+                        globalSocket.emit('emergency_sos', { sender_id: myUserId });
+                        alert("🚨 SOS DISPATCHED! (Location access denied, but users notified)");
+                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                    });
+                } else {
+                    globalSocket.emit('emergency_sos', { sender_id: myUserId });
+                    alert("🚨 SOS DISPATCHED!");
+                    setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                }
+            };
             
             globalSocket.on('incoming_call', (data) => {
                 // Prevent popup if already on the call page
