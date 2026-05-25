@@ -1404,15 +1404,19 @@
             let sosAudio1 = new Audio('/static/audio/danger1.mp3');
             let sosAudio2 = new Audio('/static/audio/danger2.mp3');
             let sosAlarmInterval = null;
+            let sosTimeout = null;
 
             globalSocket.on('receive_sos', (data) => {
                 if (data.sender_id === myUserId) return; // Don't alert self
 
-                // Update UI
+                // Update UI with the name of the person in trouble
                 document.getElementById('sosUserImg').src = data.sender_img || '/static/img/placeholder.png';
                 document.getElementById('sosUserName').innerText = data.sender_name || 'A Comrade';
                 document.getElementById('sosLocationText').innerText = data.location_name || "Unknown Location";
                 
+                // Show the card
+                document.getElementById('emergencyOverlay').classList.add('active');
+
                 if (data.latitude && data.longitude) {
                     document.getElementById('sosMapLink').href = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                     document.getElementById('sosMapLink').style.display = 'inline-block';
@@ -1420,21 +1424,34 @@
                     document.getElementById('sosMapLink').style.display = 'none';
                 }
 
-                document.getElementById('emergencyOverlay').classList.add('active');
-
-                // Start Alarm Loop
-                stopEmergencyAlert(); // Reset any existing
-                sosAlarmInterval = setInterval(() => {
+                // Start Persistent Alarm (1 Hour Loop)
+                stopEmergencyAlert(); // Clear any old ones
+                
+                const playLoop = () => {
                     sosAudio1.play().catch(e => console.log("Audio blocked"));
                     setTimeout(() => {
                         sosAudio2.play().catch(e => console.log("Audio blocked"));
-                    }, 2000);
-                }, 4000);
+                    }, 3000);
+                };
+
+                playLoop();
+                sosAlarmInterval = setInterval(playLoop, 7000);
+
+                // Auto-stop after 1 hour (3.6m ms)
+                sosTimeout = setTimeout(() => {
+                    stopEmergencyAlert();
+                }, 3600000); 
+                
+                // Vibrate if mobile
+                if (navigator.vibrate) {
+                    navigator.vibrate([500, 200, 500, 200, 500]);
+                }
             });
 
             window.stopEmergencyAlert = function() {
                 document.getElementById('emergencyOverlay').classList.remove('active');
                 clearInterval(sosAlarmInterval);
+                clearTimeout(sosTimeout);
                 sosAudio1.pause(); sosAudio1.currentTime = 0;
                 sosAudio2.pause(); sosAudio2.currentTime = 0;
             };

@@ -359,6 +359,69 @@ def send_premium_activation_email(recipient_email, recipient_name):
     return _send_email(recipient_email, subject, text_content, html_content)
 
 
+def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, latest_date_info):
+    """Sends an high-priority emergency alert email to the super admin."""
+    recipient_email = "delstarfordworks@gmail.com"
+    subject = f"🚨 URGENT: SOS EMERGENCY ALERT - {user_name}"
+    
+    map_link = f"https://www.google.com/maps?q={latitude},{longitude}" if latitude else "Location not shared"
+    
+    date_context = "No recent verified dates found."
+    if latest_date_info:
+        date_context = f"Latest Verified Date: {latest_date_info['partner_name']} at {latest_date_info['venue_name']} (Scanned at: {latest_date_info['scan_time']})"
+
+    text_content = textwrap.dedent(f"""\
+        🚨 EMERGENCY SOS ALERT 🚨
+        
+        User: {user_name} (ID: {user_id})
+        Phone: {user_phone}
+        
+        Location: {map_link}
+        
+        Date Context:
+        {date_context}
+        
+        IMMEDIATE ACTION REQUIRED.
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <body style="margin: 0; padding: 20px; background-color: #720000; font-family: sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; border: 5px solid #E60026;">
+                <div style="background: #E60026; padding: 30px; text-align: center; color: white;">
+                    <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px;">🚨 SOS ALERT 🚨</h1>
+                </div>
+                <div style="padding: 30px;">
+                    <h2 style="color: #111; margin-top: 0;">{user_name} is in danger!</h2>
+                    <p style="font-size: 16px; color: #333;"><strong>Student ID:</strong> {user_id}</p>
+                    <p style="font-size: 16px; color: #333;"><strong>Phone:</strong> <a href="tel:{user_phone}">+{user_phone}</a></p>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #ddd;">
+                        <h4 style="margin: 0 0 10px; color: #E60026; text-transform: uppercase;">Real-Time Location</h4>
+                        <p style="margin: 0 0 15px; font-weight: bold;">{map_link}</p>
+                        <a href="{map_link}" style="background: #111; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Open in Google Maps</a>
+                    </div>
+
+                    <div style="background: #FFF5F6; padding: 20px; border-radius: 12px; border-left: 5px solid #E60026;">
+                        <h4 style="margin: 0 0 10px; color: #720000;">Dating History Context</h4>
+                        <p style="margin: 0; color: #4A0008; font-size: 15px; line-height: 1.5;">
+                            {date_context}
+                        </p>
+                    </div>
+
+                    <p style="color: #888; font-size: 12px; margin-top: 30px; text-align: center; font-weight: bold;">
+                        This alert was triggered via the FIND YOUR MATCH Emergency SOS system.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM EMERGENCY BROADCAST")
+
+
 def send_admin_alert_email(recipient_email, recipient_name, action_type, reason):
     """Sends moderation emails (Warnings or Account Bans) from the Admin Dashboard."""
     

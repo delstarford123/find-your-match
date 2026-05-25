@@ -1534,6 +1534,30 @@ def verify_customer(restaurant_id):
                 'timestamp': datetime.now(EAT).isoformat(),
                 'status': 'new'
             })
+
+            # 🚨 SOS CONTEXT: Find the booking for this date and link the partner
+            try:
+                bookings_ref = db.reference('bookings')
+                # Check bookings where user is either user_a or user_b and venue matches
+                all_user_bookings = bookings_ref.get() or {}
+                for bid, bdata in all_user_bookings.items():
+                    if bdata.get('restaurant_id') == restaurant_id and bdata.get('status') == 'Approved':
+                        if bdata.get('user_a_id') == user_id or bdata.get('user_b_id') == user_id:
+                            partner_id = bdata.get('user_b_id') if bdata.get('user_a_id') == user_id else bdata.get('user_a_id')
+                            partner_data = db.reference(f'profiles/{partner_id}').get() or {}
+                            
+                            # Save this as the "Latest Verified Date" on the user's profile
+                            db.reference(f'profiles/{user_id}/latest_verified_date').set({
+                                'partner_id': partner_id,
+                                'partner_name': partner_data.get('name', 'Another Student'),
+                                'venue_name': restaurant.get('business_name', 'This Venue'),
+                                'scan_time': datetime.now(EAT).isoformat()
+                            })
+                            # Also update the booking status to 'Arrived'
+                            db.reference(f'bookings/{bid}/status').set('Arrived')
+                            break
+            except Exception as context_err:
+                logger.error(f"Error updating SOS date context: {context_err}")
         except Exception as e: 
             logger.error(f"Error updating analytics: {e}")
 
@@ -4195,18 +4219,22 @@ def handle_end_call(data):
 # 🚨 EMERGENCY SOS BROADCAST 🚨
 @socketio.on('emergency_sos')
 def handle_emergency_sos(data):
-    """Broadcasts an emergency alert to ALL online users."""
+    """Broadcasts an emergency alert to ALL online users and notifies admin instantly."""
     sender_id = data.get('sender_id')
     if not sender_id:
         return
 
     try:
+        from app.email_service import send_sos_admin_alert
+        
         # Fetch sender info for the alert
         user_ref = db.reference(f'profiles/{sender_id}')
         user = user_ref.get() or {}
         
         sender_name = user.get('name', 'A Student')
         sender_img = user.get('img', '/static/img/placeholder.png')
+        sender_phone = user.get('phone', 'No Phone Registered')
+        latest_date = user.get('latest_verified_date') # Recorded during QR scan
         
         payload = {
             'sender_id': sender_id,
@@ -4214,20 +4242,28 @@ def handle_emergency_sos(data):
             'sender_img': sender_img,
             'latitude': data.get('latitude'),
             'longitude': data.get('longitude'),
-            'location_name': "MMUST Campus / Environs", # Default fallback
-            'timestamp': datetime.now(EAT).isoformat()
+            'location_name': "Active Campus Alert", # Default fallback
+            'timestamp': datetime.now(EAT).isoformat(),
+            'alarm_duration_ms': 3600000 # 1 Hour in milliseconds
         }
         
-        # Emit to EVERYONE connected
+        # 1. Emit to EVERYONE connected
         emit('receive_sos', payload, broadcast=True)
         logger.warning(f"🚨 SOS TRIGGERED by {sender_name} ({sender_id})")
         
-        # Log to admin audit for safety
+        # 2. DISPATCH INSTANT ADMIN EMAIL
+        threading.Thread(target=send_sos_admin_alert, args=(
+            sender_name, sender_id, sender_phone, 
+            data.get('latitude'), data.get('longitude'),
+            latest_date
+        )).start()
+
+        # 3. Log to admin audit for safety
         db.reference('admin_audit_logs').push({
             'action': 'SOS_TRIGGERED',
             'user_id': sender_id,
             'user_name': sender_name,
-            'details': f"Location: {data.get('latitude')}, {data.get('longitude')}",
+            'details': f"Location: {data.get('latitude')}, {data.get('longitude')} | Date Context: {latest_date.get('partner_name') if latest_date else 'None'}",
             'timestamp': datetime.now(EAT).isoformat()
         })
         
