@@ -1398,18 +1398,58 @@ def business_dashboard():
             b['user_a_name'] = "Student 1" 
             b['user_b_name'] = "Student 2"
 
+    # 3. Calculate ROI & Analytics (Enhanced)
+    completed_bookings = sum(1 for b in bookings if b.get('status') in ['Completed', 'Archived'])
+    AVERAGE_COUPLE_SPEND_KSH = 1500
+    now = datetime.now(EAT)
+    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_completed = 0
+
+    for b in bookings:
+        if b.get('status') in ['Completed', 'Archived']:
+            b_timestamp = b.get('completed_timestamp')
+            if b_timestamp:
+                try:
+                    b_date = datetime.fromisoformat(b_timestamp)
+                    if b_date >= start_of_month:
+                        monthly_completed += 1
+                except: pass
+
+    monthly_revenue = monthly_completed * AVERAGE_COUPLE_SPEND_KSH
+
+    analytics = {
+        'total_views': restaurant.get('profile_views', 0),
+        'monthly_completed': monthly_completed,
+        'monthly_revenue': f"{monthly_revenue:,}",
+        'subscription_status': 'ACTIVE' if restaurant.get('subscription_active') else 'INACTIVE',
+        'days_remaining': days_remaining
+    }
+
+    # Fetch active perks for the dashboard
+    flash_perks = db.reference(f'flash_perks/{restaurant_id}').get() or {}
+
     return render_template('business_dashboard.html', 
                            restaurant=restaurant, 
                            bookings=bookings,
                            pending_count=pending_count,
                            approved_count=approved_count,
-                           days_remaining=days_remaining)                           
+                           days_remaining=days_remaining,
+                           analytics=analytics,
+                           flash_perks=flash_perks)
+                           
 @app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
     """ALLOWS RESTAURANTS TO ACCEPT/DECLINE RESERVATIONS AND NOTIFIES USERS"""
     if session.get('role') != 'business': 
         return redirect(url_for('home'))
         
+    restaurant_id = session.get('user_id')
+    restaurant = db.reference(f"restaurants/{restaurant_id}").get() or {}
+    
+    if not restaurant.get('subscription_active'):
+        flash("Action Denied: Your merchant subscription is currently inactive. Please renew to manage bookings.", "error")
+        return redirect(url_for('business_dashboard'))
+
     status = 'Approved' if action == 'approve' else 'Declined'
     
     try:
@@ -1467,12 +1507,17 @@ def manage_booking(booking_id, action):
 @app.route('/business/qr')
 def merchant_qr():
     """GENERATES THE UNIQUE QR CODE FOR THE RESTAURANT"""
-    if session.get('role') != 'business': 
+    if session.get('role') != 'business':
         return redirect(url_for('home'))
-    
+
     restaurant_id = session.get('user_id')
-    restaurant_name = session.get('user_name', 'Merchant')
-    
+    restaurant = db.reference(f"restaurants/{restaurant_id}").get() or {}
+
+    if not restaurant.get('subscription_active'):
+        flash("Access Denied: Your merchant subscription is currently inactive. Please renew to access your QR code.", "error")
+        return redirect(url_for('business_dashboard'))
+
+    restaurant_name = restaurant.get('business_name', 'Merchant')
     verify_url = f"{request.url_root.rstrip('/')}/verify_customer/{restaurant_id}"
 
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -3569,6 +3614,11 @@ def merchant_dashboard():
 @login_required
 def create_flash_perk():
     merchant_id = session.get('user_id')
+    restaurant = db.reference(f"restaurants/{merchant_id}").get() or {}
+    
+    if not restaurant.get('subscription_active'):
+        return jsonify({'success': False, 'message': 'Account inactive. Please renew your subscription to create perks.'}), 403
+
     data = request.json
 
     offer_text = data.get('offer_text') # e.g., "30% off for the next 5 couples!"
