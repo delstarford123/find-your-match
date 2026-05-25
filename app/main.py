@@ -238,7 +238,7 @@ def login_required(f):
     return decorated_function
 
 def requires_subscription(f):
-    """Decorator: Checks if a logged-in student has paid the subscription."""
+    """Decorator: Checks if a logged-in student has paid AND their subscription hasn't expired."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
@@ -248,8 +248,26 @@ def requires_subscription(f):
         user_id = session.get('user_id')
         user_data = db.reference(f'profiles/{user_id}').get()
         
-        if not user_data or not user_data.get('is_paid', False):
-            flash("Subscription Required: Please pay 50 KSH to access this feature.", "warning")
+        if not user_data:
+            return redirect(url_for('auth.logout'))
+
+        is_paid = user_data.get('is_paid', False)
+        expiry_str = user_data.get('subscription_expiry')
+        
+        has_expired = False
+        if expiry_str:
+            try:
+                expiry_dt = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) > expiry_dt:
+                    has_expired = True
+            except: pass
+
+        if not is_paid or has_expired:
+            # If expired but still marked as paid, update DB silently
+            if is_paid and has_expired:
+                db.reference(f'profiles/{user_id}').update({'is_paid': False})
+            
+            flash("Your subscription has expired. Please renew to continue.", "warning")
             return render_template('paywall.html') 
             
         return f(*args, **kwargs)
@@ -575,15 +593,31 @@ def setup_notifications():
 
 import random
 @app.route('/dashboard')
-@requires_subscription
+@login_required # Allow entry to dashboard even if unpaid, but we will lock it in the template
 def dashboard():
     """THE MAIN STUDENT COMMAND CENTER (OPEN DIRECTORY MODE)"""
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
     
-    # --- Extract the subscription expiry date for the countdown timer ---
-    subscription_expiry = user_data.get('subscription_expiry', '')
+    # --- Check Subscription Status ---
+    is_paid = user_data.get('is_paid', False)
+    expiry_str = user_data.get('subscription_expiry', '')
+    
+    has_expired = False
+    if expiry_str:
+        try:
+            expiry_dt = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > expiry_dt:
+                has_expired = True
+        except: pass
+
+    subscription_active = is_paid and not has_expired
+    
+    # If expired but still marked as paid, update DB silently
+    if is_paid and has_expired:
+        db.reference(f'profiles/{user_id}').update({'is_paid': False})
+        subscription_active = False
     
     # Extract Current User's Gender for matching logic
     current_user_gender = user_data.get('gender', '').strip().lower()
