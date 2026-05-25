@@ -45,6 +45,12 @@
       ".indexOn": ["email", "phone", "referral_code", "wingman_code", "is_paid", "is_online", "gender", "daily_streak", "class_code", "created_at", "institution_name", "institution_type"]
     },
     
+    "notifications": {
+      "$user_id": {
+        ".indexOn": ["status", "timestamp"]
+      }
+    },
+    
     "schedules": {
       ".indexOn": ["user_id"]
     },
