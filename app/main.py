@@ -1100,7 +1100,7 @@ def profile():
 
 
 def calculate_profile_badges(user_data):
-    \"\"\"Determines which badges a user has earned based on their activity.\"\"\"
+    """Determines which badges a user has earned based on their activity."""
     badges = []
     
     # 1. Verified Badge
