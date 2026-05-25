@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .emergency-page {
+        max-width: 600px;
+        margin: 40px auto;
+        padding: 20px;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 12px;
+        margin-bottom: 20px;
+    }
+    .status-active { background: #E60026; color: white; animation: pulseGlow 1.5s infinite; }
+    .status-resolved { background: #22C55E; color: white; }
+    
+    @keyframes pulseGlow {
+        0% { box-shadow: 0 0 0 0 rgba(230, 0, 38, 0.4); }
+        70% { box-shadow: 0 0 0 15px rgba(230, 0, 38, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(230, 0, 38, 0); }
+    }
+
+    .emergency-hero {
+        background: white;
+        border-radius: 32px;
+        padding: 40px 30px;
+        text-align: center;
+        border: 4px solid #E60026;
+        box-shadow: 0 20px 50px rgba(114, 0, 0, 0.15);
+    }
+
+    .hero-img {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: 5px solid #E60026;
+        margin-bottom: 20px;
+        object-fit: cover;
+    }
+
+    .hero-name { font-size: 32px; font-weight: 900; color: #111; margin: 0; }
+    .hero-phone { font-size: 20px; color: #E60026; font-weight: 800; margin: 10px 0 30px; }
+
+    .location-card {
+        background: #f8f9fa;
+        border-radius: 24px;
+        padding: 25px;
+        margin-top: 30px;
+        text-align: left;
+        border: 1px solid #eee;
+    }
+    
+    .map-btn {
+        display: block;
+        background: #111;
+        color: white;
+        text-align: center;
+        padding: 18px;
+        border-radius: 16px;
+        text-decoration: none;
+        font-weight: 900;
+        font-size: 16px;
+        margin-top: 20px;
+        transition: 0.2s;
+    }
+    .map-btn:hover { background: #000; transform: translateY(-3px); }
+
+    .context-card {
+        background: #FEF2F4;
+        border-radius: 24px;
+        padding: 25px;
+        margin-top: 20px;
+        text-align: left;
+        border-left: 8px solid #E60026;
+    }
+    
+    .emergency-footer {
+        margin-top: 40px;
+        text-align: center;
+        color: #888;
+        font-size: 13px;
+        font-weight: 600;
+    }
+</style>
+
+<div class="emergency-page">
+    <div class="emergency-hero">
+        <div class="status-badge {% if alert.status == 'active' %}status-active{% else %}status-resolved{% endif %}">
+            {% if alert.status == 'active' %}🚨 ACTIVE EMERGENCY{% else %}✅ SITUATION RESOLVED{% endif %}
+        </div>
+        
+        <img src="{{ alert.sender_img or '/static/img/placeholder.png' }}" class="hero-img">
+        <h1 class="hero-name">{{ alert.sender_name }}</h1>
+        <div class="hero-phone">
+            📞 <a href="tel:{{ alert.sender_phone }}" style="color: inherit; text-decoration: none;">+{{ alert.sender_phone or 'Not Provided' }}</a>
+        </div>
+        
+        <div class="location-card">
+            <h4 style="margin: 0 0 10px; color: #E60026; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Live GPS Data</h4>
+            <p style="margin: 0; font-weight: 700; color: #444;">
+                {% if alert.latitude %}
+                    Coordinates: {{ alert.latitude }}, {{ alert.longitude }}
+                {% else %}
+                    Precise GPS data was not shared.
+                {% endif %}
+            </p>
+            {% if alert.latitude %}
+            <a href="https://www.google.com/maps?q={{ alert.latitude }},{{ alert.longitude }}" target="_blank" class="map-btn">
+                📍 GET DIRECTIONS NOW
+            </a>
+            {% endif %}
+        </div>
+
+        {% if alert.latest_date %}
+        <div class="context-card">
+            <h4 style="margin: 0 0 10px; color: #720000; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Dating Context</h4>
+            <p style="margin: 0; color: #4A0008; font-size: 15px; line-height: 1.5;">
+                <strong>Last Seen With:</strong> {{ alert.latest_date.partner_name }}<br>
+                <strong>Venue:</strong> {{ alert.latest_date.venue_name }}<br>
+                <strong>Scan Time:</strong> {{ alert.latest_date.scan_time }}
+            </p>
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 30px; font-size: 11px; color: #aaa; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">
+            Triggered: {{ alert.timestamp }}
+        </div>
+    </div>
+    
+    <div class="emergency-footer">
+        This is an official FIND YOUR MATCH Emergency Report. <br>
+        False alarms are subject to account termination.
+    </div>
+</div>
+{% endblock %}

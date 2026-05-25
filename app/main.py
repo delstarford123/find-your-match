@@ -4236,7 +4236,22 @@ def handle_emergency_sos(data):
         sender_phone = user.get('phone', 'No Phone Registered')
         latest_date = user.get('latest_verified_date') # Recorded during QR scan
         
+        # Save to a persistent alert node for standalone page access
+        alert_ref = db.reference('emergency_alerts').push({
+            'sender_id': sender_id,
+            'sender_name': sender_name,
+            'sender_img': sender_img,
+            'sender_phone': sender_phone,
+            'latitude': data.get('latitude'),
+            'longitude': data.get('longitude'),
+            'status': 'active',
+            'latest_date': latest_date,
+            'timestamp': datetime.now(EAT).isoformat()
+        })
+        alert_id = alert_ref.key
+
         payload = {
+            'alert_id': alert_id,
             'sender_id': sender_id,
             'sender_name': sender_name,
             'sender_img': sender_img,
@@ -4256,7 +4271,7 @@ def handle_emergency_sos(data):
         threading.Thread(target=send_sos_admin_alert, args=(
             sender_name, sender_id, sender_phone, 
             data.get('latitude'), data.get('longitude'),
-            latest_date
+            latest_date, alert_id
         )).start()
 
         # 3. Log to admin audit for safety
@@ -4264,7 +4279,7 @@ def handle_emergency_sos(data):
             'action': 'SOS_TRIGGERED',
             'user_id': sender_id,
             'user_name': sender_name,
-            'details': f"Location: {data.get('latitude')}, {data.get('longitude')} | Date Context: {latest_date.get('partner_name') if latest_date else 'None'}",
+            'details': f"Alert ID: {alert_id} | Location: {data.get('latitude')}, {data.get('longitude')}",
             'timestamp': datetime.now(EAT).isoformat()
         })
         
@@ -4278,8 +4293,25 @@ def handle_stop_emergency_sos(data):
     if not sender_id:
         return
     
+    # Update active alerts in DB
+    alerts_ref = db.reference('emergency_alerts')
+    active_alerts = alerts_ref.order_by_child('sender_id').equal_to(sender_id).get() or {}
+    for aid, adata in active_alerts.items():
+        if adata.get('status') == 'active':
+            alerts_ref.child(aid).update({'status': 'resolved', 'resolved_at': datetime.now(EAT).isoformat()})
+
     emit('receive_sos_stop', {'sender_id': sender_id}, broadcast=True)
     logger.info(f"✅ SOS STOPPED by sender {sender_id}")
+
+@app.route('/emergency/<alert_id>')
+def view_emergency_page(alert_id):
+    """Standalone page for emergency alerts (Public/Admin access)."""
+    alert_data = db.reference(f'emergency_alerts/{alert_id}').get()
+    if not alert_data:
+        flash("Emergency alert not found or has been removed.", "error")
+        return redirect(url_for('home'))
+        
+    return render_template('emergency_card.html', alert=alert_data)
 
 # ─────────────────────────────────────────────────────────────
 #  4. LIVE TALK DIRECTORY

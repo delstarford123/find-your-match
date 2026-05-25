@@ -359,10 +359,15 @@ def send_premium_activation_email(recipient_email, recipient_name):
     return _send_email(recipient_email, subject, text_content, html_content)
 
 
-def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, latest_date_info):
+def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, latest_date_info, alert_id):
     """Sends an high-priority emergency alert email to the super admin."""
     recipient_email = "delstarfordworks@gmail.com"
     subject = f"🚨 URGENT: SOS EMERGENCY ALERT - {user_name}"
+    
+    # Standalone Alert Page Link
+    # Note: Replace with actual domain in production
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com")
+    alert_page_url = f"{base_url}/emergency/{alert_id}"
     
     map_link = f"https://www.google.com/maps?q={latitude},{longitude}" if latitude else "Location not shared"
     
@@ -375,6 +380,8 @@ def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, la
         
         User: {user_name} (ID: {user_id})
         Phone: {user_phone}
+        
+        LIVE MONITORING PAGE: {alert_page_url}
         
         Location: {map_link}
         
@@ -394,6 +401,13 @@ def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, la
                 </div>
                 <div style="padding: 30px;">
                     <h2 style="color: #111; margin-top: 0;">{user_name} is in danger!</h2>
+                    
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="{alert_page_url}" style="background: #E60026; color: white; padding: 18px 30px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 18px; display: inline-block; box-shadow: 0 10px 30px rgba(230,0,38,0.4);">
+                            🔍 VIEW LIVE MONITORING PAGE
+                        </a>
+                    </div>
+
                     <p style="font-size: 16px; color: #333;"><strong>Student ID:</strong> {user_id}</p>
                     <p style="font-size: 16px; color: #333;"><strong>Phone:</strong> <a href="tel:{user_phone}">+{user_phone}</a></p>
                     

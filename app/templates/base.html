@@ -1171,6 +1171,11 @@
 </a>
 
 <!-- === 🆘 SOS EMERGENCY BUTTON === -->
+<div id="sosTooltip" class="sos-tooltip" style="display: none;">
+    <button class="sos-tooltip-close" onclick="closeSosTooltip()">&times;</button>
+    <p>In danger? Click here to alert the <strong>FIND YOUR MATCH</strong> family for help.</p>
+</div>
+
 <button class="sos-floating-btn" id="sosTriggerBtn" onclick="triggerEmergencySOS()" title="EMERGENCY SOS">
     <div class="sos-ring"></div>
     <div class="sos-inner">SOS</div>
@@ -1198,12 +1203,21 @@
         <div class="sos-location-box">
             <div style="font-weight: 900; color: #E60026; font-size: 11px; text-transform: uppercase; margin-bottom: 5px;">Last Known Location</div>
             <div id="sosLocationText" class="sos-location-text">Fetching location...</div>
-            <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">📍 Open in Google Maps</a>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">📍 Open in Google Maps</a>
+                <a id="sosFullPageLink" href="#" class="btn btn-outline" style="font-size: 12px; padding: 10px; border-radius: 12px; text-decoration: none; color: #111; border: 1px solid #ccc; font-weight: 800;">🔍 View Full Alert Page</a>
+            </div>
         </div>
 
         <div id="sosSenderControls" style="display: none; margin-top: 20px; border-top: 2px dashed #eee; padding-top: 20px;">
             <button onclick="stopGlobalEmergencySOS()" style="background: #22C55E; color: white; border: none; padding: 15px 25px; border-radius: 50px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 5px 15px rgba(34, 197, 94, 0.3);">
                 ✅ I AM SAFE NOW - STOP GLOBAL ALARM
+            </button>
+        </div>
+
+        <div id="receiver-stop-btn" style="display: none; margin-top: 20px; border-top: 2px dashed #eee; padding-top: 20px;">
+            <button onclick="stopEmergencyAlert()" style="background: #111; color: white; border: none; padding: 15px 25px; border-radius: 50px; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+                🔇 STOP MY ALARM
             </button>
         </div>
         
@@ -1344,6 +1358,58 @@
     .sos-map-btn:hover { background: #000; transform: translateY(-2px); }
     
     .sos-action-text { font-size: 11px; font-weight: 800; color: #aaa; letter-spacing: 1px; }
+
+    /* SOS Tooltip */
+    .sos-tooltip {
+        position: fixed;
+        right: 65px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: white;
+        color: #111;
+        padding: 16px 20px;
+        border-radius: 20px;
+        width: 240px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.5;
+        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.2);
+        z-index: 9990;
+        border: 2px solid #FFD6DD;
+        animation: tooltipPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: auto;
+    }
+    .sos-tooltip::after {
+        content: '';
+        position: absolute;
+        right: -12px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-top: 10px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-left: 12px solid white;
+    }
+    .sos-tooltip-close {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        background: #f1f5f9;
+        border: none;
+        width: 24px; height: 24px;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: bold;
+        color: #64748b;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: 0.2s;
+    }
+    .sos-tooltip-close:hover { background: #fee2e2; color: #ef4444; }
+    
+    @keyframes tooltipPop {
+        0% { opacity: 0; transform: translateY(-50%) translateX(30px) scale(0.8); }
+        100% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
+    }
 </style>
 
 <script>
@@ -1420,25 +1486,27 @@
                 document.getElementById('sosUserPhone').innerText = '📞 +' + (data.sender_phone || '254XXXXXXXX');
                 document.getElementById('sosLocationText').innerText = data.location_name || "Active Campus Alert";
                 
-                // Show/Hide controls based on who sent it
-                const isMe = data.sender_id === myUserId;
-                document.getElementById('sosSenderControls').style.display = isMe ? 'block' : 'none';
-                
-                if (isMe) {
-                    // Don't play alarm for self, but show the card so they can stop it
-                    document.getElementById('emergencyOverlay').classList.add('active');
-                    return; 
+                // Update Links
+                if (data.alert_id) {
+                    document.getElementById('sosFullPageLink').href = `/emergency/${data.alert_id}`;
                 }
-
-                // Show the card for others
-                document.getElementById('emergencyOverlay').classList.add('active');
-
+                
                 if (data.latitude && data.longitude) {
                     document.getElementById('sosMapLink').href = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
                     document.getElementById('sosMapLink').style.display = 'inline-block';
                 } else {
                     document.getElementById('sosMapLink').style.display = 'none';
                 }
+
+                // Show/Hide controls based on who sent it
+                const isMe = data.sender_id === myUserId;
+                document.getElementById('sosSenderControls').style.display = isMe ? 'block' : 'none';
+                document.getElementById('receiver-stop-btn').style.display = isMe ? 'none' : 'block';
+                
+                // Show the card
+                document.getElementById('emergencyOverlay').classList.add('active');
+
+                if (isMe) return; // Don't play siren for self
 
                 // Start Persistent Alarm (1 Hour Loop)
                 stopEmergencyAlert(); // Clear any old ones
@@ -1453,15 +1521,12 @@
                 playLoop();
                 sosAlarmInterval = setInterval(playLoop, 7000);
 
-                // Auto-stop after 1 hour (3.6m ms)
+                // Auto-stop after 1 hour
                 sosTimeout = setTimeout(() => {
                     stopEmergencyAlert();
                 }, 3600000); 
                 
-                // Vibrate if mobile
-                if (navigator.vibrate) {
-                    navigator.vibrate([500, 200, 500, 200, 500]);
-                }
+                if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
             });
 
             globalSocket.on('receive_sos_stop', (data) => {
@@ -1485,6 +1550,19 @@
                 sosAudio1.pause(); sosAudio1.currentTime = 0;
                 sosAudio2.pause(); sosAudio2.currentTime = 0;
             };
+
+            // === 💡 SOS TOOLTIP LOGIC ===
+            window.closeSosTooltip = function() {
+                document.getElementById('sosTooltip').style.display = 'none';
+                localStorage.setItem('sos_tooltip_closed', 'true');
+            };
+
+            // Show tooltip on load if not previously closed
+            setTimeout(() => {
+                if (!localStorage.getItem('sos_tooltip_closed')) {
+                    document.getElementById('sosTooltip').style.display = 'block';
+                }
+            }, 2000);
 
             window.triggerEmergencySOS = function() {
                 if (!confirm("🚨 CONFIRM EMERGENCY 🚨\n\nAre you in immediate danger? This will alert ALL online users and share your current location.")) return;
