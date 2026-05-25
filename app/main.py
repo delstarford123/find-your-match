@@ -1110,7 +1110,7 @@ def calculate_profile_badges(user_data):
     # 2. Profile Pro (Completion Badge)
     bio = user_data.get('bio', '')
     img = user_data.get('img')
-    if len(bio) > 20 and img and not img.endswith('placeholder.png'):
+    if len(bio) > 20 and img and isinstance(img, str) and not img.endswith('placeholder.png'):
         badges.append({'id': 'pro', 'icon': '💎', 'label': 'Profile Pro', 'color': '#A855F7'})
         
     # 3. Highly Responsive (Simulated based on online status/activity)
@@ -1897,8 +1897,15 @@ def admin_broadcast():
         
     # Process Attachments
     attachments = []
+    # Support multiple files from the 'attachments' field
+    files = request.files.getlist('attachments')
+    
+    # Also support legacy keys just in case
     for key in ['image', 'audio', 'video']:
-        file = request.files.get(key)
+        legacy_files = request.files.getlist(key)
+        files.extend(legacy_files)
+
+    for file in files:
         if file and file.filename:
             try:
                 content = file.read()
@@ -1908,7 +1915,7 @@ def admin_broadcast():
                         'content': content
                     })
             except Exception as e:
-                logger.error(f"Error reading attachment {key}: {e}")
+                logger.error(f"Error reading attachment: {e}")
 
     try:
         all_profiles = db.reference('profiles').get() or {}
