@@ -350,26 +350,141 @@
     <div id="module-dashboard" class="module-content active">
         <div class="metrics-grid">
             <div class="metric-card highlight animate-up delay-1">
-                <div class="m-title">💰 Total Gross Revenue</div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="m-title">💰 Total Gross Revenue</div>
+                    <button onclick="openRevenueModal()" style="background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: 800;">CORRECT</button>
+                </div>
                 <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
+                <div style="font-size: 11px; color: #7dd3fc; margin-top: 8px; font-weight: 600;">
+                    B2B: <span class="format-num">{{ b2b_revenue }}</span> | Student: <span class="format-num">{{ student_revenue }}</span>
+                </div>
+                
+                <!-- Monthly Breakdown List -->
+                <div class="revenue-breakdown" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                    {% for item in monthly_revenue_details %}
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                        <span style="color: #94a3b8; font-weight: 500;">{{ item.month }}</span>
+                        <div style="text-align: right;">
+                            <div style="color: #f8fafc; font-weight: 800;">KSH {{ item.total }}</div>
+                            <div style="font-size: 9px; color: #64748b;">B2B: {{ item.b2b }} | S: {{ item.student }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
+            <!-- ... other metric cards ... -->
+        </div>
+
+    <!-- MODAL: MANUAL REVENUE CORRECTION -->
+    <div id="revenue-modal" class="admin-modal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+        <div class="admin-card animate-up" style="width: 450px; border-color: #38bdf8; box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <h2 style="margin: 0; color: #38bdf8; font-size: 20px;">🛠️ Revenue Correction</h2>
+                <button onclick="resetRevenue()" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; padding: 4px 8px; border-radius: 6px; font-size: 9px; cursor: pointer; font-weight: 800;">RESET TO AUTO</button>
+            </div>
+            
+            <form id="revenue-form">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Total Gross (KSH)</label>
+                        <input type="number" name="total_revenue" value="{{ total_revenue }}" style="width: 100%; background: #0B1120; border: 1px solid #1E293B; color: white; padding: 10px; border-radius: 8px; font-weight: 800;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 11px; color: #94a3b8; margin-bottom: 5px;">Student Total (KSH)</label>
+                        <input type="number" name="student_revenue" value="{{ student_revenue }}" style="width: 100%; background: #0B1120; border: 1px solid #1E293B; color: white; padding: 10px; border-radius: 8px;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px dashed #1E293B;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 12px; color: #7dd3fc;">Monthly Breakdown</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        {% set apr_val = 0 %}{% set may_val = 0 %}
+                        {% for item in monthly_revenue_details %}
+                            {% if item.month == 'Apr' %}{% set apr_val = item.student %}{% endif %}
+                            {% if item.month == 'May' %}{% set may_val = item.student %}{% endif %}
+                        {% endfor %}
+                        <div>
+                            <label style="font-size: 10px; color: #64748b;">April Student (KSH)</label>
+                            <input type="number" name="apr_student" value="{{ apr_val }}" style="width: 100%; background: #1E293B; border: none; color: white; padding: 8px; border-radius: 6px; font-size: 12px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 10px; color: #64748b;">May Student (KSH)</label>
+                            <input type="number" name="may_student" value="{{ may_val }}" style="width: 100%; background: #1E293B; border: none; color: white; padding: 8px; border-radius: 6px; font-size: 12px;">
+                        </div>
+                    </div>
+                    <p style="font-size: 9px; color: #475569; margin: 10px 0 0 0;">Note: B2B is currently calculated from ledger automatically unless reset.</p>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" onclick="closeRevenueModal()" style="padding: 10px 20px; background: #1E293B; border: none; color: white; border-radius: 8px; cursor: pointer;">Cancel</button>
+                    <button type="submit" style="padding: 10px 20px; background: #38bdf8; border: none; color: #0B1120; border-radius: 8px; font-weight: 800; cursor: pointer;">Apply Overrides</button>
+                </div>
+            </form>
+        </div>
+    </div>
             <div class="metric-card animate-up delay-1">
-                <div class="m-title">👥 Total Users</div>
-                <div class="m-value format-num">{{ total_users | default(0) }}</div>
+                <div class="m-title">📱 Daily Traffic</div>
+                <div class="m-value format-num">{{ daily_traffic | default(0) }}</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">Unique users active today</div>
             </div>
             <div class="metric-card animate-up delay-2">
-                <div class="m-title">🎓 Student Subs (B2C)</div>
-                <div class="m-value"><span>KSH</span> <span class="format-num">{{ student_revenue | default(0) }}</span></div>
+                <div class="m-title">💬 Chat Initiations</div>
+                <div class="m-value format-num">{{ chat_initiations | default(0) }}</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">New matches created today</div>
+            </div>
+            <div class="metric-card animate-up delay-2">
+                <div class="m-title">📅 Date Proposals</div>
+                <div class="m-value format-num">{{ date_proposals | default(0) }}</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">Bookings requested today</div>
             </div>
             <div class="metric-card animate-up delay-3">
-                <div class="m-title">🏪 Partner Venues (B2B)</div>
-                <div class="m-value"><span>KSH</span> <span class="format-num">{{ b2b_revenue | default(0) }}</span></div>
+                <div class="m-title">🏆 Popular Venue</div>
+                <div class="m-value" style="font-size: 18px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ popular_venue | truncate(15) }}</div>
+                <div style="font-size: 11px; color: #38bdf8; margin-top: 8px; font-weight: 800;">{{ popular_venue_count }} total proposals</div>
+            </div>
+            <div class="metric-card animate-up delay-3">
+                <div class="m-title">👥 Total Users</div>
+                <div class="m-value format-num">{{ total_users | default(0) }}</div>
+                <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">Registered accounts</div>
             </div>
         </div>
 
-        <div class="chart-container animate-up delay-1">
-            <div class="m-title" style="margin-bottom: 15px; color: white;">🚀 New User Signups (Last 7 Days)</div>
-            <canvas id="growthChart"></canvas>
+        <div class="chart-container animate-up delay-1" style="height: 400px;">
+            <div class="m-title" style="margin-bottom: 15px; color: white;">📊 Monthly Revenue & User Growth Trend</div>
+            <canvas id="revenueGrowthChart"></canvas>
+        </div>
+
+        <h3 class="section-title animate-up delay-2">💸 Recent Transactions (Audit Log)</h3>
+        <div class="admin-list animate-up delay-2">
+            <div class="admin-card" style="padding: 0; overflow: hidden; border-style: solid;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                    <thead style="background: #1E293B; color: #94a3b8; text-transform: uppercase; font-weight: 800; font-size: 11px;">
+                        <tr>
+                            <th style="padding: 15px 20px;">Date & Time</th>
+                            <th style="padding: 15px 20px;">User/Merchant</th>
+                            <th style="padding: 15px 20px;">Amount</th>
+                            <th style="padding: 15px 20px;">Type</th>
+                            <th style="padding: 15px 20px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody style="color: #cbd5e1;">
+                        {% for tx in recent_transactions %}
+                        <tr style="border-bottom: 1px solid #1E293B;">
+                            <td style="padding: 12px 20px; white-space: nowrap;">{{ tx.date | truncate(19, True, '') }}</td>
+                            <td style="padding: 12px 20px; font-weight: 700; color: white;">{{ tx.user }}</td>
+                            <td style="padding: 12px 20px; color: #38bdf8; font-weight: 900;">KSH {{ tx.amount }}</td>
+                            <td style="padding: 12px 20px;"><span class="badge {% if tx.type == 'B2B' %}badge-purple{% else %}badge-blue{% endif %}" style="font-size: 10px;">{{ tx.type }}</span></td>
+                            <td style="padding: 12px 20px;"><span class="badge badge-green" style="font-size: 10px;">✅ SUCCESS</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% if not recent_transactions %}
+                        <tr>
+                            <td colspan="5" style="padding: 30px; text-align: center; color: #64748b; font-style: italic;">No recent successful transactions found.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <h3 class="section-title animate-up delay-2">📢 Marketing & Campaigns</h3>
@@ -724,30 +839,69 @@
     <script>
         // Set CSRF globally
         const CSRF_TOKEN = "{{ csrf_token() }}";
-        let growthChart;
+        let revenueGrowthChart;
 
         // --- 1. CHART.JS INITIALIZATION ---
         function initChart() {
-            const ctx = document.getElementById('growthChart');
+            const ctx = document.getElementById('revenueGrowthChart');
             if (!ctx) return;
             
-            if (growthChart) growthChart.destroy();
+            if (revenueGrowthChart) revenueGrowthChart.destroy();
             
-            growthChart = new Chart(ctx.getContext('2d'), {
-                type: 'line',
+            revenueGrowthChart = new Chart(ctx.getContext('2d'), {
+                type: 'bar',
                 data: {
-                    labels: {{ chart_labels | default(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']) | safe }},
-                    datasets: [{
-                        label: 'New Signups',
-                        data: {{ chart_data | default([5, 12, 8, 25, 40, 32, 60]) | safe }},
-                        borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                        borderWidth: 3, tension: 0.4, fill: true, pointBackgroundColor: '#0F172A',
-                        pointBorderColor: '#38bdf8', pointBorderWidth: 2, pointRadius: 4
-                    }]
+                    labels: {{ chart_labels | safe }},
+                    datasets: [
+                        {
+                            label: 'Revenue (KSH)',
+                            data: {{ revenue_chart_data | safe }},
+                            backgroundColor: 'rgba(56, 189, 248, 0.6)',
+                            borderColor: '#38bdf8',
+                            borderWidth: 1,
+                            borderRadius: 5,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'User Growth',
+                            data: {{ growth_chart_data | safe }},
+                            type: 'line',
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#0F172A',
+                            pointBorderColor: '#a855f7',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            yAxisID: 'y1'
+                        }
+                    ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8' } } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { color: '#94a3b8', font: { weight: '800' } } },
+                        tooltip: { backgroundColor: '#0F172A', titleColor: '#fff', bodyColor: '#cbd5e1', borderColor: '#1E293B', borderWidth: 1 }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear', display: true, position: 'left',
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            ticks: { color: '#94a3b8', callback: function(value) { return 'KSH ' + value.toLocaleString(); } },
+                            title: { display: true, text: 'Revenue', color: '#38bdf8', font: { weight: '800' } }
+                        },
+                        y1: {
+                            type: 'linear', display: true, position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'New Users', color: '#a855f7', font: { weight: '800' } }
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
                 }
             });
         }
@@ -774,9 +928,15 @@
             document.querySelectorAll('.module-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.module-content').forEach(m => m.classList.remove('active'));
             
-            // If targetTabId is provided, we might be clicking a virtual module button
-            let sourceBtn = event.currentTarget;
-            sourceBtn.classList.add('active');
+            // Handle if sourceBtn is from an event or manual call
+            const sourceBtn = event ? event.currentTarget : null;
+            if (sourceBtn && sourceBtn.classList.contains('module-btn')) {
+                sourceBtn.classList.add('active');
+            } else {
+                // Fallback: find the button manually if needed
+                const targetBtn = document.querySelector(`.module-btn[onclick*="${moduleId}"]`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
             
             document.getElementById(moduleId).classList.add('active');
             
@@ -1131,6 +1291,67 @@
         }
 
         function viewAllUsers() { document.getElementById('search-query').value = ''; searchUser('all'); }
+
+        // --- 8. MANUAL REVENUE CORRECTION ---
+        function openRevenueModal() {
+            document.getElementById('revenue-modal').style.display = 'flex';
+        }
+
+        function closeRevenueModal() {
+            document.getElementById('revenue-modal').style.display = 'none';
+        }
+
+        function resetRevenue() {
+            if(!confirm("Are you sure you want to delete all manual corrections and go back to automatic calculations?")) return;
+            
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'reset_revenue_overrides' })
+            }).then(res => res.json()).then(data => {
+                if(data.success) {
+                    showToast("Revenue reset to automatic! Reloading...");
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showToast("Error: " + data.message, true);
+                }
+            }).catch(err => { showToast("Network error.", true); });
+        }
+
+        document.getElementById('revenue-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = {
+                action: 'save_revenue_overrides',
+                total_revenue: formData.get('total_revenue'),
+                student_revenue: formData.get('student_revenue'),
+                apr_student: formData.get('apr_student'),
+                may_student: formData.get('may_student')
+            };
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.innerText = "Saving...";
+            submitBtn.disabled = true;
+
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify(data)
+            }).then(res => res.json()).then(resData => {
+                if(resData.success) {
+                    showToast("Revenue corrections saved! Reloading...");
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showToast("Error: " + resData.message, true);
+                    submitBtn.innerText = "Save Overrides";
+                    submitBtn.disabled = false;
+                }
+            }).catch(err => {
+                showToast("Network error.", true);
+                submitBtn.innerText = "Save Overrides";
+                submitBtn.disabled = false;
+            });
+        });
     </script>
 {% endif %}
 

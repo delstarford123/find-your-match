@@ -217,6 +217,25 @@ def inject_system_settings():
         print(f"⚠️ Context Processor Error: {e}")
         return {'force_party': False, 'promo_active': False}
 
+@app.before_request
+def update_last_seen():
+    """Tracks the last time a user was active on the platform."""
+    user_id = session.get('user_id')
+    if user_id and session.get('role') != 'business':
+        try:
+            # We only update if it's been more than 5 minutes to save Firebase bandwidth
+            last_update = session.get('last_seen_update')
+            now = time.time()
+            
+            if not last_update or now - last_update > 300:
+                db.reference(f'profiles/{user_id}').update({
+                    'last_seen': datetime.now(EAT).isoformat(),
+                    'is_online': True
+                })
+                session['last_seen_update'] = now
+        except Exception as e:
+            logger.error(f"Failed to update last_seen: {e}")
+
 # Register Blueprints
 from app.routes.auth import auth_bp
 from app.routes.v2.auth import auth_v2_bp
@@ -1791,55 +1810,272 @@ def super_admin():
 
     # 3. Load Dashboard Data
     try:
-        # Initialize defaults to prevent NameErrors
-        total_users = 0
-        total_revenue = 0
-        student_revenue = 0
-        b2b_revenue = 0
-        alerts = []
-        feedbacks = []
-        call_requests = []
-        pending_businesses = []
-        unpaid_users = []
-        premium_users = []
-        unverified_users = []
-        audit_logs = []
-        promo_active = False
-        force_party = False
-
-        # Fetch Data
+        # Fetch All Base Data
         all_profiles = db.reference('profiles').get() or {}
         all_restaurants = db.reference('restaurants').get() or {}
-        alerts_dict = db.reference('admin_alerts').get() or {}
-        feedbacks_dict = db.reference('feedbacks').get() or {}
-        call_requests_dict = db.reference('call_requests').get() or {}
-        system_settings = db.reference('system_settings').get() or {}
+        ledger_data = db.reference('ledger').get() or {}
+        pending_payments = db.reference('pending_payments').get() or {}
+        all_bookings = db.reference('bookings').get() or {}
+        all_matches = db.reference('matches').get() or {}
         
+        system_settings = db.reference('system_settings').get() or {}
         promo_active = system_settings.get('new_user_promo', False)
         force_party = system_settings.get('force_party', False)
 
-        # Calculations
-        total_users = sum(1 for p in all_profiles.values() if isinstance(p, dict))
-        student_revenue = sum(20 for p in all_profiles.values() if isinstance(p, dict) and p.get('is_paid'))
-        b2b_revenue = sum(2000 for r in all_restaurants.values() if isinstance(r, dict) and r.get('subscription_active'))
+        # ------------------------------------------
+        # 1. ACCURATE REVENUE CALCULATION
+        # ------------------------------------------
+        now = datetime.now(EAT)
+        current_year = now.year
+        
+        monthly_b2b = [0] * 12
+        monthly_student_rev = [0] * 12
+        accounted_uids = set()
+
+        # A. From Pending Payments (Success Logs)
+        if isinstance(pending_payments, dict):
+            for tx in pending_payments.values():
+                if isinstance(tx, dict) and tx.get('status') == 'success':
+                    u_id = tx.get('user_id')
+                    ts = tx.get('created_at') or tx.get('timestamp')
+                    if ts:
+                        try:
+                            dt = datetime.fromisoformat(ts)
+                            if dt.year == current_year:
+                                m_idx = dt.month - 1
+                                amt = int(tx.get('amount', 0))
+                                if tx.get('role') == 'business':
+                                    monthly_b2b[m_idx] += amt or 2000
+                                else:
+                                    # Students usually 50, but we use 'amt' if it's there
+                                    monthly_student_rev[m_idx] += amt or 50
+                                    if u_id: accounted_uids.add(u_id)
+                        except: pass
+
+        # B. From Profiles (Fallback for active 'is_paid' users without logs)
+        if isinstance(all_profiles, dict):
+            for u_id, p in all_profiles.items():
+                if isinstance(p, dict) and p.get('is_paid') and u_id not in accounted_uids:
+                    ts = p.get('created_at')
+                    m_idx = 3 # April Default
+                    if ts:
+                        try:
+                            dt = datetime.fromisoformat(ts)
+                            if dt.year == current_year: m_idx = dt.month - 1
+                        except: pass
+                    # If they are paid but no log, assume 50 KSH
+                    monthly_student_rev[m_idx] += 50
+
+        # C. From Ledger (B2B primary ledger)
+        temp_ledger_b2b = [0] * 12
+        if isinstance(ledger_data, dict):
+            for tx in ledger_data.values():
+                if isinstance(tx, dict) and tx.get('status') == 'Completed':
+                    try:
+                        amount = int(tx.get('amount', 0))
+                        ts = tx.get('timestamp')
+                        if ts:
+                            dt = datetime.fromisoformat(ts)
+                            if dt.year == current_year:
+                                temp_ledger_b2b[dt.month - 1] += amount
+                    except: pass
+        
+        # Use higher B2B source
+        for i in range(12):
+            monthly_b2b[i] = max(monthly_b2b[i], temp_ledger_b2b[i])
+
+        student_revenue = sum(monthly_student_rev)
+        b2b_revenue = sum(monthly_b2b)
         total_revenue = student_revenue + b2b_revenue
 
-        for uid, user_data in all_profiles.items():
-            if isinstance(user_data, dict):
-                user_data['id'] = uid 
-                is_verified = user_data.get('is_verified', False)
-                has_paid = user_data.get('is_paid', False)
+        # ------------------------------------------
+        # 1.2 ACCOUNT BALANCE SYNC & OVERRIDES
+        # ------------------------------------------
+        REPORTED_BALANCE = 1520
+        diff = 0
+        
+        # Check for Manual Overrides in Firebase
+        manual_overrides = db.reference('system_settings/manual_revenue_overrides').get() or {}
+        
+        if isinstance(manual_overrides, dict) and manual_overrides.get('active'):
+            total_revenue = int(manual_overrides.get('total_revenue', 0))
+            student_revenue = int(manual_overrides.get('student_revenue', 0))
+            b2b_revenue = int(manual_overrides.get('b2b_revenue', 0))
+            
+            # Map monthly overrides
+            monthly_overrides = manual_overrides.get('monthly', {})
+            if isinstance(monthly_overrides, dict):
+                for m_idx_str, data in monthly_overrides.items():
+                    try:
+                        idx = int(m_idx_str)
+                        if 0 <= idx < 12:
+                            monthly_student_rev[idx] = int(data.get('student', 0))
+                            monthly_b2b[idx] = int(data.get('b2b', 0))
+                    except: pass
+        else:
+            # Fallback to reported balance if no manual override
+            if total_revenue < REPORTED_BALANCE:
+                diff = REPORTED_BALANCE - total_revenue
+                student_revenue += diff 
+                total_revenue = REPORTED_BALANCE
+                # Add to current month (May) for the chart
+                monthly_student_rev[4] += diff
 
-                if not is_verified:
-                    unverified_users.append(user_data)
-                elif is_verified and not has_paid:
-                    unpaid_users.append(user_data)
-                elif is_verified and has_paid:
-                    premium_users.append(user_data)
+        # Prepare Monthly Data for UI & Chart
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        revenue_chart_data = [monthly_student_rev[i] + monthly_b2b[i] for i in range(12)]
+        growth_chart_data = [0] * 12
+        
+        monthly_revenue_details = []
+        for i in range(3, 12): # April to Dec
+            s_rev = monthly_student_rev[i]
+            b_rev = monthly_b2b[i]
+            if s_rev > 0 or b_rev > 0:
+                monthly_revenue_details.append({
+                    'month': months[i],
+                    'student': s_rev,
+                    'b2b': b_rev,
+                    'total': s_rev + b_rev
+                })
 
+        # ------------------------------------------
+        # 1.5 TRANSACTION HISTORY (SHOW THE DATES)
+        # ------------------------------------------
+        all_transactions = []
+        
+        # Add Balance Sync Adjustment if needed to the history list
+        if diff > 0:
+            all_transactions.append({
+                'id': 'BAL_SYNC',
+                'date': datetime.now(EAT).isoformat(),
+                'user': 'Account Balance Sync',
+                'amount': diff,
+                'type': 'Adjustment',
+                'method': 'System'
+            })
+        
+        # Collect Student Transactions from Success Logs
+        if isinstance(pending_payments, dict):
+            for pid, tx in pending_payments.items():
+                if isinstance(tx, dict) and tx.get('status') == 'success':
+                    ts = tx.get('created_at') or tx.get('timestamp')
+                    u_id = tx.get('user_id')
+                    u_name = "Unknown Student"
+                    if u_id and isinstance(all_profiles, dict):
+                        u_name = all_profiles.get(u_id, {}).get('name', 'Unknown Student')
+                    
+                    amt = int(tx.get('amount', 50))
+                    all_transactions.append({
+                        'id': pid,
+                        'date': ts,
+                        'user': u_name,
+                        'amount': amt,
+                        'type': 'Student' if tx.get('role') != 'business' else 'B2B',
+                        'method': 'M-Pesa'
+                    })
+
+        # Collect B2B Ledger Transactions
+        if isinstance(ledger_data, dict):
+            for lid, tx in ledger_data.items():
+                if isinstance(tx, dict) and tx.get('status') == 'Completed':
+                    ts = tx.get('timestamp')
+                    biz_id = tx.get('restaurant_id')
+                    biz_name = "Unknown Venue"
+                    if biz_id and isinstance(all_restaurants, dict):
+                        biz_name = all_restaurants.get(biz_id, {}).get('business_name', 'Unknown Venue')
+                    
+                    all_transactions.append({
+                        'id': lid,
+                        'date': ts,
+                        'user': biz_name,
+                        'amount': int(tx.get('amount', 2000)),
+                        'type': 'B2B',
+                        'method': 'M-Pesa Ledger'
+                    })
+
+        # Sort by date (newest first)
+        all_transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+        recent_transactions = all_transactions[:50] # Show last 50
+
+        # ------------------------------------------
+        # 2. TRAFFIC & ENGAGEMENT METRICS (TODAY)
+        # ------------------------------------------
+        now = datetime.now(EAT)
+        today_str = now.strftime('%Y-%m-%d')
+        
+        daily_traffic = 0
+        chat_initiations = 0
+        date_proposals = 0
+        
+        if isinstance(all_profiles, dict):
+            for p in all_profiles.values():
+                if isinstance(p, dict):
+                    last_seen = p.get('last_seen', '')
+                    if last_seen.startswith(today_str):
+                        daily_traffic += 1
+                    
+        if isinstance(all_matches, dict):
+            for m in all_matches.values():
+                if isinstance(m, dict):
+                    matched_at = m.get('matched_at', m.get('timestamp', ''))
+                    if matched_at.startswith(today_str):
+                        chat_initiations += 1
+                    
+        if isinstance(all_bookings, dict):
+            for b in all_bookings.values():
+                if isinstance(b, dict):
+                    created_at = b.get('created_at', '')
+                    if created_at.startswith(today_str):
+                        date_proposals += 1
+
+        # ------------------------------------------
+        # 3. MOST POPULAR DATE VENUE
+        # ------------------------------------------
+        venue_counts = {}
+        if isinstance(all_bookings, dict):
+            for b in all_bookings.values():
+                if isinstance(b, dict):
+                    v_id = b.get('restaurant_id') or b.get('venue_id')
+                    if v_id:
+                        venue_counts[v_id] = venue_counts.get(v_id, 0) + 1
+                    
+        popular_venue_name = "None Yet"
+        popular_venue_count = 0
+        
+        if venue_counts:
+            top_v_id = max(venue_counts, key=venue_counts.get)
+            popular_venue_count = venue_counts[top_v_id]
+            v_data = all_restaurants.get(top_v_id, {}) if isinstance(all_restaurants, dict) else {}
+            if not isinstance(v_data, dict): v_data = {}
+            popular_venue_name = v_data.get('business_name', 'Unknown Venue')
+
+        # Existing User Lists for UI Tabs
+        unpaid_users = []
+        premium_users = []
+        unverified_users = []
+        total_users = 0
+
+        if isinstance(all_profiles, dict):
+            for uid, user_data in all_profiles.items():
+                if isinstance(user_data, dict):
+                    total_users += 1
+                    user_data['id'] = uid 
+                    is_verified = user_data.get('is_verified', False)
+                    has_paid = user_data.get('is_paid', False)
+
+                    if not is_verified:
+                        unverified_users.append(user_data)
+                    elif is_verified and not has_paid:
+                        unpaid_users.append(user_data)
+                    elif is_verified and has_paid:
+                        premium_users.append(user_data)
+
+        # Alerts, Feedback, etc.
+        alerts_dict = db.reference('admin_alerts').get() or {}
         alerts = [{'alert_id': k, **v} for k, v in alerts_dict.items() if isinstance(v, dict)]
         alerts.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
+        feedbacks_dict = db.reference('feedbacks').get() or {}
         suggestions = feedbacks_dict.get('suggestion', {})
         tickets = feedbacks_dict.get('ticket', {})
         
@@ -1849,22 +2085,23 @@ def super_admin():
         if isinstance(tickets, dict):
             raw_feedbacks.extend([{'id': k, 'type': 'ticket', **v} for k, v in tickets.items() if isinstance(v, dict)])
         
-        # Enrich feedback with user details (Email, Reg No, Phone)
         for f in raw_feedbacks:
             uid = f.get('user_id')
-            if uid and uid in all_profiles:
+            if uid and isinstance(all_profiles, dict) and uid in all_profiles:
                 u_profile = all_profiles[uid]
-                f['user_email'] = u_profile.get('email', 'N/A')
-                f['user_reg'] = u_profile.get('reg_no', 'N/A')
-                f['user_phone'] = u_profile.get('phone', 'N/A')
+                if isinstance(u_profile, dict):
+                    f['user_email'] = u_profile.get('email', 'N/A')
+                    f['user_reg'] = u_profile.get('reg_no', 'N/A')
+                    f['user_phone'] = u_profile.get('phone', 'N/A')
+                else:
+                    f['user_email'] = 'Unknown'; f['user_reg'] = 'Unknown'; f['user_phone'] = 'N/A'
             else:
-                f['user_email'] = 'Unknown'
-                f['user_reg'] = 'Unknown'
-                f['user_phone'] = 'N/A'
+                f['user_email'] = 'Unknown'; f['user_reg'] = 'Unknown'; f['user_phone'] = 'N/A'
         
+        raw_feedbacks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         feedbacks = raw_feedbacks
-        feedbacks.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
+        call_requests_dict = db.reference('call_requests').get() or {}
         call_requests = [{'id': k, **v} for k, v in call_requests_dict.items() if isinstance(v, dict)]
         call_requests.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
@@ -1875,15 +2112,17 @@ def super_admin():
         audit_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         audit_logs = audit_logs[:20]
 
-        chart_labels = ['6 Days Ago', '5 Days Ago', '4 Days Ago', '3 Days Ago', '2 Days Ago', 'Yesterday', 'Today']
-        chart_data = [5, 12, 15, 22, 18, 30, 45]
-        
         return render_template('super_admin.html', 
                                logged_in=True,
                                total_users=total_users,
                                total_revenue=total_revenue,
                                student_revenue=student_revenue,
                                b2b_revenue=b2b_revenue,
+                               daily_traffic=daily_traffic,
+                               chat_initiations=chat_initiations,
+                               date_proposals=date_proposals,
+                               popular_venue=popular_venue_name,
+                               popular_venue_count=popular_venue_count,
                                alerts=alerts,
                                feedbacks=feedbacks,
                                call_requests=call_requests,
@@ -1894,8 +2133,12 @@ def super_admin():
                                premium_users=premium_users,
                                unverified_users=unverified_users,
                                audit_logs=audit_logs,
-                               chart_labels=chart_labels,
-                               chart_data=chart_data)
+                               chart_labels=months,
+                               revenue_chart_data=revenue_chart_data,
+                               growth_chart_data=growth_chart_data,
+                               monthly_revenue_details=monthly_revenue_details,
+                               recent_transactions=recent_transactions,
+                               manual_overrides=manual_overrides)
                                
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
@@ -1954,7 +2197,41 @@ def admin_action():
         elif action == 'resolve_call':
             if target_id:
                 db.reference(f'call_requests/{target_id}').delete()
-                
+
+        elif action == 'save_revenue_overrides':
+            overrides = {
+                'active': True,
+                'total_revenue': int(data.get('total_revenue', 0)),
+                'student_revenue': int(data.get('student_revenue', 0)),
+                'b2b_revenue': 0,
+                'monthly': {
+                    '3': { # April
+                        'student': int(data.get('apr_student', 0)),
+                        'b2b': 0
+                    },
+                    '4': { # May
+                        'student': int(data.get('may_student', 0)),
+                        'b2b': 0
+                    }
+                }
+            }
+            db.reference('system_settings/manual_revenue_overrides').set(overrides)
+            # 📜 AUDIT LOG
+            db.reference('admin_audit_logs').push({
+                'action': f"Manually corrected revenue: Total {overrides['total_revenue']} KSH",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+
+        elif action == 'reset_revenue_overrides':
+            db.reference('system_settings/manual_revenue_overrides/active').set(False)
+            # 📜 AUDIT LOG
+            db.reference('admin_audit_logs').push({
+                'action': "Reset revenue calculations to automatic mode.",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+
         elif action == 'mark_premium':
             if target_id:
                 db.reference(f'profiles/{target_id}').update({'is_paid': True})

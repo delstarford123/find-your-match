@@ -1,18 +1,10 @@
 {
   "rules": {
-    // ========================================================
-    // 1. DEFAULT SECURITY (FLASK BACKEND OVERRIDE)
-    // Blocks all public access by default. 
-    // Your Flask Admin SDK (Python) bypasses this securely.
-    // ========================================================
+    
     ".read": false,
     ".write": false,
 
-    // ========================================================
-    // 2. FRONTEND EXCEPTIONS (PAGES REQUIRING REAL-TIME UI)
-    // ========================================================
     
-    // --- Merchant Notifications ---
     "merchant_alerts": {
       "$restaurant_id": {
         ".read": true, 
