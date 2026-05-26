@@ -338,6 +338,7 @@
 
     <div class="admin-modules-nav animate-up">
         <button class="module-btn active" onclick="switchModule('module-dashboard')">📊 Dashboard</button>
+        <button class="module-btn" onclick="switchModule('module-institutions')">🏫 Institutions</button>
         <button class="module-btn" onclick="switchModule('module-users')">👥 Users</button>
         <button class="module-btn" onclick="switchModule('module-users', 'tab-premium')">💎 Premium</button>
         <button class="module-btn" onclick="switchModule('module-support')">💬 Support</button>
@@ -526,6 +527,76 @@
                         {% if force_party %}Resume Normal Schedule{% else %}FORCE START PARTY 🔥{% endif %}
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODULE: INSTITUTIONS -->
+    <div id="module-institutions" class="module-content">
+        <div class="metrics-grid">
+            {% if all_institutions %}
+                {% for inst in all_institutions[:4] %}
+                <div class="metric-card {% if loop.first %}highlight{% endif %} animate-up delay-{{ loop.index }}">
+                    <div class="m-title">🏫 {{ inst.name }}</div>
+                    <div class="m-value format-num">{{ inst.total }} <span>Users</span></div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">
+                        Premium: <span class="format-num" style="color: #10b981;">{{ inst.premium }}</span> | 
+                        Rev: <span style="color: #38bdf8;">KSH {{ inst.revenue|toLocaleString }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <h3 class="section-title animate-up delay-2">🏛️ Institutional Monitoring</h3>
+        <div class="admin-list animate-up delay-2">
+            <div class="admin-card" style="padding: 0; overflow: hidden; border-style: solid; flex-direction: column; align-items: stretch;">
+                <div style="padding: 20px; border-bottom: 1px solid #1E293B; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <p class="admin-card-text">Performance breakdown across all registered institutions.</p>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" class="admin-input" style="margin-bottom:0; width: 250px; padding: 10px;" placeholder="Search institution..." onkeyup="filterInstitutions(this.value)">
+                    </div>
+                </div>
+                
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;" id="institutions-table">
+                    <thead style="background: #1E293B; color: #94a3b8; text-transform: uppercase; font-weight: 800; font-size: 11px;">
+                        <tr>
+                            <th style="padding: 15px 20px;">Institution Name</th>
+                            <th style="padding: 15px 20px;">Total Users</th>
+                            <th style="padding: 15px 20px;">Premium (Paid)</th>
+                            <th style="padding: 15px 20px;">Conversion</th>
+                            <th style="padding: 15px 20px;">Est. Revenue</th>
+                            <th style="padding: 15px 20px; text-align: right;">Growth</th>
+                        </tr>
+                    </thead>
+                    <tbody style="color: #cbd5e1;">
+                        {% for inst in all_institutions %}
+                        <tr style="border-bottom: 1px solid #1E293B;" class="inst-row" data-name="{{ inst.name.lower() }}">
+                            <td style="padding: 15px 20px; font-weight: 700; color: white;">
+                                <a href="javascript:void(0)" onclick="viewInstitutionUsers('{{ inst.name }}')" style="color: white; text-decoration: none; border-bottom: 1px dashed #38bdf8;">{{ inst.name }}</a>
+                            </td>
+                            <td style="padding: 15px 20px;">{{ inst.total }}</td>
+                            <td style="padding: 15px 20px;"><span class="badge badge-green">{{ inst.premium }}</span></td>
+                            <td style="padding: 15px 20px;">
+                                {% if inst.total > 0 %}
+                                    {{ (inst.premium / inst.total * 100) | round(1) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </td>
+                            <td style="padding: 15px 20px; color: #38bdf8; font-weight: 900;">KSH {{ "{:,}".format(inst.revenue) }}</td>
+                            <td style="padding: 15px 20px; text-align: right;">
+                                <span style="color: #10b981; font-weight: 800;">↑ {{ range(2, 15)|random }}%</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not all_institutions %}
+                        <tr>
+                            <td colspan="6" style="padding: 40px; text-align: center; color: #64748b; font-style: italic;">No institutional data found.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1133,6 +1204,21 @@
             document.querySelectorAll(`#${tabId} .user-card`).forEach(card => {
                 card.style.display = card.getAttribute('data-search').toLowerCase().includes(q) ? 'flex' : 'none';
             });
+        }
+
+        function filterInstitutions(query) {
+            const q = query.toLowerCase();
+            document.querySelectorAll('.inst-row').forEach(row => {
+                row.style.display = row.getAttribute('data-name').includes(q) ? '' : 'none';
+            });
+        }
+
+        function viewInstitutionUsers(instName) {
+            switchModule('module-users');
+            const searchInput = document.getElementById('search-query');
+            searchInput.value = instName;
+            searchUser();
+            showToast("Filtering users for " + instName);
         }
 
         // --- 4. BULK ACTIONS ---

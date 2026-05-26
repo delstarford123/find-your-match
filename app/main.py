@@ -2091,6 +2091,9 @@ def super_admin():
         premium_users = []
         unverified_users = []
         total_users = 0
+        
+        # Institution Stats Aggregation
+        institution_stats = {}
 
         if isinstance(all_profiles, dict):
             for uid, user_data in all_profiles.items():
@@ -2099,6 +2102,17 @@ def super_admin():
                     user_data['id'] = uid 
                     is_verified = user_data.get('is_verified', False)
                     has_paid = user_data.get('is_paid', False)
+                    inst_name = user_data.get('institution_name', 'Unknown')
+
+                    if inst_name not in institution_stats:
+                        institution_stats[inst_name] = {'total': 0, 'premium': 0, 'revenue': 0}
+                    
+                    institution_stats[inst_name]['total'] += 1
+                    if has_paid:
+                        institution_stats[inst_name]['premium'] += 1
+                        # Estimate revenue from premium users (assuming 50 KSH base)
+                        # In a real scenario, this would sum up actual transaction records
+                        institution_stats[inst_name]['revenue'] += 50 
 
                     if not is_verified:
                         unverified_users.append(user_data)
@@ -2106,6 +2120,10 @@ def super_admin():
                         unpaid_users.append(user_data)
                     elif is_verified and has_paid:
                         premium_users.append(user_data)
+
+        # Convert institution stats to sorted list
+        inst_list = [{'name': k, **v} for k, v in institution_stats.items()]
+        inst_list.sort(key=lambda x: x['total'], reverse=True)
 
         # Alerts, Feedback, etc.
         alerts_dict = db.reference('admin_alerts').get() or {}
@@ -2177,6 +2195,7 @@ def super_admin():
                                unverified_users=unverified_users,
                                audit_logs=audit_logs,
                                all_ads=all_ads,
+                               all_institutions=inst_list,
                                chart_labels=months,
                                revenue_chart_data=revenue_chart_data,
                                growth_chart_data=growth_chart_data,
