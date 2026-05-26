@@ -264,8 +264,12 @@ def security_and_tracking_hook():
 # Register Blueprints
 from app.routes.auth import auth_bp
 from app.routes.v2.auth import auth_v2_bp
+from app.routes.profiles import profiles_bp
+from app.routes.matches import matches_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
+app.register_blueprint(profiles_bp)
+app.register_blueprint(matches_bp)
 
 
 # ==========================================
@@ -2145,6 +2149,11 @@ def super_admin():
         audit_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         audit_logs = audit_logs[:20]
 
+        # Fetch All Advertisements for management
+        ads_dict = db.reference('active_ads').get() or {}
+        all_ads = [{'id': k, **v} for k, v in ads_dict.items() if isinstance(v, dict)]
+        all_ads.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
         return render_template('super_admin.html', 
                                logged_in=True,
                                total_users=total_users,
@@ -2167,6 +2176,7 @@ def super_admin():
                                premium_users=premium_users,
                                unverified_users=unverified_users,
                                audit_logs=audit_logs,
+                               all_ads=all_ads,
                                chart_labels=months,
                                revenue_chart_data=revenue_chart_data,
                                growth_chart_data=growth_chart_data,
@@ -2264,13 +2274,34 @@ def admin_action():
             return jsonify({'success': True})
 
         elif action == 'manage_ad':
-            ad_id = data.get('ad_id') or ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-            db.reference(f'ads/{ad_id}').set({
-                'image_url': data.get('image_url'),
-                'target_url': data.get('target_url'),
-                'is_active': data.get('is_active', True),
+            ad_id = data.get('ad_id') or f"ad_{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}"
+            db.reference(f'active_ads/{ad_id}').set({
+                'type': data.get('type', 'image'),
+                'media_url': data.get('media_url'),
+                'click_link': data.get('click_link'),
+                'display_duration': int(data.get('display_duration', 15)),
+                'skip_after': int(data.get('skip_after', 5)),
+                'status': 'active' if data.get('is_active', True) else 'inactive',
+                'target_page': data.get('target_page', '/swipe'),
                 'created_at': datetime.now(EAT).isoformat()
             })
+            return jsonify({'success': True})
+
+        elif action == 'track_ad_click':
+            db.reference(f'active_ads/{target_id}/metrics/clicks').transaction(lambda curr: (curr or 0) + 1)
+            return jsonify({'success': True})
+
+        elif action == 'toggle_ad_status':
+            ad_ref = db.reference(f'active_ads/{target_id}')
+            ad = ad_ref.get()
+            if ad:
+                new_status = 'inactive' if ad.get('status') == 'active' else 'active'
+                ad_ref.update({'status': new_status})
+                return jsonify({'success': True, 'new_status': new_status})
+            return jsonify({'success': False, 'message': 'Ad not found'}), 404
+
+        elif action == 'delete_ad':
+            db.reference(f'active_ads/{target_id}').delete()
             return jsonify({'success': True})
 
         elif action == 'set_daily_prompt':
@@ -2694,6 +2725,63 @@ def admin_export_csv():
         headers={"Content-Disposition": f"attachment;filename=mmust_users_{list_type}.csv"}
     )
 
+@app.route('/api/get_active_ad', methods=['GET'])
+def get_active_ad():
+    """Fetches an active advertisement for the skippable ad system."""
+    try:
+        ads_ref = db.reference('active_ads')
+        ads = ads_ref.order_by_child('status').equal_to('active').get()
+        
+        if ads:
+            # For simplicity, we take the first one or randomize
+            ad_key = random.choice(list(ads.keys()))
+            ad_data = ads[ad_key]
+            ad_data['id'] = ad_key
+            return jsonify({"success": True, "ad": ad_data})
+            
+        return jsonify({"success": False, "message": "No active ads"})
+    except Exception as e:
+        logger.error(f"Ad Fetch Error: {e}")
+        return jsonify({"success": False}), 500
+
+
+@app.route('/api/admin/upload_media', methods=['POST'])
+def admin_upload_media():
+    """Handles file uploads for advertisements and system assets."""
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file part'}), 400
+    
+    file = request.files['file']
+    folder = request.form.get('folder', 'ads')
+    
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No selected file'}), 400
+
+    try:
+        from app.database import storage
+        # Generate a unique filename to prevent collisions
+        import uuid
+        ext = os.path.splitext(file.filename)[1]
+        unique_filename = f"{folder}/{uuid.uuid4()}{ext}"
+        
+        # Upload to Firebase Storage
+        blob = storage.bucket().blob(unique_filename)
+        blob.upload_from_file(file, content_type=file.content_type)
+        blob.make_public()
+        
+        return jsonify({
+            'success': True, 
+            'url': blob.public_url,
+            'filename': file.filename
+        })
+    except Exception as e:
+        logger.error(f"Media Upload Error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/admin/bulk_action', methods=['POST'])
 def admin_bulk_action():
     """Handles executing a single action across dozens of selected items at once."""
@@ -2788,115 +2876,6 @@ def ai_wingman_match_intro(user_id, partner_profile):
     except Exception as e:
         logger.error(f"Wingman Match Intro Error: {e}")
         
-@app.route('/api/profiles')
-def get_profiles():
-    user_id = request.args.get('user_id')
-    ranked_deck = generate_ranked_deck(user_id)
-    return jsonify(ranked_deck)
-
-@app.route('/api/swipe', methods=['POST'])
-@login_required
-def record_swipe():
-    data = request.json
-    current_user_id = session.get('user_id')
-    target_user_id = data.get('target_id')
-    action = data.get('action') 
-    timestamp = datetime.now(EAT).isoformat()
-
-    if not target_user_id or not action:
-        return jsonify({"status": "error", "message": "Missing swipe data"}), 400
-
-    try:
-        # 1. Record the swipe
-        db.reference(f'swipes/{current_user_id}/{target_user_id}').set({
-            'action': action,
-            'timestamp': timestamp
-        })
-        
-        is_match = False
-        match_details = {}
-
-        if action == 'like':
-            # Fetch profiles early so we can compare them for cool commonalities!
-            current_profile = db.reference(f'profiles/{current_user_id}').get() or {}
-            target_profile = db.reference(f'profiles/{target_user_id}').get() or {}
-
-            # 2. CHECK ALL MATCH CONDITIONS
-            # A: Did they already swipe right on us?
-            target_swipe = db.reference(f'swipes/{target_user_id}/{current_user_id}').get()
-            target_swiped_right = target_swipe and target_swipe.get('action') == 'like'
-            
-            # B: Do they have a pending Secret Crush on us?
-            target_crush = db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').get()
-            target_crushed_on_me = target_crush and target_crush.get('status') == 'pending'
-
-            # If either condition is true, IT IS A MATCH!
-            if target_swiped_right or target_crushed_on_me:
-                is_match = True
-                match_id = "_".join(sorted([current_user_id, target_user_id]))
-                
-                # If they matched via crush, update the crush database to keep it clean
-                if target_crushed_on_me:
-                    db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').update({'status': 'matched'})
-                    db.reference(f'secret_crushes/{current_user_id}/{target_user_id}').set({'timestamp': timestamp, 'status': 'matched'})
-                
-                # 3. FIGURE OUT *WHY* THEY MATCHED (To make the UI awesome)
-                match_reason = "You both liked each other! ✨"
-                
-                if target_crushed_on_me:
-                    match_reason = "OMG! They had a Secret Crush on you! 🤫❤️"
-                elif current_profile.get('intent') and current_profile.get('intent') != 'none' and current_profile.get('intent') == target_profile.get('intent'):
-                    # They have the exact same relationship intent!
-                    intent_map = {'coffee': '☕ Coffee', 'study': '📚 Study Sessions', 'event': '🎉 Events', 'relationship': '💘 A Relationship'}
-                    shared_intent = intent_map.get(current_profile.get('intent'), '')
-                    if shared_intent:
-                        match_reason = f"You are both looking for {shared_intent}!"
-                else:
-                    # Let's check for shared words in their bios!
-                    my_bio_words = set(current_profile.get('bio', '').lower().replace('.', '').replace(',', '').split())
-                    their_bio_words = set(target_profile.get('bio', '').lower().replace('.', '').replace(',', '').split())
-                    # Filter out boring words
-                    stop_words = {'i', 'am', 'a', 'the', 'and', 'to', 'for', 'in', 'of', 'my', 'is', 'at', 'on', 'with', 'student', 'mmust', 'like', 'love', 'looking', 'here'}
-                    common_words = (my_bio_words & their_bio_words) - stop_words
-                    
-                    if common_words:
-                        best_word = list(common_words)[0].capitalize()
-                        match_reason = f"You both mentioned '{best_word}' in your bios! 🎯"
-
-                # 4. Save Match Entry to Database
-                db.reference(f'matches/{match_id}').set({
-                    'users': {current_user_id: True, target_user_id: True},
-                    'matched_at': timestamp,
-                    'last_message': 'You matched! Say hi.',
-                    'last_message_time': timestamp,
-                    'match_reason': match_reason # Save it so we can show it in chats later!
-                })
-                
-                # 5. Prepare details for frontend popup
-                match_details = {
-                    'name': target_profile.get('name', 'Your Match').split(' ')[0],
-                    'img': target_profile.get('img', '/static/img/placeholder.png'),
-                    'bio': target_profile.get('bio', 'MMUST Student'),
-                    'reason': match_reason # Pass the cool reason to the frontend UI
-                }
-
-                # 6. TRIGGER PUSH NOTIFICATION (Normal match buzz)
-                current_name = current_profile.get('name', 'Someone').split(' ')[0]
-                socketio.start_background_task(trigger_match_notification, target_user_id, current_name)
-
-                # 7. THE AI MAGIC: AI Wingman sends a tip to the current user
-                socketio.start_background_task(ai_wingman_match_intro, current_user_id, target_profile)
-
-        return jsonify({
-            "status": "success",
-            "match": is_match,
-            "match_details": match_details
-        })
-
-    except Exception as e:
-        logger.error(f"Swipe Error: {e}")
-        return jsonify({"status": "error", "message": "Database error"}), 500
-      
 @app.route('/api/save_subscription', methods=['POST'])
 def save_subscription():
     if 'user_id' not in session:
@@ -5349,6 +5328,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     # You must listen on '0.0.0.0' for external traffic on a server!
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
-    
-    
-    
+       

@@ -618,7 +618,13 @@
 
             // DYNAMIC BADGE LOGIC
             const score = profile.ai_score || profile.compatibility || Math.floor(Math.random() * 20) + 70;
-            if (score >= 80) {
+            if (profile.is_ad) {
+                compatBadge.innerHTML = `🚀 SPONSORED`;
+                compatBadge.style.background = 'linear-gradient(135deg, #A855F7 0%, #6366F1 100%)';
+                compatBadge.style.color = 'white';
+                compatBadge.style.border = 'none';
+                compatBadge.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.5)';
+            } else if (score >= 80) {
                 compatBadge.innerHTML = `❤️ Perfect Match (${score}%)`;
                 compatBadge.style.background = 'rgba(230, 0, 38, 0.95)';
                 compatBadge.style.color = 'white';
@@ -642,13 +648,13 @@
             };
             
             imgEl.src = profile.img || '/static/img/placeholder.png';
-            nameEl.innerText = (profile.name || 'Student').split(' ')[0];
-            ageEl.innerText = profile.age ? `, ${profile.age}` : '';
+            nameEl.innerText = profile.is_ad ? 'Sponsored' : (profile.name || 'Student').split(' ')[0];
+            ageEl.innerText = profile.is_ad ? '' : (profile.age ? `, ${profile.age}` : '');
             bioEl.innerText = profile.bio || 'No bio provided.';
 
             const phoneRow = document.getElementById('swipe-phone-row');
             const phoneLink = document.getElementById('swipe-phone-link');
-            if (profile.phone) {
+            if (profile.phone && !profile.is_ad) {
                 phoneRow.style.display = 'flex';
                 phoneLink.innerText = '+' + profile.phone;
                 phoneLink.href = 'tel:' + profile.phone;
@@ -656,7 +662,7 @@
                 phoneRow.style.display = 'none';
             }
             
-            const intentMap = { 'coffee': '☕ Just Coffee', 'study': '📚 Study Buddy', 'event': '🎉 Event +1', 'relationship': '💘 Relationship' };
+            const intentMap = { 'coffee': '☕ Just Coffee', 'study': '📚 Study Buddy', 'event': '🎉 Event +1', 'relationship': '💘 Relationship', 'promotion': '📢 Special Offer' };
             const intentEl = document.getElementById('profile-intent');
             
             if (profile.intent && intentMap[profile.intent]) {
@@ -685,22 +691,40 @@
             card.style.transform = action === 'like' ? 'translateX(130%) translateY(-30px) rotate(20deg)' : 'translateX(-130%) translateY(-30px) rotate(-20deg)';
             card.style.opacity = '0';
 
+            // IF IT'S AN AD AND THEY LIKE IT, REDIRECT
+            if (currentProfile.is_ad && action === 'like') {
+                setTimeout(() => {
+                    if (currentProfile.click_link) {
+                        window.open(currentProfile.click_link, '_blank');
+                    }
+                }, 400);
+            }
+
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
-            fetch('/api/swipe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({ target_id: currentProfile.id, action: action })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.match) {
-                    window.triggerMatchCelebration(data.match_details, currentProfile.id);
-                }
-            });
+            // Don't hit swipe API for ads to avoid DB pollution, just move to next
+            if (currentProfile.is_ad) {
+                // Record click metric optionally here
+                fetch('/api/admin/action', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ action: 'track_ad_click', target_id: currentProfile.id })
+                });
+            } else {
+                fetch('/api/swipe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ target_id: currentProfile.id, action: action })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.match) {
+                        window.triggerMatchCelebration(data.match_details, currentProfile.id);
+                    }
+                });
+            }
 
             setTimeout(() => {
                 currentIndex++;

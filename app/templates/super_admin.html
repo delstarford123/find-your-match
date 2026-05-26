@@ -835,12 +835,77 @@
             <div class="admin-card" style="flex-direction: column; align-items: stretch;">
                 <form id="ad-form" onsubmit="event.preventDefault(); manageAd();">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                        <input type="text" id="ad-img" class="admin-input" placeholder="Image URL (e.g. static/img/promo.jpg)" required>
-                        <input type="text" id="ad-url" class="admin-input" placeholder="Destination URL (e.g. /venues)" required>
+                        <select id="ad-type" class="admin-input" style="background: #1e293b;" onchange="toggleAdInput(this.value)">
+                            <option value="image">🖼️ Image Ad</option>
+                            <option value="video">🎥 Video Ad</option>
+                            <option value="audio">🎧 Audio Ad</option>
+                        </select>
+                        <div id="media-input-container" style="display: flex; gap: 5px;">
+                            <input type="text" id="ad-media" class="admin-input" placeholder="Media URL" style="flex: 1;">
+                            <label class="btn btn-outline" style="margin: 0; padding: 10px; cursor: pointer; display: flex; align-items: center;">
+                                📁 <input type="file" id="ad-file" hidden onchange="handleAdFileUpload(this)">
+                            </label>
+                        </div>
+                        <input type="text" id="ad-link" class="admin-input" placeholder="Click Link (e.g. /venues)" required>
+                        <input type="text" id="ad-target" class="admin-input" placeholder="Target Page (default: /swipe)">
+                        <input type="number" id="ad-duration" class="admin-input" placeholder="Total Duration (s)" value="15">
+                        <input type="number" id="ad-skip" class="admin-input" placeholder="Skip After (s)" value="5">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 Deploy New Advertisement</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn btn-outline" style="flex: 1;" onclick="previewAd()">👁️ Live Preview</button>
+                        <button type="submit" class="btn btn-primary" style="flex: 2;">🚀 Deploy New Advertisement</button>
+                    </div>
                 </form>
             </div>
+        </div>
+
+        <!-- Ad Preview Modal -->
+        <div id="adPreviewModal" class="modal-overlay" style="display:none; z-index: 999999;">
+            <div class="modal-content" style="max-width: 500px; padding: 0; background: transparent; border: none; box-shadow: none;">
+                <div id="preview-container"></div>
+                <button class="btn btn-danger" onclick="document.getElementById('adPreviewModal').style.display='none'" style="margin-top: 20px; width: 100%;">Close Preview</button>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-2" style="margin-top: 40px;">📋 Deployed Advertisements</h3>
+        <div class="admin-list animate-up delay-2" id="deployed-ads-list" style="margin-bottom: 40px;">
+            {% if all_ads %}
+                {% for ad in all_ads %}
+                <div class="admin-card" id="ad-card-{{ ad.id }}">
+                    <div style="flex: 1; display: flex; gap: 15px; align-items: center;">
+                        <div style="width: 60px; height: 60px; border-radius: 12px; overflow: hidden; background: #1e293b; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            {% if ad.type == 'image' %}
+                                <img src="{{ ad.media_url }}" style="width: 100%; height: 100%; object-fit: cover;">
+                            {% elif ad.type == 'video' %}
+                                <div style="font-size: 20px;">🎥</div>
+                            {% else %}
+                                <div style="font-size: 20px;">🎧</div>
+                            {% endif %}
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="admin-card-header" style="margin-bottom: 4px;">
+                                <span class="badge {% if ad.status == 'active' %}badge-green{% else %}badge-red{% endif %}" id="status-badge-{{ ad.id }}">{{ ad.status|upper }}</span>
+                                <span style="font-size: 10px; color: #94a3b8; margin-left: 8px;">{{ ad.id }}</span>
+                            </div>
+                            <p class="admin-card-text" style="font-size: 12px; margin: 0;">
+                                <strong>Type:</strong> {{ ad.type|capitalize }} | 
+                                <strong>Target:</strong> {{ ad.target_page }}<br>
+                                <strong>Clicks:</strong> {{ ad.metrics.clicks if ad.metrics else 0 }}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="action-group" style="gap: 8px;">
+                        <button class="btn btn-outline" onclick="previewExistingAd('{{ ad.type }}', '{{ ad.media_url }}', '{{ ad.click_link }}', '{{ ad.display_duration }}', '{{ ad.skip_after }}')" style="font-size: 11px; padding: 8px;">👁️</button>
+                        <button class="btn btn-outline" onclick="toggleAdStatus('{{ ad.id }}')" id="toggle-btn-{{ ad.id }}" style="font-size: 11px; padding: 8px;">
+                            {% if ad.status == 'active' %}⏸️{% else %}▶️{% endif %}
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteAd('{{ ad.id }}')" style="font-size: 11px; padding: 8px;">🗑️</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 30px; background: rgba(30, 41, 59, 0.5); border-radius: 16px;">No advertisements deployed yet.</p>
+            {% endif %}
         </div>
 
         <h3 class="section-title animate-up delay-2">🧊 Daily Icebreaker Prompt</h3>
@@ -1401,14 +1466,162 @@
         function viewAllUsers() { document.getElementById('search-query').value = ''; searchUser('all'); }
 
         // --- 8. CONTENT & SYSTEM ACTIONS ---
+        function toggleAdInput(type) {
+            const fileInput = document.getElementById('ad-file');
+            if (type === 'video') fileInput.accept = "video/*";
+            else if (type === 'audio') fileInput.accept = "audio/*";
+            else fileInput.accept = "image/*";
+        }
+
+        function handleAdFileUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            showToast("Uploading media... ⏳");
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('folder', 'ads');
+
+            fetch('/api/admin/upload_media', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN },
+                body: formData
+            }).then(res => res.json()).then(data => {
+                if(data.success) {
+                    document.getElementById('ad-media').value = data.url;
+                    showToast("Media uploaded successfully!");
+                } else {
+                    showToast("Upload failed: " + data.message, true);
+                }
+            }).catch(err => {
+                showToast("Network error during upload.", true);
+            });
+        }
+
+        function previewAd() {
+            const type = document.getElementById('ad-type').value;
+            const mediaUrl = document.getElementById('ad-media').value;
+            const clickLink = document.getElementById('ad-link').value;
+            const duration = document.getElementById('ad-duration').value;
+            const skipAfter = document.getElementById('ad-skip').value;
+
+            previewExistingAd(type, mediaUrl, clickLink, duration, skipAfter);
+        }
+
+        function previewExistingAd(type, mediaUrl, clickLink, duration, skipAfter) {
+            if (!mediaUrl) { showToast("Please provide a Media URL first.", true); return; }
+
+            const container = document.getElementById('preview-container');
+            container.innerHTML = '';
+            
+            let mediaHtml = '';
+            if (type === 'image') {
+                mediaHtml = `<img src="${mediaUrl}" style="width:100%; border-radius:24px; box-shadow:0 25px 50px rgba(0,0,0,0.5);">`;
+            } else if (type === 'video') {
+                mediaHtml = `<video src="${mediaUrl}" autoplay controls style="width:100%; border-radius:24px; box-shadow:0 25px 50px rgba(0,0,0,0.5);"></video>`;
+            } else if (type === 'audio') {
+                mediaHtml = `
+                    <div style="padding: 40px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius:24px; text-align:center;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🎧</div>
+                        <h2 style="color: white; margin-bottom: 20px;">Audio Ad Preview</h2>
+                        <audio src="${mediaUrl}" autoplay controls style="width: 100%;"></audio>
+                    </div>`;
+            }
+
+            container.innerHTML = `
+                <div style="position:relative; width:100%; max-width:400px; margin:0 auto;">
+                    <div id="preview-media-container">${mediaHtml}</div>
+                    ${clickLink ? `<a href="${clickLink}" target="_blank" class="ad-learn-more" style="display:block; text-align:center; width:100%; box-sizing:border-box;">Learn More</a>` : ''}
+                    <button class="skip-btn active" style="bottom:-70px; right:0; opacity:1; cursor:default;">
+                        Skip Ad (${skipAfter}s)
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('adPreviewModal').style.display = 'flex';
+        }
+
+        function toggleAdStatus(adId) {
+            const btn = document.getElementById('toggle-btn-' + adId);
+            const originalText = btn.innerText;
+            btn.innerText = "⏳";
+            btn.disabled = true;
+
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'toggle_ad_status', target_id: adId })
+            }).then(res => res.json()).then(data => {
+                btn.disabled = false;
+                if(data.success) {
+                    const badge = document.getElementById('status-badge-' + adId);
+                    if(data.new_status === 'active') {
+                        badge.innerText = "ACTIVE";
+                        badge.className = "badge badge-green";
+                        btn.innerText = "⏸️";
+                    } else {
+                        badge.innerText = "INACTIVE";
+                        badge.className = "badge badge-red";
+                        btn.innerText = "▶️";
+                    }
+                    showToast("Ad status updated!");
+                } else {
+                    btn.innerText = originalText;
+                    showToast("Failed: " + data.message, true);
+                }
+            }).catch(err => {
+                btn.disabled = false;
+                btn.innerText = originalText;
+                showToast("Network error.", true);
+            });
+        }
+
+        function deleteAd(adId) {
+            if(!confirm("Are you sure you want to permanently delete this advertisement?")) return;
+
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'delete_ad', target_id: adId })
+            }).then(res => res.json()).then(data => {
+                if(data.success) {
+                    const card = document.getElementById('ad-card-' + adId);
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(20px)';
+                    setTimeout(() => card.remove(), 300);
+                    showToast("Advertisement deleted.");
+                } else {
+                    showToast("Failed to delete ad.", true);
+                }
+            });
+        }
+
         function manageAd() {
-            const imgUrl = document.getElementById('ad-img').value;
-            const targetUrl = document.getElementById('ad-url').value;
+            const type = document.getElementById('ad-type').value;
+            const mediaUrl = document.getElementById('ad-media').value;
+            const clickLink = document.getElementById('ad-link').value;
+            const targetPage = document.getElementById('ad-target').value;
+            const duration = document.getElementById('ad-duration').value;
+            const skipAfter = document.getElementById('ad-skip').value;
+            
             fetch('/api/admin/action', {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
-                body: JSON.stringify({ action: 'manage_ad', image_url: imgUrl, target_url: targetUrl })
+                body: JSON.stringify({ 
+                    action: 'manage_ad', 
+                    type: type,
+                    media_url: mediaUrl, 
+                    click_link: clickLink,
+                    target_page: targetPage,
+                    display_duration: duration,
+                    skip_after: skipAfter
+                })
             }).then(res => res.json()).then(data => {
-                if(data.success) { showToast("Advertisement deployed successfully!"); document.getElementById('ad-form').reset(); }
+                if(data.success) { 
+                    showToast("Advertisement deployed successfully!"); 
+                    document.getElementById('ad-form').reset(); 
+                    setTimeout(() => window.location.reload(), 1000);
+                }
             });
         }
 

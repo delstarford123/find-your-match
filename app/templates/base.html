@@ -97,6 +97,49 @@
         /* Prevents iOS from auto-zooming on inputs */
         input, select, textarea { font-size: 16px !important; font-family: inherit; }
 
+        /* === 🎬 SKIPPABLE AD SYSTEM === */
+        .ad-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(11, 17, 32, 0.98); z-index: 999999;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(15px); padding: 20px;
+        }
+        .ad-content {
+            position: relative; width: 100%; max-width: 500px; text-align: center;
+            animation: adPopIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #ad-media-container {
+            width: 100%; border-radius: 24px; overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
+        }
+        #ad-media-container img, #ad-media-container video {
+            width: 100%; height: auto; max-height: 70vh; display: block; object-fit: contain;
+        }
+        .ad-learn-more {
+            display: inline-block; margin-top: 20px; padding: 14px 28px;
+            background: #38bdf8; color: #0f172a; text-decoration: none;
+            font-weight: 900; border-radius: 14px; font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);
+        }
+        .ad-learn-more:hover { transform: scale(1.05); background: #7dd3fc; }
+        .skip-btn {
+            position: absolute; bottom: -80px; right: 0;
+            background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px 24px;
+            border-radius: 16px; font-weight: 700; cursor: not-allowed;
+            transition: all 0.3s ease;
+        }
+        .skip-btn.active {
+            background: #ef4444; color: white; border-color: #ef4444;
+            cursor: pointer; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+        @keyframes adPopIn { 
+            0% { opacity: 0; transform: scale(0.9) translateY(20px); } 
+            100% { opacity: 1; transform: scale(1) translateY(0); } 
+        }
+
         /* === 🚨 BULLETPROOF NAVBAR FIX 🚨 === */
         header {
             position: relative;
@@ -1119,6 +1162,19 @@
     }
 </style>
 
+<!-- === 🎬 SKIPPABLE AD OVERLAY === -->
+<div id="ad-overlay" class="ad-overlay" style="display: none;">
+    <div class="ad-content">
+        <div id="ad-media-container"></div>
+        
+        <a id="ad-click-link" href="#" target="_blank" class="ad-learn-more" style="display: none;">Learn More</a>
+        
+        <button id="skip-ad-btn" class="skip-btn" disabled>
+            Skip Ad <span id="skip-timer"></span>
+        </button>
+    </div>
+</div>
+
 <div id="globalIncomingCall">
     <div class="g-ring-container">
         <div class="g-ring"></div><div class="g-ring"></div><div class="g-ring"></div>
@@ -1850,6 +1906,96 @@
         }
     });
 </script>
+    <script>
+        // === 🎬 SKIPPABLE AD EXECUTION ENGINE ===
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Only show ads to logged-in students, not businesses or admins
+            const isStudent = {{ 'true' if session.get('user_id') and not session.get('is_super_admin') else 'false' }};
+            if (!isStudent) return;
+
+            // Check if user has already seen an ad recently in this session
+            if (sessionStorage.getItem("ad_seen")) return;
+
+            try {
+                const response = await fetch('/api/get_active_ad');
+                const data = await response.json();
+
+                if (data.success && data.ad) {
+                    // Slight delay for a smoother entry
+                    setTimeout(() => playAd(data.ad), 2000);
+                }
+            } catch (error) {
+                console.error("Failed to load ad:", error);
+            }
+        });
+
+        function playAd(adData) {
+            const overlay = document.getElementById('ad-overlay');
+            const mediaContainer = document.getElementById('ad-media-container');
+            const skipBtn = document.getElementById('skip-ad-btn');
+            const skipTimerSpan = document.getElementById('skip-timer');
+            const clickLink = document.getElementById('ad-click-link');
+
+            // 1. Render Media
+            mediaContainer.innerHTML = ''; 
+            if (adData.type === 'image') {
+                mediaContainer.innerHTML = `<img src="${adData.media_url}" alt="Advertisement">`;
+            } else if (adData.type === 'video') {
+                mediaContainer.innerHTML = `<video src="${adData.media_url}" autoplay playsinline controlsList="nodownload"></video>`;
+            } else if (adData.type === 'audio') {
+                mediaContainer.innerHTML = `
+                    <div style="padding: 40px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+                        <div style="font-size: 60px; margin-bottom: 20px;">🎧</div>
+                        <h2 style="color: white; margin-bottom: 20px;">Audio Advertisement</h2>
+                        <audio src="${adData.media_url}" autoplay controls style="width: 100%;"></audio>
+                    </div>`;
+            }
+
+            // 2. Setup Click Link
+            if (adData.click_link) {
+                clickLink.href = adData.click_link;
+                clickLink.style.display = 'inline-block';
+                // If it's a relative path, use it as is, otherwise target blank
+                if (!adData.click_link.startsWith('http')) {
+                    clickLink.target = '_self';
+                }
+            }
+
+            // 3. Show Overlay
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Lock scrolling
+
+            // 4. Handle Skip Logic
+            let timeLeft = parseInt(adData.skip_after) || 5;
+            skipTimerSpan.innerText = `(${timeLeft}s)`;
+
+            const countdown = setInterval(() => {
+                timeLeft--;
+                if (timeLeft > 0) {
+                    skipTimerSpan.innerText = `(${timeLeft}s)`;
+                } else {
+                    clearInterval(countdown);
+                    skipTimerSpan.innerText = "";
+                    skipBtn.classList.add("active");
+                    skipBtn.disabled = false;
+                }
+            }, 1000);
+
+            // 5. Close Ad Event
+            skipBtn.onclick = () => {
+                overlay.style.display = 'none';
+                mediaContainer.innerHTML = ''; // Stop media
+                document.body.style.overflow = ''; // Unlock scrolling
+                sessionStorage.setItem("ad_seen", "true"); // Prevent showing again this session
+            };
+
+            // Auto-close after full duration
+            const totalDuration = parseInt(adData.display_duration) || 15;
+            setTimeout(() => {
+                if (overlay.style.display !== 'none') skipBtn.click();
+            }, totalDuration * 1000);
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
