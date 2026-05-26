@@ -134,17 +134,17 @@
 <div class="error-wrapper">
     <div class="error-card">
         
-        <h1 class="error-code">404</h1>
+        <h1 class="error-code">{{ code if code else '404' }}</h1>
         <div class="error-icon"></div>
         
-        <h2 class="error-title">Lost in Space</h2>
+        <h2 class="error-title">{{ title if title else 'Lost in Space' }}</h2>
         <p class="error-desc">
-            The page or profile you're looking for has vanished into the campus void. Let's get you back on track.
+            {{ message if message else "The page or profile you're looking for has vanished into the campus void. Let's get you back on track." }}
         </p>
 
         <div class="btn-group">
             <a href="{{ url_for('home') }}" class="btn-home">
-                <span style="font-size: 20px;"></span> Back to Home
+                <span style="font-size: 20px;">🏠</span> Back to Home
             </a>
             
             {% if session.get('user_id') %}

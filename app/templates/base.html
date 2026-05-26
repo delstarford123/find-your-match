@@ -1581,6 +1581,25 @@
                 globalSocket.emit('join_call_room', { user_id: myUserId }); 
             });
 
+            // 📢 GLOBAL BROADCAST LISTENER
+            globalSocket.on('global_broadcast', (data) => {
+                let overlay = document.getElementById('global-broadcast-overlay');
+                if(!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'global-broadcast-overlay';
+                    overlay.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px); animation: fadeIn 0.3s ease;";
+                    document.body.appendChild(overlay);
+                }
+                overlay.innerHTML = `
+                    <div style="background: #0f172a; border: 2px solid #38bdf8; border-radius: 24px; padding: 30px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 0 50px rgba(56, 189, 248, 0.3); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+                        <div style="font-size: 50px; margin-bottom: 15px;">📢</div>
+                        <h2 style="color: #38bdf8; margin: 0 0 10px 0; font-weight: 900; font-family: 'Outfit', sans-serif;">ADMIN ALERT</h2>
+                        <p style="color: #f8fafc; font-size: 18px; line-height: 1.5; font-weight: 500; font-family: 'Outfit', sans-serif;">${data.message}</p>
+                        <button onclick="this.closest('#global-broadcast-overlay').remove()" style="margin-top: 25px; width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; font-size: 16px; font-family: 'Outfit', sans-serif;">Understood</button>
+                    </div>
+                `;
+            });
+
             // === 🚨 SOS BROADCAST LISTENER 🚨 ===
             let sosAudio1 = new Audio('/static/audio/danger1.mp3');
             let sosAudio2 = new Audio('/static/audio/danger2.mp3');

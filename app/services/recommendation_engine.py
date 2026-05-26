@@ -80,6 +80,10 @@ def generate_ranked_deck(current_user_id):
             if not (my_age + 3 <= target_age <= my_age + 5):
                 continue
 
+        # B2. SHADOWBAN CHECK
+        if profile.get('is_shadowbanned'):
+            continue
+
         # C. KINSHIP & INCEST PREVENTION
         my_father = current_user.get('father_hash')
         my_mother = current_user.get('mother_hash')

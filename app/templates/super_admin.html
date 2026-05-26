@@ -343,7 +343,8 @@
         <button class="module-btn" onclick="switchModule('module-support')">💬 Support</button>
         <button class="module-btn" onclick="switchModule('module-safety')">🛡️ Safety</button>
         <button class="module-btn" onclick="switchModule('module-business')">🏪 Business</button>
-        <button class="module-btn" onclick="switchModule('module-system')">⚠️ System</button>
+        <button class="module-btn" onclick="switchModule('module-content')">🎬 Content</button>
+        <button class="module-btn" onclick="switchModule('module-system')">⚙️ System</button>
     </div>
 
     <!-- MODULE: DASHBOARD -->
@@ -731,8 +732,35 @@
 
     <!-- MODULE: SAFETY -->
     <div id="module-safety" class="module-content">
-        <h3 class="section-title animate-up delay-1">
-            <span>🛡️ AI Moderation Queue</span>
+        <h3 class="section-title animate-up delay-1">🛡️ User Report Queue</h3>
+        <div class="admin-list animate-up delay-1" id="report-queue" style="margin-bottom: 30px;">
+            {% if reports %}
+                {% for report in reports %}
+                <div class="admin-card" id="report-{{ report.id }}">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div class="admin-card-header">
+                            <span class="badge badge-red">REPORTED BY: {{ report.reporter_id }}</span>
+                            <span style="font-size: 11px; color: #94a3b8; margin-left: auto;">{{ report.timestamp }}</span>
+                        </div>
+                        <p class="admin-card-text" style="margin-top: 10px;">
+                            <strong>Reported User:</strong> <span style="color: #ef4444;">{{ report.reported_id }}</span><br>
+                            <strong>Context/Reason:</strong> {{ report.reason }}
+                        </p>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn btn-warning" onclick="adminAction(this, 'toggle_ban', '{{ report.reported_id }}')" style="font-size:12px;">🚫 Ban User</button>
+                        <button class="btn btn-purple" onclick="adminAction(this, 'toggle_shadowban', '{{ report.reported_id }}')" style="font-size:12px;">👻 Shadow</button>
+                        <button class="btn btn-outline" onclick="adminAction(this, 'resolve_report', '{{ report.id }}')" style="font-size:12px;">Mark Resolved</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: #64748b; text-align: center; padding: 40px;">No user reports pending. Safe community! 🕊️</p>
+            {% endif %}
+        </div>
+
+        <h3 class="section-title animate-up delay-2">
+            <span>🤖 AI Moderation Queue</span>
             <button class="btn btn-outline" onclick="selectAllAlerts()" style="font-size:12px; padding: 6px 12px;">☑️ Select All</button>
         </h3>
         <div class="admin-list animate-up delay-1" id="moderation-list">
@@ -760,7 +788,27 @@
 
     <!-- MODULE: BUSINESS -->
     <div id="module-business" class="module-content">
-        <h3 class="section-title animate-up delay-1">🏪 Pending Business Approvals</h3>
+        <div class="metrics-grid" style="margin-bottom: 30px;">
+            <div class="metric-card animate-up delay-1">
+                <div class="m-title">Manual Activation</div>
+                <p class="admin-card-text" style="font-size: 12px; margin-bottom: 15px;">Force-activate a 30-day sub with an M-Pesa receipt.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="manual-sub-uid" class="admin-input" placeholder="User ID / Reg Number" style="margin: 0; padding: 10px; font-size: 13px;">
+                    <input type="text" id="manual-sub-receipt" class="admin-input" placeholder="M-Pesa Receipt No." style="margin: 0; padding: 10px; font-size: 13px;">
+                    <button class="btn btn-success" onclick="manualActivateSub()" style="width: 100%;">Activate Premium</button>
+                </div>
+            </div>
+            <div class="metric-card animate-up delay-2">
+                <div class="m-title">Ledger Search</div>
+                <p class="admin-card-text" style="font-size: 12px; margin-bottom: 15px;">Trace a specific receipt across all user records.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="ledger-search-query" class="admin-input" placeholder="Search Receipt..." style="margin: 0; flex: 1; padding: 10px; font-size: 13px;">
+                    <button class="btn btn-outline" onclick="searchLedger()" style="padding: 10px;">🔍</button>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-1">🏪 Merchant Partner Requests</h3>
         <div class="admin-list animate-up delay-1" id="business-list">
             {% if pending_businesses %}
                 {% for biz in pending_businesses %}
@@ -780,9 +828,68 @@
         </div>
     </div>
 
+    <!-- MODULE: CONTENT -->
+    <div id="module-content" class="module-content">
+        <h3 class="section-title animate-up delay-1">🎬 Native Ad Manager</h3>
+        <div class="admin-list animate-up delay-1">
+            <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+                <form id="ad-form" onsubmit="event.preventDefault(); manageAd();">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <input type="text" id="ad-img" class="admin-input" placeholder="Image URL (e.g. static/img/promo.jpg)" required>
+                        <input type="text" id="ad-url" class="admin-input" placeholder="Destination URL (e.g. /venues)" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">🚀 Deploy New Advertisement</button>
+                </form>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-2">🧊 Daily Icebreaker Prompt</h3>
+        <div class="admin-list animate-up delay-2">
+            <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="daily-prompt-input" class="admin-input" placeholder="What's the vibe today?" style="margin: 0; flex: 1;">
+                    <button class="btn btn-success" onclick="updateDailyPrompt()">Update Prompt</button>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-3">🔥 Virtual Club Moderation</h3>
+        <div class="admin-list animate-up delay-3" id="club-participants-list">
+            <div class="admin-card">
+                <p style="color: #64748b;">Fetching active club participants...</p>
+            </div>
+        </div>
+    </div>
+
     <!-- MODULE: SYSTEM -->
     <div id="module-system" class="module-content">
-        <h3 class="section-title animate-up delay-1">
+        <h3 class="section-title animate-up delay-1">📢 Global Broadcast System</h3>
+        <div class="admin-list animate-up delay-1">
+            <div class="admin-card" style="flex-direction: column; align-items: stretch;">
+                <p class="admin-card-text" style="margin-bottom: 20px;">Push a high-priority alert to all online users simultaneously.</p>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="broadcast-msg-input" class="admin-input" placeholder="Enter broadcast message..." style="margin: 0; flex: 1;">
+                    <button class="btn btn-primary" onclick="sendGlobalBroadcast()">🚀 Push Alert</button>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-2">🛑 Maintenance Mode (Kill Switch)</h3>
+        <div class="admin-list animate-up delay-2">
+            <div class="admin-card">
+                <div style="flex: 1;">
+                    <h4 class="admin-card-title">System-Wide Lockdown</h4>
+                    <p class="admin-card-text">Redirect all non-admin traffic to a maintenance page during updates.</p>
+                </div>
+                <div class="action-group">
+                    <button class="btn {% if maintenance_mode %}btn-success{% else %}btn-danger{% endif %}" onclick="toggleMaintenance()">
+                        {% if maintenance_mode %}Disable Maintenance{% else %}ACTIVATE LOCKDOWN 🛑{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="section-title animate-up delay-3">
             <span>⚠️ THE DANGER ZONE</span>
             <button class="btn btn-outline" onclick="document.getElementById('auditModal').style.display='flex'" style="font-size:12px; padding: 6px 12px;">📜 View Audit Logs</button>
         </h3>
@@ -1279,8 +1386,9 @@
                                 <div style="display:flex; gap:5px; flex-wrap:wrap;">${statusHtml}</div>
                             </div>
                             <div class="action-group">
-                                <button class="btn btn-outline" onclick="prepTargetedEmail('${user.email}')" style="padding: 8px 12px; font-size:12px;">✉️ System Email</button>
-                                <button class="btn btn-danger" onclick="adminAction(this, 'ban_user', '${safeId}')" style="padding: 8px 12px; font-size:12px;">🚫 Ban</button>
+                                <button class="btn btn-outline" onclick="prepTargetedEmail('${user.email}')" style="padding: 8px 12px; font-size:12px;">✉️ Email</button>
+                                <button class="btn btn-warning" onclick="adminAction(this, 'toggle_ban', '${safeId}')" style="padding: 8px 12px; font-size:12px; background: #eab308; color: #0f172a;">${user.is_banned ? 'Reinstated' : 'Suspend'}</button>
+                                <button class="btn btn-purple" onclick="adminAction(this, 'toggle_shadowban', '${safeId}')" style="padding: 8px 12px; font-size:12px; background: #a855f7; color: white;">${user.is_shadowbanned ? 'Un-Shadow' : 'Shadow'}</button>
                             </div>
                         `;
                         resultsContainer.appendChild(card);
@@ -1292,7 +1400,73 @@
 
         function viewAllUsers() { document.getElementById('search-query').value = ''; searchUser('all'); }
 
-        // --- 8. MANUAL REVENUE CORRECTION ---
+        // --- 8. CONTENT & SYSTEM ACTIONS ---
+        function manageAd() {
+            const imgUrl = document.getElementById('ad-img').value;
+            const targetUrl = document.getElementById('ad-url').value;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'manage_ad', image_url: imgUrl, target_url: targetUrl })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { showToast("Advertisement deployed successfully!"); document.getElementById('ad-form').reset(); }
+            });
+        }
+
+        function updateDailyPrompt() {
+            const prompt = document.getElementById('daily-prompt-input').value;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'set_daily_prompt', prompt: prompt })
+            }).then(res => res.json()).then(data => {
+                if(data.success) showToast("Daily prompt updated!");
+            });
+        }
+
+        function sendGlobalBroadcast() {
+            const msg = document.getElementById('broadcast-msg-input').value;
+            if(!msg) return;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'broadcast_message', message: msg })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { showToast("Global alert pushed!"); document.getElementById('broadcast-msg-input').value = ''; }
+            });
+        }
+
+        function toggleMaintenance() {
+            const currentStatus = {{ maintenance_mode | tojson }};
+            if(!confirm(`Are you sure you want to ${currentStatus ? 'disable' : 'enable'} maintenance mode?`)) return;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'toggle_maintenance', status: !currentStatus })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { showToast("Maintenance status updated! Reloading..."); setTimeout(() => window.location.reload(), 1000); }
+            });
+        }
+
+        function manualActivateSub() {
+            const uid = document.getElementById('manual-sub-uid').value;
+            const receipt = document.getElementById('manual-sub-receipt').value;
+            if(!uid || !receipt) return;
+            fetch('/api/admin/action', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'manual_sub_activate', target_id: uid, receipt_no: receipt })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { showToast("Premium activated for user!"); document.getElementById('manual-sub-uid').value = ''; document.getElementById('manual-sub-receipt').value = ''; }
+            });
+        }
+
+        function searchLedger() {
+            const query = document.getElementById('ledger-search-query').value.trim();
+            if(!query) return;
+            showToast("Searching ledger for " + query + "...");
+            // This is a client-side filter for now, or could be a server call
+            document.querySelectorAll('tbody tr').forEach(tr => {
+                tr.style.display = tr.innerText.includes(query) ? '' : 'none';
+            });
+        }
+
+        // --- 9. MANUAL REVENUE CORRECTION ---
         function openRevenueModal() {
             document.getElementById('revenue-modal').style.display = 'flex';
         }

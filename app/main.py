@@ -42,7 +42,10 @@ logger = logging.getLogger(__name__)
 from app.email_service import (
     send_date_approval_email, 
     send_date_request_to_merchant_email,
-    send_verification_email
+    send_verification_email,
+    send_broadcast_email,
+    send_admin_alert_email,
+    send_premium_activation_email
 )
 
 from app.database import (
@@ -218,15 +221,37 @@ def inject_system_settings():
         return {'force_party': False, 'promo_active': False}
 
 @app.before_request
-def update_last_seen():
-    """Tracks the last time a user was active on the platform."""
+def security_and_tracking_hook():
+    """Enforces bans, maintenance mode, and tracks last seen."""
+    # 1. MAINTENANCE MODE CHECK
+    # We skip this for static files and admin routes so we don't lock ourselves out
+    if request.endpoint and 'static' not in request.endpoint and 'super_admin' not in request.endpoint and 'admin_action' not in request.endpoint:
+        try:
+            system_settings = db.reference('system_settings').get() or {}
+            if system_settings.get('maintenance_mode') and not session.get('is_super_admin'):
+                return render_template('404.html', 
+                    code="503",
+                    message="🚧 SYSTEM MAINTENANCE: We are currently performing critical updates. We'll be back shortly!",
+                    title="Under Maintenance"
+                ), 503
+        except Exception as e:
+            logger.error(f"Maintenance check failed: {e}")
+
+    # 2. BAN CHECK & LAST SEEN TRACKING
     user_id = session.get('user_id')
     if user_id and session.get('role') != 'business':
         try:
-            # We only update if it's been more than 5 minutes to save Firebase bandwidth
+            # Fetch profile for ban status
+            profile = db.reference(f'profiles/{user_id}').get()
+            
+            if profile and profile.get('is_banned'):
+                session.clear()
+                flash("Your account has been suspended for violating community guidelines.", "error")
+                return redirect(url_for('auth.login'))
+
+            # Update last_seen (every 5 mins)
             last_update = session.get('last_seen_update')
             now = time.time()
-            
             if not last_update or now - last_update > 300:
                 db.reference(f'profiles/{user_id}').update({
                     'last_seen': datetime.now(EAT).isoformat(),
@@ -234,7 +259,7 @@ def update_last_seen():
                 })
                 session['last_seen_update'] = now
         except Exception as e:
-            logger.error(f"Failed to update last_seen: {e}")
+            logger.error(f"Security hook error: {e}")
 
 # Register Blueprints
 from app.routes.auth import auth_bp
@@ -1821,6 +1846,14 @@ def super_admin():
         system_settings = db.reference('system_settings').get() or {}
         promo_active = system_settings.get('new_user_promo', False)
         force_party = system_settings.get('force_party', False)
+        maintenance_mode = system_settings.get('maintenance_mode', False)
+
+        # ------------------------------------------
+        # 0. REPORTS QUEUE
+        # ------------------------------------------
+        reports_dict = db.reference('reports').get() or {}
+        reports = [{'id': k, **v} for k, v in reports_dict.items() if isinstance(v, dict)]
+        reports.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
 
         # ------------------------------------------
         # 1. ACCURATE REVENUE CALCULATION
@@ -2127,6 +2160,7 @@ def super_admin():
                                feedbacks=feedbacks,
                                call_requests=call_requests,
                                pending_businesses=pending_businesses,
+                               reports=reports,
                                promo_active=promo_active,
                                force_party=force_party,
                                unpaid_users=unpaid_users,
@@ -2138,7 +2172,8 @@ def super_admin():
                                growth_chart_data=growth_chart_data,
                                monthly_revenue_details=monthly_revenue_details,
                                recent_transactions=recent_transactions,
-                               manual_overrides=manual_overrides)
+                               manual_overrides=manual_overrides,
+                               maintenance_mode=maintenance_mode)
                                
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
@@ -2155,26 +2190,116 @@ def admin_action():
     target_id = data.get('target_id')
     
     try:
-        if action == 'ban_user':
-            user_data = db.reference(f'profiles/{target_id}').get()
-            if user_data and user_data.get('email'):
+        if action == 'toggle_ban':
+            profile_ref = db.reference(f'profiles/{target_id}')
+            profile = profile_ref.get()
+            if not profile:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+            
+            new_status = not profile.get('is_banned', False)
+            profile_ref.update({'is_banned': new_status})
+            
+            # Instantly terminate WebSocket if banning
+            if new_status:
+                socketio.emit('kick', {'reason': 'Account suspended'}, room=target_id)
+            
+            # Send notification if banning
+            if new_status and profile.get('email'):
                 try:
                     send_admin_alert_email(
-                        recipient_email=user_data.get('email'),
-                        recipient_name=user_data.get('name', 'Student').split()[0],
+                        recipient_email=profile.get('email'),
+                        recipient_name=profile.get('name', 'Student').split()[0],
                         action_type='ban',
                         reason="Violation of Community Guidelines and Terms of Service."
                     )
                 except Exception as mail_err:
                     logger.warning(f"Could not send ban email: {mail_err}")
             
-            # Wipes from DB
-            db.reference(f'profiles/{target_id}').delete() 
+            db.reference('admin_audit_logs').push({
+                'action': f"{'Suspended' if new_status else 'Reinstated'} user {target_id}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'message': f"User {'banned' if new_status else 'unbanned'}"})
+
+        elif action == 'toggle_shadowban':
+            profile_ref = db.reference(f'profiles/{target_id}')
+            profile = profile_ref.get()
+            if not profile:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
             
-            if data.get('alert_id'):
-                db.reference(f"admin_alerts/{data.get('alert_id')}").delete()
-            logger.info(f"GOD_MODE: User {target_id} banned.")
-                
+            new_status = not profile.get('is_shadowbanned', False)
+            profile_ref.update({'is_shadowbanned': new_status})
+            
+            db.reference('admin_audit_logs').push({
+                'action': f"{'Shadowbanned' if new_status else 'Un-shadowbanned'} user {target_id}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'message': f"Shadowban {'activated' if new_status else 'deactivated'}"})
+
+        elif action == 'manual_sub_activate':
+            receipt = data.get('receipt_no', 'MANUAL-OVERRIDE')
+            db.reference(f'profiles/{target_id}').update({
+                'is_paid': True,
+                'subscription_date': datetime.now(EAT).isoformat(),
+                'mpesa_receipt': receipt
+            })
+            db.reference('admin_audit_logs').push({
+                'action': f"Manually activated subscription for {target_id} (Receipt: {receipt})",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True})
+
+        elif action == 'merchant_action':
+            sub_action = data.get('sub_action')
+            if sub_action == 'suspend':
+                db.reference(f'restaurants/{target_id}').update({'subscription_active': False})
+            elif sub_action == 'extend':
+                current = db.reference(f'restaurants/{target_id}/subscription_expiry').get()
+                if current:
+                    new_expiry = (datetime.fromisoformat(current) + timedelta(days=30)).isoformat()
+                    db.reference(f'restaurants/{target_id}').update({'subscription_expiry': new_expiry, 'subscription_active': True})
+            return jsonify({'success': True})
+
+        elif action == 'manage_ad':
+            ad_id = data.get('ad_id') or ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            db.reference(f'ads/{ad_id}').set({
+                'image_url': data.get('image_url'),
+                'target_url': data.get('target_url'),
+                'is_active': data.get('is_active', True),
+                'created_at': datetime.now(EAT).isoformat()
+            })
+            return jsonify({'success': True})
+
+        elif action == 'set_daily_prompt':
+            db.reference('system_settings/daily_prompt').set(data.get('prompt'))
+            return jsonify({'success': True})
+
+        elif action == 'kick_virtual_club':
+            db.reference(f'party_queue/{target_id}').delete()
+            socketio.emit('kick', {'reason': 'Disconnected by Admin'}, room=target_id)
+            return jsonify({'success': True})
+
+        elif action == 'broadcast_message':
+            socketio.emit('global_broadcast', {
+                'message': data.get('message'),
+                'priority': 'high',
+                'timestamp': datetime.now(EAT).strftime("%H:%M")
+            })
+            return jsonify({'success': True})
+
+        elif action == 'toggle_maintenance':
+            status = data.get('status', False)
+            db.reference('system_settings/maintenance_mode').set(status)
+            db.reference('admin_audit_logs').push({
+                'action': f"{'Enabled' if status else 'Disabled'} Maintenance Mode",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True})
+
         elif action == 'approve_business':
             now_eat = datetime.now(EAT)
             expiry = (now_eat + timedelta(days=30)).isoformat()
@@ -3091,10 +3216,25 @@ def handle_message(data):
     sender_id = session.get('user_id')
     if not sender_id:
         logger.warning("Unauthorized message attempt (no session).")
-        return 
+        return
 
-    # 2. VALIDATION: Prevent empty ghost messages
-    receiver_id = data.get('receiver_id')
+    # 1.2 SHADOWBAN INTERCEPT
+    try:
+        sender_profile = db.reference(f'profiles/{sender_id}').get()
+        if sender_profile and sender_profile.get('is_shadowbanned'):
+            # Silently drop the message but emit back to sender so they don't suspect anything
+            temp_id = data.get('temp_id')
+            data['sender'] = sender_id
+            data['timestamp'] = datetime.now(EAT).isoformat()
+            emit('receive_message', data, to=sender_id)
+            if temp_id:
+                emit('message_delivered', {'temp_id': temp_id}, to=sender_id)
+            logger.info(f"Shadowbanned user {sender_id} tried to send a message. Intercepted.")
+            return
+    except Exception as e:
+        logger.error(f"Shadowban check failed: {e}")
+
+    # 2. VALIDATION: Prevent empty ghost messages    receiver_id = data.get('receiver_id')
     msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
     temp_id = data.get('temp_id') # Crucial for the ✓✓ frontend confirmation
