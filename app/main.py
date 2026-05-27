@@ -204,8 +204,65 @@ app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # ==========================================
-# 🎁 GLOBAL TEMPLATE CONTEXT
+# 📊 SYSTEM STATISTICS CALCULATOR
 # ==========================================
+def get_real_system_stats():
+    """Calculates the raw, un-overridden system statistics from the database."""
+    try:
+        all_profiles = db.reference('users').get() or {}
+        all_ledger = db.reference('ledger').get() or {}
+        all_bookings = db.reference('bookings').get() or {}
+        
+        real_total_users = 0
+        if isinstance(all_profiles, dict):
+            real_total_users = len(all_profiles)
+            
+        real_student_revenue = 0
+        real_b2b_revenue = 0
+        
+        # Calculate Student Revenue from profiles
+        if isinstance(all_profiles, dict):
+            for p_data in all_profiles.values():
+                if isinstance(p_data, dict) and p_data.get('is_paid'):
+                    real_student_revenue += 50
+                    
+        # Calculate B2B Revenue from ledger
+        if isinstance(all_ledger, dict):
+            for entry in all_ledger.values():
+                if isinstance(entry, dict):
+                    real_b2b_revenue += int(entry.get('amount', 0))
+                    
+        return {
+            'total_users': real_total_users,
+            'student_revenue': real_student_revenue,
+            'b2b_revenue': real_b2b_revenue,
+            'total_revenue': real_student_revenue + real_b2b_revenue
+        }
+    except Exception as e:
+        logger.error(f"Error calculating real system stats: {e}")
+        return {
+            'total_users': 0,
+            'student_revenue': 0,
+            'b2b_revenue': 0,
+            'total_revenue': 0
+        }
+
+# ==========================================
+# 🎁 GLOBAL TEMPLATE CONTEXT & FILTERS
+# ==========================================
+@app.template_filter('toLocaleString')
+def to_locale_string_filter(value):
+    """Formats a number with commas (e.g., 1000 -> 1,000)."""
+    try:
+        if value is None:
+            return "0"
+        num = float(value)
+        if num.is_integer():
+            return "{:,}".format(int(num))
+        return "{:,}".format(num)
+    except (ValueError, TypeError):
+        return value
+
 @app.context_processor
 def inject_system_settings():
     """Injects system-wide settings like Party Mode into all HTML templates."""
@@ -1935,11 +1992,13 @@ def super_admin():
         manual_overrides = db.reference('system_settings/manual_revenue_overrides').get() or {}
         
         if isinstance(manual_overrides, dict) and manual_overrides.get('active'):
-            total_revenue = int(manual_overrides.get('total_revenue', 0))
-            student_revenue = int(manual_overrides.get('student_revenue', 0))
-            b2b_revenue = int(manual_overrides.get('b2b_revenue', 0))
+            # Use Offsets instead of static replacements so they grow with new transactions
+            total_revenue += int(manual_overrides.get('revenue_offset', 0))
+            student_revenue += int(manual_overrides.get('student_revenue_offset', 0))
+            # B2B revenue is usually the difference, or we can add its own offset if needed
+            # For now, b2b_revenue is just calculated from ledger, which is fine
             
-            # Map monthly overrides
+            # Map monthly overrides (these stay static as they are usually for past months)
             monthly_overrides = manual_overrides.get('monthly', {})
             if isinstance(monthly_overrides, dict):
                 for m_idx_str, data in monthly_overrides.items():
@@ -2172,6 +2231,10 @@ def super_admin():
         all_ads = [{'id': k, **v} for k, v in ads_dict.items() if isinstance(v, dict)]
         all_ads.sort(key=lambda x: x.get('created_at', ''), reverse=True)
 
+        # Finalize and Apply Overrides for dynamic growth
+        if isinstance(manual_overrides, dict) and manual_overrides.get('active'):
+            total_users += int(manual_overrides.get('users_offset', 0))
+
         return render_template('super_admin.html', 
                                logged_in=True,
                                total_users=total_users,
@@ -2374,11 +2437,18 @@ def admin_action():
                 db.reference(f'call_requests/{target_id}').delete()
 
         elif action == 'save_revenue_overrides':
+            # Calculate current REAL stats to determine the needed offsets
+            real_stats = get_real_system_stats()
+            
+            target_total = int(data.get('total_revenue', 0))
+            target_student = int(data.get('student_revenue', 0))
+            target_users = int(data.get('total_users', 0))
+            
             overrides = {
                 'active': True,
-                'total_revenue': int(data.get('total_revenue', 0)),
-                'student_revenue': int(data.get('student_revenue', 0)),
-                'b2b_revenue': 0,
+                'revenue_offset': target_total - real_stats['total_revenue'],
+                'student_revenue_offset': target_student - real_stats['student_revenue'],
+                'users_offset': target_users - real_stats['total_users'],
                 'monthly': {
                     '3': { # April
                         'student': int(data.get('apr_student', 0)),
@@ -2393,7 +2463,7 @@ def admin_action():
             db.reference('system_settings/manual_revenue_overrides').set(overrides)
             # 📜 AUDIT LOG
             db.reference('admin_audit_logs').push({
-                'action': f"Manually corrected revenue: Total {overrides['total_revenue']} KSH",
+                'action': f"Manually corrected baselines: Total Revenue {target_total} KSH, Total Users {target_users}",
                 'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
                 'admin_ip': request.remote_addr
             })
