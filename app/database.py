@@ -389,6 +389,9 @@ def get_all_restaurants(active_only: bool = True) -> list:
             if not active_only or rdata.get('subscription_active', False)
         ]
         
+        # Spotlight Boost: Sort Diamond subscription packages to the top of the feed
+        res.sort(key=lambda r: r.get('subscription_package') == 'diamond', reverse=True)
+        
         _restaurants_cache[cache_key] = res
         _restaurants_cache_expiry = now + timedelta(seconds=30)
         return res
@@ -452,9 +455,12 @@ def get_restaurant(restaurant_id: str) -> dict:
         return {}
 
 def update_booking_status(booking_id: str, status: str) -> bool:
-    """Updates a booking to 'Approved' or 'Declined'."""
+    """Updates a booking status safely, appending completed_timestamp if status is 'Completed'."""
     try:
-        db.reference(f'bookings/{booking_id}').update({'status': status})
+        payload = {'status': status}
+        if status == 'Completed':
+            payload['completed_timestamp'] = datetime.now(timezone(timedelta(hours=3))).isoformat()
+        db.reference(f'bookings/{booking_id}').update(payload)
         logger.info(f"Booking {booking_id} updated to {status}")
         return True
     except Exception as e:

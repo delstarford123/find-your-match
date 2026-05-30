@@ -1821,6 +1821,8 @@ def business_dashboard():
     restaurant.setdefault('hourly_stats', {})
     restaurant.setdefault('qr_scans', 0)
     restaurant.setdefault('profile_views', 0)
+    restaurant.setdefault('subscription_package', 'gold')
+    restaurant.setdefault('average_spend', 1500)
 
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')
     approved_count = sum(1 for b in bookings if b.get('status') == 'Approved')
@@ -1845,6 +1847,25 @@ def business_dashboard():
         except Exception as e:
             logger.error(f"Expiry Calculation Error: {e}")
 
+    # Check Spotlight Boost Active Timer
+    boost_active = False
+    boost_days_remaining = 0
+    if restaurant.get('boost_active') and restaurant.get('boost_expiry'):
+        try:
+            boost_exp = datetime.fromisoformat(restaurant['boost_expiry'])
+            if boost_exp.tzinfo is None:
+                boost_exp = boost_exp.replace(tzinfo=EAT)
+            
+            now = datetime.now(EAT)
+            delta_boost = boost_exp - now
+            if delta_boost.total_seconds() > 0:
+                boost_active = True
+                boost_days_remaining = max(0, delta_boost.days)
+            else:
+                db.reference(f'restaurants/{restaurant_id}').update({'boost_active': False})
+                restaurant['boost_active'] = False
+        except: pass
+
     for b in bookings:
         try:
             user_a = db.reference(f"profiles/{b.get('user_a_id')}").get() or {}
@@ -1857,35 +1878,72 @@ def business_dashboard():
             b['user_a_name'] = "Student 1" 
             b['user_b_name'] = "Student 2"
 
-    # 3. Calculate ROI & Analytics (Enhanced)
-    completed_bookings = sum(1 for b in bookings if b.get('status') in ['Completed', 'Archived'])
-    AVERAGE_COUPLE_SPEND_KSH = 1500
+    # Calculate ROI & Analytics with Custom Spend Rates
+    average_spend = int(restaurant.get('average_spend', 1500))
     now = datetime.now(EAT)
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     monthly_completed = 0
+    monthly_revenue = 0
+    total_revenue_delivered = 0
 
     for b in bookings:
         if b.get('status') in ['Completed', 'Archived']:
+            total_revenue_delivered += average_spend
             b_timestamp = b.get('completed_timestamp')
             if b_timestamp:
                 try:
                     b_date = datetime.fromisoformat(b_timestamp)
                     if b_date >= start_of_month:
                         monthly_completed += 1
-                except: pass
+                        monthly_revenue += average_spend
+                except:
+                    # Fallback for old completed bookings
+                    monthly_completed += 1
+                    monthly_revenue += average_spend
 
-    monthly_revenue = monthly_completed * AVERAGE_COUPLE_SPEND_KSH
+    # Calculate Platform Subscription Fee Paid
+    sub_fee = 5000 if restaurant.get('subscription_package') == 'diamond' else 2000
+    roi_percent = 0
+    if sub_fee > 0 and total_revenue_delivered > 0:
+        roi_percent = int(((total_revenue_delivered - sub_fee) / sub_fee) * 100)
 
     analytics = {
         'total_views': restaurant.get('profile_views', 0),
         'monthly_completed': monthly_completed,
         'monthly_revenue': f"{monthly_revenue:,}",
+        'total_revenue_delivered': f"{total_revenue_delivered:,}",
         'subscription_status': 'ACTIVE' if restaurant.get('subscription_active') else 'INACTIVE',
-        'days_remaining': days_remaining
+        'subscription_package': restaurant.get('subscription_package', 'gold').upper(),
+        'days_remaining': days_remaining,
+        'roi_percent': roi_percent,
+        'boost_active': boost_active,
+        'boost_days_remaining': boost_days_remaining
     }
 
     # Fetch active perks for the dashboard
     flash_perks = db.reference(f'flash_perks/{restaurant_id}').get() or {}
+
+    # Advanced Diamond Customer Demographics Insights
+    faculty_stats = {}
+    gender_stats = {'male': 0, 'female': 0}
+    if restaurant.get('subscription_package') == 'diamond':
+        try:
+            for b in bookings:
+                user_a = db.reference(f"profiles/{b.get('user_a_id')}").get() or {}
+                user_b = db.reference(f"profiles/{b.get('user_b_id')}").get() or {}
+                
+                for u in [user_a, user_b]:
+                    if u.get('faculty'):
+                        fac = u['faculty'].strip()
+                        faculty_stats[fac] = faculty_stats.get(fac, 0) + 1
+                    if u.get('gender'):
+                        g = u['gender'].lower().strip()
+                        if g in ['male', 'm']:
+                            gender_stats['male'] += 1
+                        elif g in ['female', 'f']:
+                            gender_stats['female'] += 1
+        except Exception as e:
+            logger.error(f"Error compiling demographic insights: {e}")
 
     return render_template('business_dashboard.html', 
                            restaurant=restaurant, 
@@ -1894,7 +1952,9 @@ def business_dashboard():
                            approved_count=approved_count,
                            days_remaining=days_remaining,
                            analytics=analytics,
-                           flash_perks=flash_perks)
+                           flash_perks=flash_perks,
+                           faculty_stats=faculty_stats,
+                           gender_stats=gender_stats)
                            
 @app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
 def manage_booking(booking_id, action):
@@ -3454,16 +3514,28 @@ def pay_subscription():
 
     data = request.get_json(silent=True) or {}
     phone_number = data.get('phone_number')
+    payment_type = data.get('payment_type', 'gold') # 'gold', 'diamond', or 'boost'
     restaurant_id = session.get('user_id')
 
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
 
+    # Determine amount based on payment type
+    if payment_type == 'boost':
+        amount = 500
+        desc = "24-Hour Spotlight Boost"
+    elif payment_type == 'diamond':
+        amount = 5000
+        desc = "Diamond Premium Portal Activation"
+    else:
+        amount = 2000
+        desc = "Gold Portal Activation"
+
     # 🚨 ULTIMATE FIX: Hardcode your exact custom domain
     callback_url = "https://www.findyourmatch.co.ke/api/mpesa/b2b_callback"
     
     try:
-        response = initiate_stk_push(phone_number, 2000, restaurant_id, callback_url)
+        response = initiate_stk_push(phone_number, amount, restaurant_id, callback_url)
 
         if not response or 'error' in response:
             logger.error(f"STK Push Failed: {response.get('error')}")
@@ -3472,18 +3544,22 @@ def pay_subscription():
         if 'CheckoutRequestID' in response:
             checkout_id = response['CheckoutRequestID']
             # Store in both for legacy and consistency
-            db.reference(f'pending_b2b_payments/{checkout_id}').set(restaurant_id)
+            db.reference(f'pending_b2b_payments/{checkout_id}').set({
+                'restaurant_id': restaurant_id,
+                'payment_type': payment_type
+            })
             db.reference(f'pending_payments/{checkout_id}').set({
                 'user_id': restaurant_id,
                 'role': 'business',
                 'status': 'pending',
-                'amount': 2000,
+                'amount': amount,
+                'payment_type': payment_type,
                 'created_at': datetime.now(EAT).isoformat()
             })
             session['checkout_id'] = checkout_id
-            return jsonify({'success': True, 'message': 'STK Push sent! Enter your M-Pesa PIN.'})
+            return jsonify({'success': True, 'message': f'STK Push sent for {desc}! Enter your M-Pesa PIN.'})
 
-        return jsonify({'success': False, 'message': 'Invalid response from payment gateway.'})
+        return jsonify({'success': False, 'message': 'Invalid response from gateway.'})
     except Exception as e:
         logger.error(f"STK Push Error: {e}")
         return jsonify({'success': False, 'message': 'Server error initiating payment.'}), 500
@@ -3523,20 +3599,47 @@ def mpesa_b2b_callback():
             logger.info(f"💰 M-Pesa B2B Payment Received: {amount} KSH (Receipt: {receipt})")
 
             pending_ref = db.reference(f'pending_b2b_payments/{checkout_id}')
-            restaurant_id = pending_ref.get()
+            payment_info = pending_ref.get()
+
+            restaurant_id = None
+            payment_type = 'gold'  # Default legacy
+
+            if isinstance(payment_info, dict):
+                restaurant_id = payment_info.get('restaurant_id')
+                payment_type = payment_info.get('payment_type', 'gold')
+            else:
+                restaurant_id = payment_info  # Legacy string fallback
 
             if restaurant_id:
                 expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
                 
-                db.reference(f'restaurants/{restaurant_id}').update({
+                # Default gold activation payload
+                update_payload = {
                     'subscription_active': True,
                     'subscription_start': current_time_eat, 
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': receipt
-                })
-                
+                }
+
+                if payment_type == 'boost':
+                    boost_expiry = (datetime.now(EAT) + timedelta(days=1)).isoformat()
+                    # A boost purchase does not override standard subscription, it just activates the Spotlight
+                    update_payload = {
+                        'boost_active': True,
+                        'boost_expiry': boost_expiry,
+                        'last_payment_receipt': receipt
+                    }
+                    logger.info(f"🚀 SPOTLIGHT BOOST ACTIVATED: ID {restaurant_id} until {boost_expiry}")
+                elif payment_type == 'diamond':
+                    update_payload['subscription_package'] = 'diamond'
+                    logger.info(f"💎 DIAMOND SUBSCRIPTION ACTIVATED: ID {restaurant_id}")
+                else:
+                    update_payload['subscription_package'] = 'gold'
+                    logger.info(f"💫 GOLD SUBSCRIPTION ACTIVATED: ID {restaurant_id}")
+
+                db.reference(f'restaurants/{restaurant_id}').update(update_payload)
                 pending_ref.delete()
-                logger.info(f"✅ MERCHANT ACTIVATED: ID {restaurant_id}")
+                logger.info(f"✅ MERCHANT UPDATED: ID {restaurant_id}")
             else:
                 logger.warning(f"⚠️ Payment received, but could not find merchant for checkout: {checkout_id}")
 
@@ -4543,7 +4646,60 @@ def update_merchant_image():
 
     except Exception as e:
         logger.error(f"Merchant Image Upload Error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500    
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/merchant/redeem_booking', methods=['POST'])
+@login_required
+def redeem_booking():
+    """Allows a merchant to mark an approved/checked-in booking as Completed to collect dynamic ROI stats."""
+    merchant_id = session.get('user_id')
+    if session.get('role') != 'business':
+        return jsonify({'success': False, 'message': 'Access Denied.'}), 403
+
+    data = request.json or {}
+    booking_id = data.get('booking_id')
+    if not booking_id:
+        return jsonify({'success': False, 'message': 'Booking ID is required.'}), 400
+
+    try:
+        booking = db.reference(f'bookings/{booking_id}').get()
+        if not booking:
+            return jsonify({'success': False, 'message': 'Booking not found.'}), 404
+
+        if booking.get('restaurant_id') != merchant_id:
+            return jsonify({'success': False, 'message': 'Unauthorized action.'}), 401
+
+        # Complete the status using the DB helper
+        update_booking_status(booking_id, 'Completed')
+
+        return jsonify({'success': True, 'message': 'Reservation marked as Completed and revenue redeemed!'})
+    except Exception as e:
+        logger.error(f"Redeem booking error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/merchant/set_average_spend', methods=['POST'])
+@login_required
+def set_average_spend():
+    """Allows a merchant to configure their average couple ticket size for accurate ROI analytics."""
+    merchant_id = session.get('user_id')
+    if session.get('role') != 'business':
+        return jsonify({'success': False, 'message': 'Access Denied.'}), 403
+
+    data = request.json or {}
+    spend = data.get('average_spend')
+    if not spend:
+        return jsonify({'success': False, 'message': 'Spend value is required.'}), 400
+
+    try:
+        spend_val = int(spend)
+        if spend_val <= 0:
+            return jsonify({'success': False, 'message': 'Average spend must be positive KSH.'}), 400
+
+        db.reference(f'restaurants/{merchant_id}').update({'average_spend': spend_val})
+        return jsonify({'success': True, 'message': 'Average ticket spend updated!'})
+    except Exception as e:
+        logger.error(f"Error setting average spend: {e}")
+        return jsonify({'success': False, 'message': 'Invalid number value.'}), 500    
 # ==========================================
 # SUPPORT, SUGGESTIONS & CALL REQUESTS
 # ==========================================

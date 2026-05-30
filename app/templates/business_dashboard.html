@@ -2,12 +2,15 @@
 
 {% block content %}
 <style>
-    /* === PROFESSIONAL B2B DARK THEME === */
+    /* === ULTIMATE GLASSMORPHIC B2B DARK THEME === */
     :root {
-        --b2b-bg: #0F172A;
-        --b2b-card: #1E293B;
-        --b2b-border: #334155;
+        --b2b-bg: #0B0F19;
+        --b2b-card: rgba(30, 41, 59, 0.45);
+        --b2b-border: rgba(255, 255, 255, 0.08);
         --b2b-accent: #E60026;
+        --b2b-accent-glow: rgba(230, 0, 38, 0.25);
+        --b2b-diamond: #8B5CF6;
+        --b2b-diamond-glow: rgba(139, 92, 246, 0.25);
         --b2b-success: #10B981;
         --b2b-text: #F8FAFC;
         --b2b-muted: #94A3B8;
@@ -20,42 +23,59 @@
         margin: 0 auto;
         padding: clamp(10px, 3vw, 40px);
         padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
-        animation: fadeIn .6s ease-out;
+        animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     /* --- LOCKOUT OVERLAY --- */
     .lockout-overlay {
         position: fixed; inset: 0; 
-        background: rgba(15, 23, 42, 0.98); 
+        background: rgba(11, 15, 25, 0.98); 
         z-index: 1000005; 
         display: flex; align-items: center; justify-content: center; 
-        padding: 20px; backdrop-filter: blur(12px);
+        padding: 20px; backdrop-filter: blur(20px);
         text-align: center;
     }
     .lockout-card {
-        background: white; color: #111; padding: 40px 30px; border-radius: 32px;
-        width: 100%; max-width: 450px; box-shadow: 0 30px 60px rgba(0,0,0,0.5);
-        border-top: 10px solid var(--b2b-accent);
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid var(--b2b-border);
+        color: var(--b2b-text); padding: 45px 35px; border-radius: 32px;
+        width: 100%; max-width: 450px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(10px);
+        border-top: 6px solid var(--b2b-accent);
     }
-    .lockout-card h2 { font-weight: 900; font-size: 28px; color: #720000; margin-bottom: 10px; }
-    .lockout-card p { color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
-    
-    /* --- DASHBOARD HEADER --- */
+    .lockout-card h2 { font-weight: 900; font-size: 28px; color: var(--b2b-text); margin-bottom: 12px; letter-spacing: -1px; }
+    .lockout-card p { color: var(--b2b-muted); font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
+
+    /* --- PORTAL HEADER --- */
     .biz-header {
         display: flex; justify-content: space-between; align-items: center;
         margin-bottom: 35px; flex-wrap: wrap; gap: 15px;
     }
-    .biz-title-wrap h1 { font-size: clamp(22px, 5vw, 36px); font-weight: 900; margin: 0; letter-spacing: -1px; }
+    .biz-title-wrap h1 { font-size: clamp(24px, 5vw, 38px); font-weight: 900; margin: 0; letter-spacing: -1px; background: linear-gradient(135deg, white 0%, #FFD6DD 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     .biz-title-wrap p { color: var(--b2b-muted); font-size: 14px; font-weight: 600; margin-top: 5px; }
-    
-    .status-badge {
-        padding: 6px 16px; border-radius: 50px; font-size: 11px; font-weight: 800;
-        text-transform: uppercase; letter-spacing: 1px;
-    }
-    .status-active { background: rgba(16, 185, 129, 0.1); color: var(--b2b-success); border: 1px solid var(--b2b-success); }
-    .status-expired { background: rgba(230, 0, 38, 0.1); color: var(--b2b-accent); border: 1px solid var(--b2b-accent); }
 
-    /* --- ANALYTICS GRID --- */
+    .status-badge {
+        padding: 8px 18px; border-radius: 50px; font-size: 10px; font-weight: 900;
+        text-transform: uppercase; letter-spacing: 1px; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .status-active { background: rgba(16, 185, 129, 0.1); color: var(--b2b-success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-expired { background: rgba(230, 0, 38, 0.1); color: var(--b2b-accent); border: 1px solid rgba(230, 0, 38, 0.3); }
+
+    /* --- PREMIUM PLACEMENT HEADLINE --- */
+    .premium-tier-banner {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(30, 41, 59, 0.5) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 20px; padding: 20px 25px; margin-bottom: 30px;
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;
+        box-shadow: 0 10px 30px var(--b2b-diamond-glow);
+    }
+    .premium-tier-banner.gold {
+        background: linear-gradient(135deg, rgba(230, 0, 38, 0.08) 0%, rgba(30, 41, 59, 0.5) 100%);
+        border: 1px solid rgba(230, 0, 38, 0.2);
+        box-shadow: 0 10px 30px rgba(230, 0, 38, 0.05);
+    }
+
+    /* --- ANALYTICS CARDS (ROI HUB) --- */
     .analytics-grid {
         display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
         gap: 20px; margin-bottom: 40px;
@@ -63,16 +83,17 @@
     .a-card {
         background: var(--b2b-card); border: 1px solid var(--b2b-border);
         border-radius: 24px; padding: 30px; position: relative; overflow: hidden;
-        transition: 0.3s;
+        backdrop-filter: blur(8px); transition: 0.3s;
     }
-    .a-card:hover { transform: translateY(-5px); border-color: var(--b2b-accent); }
-    .a-lbl { font-size: 11px; font-weight: 900; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .a-card:hover { transform: translateY(-5px); border-color: var(--b2b-accent); box-shadow: 0 12px 30px rgba(230, 0, 38, 0.1); }
+    .a-card.diamond-highlight:hover { border-color: var(--b2b-diamond); box-shadow: 0 12px 30px var(--b2b-diamond-glow); }
+    .a-lbl { font-size: 11px; font-weight: 900; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 1.5px; }
     .a-val { font-size: 42px; font-weight: 950; margin: 10px 0; line-height: 1; letter-spacing: -1.5px; }
     .a-sub { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
     .trend-up { color: var(--b2b-success); }
     .trend-neutral { color: var(--b2b-muted); }
 
-    /* --- LIVE FEED & BOOKINGS --- */
+    /* --- LAYOUT COLUMNS --- */
     .dashboard-layout {
         display: grid; grid-template-columns: 2fr 1fr; gap: 30px;
     }
@@ -80,32 +101,56 @@
 
     .b2b-panel {
         background: var(--b2b-card); border: 1px solid var(--b2b-border);
-        border-radius: 24px; padding: 25px;
+        border-radius: 24px; padding: 25px; backdrop-filter: blur(8px);
+        margin-bottom: 30px;
     }
     .panel-title { font-size: 18px; font-weight: 900; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
 
     /* Table Customization */
     .b2b-table { width: 100%; border-collapse: collapse; }
-    .b2b-table th { text-align: left; padding: 15px; color: var(--b2b-muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--b2b-border); }
+    .b2b-table th { text-align: left; padding: 15px; color: var(--b2b-muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--b2b-border); letter-spacing: 0.5px; }
     .b2b-table td { padding: 18px 15px; border-bottom: 1px solid var(--b2b-border); font-weight: 600; font-size: 14px; }
     
     .btn-action {
         padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s;
     }
-    .btn-approve { background: var(--b2b-success); color: white; border: none; }
-    .btn-decline { background: transparent; color: var(--b2b-accent); border: 1px solid var(--b2b-accent); }
-    
-    /* --- QR & PERKS SECTION --- */
+    .btn-approve { background: var(--b2b-success); color: white; border: none; box-shadow: 0 4px 10px rgba(16,185,129,0.3); }
+    .btn-approve:hover { transform: scale(1.03); }
+
+    /* --- DEMOGRAPHIC LOCKED MODULE --- */
+    .insights-wrapper { position: relative; min-height: 250px; }
+    .insights-locked-overlay {
+        position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(8px); border-radius: 18px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; padding: 20px; z-index: 5;
+    }
+
+    /* --- SIDEBAR WIDGETS --- */
     .quick-actions { display: flex; flex-direction: column; gap: 20px; }
     .action-box {
         padding: 25px; border-radius: 20px; display: flex; flex-direction: column; gap: 15px;
-        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); border: 1px solid var(--b2b-border);
+        background: linear-gradient(135deg, rgba(30,41,59,0.7) 0%, rgba(15,23,42,0.7) 100%); border: 1px solid var(--b2b-border);
     }
     .btn-primary-b2b {
         background: var(--b2b-accent); color: white; border: none; padding: 15px;
         border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; text-align: center; text-decoration: none;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2);
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.2); transition: 0.2s;
     }
+    .btn-primary-b2b:hover { transform: translateY(-2px); box-shadow: 0 15px 25px rgba(230,0,38,0.3); }
+
+    .btn-mpesa-checkout {
+        background: #28a745; color: white; border: none; padding: 12px; border-radius: 10px;
+        font-weight: 900; cursor: pointer; transition: 0.2s; font-size: 13px;
+    }
+    .btn-mpesa-checkout:hover { background: #218838; }
+
+    .input-mpesa-phone {
+        background: rgba(15, 23, 42, 0.8); border: 1px solid var(--b2b-border);
+        color: white; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 14px;
+        outline: none; transition: 0.2s; width: 100%; box-sizing: border-box;
+    }
+    .input-mpesa-phone:focus { border-color: var(--b2b-success); }
 
     /* Live Alert Toast */
     .toast-alert {
@@ -117,7 +162,6 @@
         animation: slideIn .4s ease-out;
     }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
 
@@ -131,23 +175,23 @@
             <h2>Account Inactive</h2>
             <p>Your subscription has expired or your profile is hidden. To view live student bookings and analytics, please activate your account.</p>
             
-            <div style="background: #f8f9fa; padding: 25px; border-radius: 20px; margin-bottom: 25px; border: 1.5px solid #eee; text-align: left;">
-                <label style="display: block; font-size: 10px; font-weight: 900; color: #888; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">M-Pesa Activation (2,000 KSH / Year)</label>
-                <div style="display: flex; gap: 8px;">
-                    <input type="tel" id="mpesa-phone-lock" value="254" placeholder="2547XXXXXXXX" style="flex: 1; padding: 15px; border-radius: 12px; border: 2px solid #ddd; font-weight: 800; font-size: 16px; outline: none;">
-                    <button onclick="triggerMpesaLock()" id="btn-pay-lock" style="background: #28a745; color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: 900; cursor: pointer;">ACTIVATE</button>
+            <div style="background: rgba(15,23,42,0.6); padding: 25px; border-radius: 20px; margin-bottom: 25px; border: 1px solid var(--b2b-border); text-align: left;">
+                <label style="display: block; font-size: 10px; font-weight: 900; color: var(--b2b-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">M-Pesa Activation (2,000 KSH / Year)</label>
+                <div style="display: flex; gap: 8px; flex-direction: column;">
+                    <input type="tel" id="mpesa-phone-lock" value="254" placeholder="2547XXXXXXXX" class="input-mpesa-phone">
+                    <button onclick="triggerMpesaPortal('gold', 'mpesa-phone-lock', 'btn-pay-lock', 'mpesa-status-lock')" id="btn-pay-lock" class="btn-mpesa-checkout" style="padding: 15px; font-size: 16px;">ACTIVATE PORTAL</button>
                 </div>
-                <div id="mpesa-status-lock" style="margin-top: 10px; font-size: 13px; font-weight: 700; color: #720000; display: none;">Check your phone...</div>
+                <div id="mpesa-status-lock" style="margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--b2b-accent); display: none;">Check your phone...</div>
             </div>
 
             <form action="{{ url_for('auth.logout') }}" method="GET">
-                <button type="submit" style="background: none; border: none; color: #888; font-weight: 800; cursor: pointer; text-decoration: underline;">Switch Account / Log Out</button>
+                <button type="submit" style="background: none; border: none; color: var(--b2b-muted); font-weight: 800; cursor: pointer; text-decoration: underline;">Switch Account / Log Out</button>
             </form>
         </div>
     </div>
     {% endif %}
 
-    <!-- --- MAIN DASHBOARD CONTENT --- -->
+    <!-- --- PORTAL HEADER --- -->
     <div class="biz-header">
         <div class="biz-title-wrap">
             <h1>{{ restaurant.business_name }}</h1>
@@ -163,91 +207,210 @@
         </div>
     </div>
 
+    <!-- --- PREMIUM TIER BANNER --- -->
+    {% if analytics.subscription_package == 'DIAMOND' %}
+    <div class="premium-tier-banner">
+        <div>
+            <h3 style="margin: 0; color: white; font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 8px;">👑 Diamond VIP Merchant Active</h3>
+            <p style="margin: 5px 0 0; font-size: 13px; color: var(--b2b-muted);">Spotlight listing active, unlimited flash perks enabled, demographics insights unlocked!</p>
+        </div>
+        <div class="status-badge" style="background: rgba(139, 92, 246, 0.1); color: var(--b2b-diamond); border: 1px solid var(--b2b-diamond);">💎 DIAMOND TIER</div>
+    </div>
+    {% else %}
+    <div class="premium-tier-banner gold">
+        <div>
+            <h3 style="margin: 0; color: white; font-weight: 900; font-size: 16px;">💫 Standard Gold Merchant Portal</h3>
+            <p style="margin: 5px 0 0; font-size: 13px; color: var(--b2b-muted);">You are listed as a standard partner. Upgrade to Diamond to spotlight your venue and drive 10x more dates!</p>
+        </div>
+        <div class="status-badge" style="background: rgba(230, 0, 38, 0.1); color: var(--b2b-accent); border: 1px solid var(--b2b-accent);">💫 GOLD TIER</div>
+    </div>
+    {% endif %}
+
+    <!-- --- ROI HUB ANALYTICS --- -->
     <div class="analytics-grid">
         <div class="a-card">
-            <span class="a-lbl">Student Reach</span>
+            <span class="a-lbl">Student Views</span>
             <div class="a-val">{{ analytics.total_views }}</div>
-            <div class="a-sub trend-up"><span>📈</span> High Intent Views</div>
+            <div class="a-sub trend-up"><span>📈</span> High Intent Scans</div>
         </div>
-        <div class="a-card">
-            <span class="a-lbl">Monthly Dates</span>
-            <div class="a-val">{{ analytics.monthly_completed }}</div>
-            <div class="a-sub trend-neutral"><span>🎯</span> Verified redemptions</div>
+        <div class="a-card {% if analytics.subscription_package == 'DIAMOND' %}diamond-highlight{% endif %}">
+            <span class="a-lbl">Total Sales Delivered</span>
+            <div class="a-val" style="color: var(--b2b-success);">KSH {{ analytics.total_revenue_delivered }}</div>
+            <div class="a-sub trend-up" style="color: var(--b2b-success);"><span>🎯</span> {{ analytics.monthly_completed }} Dates Hosted</div>
         </div>
-        <div class="a-card" style="border-bottom: 4px solid var(--b2b-success);">
-            <span class="a-lbl">Est. Monthly ROI</span>
-            <div class="a-val" style="color: var(--b2b-success);">KSH {{ analytics.monthly_revenue }}</div>
-            <div class="a-sub" style="color: var(--b2b-muted);"><span>💰</span> Gross Venue Revenue</div>
+        <div class="a-card" style="border-bottom: 4px solid {% if analytics.subscription_package == 'DIAMOND' %}var(--b2b-diamond){% else %}var(--b2b-success){% endif %};">
+            <span class="a-lbl">Platform ROI Indicator</span>
+            <div class="a-val" style="color: #FFD6DD;">+{{ analytics.roi_percent }}%</div>
+            <div class="a-sub" style="color: var(--b2b-success);"><span>📈</span> Dynamic Earning ROI</div>
         </div>
     </div>
 
+    <!-- --- TWO COLUMN LAYOUT --- -->
     <div class="dashboard-layout">
-        <!-- LEFT: RESERVATIONS -->
-        <div class="b2b-panel">
-            <h2 class="panel-title"><span>📅</span> Live Reservations</h2>
-            <div style="overflow-x: auto;">
-                <table class="b2b-table">
-                    <thead>
-                        <tr>
-                            <th>Couple</th>
-                            <th>Time</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if bookings %}
-                            {% for booking in bookings %}
+        <!-- LEFT PANEL: RESERVATIONS & DEMOGRAPHICS -->
+        <div>
+            <!-- RESERVATIONS BOARD -->
+            <div class="b2b-panel">
+                <h2 class="panel-title"><span>📅</span> Live Reservations & Check-Ins</h2>
+                <div style="overflow-x: auto;">
+                    <table class="b2b-table">
+                        <thead>
                             <tr>
-                                <td>{{ booking.user_a_name }} & {{ booking.user_b_name }}</td>
-                                <td style="color: var(--b2b-accent);">{{ booking.day }}, {{ booking.time }}</td>
-                                <td>
-                                    <span style="color: {% if booking.status == 'Approved' %}#10B981{% elif booking.status == 'Pending' %}#F59E0B{% else %}#EF4444{% endif %};">
-                                        {{ booking.status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if booking.status == 'Pending' %}
-                                        <div style="display: flex; gap: 8px;">
-                                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST">
+                                <th>Couple</th>
+                                <th>Schedule</th>
+                                <th>Status</th>
+                                <th>Redemption Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if bookings %}
+                                {% for booking in bookings %}
+                                <tr>
+                                    <td>{{ booking.user_a_name }} & {{ booking.user_b_name }}</td>
+                                    <td style="color: var(--b2b-accent);">{{ booking.day }}, {{ booking.time }}</td>
+                                    <td>
+                                        <span style="color: {% if booking.status == 'Completed' %}var(--b2b-success){% elif booking.status == 'Approved' %}var(--b2b-success){% elif booking.status == 'Pending' %}#F59E0B{% else %}#EF4444{% endif %}; font-weight: 800;">
+                                            {{ booking.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if booking.status == 'Pending' %}
+                                            <form action="{{ url_for('manage_booking', booking_id=booking.booking_id, action='approve') }}" method="POST" onsubmit="return showActionLoading(this);">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                 <button type="submit" class="btn-action btn-approve">Check In</button>
                                             </form>
+                                        {% elif booking.status == 'Approved' %}
+                                            <button onclick="redeemBooking('{{ booking.booking_id }}', this)" class="btn-action" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; border: none; box-shadow: 0 4px 10px rgba(16,185,129,0.3);">💰 Redeem Revenue</button>
+                                        {% elif booking.status == 'Completed' %}
+                                            <span style="color: var(--b2b-success); font-weight: 900; font-size: 13px;">✅ Revenue Redeemed</span>
+                                        {% else %}
+                                            <span style="opacity: 0.4; font-size: 11px;">Processed</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 40px; color: var(--b2b-muted);">No active reservations found.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- DEMOGRAPHIC INSIGHT PANEL -->
+            <div class="b2b-panel">
+                <h2 class="panel-title"><span>📊</span> Advanced Customer Demographics</h2>
+                <div class="insights-wrapper">
+                    {% if analytics.subscription_package != 'DIAMOND' %}
+                    <!-- Lock Overlay for standard accounts -->
+                    <div class="insights-locked-overlay">
+                        <div style="font-size: 40px; margin-bottom: 12px;">🔒</div>
+                        <h3 style="color: white; font-weight: 900; margin-bottom: 8px;">Unlock Demographic Insights</h3>
+                        <p style="color: var(--b2b-muted); font-size: 13px; max-width: 380px; margin-bottom: 18px; line-height: 1.4;">See which university departments, faculties, and genders visit your venue most to target your marketing perfectly.</p>
+                        <a href="#checkout-upgrades" class="btn-primary-b2b" style="padding: 10px 20px; font-size: 12px; background: var(--b2b-diamond); box-shadow: none;">UPGRADE TO DIAMOND VIP</a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Analytics charts or stats -->
+                    <div style="opacity: {% if analytics.subscription_package == 'DIAMOND' %}1{% else %}0.15{% endif %}; pointer-events: {% if analytics.subscription_package == 'DIAMOND' %}auto{% else %}none{% endif %};">
+                        <h4 style="margin: 0 0 15px 0; color: var(--b2b-muted); font-size: 12px; text-transform: uppercase;">Faculty Booking Share</h4>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            {% if faculty_stats %}
+                                {% for faculty, count in faculty_stats.items() %}
+                                    <div>
+                                        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 5px;">
+                                            <span>🎓 {{ faculty }}</span>
+                                            <span>{{ count }} Bookings</span>
                                         </div>
-                                    {% else %}
-                                        <span style="opacity: 0.4; font-size: 11px;">Processed</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="4" style="text-align: center; padding: 40px; color: var(--b2b-muted);">No active reservations found.</td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
+                                        <div style="height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; overflow: hidden; border: 1px solid var(--b2b-border);">
+                                            <div style="height: 100%; background: var(--b2b-diamond); width: {{ count * 10 }}%;"></div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                            {% else %}
+                                <p style="font-size: 13px; color: var(--b2b-muted); text-align: center; padding: 20px 0;">Insights will populate as couples complete their check-ins!</p>
+                            {% endif %}
+
+                            <div style="margin-top: 20px; border-top: 1px solid var(--b2b-border); padding-top: 20px; display: flex; justify-content: space-between;">
+                                <div>
+                                    <span style="font-size: 11px; text-transform: uppercase; color: var(--b2b-muted); font-weight: 800;">Male Comrades</span>
+                                    <div style="font-size: 20px; font-weight: 900; color: var(--b2b-diamond);">{{ gender_stats.male }} Visitors</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="font-size: 11px; text-transform: uppercase; color: var(--b2b-muted); font-weight: 800;">Female Comrades</span>
+                                    <div style="font-size: 20px; font-weight: 900; color: var(--b2b-accent);">{{ gender_stats.female }} Visitors</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT: TOOLS -->
-        <div class="quick-actions">
+        <!-- RIGHT PANEL: MONETIZATION & CAMPAIGN CONTROLS -->
+        <div class="quick-actions" id="checkout-upgrades">
+            <!-- 24-HOUR CAMPUS PUSH BOOSTER -->
+            <div class="action-box" style="border: 1.5px solid {% if analytics.boost_active %}var(--b2b-success){% else %}var(--b2b-accent){% endif %}; background: linear-gradient(135deg, rgba(230,0,38,0.08) 0%, rgba(30,41,59,0.5) 100%);">
+                <h3 style="margin: 0; color: white; display: flex; align-items: center; gap: 8px;">🚀 Launch 24h Campus Boost</h3>
+                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0; line-height: 1.4;">Push a glowing promo card to all student Swipe Decks and active swipers for 24 hours to drive instant evening traffic!</p>
+                
+                {% if analytics.boost_active %}
+                    <div style="background: rgba(16,185,129,0.1); border: 1px solid var(--b2b-success); padding: 15px; border-radius: 12px; text-align: center; color: var(--b2b-success); font-weight: 800; font-size: 14px;">
+                        ⚡ SPOTLIGHT BOOST ACTIVE!
+                    </div>
+                {% else %}
+                    <div style="background: rgba(15,23,42,0.4); border: 1px solid var(--b2b-border); padding: 15px; border-radius: 12px;">
+                        <label style="display: block; font-size: 9px; font-weight: 900; color: var(--b2b-accent); text-transform: uppercase; margin-bottom: 6px;">M-Pesa Checkout (500 KSH / 24h)</label>
+                        <div style="display: flex; gap: 6px; flex-direction: column;">
+                            <input type="tel" id="mpesa-phone-boost" value="254" class="input-mpesa-phone" placeholder="2547XXXXXXXX">
+                            <button onclick="triggerMpesaPortal('boost', 'mpesa-phone-boost', 'btn-pay-boost', 'mpesa-status-boost')" id="btn-pay-boost" class="btn-mpesa-checkout" style="background: var(--b2b-accent);">BUY 24H BOOST</button>
+                        </div>
+                        <div id="mpesa-status-boost" style="margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--b2b-accent); display: none;">Check phone...</div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- DIAMOND VIP UPGRADE HUB -->
+            {% if analytics.subscription_package != 'DIAMOND' %}
+            <div class="action-box" style="border: 1.5px solid var(--b2b-diamond); background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(30, 41, 59, 0.5) 100%);">
+                <h3 style="margin: 0; color: white; display: flex; align-items: center; gap: 8px;">👑 Upgrade to Diamond VIP</h3>
+                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0; line-height: 1.4;">Place your restaurant at the very top of "Approved Date Spots" feeds, unlock demographic details, and get unlimited Flash Perks!</p>
+                
+                <div style="background: rgba(15,23,42,0.4); border: 1px solid var(--b2b-border); padding: 15px; border-radius: 12px;">
+                    <label style="display: block; font-size: 9px; font-weight: 900; color: var(--b2b-diamond); text-transform: uppercase; margin-bottom: 6px;">M-Pesa Upgrade (5,000 KSH / Year)</label>
+                    <div style="display: flex; gap: 6px; flex-direction: column;">
+                        <input type="tel" id="mpesa-phone-upgrade" value="254" class="input-mpesa-phone" placeholder="2547XXXXXXXX">
+                        <button onclick="triggerMpesaPortal('diamond', 'mpesa-phone-upgrade', 'btn-pay-upgrade', 'mpesa-status-upgrade')" id="btn-pay-upgrade" class="btn-mpesa-checkout" style="background: var(--b2b-diamond);">UPGRADE NOW</button>
+                    </div>
+                    <div id="mpesa-status-upgrade" style="margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--b2b-diamond); display: none;">Check phone...</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- VERIFICATION QR & STATS -->
             <div class="action-box">
-                <h3 style="margin: 0; font-size: 18px;">Verification QR</h3>
-                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0;">Scan student codes to verify discounts and track foot traffic.</p>
+                <h3 style="margin: 0; font-size: 18px; color: white;">Verification QR Portal</h3>
+                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0; line-height: 1.4;">Scan student match coupons instantly to verify dates and track customer redemptions.</p>
                 <a href="{{ url_for('merchant_qr') }}" class="btn-primary-b2b">Open My QR Code</a>
             </div>
 
-            <div class="action-box" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%);">
-                <h3 style="margin: 0; color: white;">⚡ Launch Flash Perk</h3>
-                <p style="font-size: 13px; color: rgba(255,255,255,0.7); margin: 0;">Boost traffic instantly by pushing an offer to online students.</p>
-                <a href="{{ url_for('merchant_dashboard') }}" class="btn-primary-b2b" style="background: white; color: var(--b2b-accent); box-shadow: none;">Create Offer</a>
+            <!-- PROFILE CONFIGURATION & TICKET SIZE -->
+            <div class="action-box">
+                <h3 style="margin: 0; font-size: 18px; color: white;">⚡ Launch Flash Perks</h3>
+                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0; line-height: 1.4;">Create dynamic flash deals to push discount offers straight to student feeds.</p>
+                <a href="{{ url_for('merchant_dashboard') }}" class="btn-primary-b2b" style="background: white; color: var(--b2b-accent); box-shadow: none;">Manage Perks & Photos</a>
             </div>
-            
-            <div class="b2b-panel" style="padding: 20px;">
-                <h4 style="margin: 0 0 15px; font-size: 12px; color: var(--b2b-muted); text-transform: uppercase;">Subscription Details</h4>
+
+            <div class="b2b-panel" style="padding: 20px; margin: 0;">
+                <h4 style="margin: 0 0 15px; font-size: 11px; color: var(--b2b-muted); text-transform: uppercase; letter-spacing: 1px;">Subscription Status</h4>
+                <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 8px;">
+                    <span>Active Package</span>
+                    <span style="color: var(--b2b-success);">{{ analytics.subscription_package }}</span>
+                </div>
                 <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 700;">
-                    <span>Time Remaining</span>
+                    <span>Days Remaining</span>
                     <span style="color: var(--b2b-success);">{{ days_remaining }} Days</span>
                 </div>
             </div>
@@ -286,6 +449,98 @@
         return true; 
     }
 
+    // Interactive Revenue Redemption logic
+    function redeemBooking(bookingId, btn) {
+        const origText = btn.innerHTML;
+        btn.innerHTML = "⏳ Redeeming...";
+        btn.disabled = true;
+        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        
+        fetch('/api/merchant/redeem_booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ booking_id: bookingId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                btn.parentElement.innerHTML = '<span style="color: var(--b2b-success); font-weight: 900; font-size: 13px;">✅ Revenue Earned</span>';
+                alert("🎉 " + data.message);
+                window.location.reload();
+            } else {
+                alert("⚠️ " + data.message);
+                btn.innerHTML = origText;
+                btn.disabled = false;
+            }
+        })
+        .catch(() => {
+            alert("❌ Error connecting to server.");
+            btn.innerHTML = origText;
+            btn.disabled = false;
+        });
+    }
+
+    // Generic MPesa Trigger Portal
+    function triggerMpesaPortal(paymentType, phoneId, btnId, statusId) {
+        const phone = document.getElementById(phoneId).value.trim();
+        const statusDiv = document.getElementById(statusId);
+        const btn = document.getElementById(btnId);
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+
+        if(cleanPhone.length < 12 || !cleanPhone.startsWith('254')) {
+            alert("Please enter a valid phone number starting with 254 (e.g. 2547XXXXXXXX)");
+            return;
+        }
+
+        const origText = btn.innerText;
+        btn.innerText = "⏳ Pushing...";
+        btn.disabled = true;
+        statusDiv.style.display = "block";
+        statusDiv.style.color = "var(--b2b-muted)";
+        statusDiv.innerText = "Check phone for Safaricom M-Pesa PIN prompt...";
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        fetch('/api/pay_subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ phone_number: cleanPhone, payment_type: paymentType })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                statusDiv.style.color = "var(--b2b-success)";
+                statusDiv.innerText = "Waiting for payment callback confirmation...";
+                
+                // Poll for activation
+                const checkInterval = setInterval(async () => {
+                    const res = await fetch('/api/check_access');
+                    const check = await res.json();
+                    if (check.granted) {
+                        clearInterval(checkInterval);
+                        window.location.reload();
+                    }
+                }, 2000);
+
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    window.location.reload();
+                }, 16000);
+            } else {
+                statusDiv.style.color = "var(--b2b-accent)";
+                statusDiv.innerText = "Error: " + data.message;
+                btn.innerText = origText;
+                btn.disabled = false;
+            }
+        })
+        .catch(() => {
+            statusDiv.style.color = "var(--b2b-accent)";
+            statusDiv.innerText = "Connection error launching request.";
+            btn.innerText = origText;
+            btn.disabled = false;
+        });
+    }
+
     // Initialize Firebase for Live Alerts
     const firebaseConfig = {
         databaseURL: "{{ config['FIREBASE_DB_URL'] }}"
@@ -310,50 +565,5 @@
             }
         });
     }
-
-    {% if not restaurant.subscription_active %}
-    function triggerMpesaLock() {
-        const phone = document.getElementById('mpesa-phone-lock').value.trim();
-        const statusDiv = document.getElementById('mpesa-status-lock');
-        const btn = document.getElementById('btn-pay-lock');
-        const cleanPhone = phone.replace(/[^0-9]/g, '');
-
-        if(cleanPhone.length < 12 || !cleanPhone.startsWith('254')) {
-            alert("Enter valid 254 number");
-            return;
-        }
-
-        btn.innerText = "⏳";
-        btn.disabled = true;
-        statusDiv.style.display = "block";
-        statusDiv.innerText = "Check your phone for PIN prompt...";
-
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-        fetch('/api/pay_subscription', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ phone_number: cleanPhone })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                statusDiv.style.color = "#28a745";
-                statusDiv.innerText = "Waiting for M-Pesa confirmation...";
-                
-                // Poll for activation
-                setInterval(async () => {
-                    const res = await fetch('/api/check_access');
-                    const check = await res.json();
-                    if (check.granted) window.location.reload();
-                }, 2000);
-            } else {
-                statusDiv.style.color = "#E60026";
-                statusDiv.innerText = "Failed. Try again.";
-                btn.innerText = "RETRY";
-                btn.disabled = false;
-            }
-        });
-    }
-    {% endif %}
 </script>
 {% endblock %}

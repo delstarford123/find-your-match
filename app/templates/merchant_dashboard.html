@@ -250,6 +250,20 @@
             <button type="submit" class="btn-live" id="btnUploadImage">Update Venue Photo ✨</button>
         </form>
     </div>
+
+    <!-- 💰 NEW: Couple Ticket Size / Average Spend configurator -->
+    <div class="fp-wrap" style="margin-top: 20px;">
+        <h2 class="fp-title">💰 Average Couple Spend Size</h2>
+        <p class="fp-sub">Configure the average ticket size a couple spends at your establishment. This is used to dynamically update your total sales generated ticker and ROI calculators on the main dashboard.</p>
+
+        <form id="averageSpendForm" onsubmit="updateAverageSpend(event)" class="fp-form-grid">
+            <div class="input-group">
+                <label>Average Couple Ticket (KSH)</label>
+                <input type="number" id="averageSpendInput" value="{{ restaurant.average_spend|default(1500) }}" min="100" max="25000" required>
+            </div>
+            <button type="submit" class="btn-live" id="btnUpdateSpend">Update Ticket Size 💰</button>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -308,6 +322,43 @@
             console.error(err);
             alert("❌ Upload failed. Check connection.");
             btn.innerText = orig;
+            btn.disabled = false;
+        });
+    }
+
+    function updateAverageSpend(e) {
+        e.preventDefault();
+        const spendInput = document.getElementById('averageSpendInput');
+        const btn = document.getElementById('btnUpdateSpend');
+        const origText = btn.innerText;
+
+        btn.innerText = "Saving... ⏳";
+        btn.disabled = true;
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+        fetch('/api/merchant/set_average_spend', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ average_spend: spendInput.value })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert("Average ticket size updated successfully! 💸");
+                window.location.reload();
+            } else {
+                alert("⚠️ " + data.message);
+                btn.innerText = origText;
+                btn.disabled = false;
+            }
+        })
+        .catch(() => {
+            alert("❌ Failed to connect to server.");
+            btn.innerText = origText;
             btn.disabled = false;
         });
     }
