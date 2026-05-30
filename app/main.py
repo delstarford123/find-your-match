@@ -6055,7 +6055,42 @@ def trigger_monday_emails():
         return redirect(url_for('dashboard'))
         
     sent_count = dispatch_monday_emails()
+    
+    # Log to audit log
+    try:
+        db.reference('audit_logs').push({
+            'timestamp': datetime.now(EAT).isoformat(),
+            'admin_ip': request.remote_addr,
+            'action': f"Manually triggered Monday Love Match Sheets email dispatches to {sent_count} Diamond users."
+        })
+    except: pass
+
     flash(f"⚡ Success! Monday Love Match Sheets manually dispatched to {sent_count} active paid students.", "success")
+    return redirect(url_for('super_admin'))
+
+
+@app.route('/admin/trigger-friday-emails')
+@login_required
+def trigger_friday_emails():
+    """
+    Manual override trigger endpoint for super admins to immediately execute Friday Night Match email dispatch.
+    """
+    if not session.get('is_super_admin'):
+        flash("Unauthorized access. Super Admin credentials required.", "error")
+        return redirect(url_for('dashboard'))
+        
+    sent_count = dispatch_friday_emails()
+    
+    # Log to audit log
+    try:
+        db.reference('audit_logs').push({
+            'timestamp': datetime.now(EAT).isoformat(),
+            'admin_ip': request.remote_addr,
+            'action': f"Manually triggered Friday Night Perfect Matches email dispatches to {sent_count} Diamond users."
+        })
+    except: pass
+
+    flash(f"⚡ Success! Friday Night Matches manually dispatched to {sent_count} active paid students.", "success")
     return redirect(url_for('super_admin'))
 
 

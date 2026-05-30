@@ -1029,6 +1029,35 @@
             </div>
         </div>
 
+        <h3 class="section-title animate-up delay-3">📅 Premium Match Email Dispatcher</h3>
+        <div class="admin-list animate-up delay-3">
+            <!-- Monday Dispatches Card -->
+            <div class="admin-card">
+                <div style="flex: 1;">
+                    <h4 class="admin-card-title">Monday Love Match Sheet (20 Matches)</h4>
+                    <p class="admin-card-text">Force-dispatch the Monday email sheet immediately to all active paid Diamond users. Delivers exactly 20 compatible opposite-sex student profiles.</p>
+                </div>
+                <div class="action-group">
+                    <a href="{{ url_for('trigger_monday_emails') }}" class="btn btn-primary" onclick="return confirm('Launch Monday dispatches now? This will calculate compatibilities and email all active paid Diamond users.');">
+                        ⚡ Dispatch Monday Sheets
+                    </a>
+                </div>
+            </div>
+
+            <!-- Friday Dispatches Card -->
+            <div class="admin-card" style="border-left: 4px solid var(--b2b-success);">
+                <div style="flex: 1;">
+                    <h4 class="admin-card-title">Friday Night Perfect Matches (50 Matches)</h4>
+                    <p class="admin-card-text">Force-dispatch the Friday night email sheet immediately to active paid Diamond users. Delivers up to 50 perfect opposite-sex matches (compatibility >= 80%).</p>
+                </div>
+                <div class="action-group">
+                    <a href="{{ url_for('trigger_friday_emails') }}" class="btn btn-success" onclick="return confirm('Launch Friday dispatches now? This will scan for perfect matches and email active paid Diamond users.');">
+                        🔥 Dispatch Friday Sheets
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <h3 class="section-title animate-up delay-3">
             <span>⚠️ THE DANGER ZONE</span>
             <button class="btn btn-outline" onclick="document.getElementById('auditModal').style.display='flex'" style="font-size:12px; padding: 6px 12px;">📜 View Audit Logs</button>
