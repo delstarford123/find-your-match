@@ -3743,6 +3743,10 @@ from flask_socketio import emit, join_room
 
 logger = logging.getLogger(__name__)
 
+# Real-time state trackers
+online_users = set()
+active_chats = {}
+
 # ==========================================
 # CONNECTION & STATUS TRACKING
 # ==========================================
@@ -3752,11 +3756,12 @@ def handle_connect():
     user_id = session.get('user_id')
     if user_id:
         join_room(user_id)
+        online_users.add(user_id)
         try:
             # Broadcast to everyone that this user is online
             db.reference(f'profiles/{user_id}').update({'is_online': True})
             emit('status_change', {'user_id': user_id, 'is_online': True}, broadcast=True)
-            logger.info(f"User {user_id} connected to WebSockets.")
+            logger.info(f"User {user_id} connected to WebSockets Presence.")
         except Exception as e:
             logger.error(f"Presence update failed on connect: {e}")
 
@@ -3765,12 +3770,60 @@ def handle_disconnect():
     """Handle user disconnect and set status to OFFLINE."""
     user_id = session.get('user_id')
     if user_id:
+        online_users.discard(user_id)
+        active_chats.pop(user_id, None)
         try:
             db.reference(f'profiles/{user_id}').update({'is_online': False})
             emit('status_change', {'user_id': user_id, 'is_online': False}, broadcast=True)
             logger.info(f"User {user_id} disconnected from WebSockets.")
         except Exception as e:
             logger.error(f"Presence update failed on disconnect: {e}")
+
+# ==========================================
+# ACTIVE CHAT STATUS RECEIPTS
+# ==========================================
+@socketio.on('enter_chat')
+def handle_enter_chat(data):
+    """User enters a chat window with a partner: tracks active window and marks messages read."""
+    user_id = session.get('user_id')
+    partner_id = data.get('partner_id')
+    if user_id and partner_id:
+        active_chats[user_id] = partner_id
+        logger.info(f"User {user_id} entered chat with {partner_id}.")
+        
+        # Mark all messages sent by this partner to the current user as 'read' in Firebase
+        match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
+        messages_ref = db.reference(f'matches/{match_id}/messages')
+        history = messages_ref.get() or {}
+        
+        updated = False
+        updates = {}
+        if isinstance(history, dict):
+            for msg_key, msg in history.items():
+                if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
+                    updates[f'{msg_key}/status'] = 'read'
+                    updated = True
+        elif isinstance(history, list):
+            for index, msg in enumerate(history):
+                if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
+                    updates[f'{index}/status'] = 'read'
+                    updated = True
+                    
+        if updated:
+            try:
+                messages_ref.update(updates)
+                # Emit a SocketIO notification to the partner so they turn their grey ticks to blue in real-time
+                emit('messages_read', {'reader_id': user_id}, to=partner_id)
+            except Exception as e:
+                logger.error(f"Failed to update read status on chat entry: {e}")
+
+@socketio.on('leave_chat')
+def handle_leave_chat():
+    """User exits their current active chat window."""
+    user_id = session.get('user_id')
+    if user_id:
+        active_chats.pop(user_id, None)
+        logger.info(f"User {user_id} left chat room.")
 
 # ==========================================
 # TYPING INDICATOR
@@ -3925,12 +3978,28 @@ def handle_message(data):
             logger.error(f"Media save error: {e}")
             return
 
+    # Calculate initial message status:
+    # 1. 'read': If the receiver is actively viewing our chat.
+    # 2. 'delivered': If the receiver is online (connected to presence or has is_online == True).
+    # 3. 'sent': If they are offline.
+    initial_status = 'sent'
+    if active_chats.get(receiver_id) == sender_id:
+        initial_status = 'read'
+    else:
+        is_online = receiver_id in online_users
+        if not is_online:
+            try:
+                is_online = db.reference(f'profiles/{receiver_id}/is_online').get() == True
+            except: pass
+        if is_online:
+            initial_status = 'delivered'
+
     message_payload = {
         'sender_id': sender_id,
         'text': msg_text if msg_type == 'text' else f"Sent a {msg_type}",
         'timestamp': now_eat,
         'type': msg_type,
-        'status': 'sent'
+        'status': initial_status
     }
     
     if file_url:
@@ -3962,12 +4031,12 @@ def handle_message(data):
             
         emit('receive_message', receive_payload, to=receiver_id)
 
-        # 4. Deliver CONFIRMATION back to Sender's screen (Turns 🕒 to ✓✓)
+        # 4. Deliver CONFIRMATION back to Sender's screen (Turns 🕒 to ✓ or ✓✓ based on status)
         emit('receive_message', {
             'sender': sender_id,
             'temp_id': temp_id,
             'msg_id': new_msg_ref.key,
-            'status': 'sent',
+            'status': initial_status,
             'type': msg_type,
             'file_url': file_url
         }, to=sender_id)

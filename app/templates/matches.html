@@ -187,7 +187,9 @@
     .msg-time { font-size: 10px; }
     .msg-status { font-size: 13px; }
     .status-sending { opacity: 0.6; }
-    .status-sent { color: #34B7F1; font-weight: bold; opacity: 1; }
+    .status-sent { color: #888; font-weight: bold; opacity: 0.8; }
+    .status-delivered { color: #888; font-weight: bold; opacity: 1; }
+    .status-read { color: #34B7F1; font-weight: bold; opacity: 1; }
 
     /* === BLUE ANIMATED TYPING INDICATORS === */
     .typing-wrapper { display: none; align-items: flex-end; justify-content: flex-start; gap: 8px; margin-bottom: 10px; margin-top: 5px; }
@@ -490,7 +492,13 @@
                                         {% if is_me %}
                                         <div class="msg-meta">
                                             <span class="msg-time">{{ msg.get('timestamp', '')[-8:-3] }}</span>
-                                            <span class="msg-status status-sent">✓✓</span>
+                                            {% if msg.get('status') == 'read' %}
+                                                <span class="msg-status status-read" id="status-{{ msg_id }}">✓✓</span>
+                                            {% elif msg.get('status') == 'delivered' %}
+                                                <span class="msg-status status-delivered" id="status-{{ msg_id }}">✓✓</span>
+                                            {% else %}
+                                                <span class="msg-status status-sent" id="status-{{ msg_id }}">✓</span>
+                                            {% endif %}
                                         </div>
                                         {% else %}
                                         <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
@@ -1133,6 +1141,26 @@
     // REAL-TIME CHAT WEBSOCKETS & ICEBREAKER
     // ==========================================
     const socket = io();
+
+    // Auto-enter chat room on connection for dynamic read receipts
+    socket.on('connect', () => {
+        if (activePartnerId !== 'none') {
+            socket.emit('enter_chat', { partner_id: activePartnerId });
+        }
+    });
+
+    // Real-time listener for partner reading our messages (turns ticks blue)
+    socket.on('messages_read', (data) => {
+        if (String(data.reader_id) === String(activePartnerId)) {
+            document.querySelectorAll('.msg-status').forEach(el => {
+                if (el.classList.contains('status-sent') || el.classList.contains('status-delivered')) {
+                    el.innerText = '✓✓';
+                    el.className = 'msg-status status-read';
+                }
+            });
+        }
+    });
+
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('chat-input');
     const typingIndicator = document.getElementById('typing-indicator');
@@ -1299,8 +1327,17 @@
         if (data.sender === myId || data.sender_id === myId) {
             const statusElement = document.getElementById(`status-${data.temp_id}`);
             if (statusElement) {
-                statusElement.innerText = '✓✓';
-                statusElement.className = 'msg-status status-sent';
+                statusElement.id = `status-${data.msg_id}`;
+                if (data.status === 'read') {
+                    statusElement.innerText = '✓✓';
+                    statusElement.className = 'msg-status status-read';
+                } else if (data.status === 'delivered') {
+                    statusElement.innerText = '✓✓';
+                    statusElement.className = 'msg-status status-delivered';
+                } else {
+                    statusElement.innerText = '✓';
+                    statusElement.className = 'msg-status status-sent';
+                }
                 
                 // If it was a media file, update the source
                 if (data.file_url) {
