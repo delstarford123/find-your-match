@@ -1,0 +1,1169 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === VERSION 3 LABS PREMIUM STYLES === */
+    .labs-wrapper {
+        width: 100%;
+        max-width: 1000px;
+        margin: 0 auto;
+        animation: slideUpFade 0.5s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        position: relative;
+        z-index: 5;
+    }
+
+    .labs-header {
+        text-align: center;
+        margin-bottom: 45px;
+    }
+    
+    .labs-badge {
+        background: rgba(56, 189, 248, 0.1);
+        color: #38bdf8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+
+    .labs-header h1 {
+        font-size: clamp(28px, 6vw, 48px);
+        font-weight: 950;
+        color: #720000;
+        letter-spacing: -1.5px;
+        margin-bottom: 12px;
+        line-height: 1.1;
+    }
+
+    .labs-header h1 span {
+        background: linear-gradient(90deg, #E60026 0%, #38bdf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .labs-header p {
+        color: #666;
+        font-size: clamp(15px, 2.5vw, 17px);
+        font-weight: 500;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* === INTERACTIVE SPINNER SECTION === */
+    .spinner-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 28px;
+        padding: clamp(20px, 5vw, 40px);
+        margin-bottom: 40px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Spinner Container styling */
+    .wheel-outer {
+        position: relative;
+        width: 280px;
+        height: 280px;
+        margin: 30px auto;
+        border-radius: 50%;
+        border: 10px solid #1e293b;
+        box-shadow: 0 0 35px rgba(230, 0, 38, 0.3), inset 0 0 20px rgba(0,0,0,0.6);
+        background: conic-gradient(
+            #E60026 0deg 60deg,
+            #A855F7 60deg 120deg,
+            #38BDF8 120deg 180deg,
+            #10B981 180deg 240deg,
+            #F59E0B 240deg 300deg,
+            #EC4899 300deg 360deg
+        );
+        transition: transform 6s cubic-bezier(0.1, 0.8, 0.1, 1);
+        will-change: transform;
+    }
+
+    .wheel-pointer {
+        position: absolute;
+        top: -15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 15px solid transparent;
+        border-right: 15px solid transparent;
+        border-top: 25px solid #E60026;
+        z-index: 10;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    }
+
+    .wheel-center-pin {
+        position: absolute;
+        inset: 100px;
+        background: #1e293b;
+        border-radius: 50%;
+        border: 4px solid white;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 900;
+        font-size: 14px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.2s;
+    }
+    .wheel-center-pin:active { transform: scale(0.92); }
+
+    /* === CONFESSIONS TEA BOARD === */
+    .labs-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(20px, 4vw, 30px);
+        margin-bottom: 40px;
+    }
+
+    @media (max-width: 850px) {
+        .labs-row { grid-template-columns: 1fr; }
+    }
+
+    .confessions-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 28px;
+        padding: 30px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        max-height: 650px;
+    }
+
+    .confessions-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+        border-bottom: 2px dashed #FFD6DD;
+        padding-bottom: 20px;
+    }
+
+    .confession-list-scroll {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-right: 5px;
+    }
+
+    .confession-item {
+        background: white;
+        border-radius: 16px;
+        padding: 16px;
+        border: 1px solid #FFD6DD;
+        box-shadow: 0 4px 12px rgba(114, 0, 0, 0.03);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .confession-body { flex: 1; }
+    .confession-meta { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 900; color: #888; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .confession-tag { background: #FEF2F4; color: #E60026; padding: 2px 8px; border-radius: 4px; font-size: 9px; text-transform: uppercase; }
+    .confession-content { font-size: 14px; font-weight: 500; color: #334155; line-height: 1.4; word-break: break-word; }
+
+    .confession-voter {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    .vote-btn {
+        background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer;
+        transition: 0.2s;
+    }
+    .vote-btn:active { transform: scale(0.85); }
+    .vote-btn:hover { background: #FEF2F4; color: #E60026; }
+    .vote-count { font-size: 12px; font-weight: 900; color: #4A0008; }
+
+    /* === ASTROLOGY & WINGMAN CARDS === */
+    .labs-column-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 28px;
+        padding: 30px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .wingman-box {
+        background: white; border-radius: 20px; border: 1.5px solid #FFD6DD; padding: 20px; text-align: left;
+    }
+    
+    .referral-link-container {
+        display: flex; gap: 8px; margin-top: 12px;
+    }
+    .referral-input-url {
+        flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid #eee;
+        background: #fafafa; font-size: 13px; font-weight: 700; color: #555; outline: none;
+    }
+    .btn-copy-url {
+        background: #720000; color: white; border: none; padding: 0 16px; border-radius: 10px; font-weight: 900; font-size: 12px; cursor: pointer; transition: 0.2s;
+    }
+    .btn-copy-url:active { transform: scale(0.95); }
+
+    /* === FEATURES 15 GRID === */
+    .features-grid-labs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+        gap: 20px;
+        margin-top: 20px;
+        margin-bottom: 80px;
+    }
+
+    .feature-lab-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 20px;
+        padding: 22px;
+        box-shadow: var(--shadow-sm);
+        border-left: 4px solid #38bdf8;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    @media (hover: hover) {
+        .feature-lab-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+            border-color: #E60026;
+        }
+    }
+
+    .lab-card-header { display: flex; align-items: flex-start; gap: 12px; }
+    .lab-card-icon { font-size: 24px; background: #fff; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 10px; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .lab-card-title-group h3 { font-size: 16px; font-weight: 900; color: #720000; margin: 0 0 3px 0; }
+    .lab-card-title-group span { background: #FEF2F4; color: #E60026; font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+    .lab-card-desc { font-size: 13px; color: #555; line-height: 1.5; font-weight: 500; margin: 0; }
+
+    /* Premium Toggle Switch */
+    .switch-container {
+        display: flex; align-items: center; justify-content: space-between; border-top: 1.5px dashed #f0f0f0; padding-top: 12px;
+    }
+    .switch-label { font-size: 11px; font-weight: 900; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .switch {
+        position: relative; display: inline-block; width: 46px; height: 26px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+        position: absolute; cursor: pointer; inset: 0; background-color: #cbd5e1;
+        transition: .4s; border-radius: 34px;
+    }
+    .slider:before {
+        position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px;
+        background-color: white; transition: .4s; border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    input:checked + .slider { background-color: #38bdf8; }
+    input:checked + .slider:before { transform: translateX(20px); }
+</style>
+
+<div class="labs-wrapper">
+    <div class="labs-header">
+        <div class="labs-badge"><span>🧪</span> Version 3 Beta Labs</div>
+        <h1>Next-Gen <span>Campus Dating Lab</span></h1>
+        <p>You are officially enrolled in the FIND YOUR MATCH Version 3 Beta Program. Toggle premium integrations, spin daily rewards, and share anonymous tea directly from MMUST, Maseno, Moi, and Kisii!</p>
+    </div>
+
+    <!-- === 🎁 DAILY REWARD SPINNER === -->
+    <div class="spinner-card">
+        <div class="labs-badge" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border-color: rgba(245, 158, 11, 0.3);">🎰 DAILY SPIN</div>
+        <h2 style="color: #720000; font-weight: 900; font-size: 24px; margin-bottom: 5px;">Cupid's Lucky Wheel</h2>
+        <p style="color: #666; font-size: 14px; max-width: 450px; margin-bottom: 10px;">Spin once every 24 hours to win algorithmic score boosts, free premium Super Vibes, or local merchant hangouts vouchers!</p>
+        
+        <div class="wheel-pointer"></div>
+        <div class="wheel-outer" id="lucky-wheel">
+            <div class="wheel-center-pin" id="spin-btn">SPIN</div>
+        </div>
+        
+        <div id="spin-status" style="font-weight: 900; font-size: 15px; color: #E60026; margin-top: 10px; min-height: 20px;">
+            {% if not can_spin %}
+                ⏳ Already spun today. Check back in tomorrow!
+            {% else %}
+                💎 Ready to Spin!
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- === CONFESSIONS & UTILITIES ROW === -->
+    <div class="labs-row">
+        <!-- 🤫 CAMPUS CONFESSIONS tea BOARD -->
+        <div class="confessions-card">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                <span style="font-size: 24px;">🤫</span>
+                <div>
+                    <h2 style="color: #720000; font-weight: 900; font-size: 20px; margin: 0;">Campus Confessions</h2>
+                    <span style="color: #888; font-size: 11px; font-weight: 700;">ANONYMOUS TEA WALL</span>
+                </div>
+            </div>
+            
+            <div class="confessions-form">
+                <textarea id="confess-text" class="form-input" rows="2" placeholder="Heard some tea in MMUST library? Spotted a crush in Maseno? Share anonymously..." style="min-height: 70px; font-size: 14px !important;"></textarea>
+                <div style="display: flex; gap: 8px;">
+                    <select id="confess-campus" class="form-input" style="padding: 10px 15px; font-size: 14px !important; max-width: 250px;">
+                        <optgroup label="Universities">
+                            <option value="MMUST">Masinde Muliro (MMUST) 🏫</option>
+                            <option value="UoN">University of Nairobi (UoN) 🏛️</option>
+                            <option value="KU">Kenyatta University (KU) 🎓</option>
+                            <option value="JKUAT">JKUAT 🌾</option>
+                            <option value="MU">Moi University 🎓</option>
+                            <option value="EU">Egerton University 🌾</option>
+                            <option value="MSU">Maseno University 🌴</option>
+                            <option value="DeKUT">Dedan Kimathi (DeKUT) 🛡️</option>
+                            <option value="CU">Chuka University 🎓</option>
+                            <option value="Karatina">Karatina University 🎓</option>
+                            <option value="Kisii">Kisii University ⛰️</option>
+                            <option value="MUST">Meru University (MUST) 🎓</option>
+                            <option value="MMU">Multi-Media University 📺</option>
+                            <option value="PU">Pwani University 🌊</option>
+                            <option value="SEKU">SEKU 🌵</option>
+                            <option value="TUK">Technical Univ of Kenya 🔬</option>
+                            <option value="TUM">Technical Univ of Mombasa ⚓</option>
+                            <option value="UoE">University of Eldoret 🌾</option>
+                            <option value="UoK">University of Kabianga 🍵</option>
+                            <option value="Laikipia">Laikipia University 🎓</option>
+                            <option value="MaasaiMara">Maasai Mara University 🦁</option>
+                            <option value="Machakos">Machakos University 🎓</option>
+                            <option value="Muranga">Murang'a University 🛠️</option>
+                            <option value="TTU">Taita Taveta University 💎</option>
+                            <option value="Rongo">Rongo University 🎓</option>
+                            <option value="Kibabii">Kibabii University 🏫</option>
+                            <option value="Strathmore">Strathmore University 💼</option>
+                            <option value="Daystar">Daystar University 🌟</option>
+                            <option value="MKU">Mount Kenya Univ (MKU) 🎓</option>
+                            <option value="USIU">USIU-Africa 🌍</option>
+                            <option value="CUEA">Catholic Univ (CUEA) ⛪</option>
+                            <option value="Zetech">Zetech University 💻</option>
+                            <option value="KCA">KCA University 📈</option>
+                            <option value="KeMU">Kenya Methodist (KeMU) ⛪</option>
+                            <option value="Other">Other University 🏫</option>
+                        </optgroup>
+                        <optgroup label="Colleges">
+                            <option value="KMTC">KMTC 🩺</option>
+                            <option value="Utalii">Kenya Utalii College 🏨</option>
+                            <option value="KSL">Kenya School of Law ⚖️</option>
+                            <option value="KSG">Kenya School of Government 🏛️</option>
+                        </optgroup>
+                        <optgroup label="TVETs & Polytechnics">
+                            <option value="EldoretPoly">Eldoret National Poly 🛠️</option>
+                            <option value="KisumuPoly">Kisumu National Poly ⚓</option>
+                            <option value="SigalagalaPoly">Sigalagala National Poly 🏫</option>
+                            <option value="NyeriPoly">Nyeri National Poly 🎓</option>
+                            <option value="KabetePoly">Kabete National Poly 🛠️</option>
+                            <option value="CoastPoly">Kenya Coast National Poly 🌊</option>
+                            <option value="MeruPoly">Meru National Poly 🔬</option>
+                            <option value="KisiiPoly">Kisii National Poly ⛰️</option>
+                            <option value="KitalePoly">Kitale National Poly 🌾</option>
+                            <option value="RVIST">Rift Valley Institute (RVIST) ⚙️</option>
+                            <option value="KIST">Kiambu Institute (KIST) 💻</option>
+                            <option value="RIAT">Ramogi Institute (RIAT) ⚓</option>
+                            <option value="FriendsKaimosi">Friends College Kaimosi 🏫</option>
+                            <option value="ThikaTTI">Thika Technical TTI 🛠️</option>
+                        </optgroup>
+                    </select>
+                    <button onclick="submitConfession()" class="btn-primary" id="btn-post-confess" style="padding: 0 20px; min-height: 44px; font-size: 14px;">SPILL TEA 🤫</button>
+                </div>
+            </div>
+
+            <div class="confession-list-scroll" id="confession-list">
+                {% if confessions %}
+                    {% for confession in confessions %}
+                    <div class="confession-item">
+                        <div class="confession-body">
+                            <div class="confession-meta">
+                                <span class="confession-tag">{{ confession.campus }}</span>
+                                <span>🤫 Anonymous Comrade</span>
+                            </div>
+                            <div class="confession-content">"{{ confession.text }}"</div>
+                        </div>
+                        <div class="confession-voter">
+                            <button class="vote-btn" onclick="voteConfession('{{ confession.id }}', 'up')">▲</button>
+                            <span class="vote-count" id="vote-{{ confession.id }}">{{ confession.score | default(0) }}</span>
+                            <button class="vote-btn" onclick="voteConfession('{{ confession.id }}', 'down')">▼</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 40px; text-align: center; color: #888; font-size: 14px; font-weight: 600;">No confessions posted yet. Be the first to spill the tea!</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 🔮 ASTROLOGY & WINGMAN ANALYTICS -->
+        <div class="labs-column-card">
+            <!-- 🪐 Astrology Selection Zone -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <span style="font-size: 24px;">🪐</span>
+                    <div>
+                        <h2 style="color: #720000; font-weight: 900; font-size: 20px; margin: 0;">Cosmic Synergy Traits</h2>
+                        <span style="color: #888; font-size: 11px; font-weight: 700;">ZODIAC & PERSONALITY PROFILE</span>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label>Zodiac Sign</label>
+                        <select id="user-zodiac" class="form-input">
+                            <option value="">Choose Zodiac...</option>
+                            <option value="Aries" {% if zodiac == 'Aries' %}selected{% endif %}>Aries ♈</option>
+                            <option value="Taurus" {% if zodiac == 'Taurus' %}selected{% endif %}>Taurus ♉</option>
+                            <option value="Gemini" {% if zodiac == 'Gemini' %}selected{% endif %}>Gemini ♊</option>
+                            <option value="Cancer" {% if zodiac == 'Cancer' %}selected{% endif %}>Cancer ♋</option>
+                            <option value="Leo" {% if zodiac == 'Leo' %}selected{% endif %}>Leo ♌</option>
+                            <option value="Virgo" {% if zodiac == 'Virgo' %}selected{% endif %}>Virgo ♍</option>
+                            <option value="Libra" {% if zodiac == 'Libra' %}selected{% endif %}>Libra ♎</option>
+                            <option value="Scorpio" {% if zodiac == 'Scorpio' %}selected{% endif %}>Scorpio ♏</option>
+                            <option value="Sagittarius" {% if zodiac == 'Sagittarius' %}selected{% endif %}>Sagittarius ♐</option>
+                            <option value="Capricorn" {% if zodiac == 'Capricorn' %}selected{% endif %}>Capricorn ♑</option>
+                            <option value="Aquarius" {% if zodiac == 'Aquarius' %}selected{% endif %}>Aquarius ♒</option>
+                            <option value="Pisces" {% if zodiac == 'Pisces' %}selected{% endif %}>Pisces ♓</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Personality (MBTI)</label>
+                        <select id="user-mbti" class="form-input">
+                            <option value="">Choose MBTI...</option>
+                            <option value="INTJ" {% if mbti == 'INTJ' %}selected{% endif %}>INTJ (Architect)</option>
+                            <option value="INTP" {% if mbti == 'INTP' %}selected{% endif %}>INTP (Logician)</option>
+                            <option value="ENTJ" {% if mbti == 'ENTJ' %}selected{% endif %}>ENTJ (Commander)</option>
+                            <option value="ENTP" {% if mbti == 'ENTP' %}selected{% endif %}>ENTP (Debater)</option>
+                            <option value="INFJ" {% if mbti == 'INFJ' %}selected{% endif %}>INFJ (Advocate)</option>
+                            <option value="INFP" {% if mbti == 'INFP' %}selected{% endif %}>INFP (Mediator)</option>
+                            <option value="ENFJ" {% if mbti == 'ENFJ' %}selected{% endif %}>ENFJ (Protagonist)</option>
+                            <option value="ENFP" {% if mbti == 'ENFP' %}selected{% endif %}>ENFP (Campaigner)</option>
+                            <option value="ISTJ" {% if mbti == 'ISTJ' %}selected{% endif %}>ISTJ (Logistician)</option>
+                            <option value="ISFJ" {% if mbti == 'ISFJ' %}selected{% endif %}>ISFJ (Defender)</option>
+                            <option value="ESTJ" {% if mbti == 'ESTJ' %}selected{% endif %}>ESTJ (Executive)</option>
+                            <option value="ESFJ" {% if mbti == 'ESFJ' %}selected{% endif %}>ESFJ (Consul)</option>
+                            <option value="ISTP" {% if mbti == 'ISTP' %}selected{% endif %}>ISTP (Virtuoso)</option>
+                            <option value="ISFP" {% if mbti == 'ISFP' %}selected{% endif %}>ISFP (Adventurer)</option>
+                            <option value="ESTP" {% if mbti == 'ESTP' %}selected{% endif %}>ESTP (Entrepreneur)</option>
+                            <option value="ESFP" {% if mbti == 'ESFP' %}selected{% endif %}>ESFP (Entertainer)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="saveZodiacMbti()" class="btn-primary" id="btn-save-traits" style="min-height: 44px; font-size: 14px;">Align Cosmic Stars ✨</button>
+            </div>
+
+            <!-- 🕶️ Wingman Referrals Portal -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                    <span style="font-size: 24px;">🕶️</span>
+                    <div>
+                        <h2 style="color: #720000; font-weight: 900; font-size: 20px; margin: 0;">Wingman Link Portal</h2>
+                        <span style="color: #888; font-size: 11px; font-weight: 700;">EARN POINTS & CASHOUT</span>
+                    </div>
+                </div>
+                
+                <div class="wingman-box">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="font-size: 13px; font-weight: 800; color: #555;">Ambassador Signups:</span>
+                        <strong style="color: #E60026; font-size: 14px;">{{ referral_count }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="font-size: 13px; font-weight: 800; color: #555;">Ambassador Points:</span>
+                        <strong style="color: #38bdf8; font-size: 14px;">{{ wingman_points }} Pts</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="font-size: 13px; font-weight: 800; color: #555;">Unclaimed Earnings:</span>
+                        <strong style="color: #28a745; font-size: 14px;">{{ wingman_ksh }} KSH</strong>
+                    </div>
+                    
+                    <div class="referral-link-container">
+                        <input type="text" class="referral-input-url" id="referral-url" readonly value="{{ base_url }}/signup?ref={{ user_id }}">
+                        <button class="btn-copy-url" onclick="copyReferralLink()">COPY</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === 🎛️ 15 VERSION 3 PREMIUM FEATURES TOGGLES === -->
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 0 10px;">
+        <span style="font-size: 26px;">🎛️</span>
+        <div>
+            <h2 style="color: #720000; font-weight: 950; font-size: 24px; margin: 0;">Version 3 Feature Matrix</h2>
+            <p style="color: #666; font-size: 13px; font-weight: 500; margin: 2px 0 0 0;">Control your active beta settings. Turn next-gen matchmaking elements on or off instantly.</p>
+        </div>
+    </div>
+
+    <div class="features-grid-labs">
+        <!-- Feature 1 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🌴</div>
+                <div class="lab-card-title-group">
+                    <h3>Mixer Weekend</h3>
+                    <span>Mixer</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Prioritizes showing student profiles from other universities (Maseno, Moi, Kisii) specifically from Friday night to Sunday.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-weekend_mixer" {% if labs_prefs.weekend_mixer %}checked{% endif %} onchange="toggleFeature('weekend_mixer')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-lab-card" style="border-left-color: #a855f7;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🕶️</div>
+                <div class="lab-card-title-group">
+                    <h3>Wingman Link</h3>
+                    <span>Revenue</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Earn points and flat KSH 20 cashouts via M-Pesa whenever friends register and subscribe using your personal Wingman link.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" checked disabled>
+                    <span class="slider" style="opacity: 0.6; cursor: not-allowed; background-color: #38bdf8;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🛡️</div>
+                <div class="lab-card-title-group">
+                    <h3>Verified Comrade</h3>
+                    <span>Security</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Get a verified trust checkmark on your card by dragging a photo of your school student ID to the verification portal.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-verified_comrade" {% if labs_prefs.verified_comrade %}checked{% endif %} onchange="toggleFeature('verified_comrade')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">📞</div>
+                <div class="lab-card-title-group">
+                    <h3>Audio Roulette</h3>
+                    <span>Real-Time</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Pair randomly for anonymous, 3-minute, voice-only WebRTC blind dates. If both click Vibe, profiles are revealed!</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-audio_roulette" {% if labs_prefs.audio_roulette %}checked{% endif %} onchange="toggleFeature('audio_roulette')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="feature-lab-card" style="border-left-color: #a855f7;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🤫</div>
+                <div class="lab-card-title-group">
+                    <h3>Campus Confessions</h3>
+                    <span>drama</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Post anonymous tea, library confessions, or campus rumors and participate in an anonymous student voting board.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" checked disabled>
+                    <span class="slider" style="opacity: 0.6; cursor: not-allowed; background-color: #38bdf8;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">📍</div>
+                <div class="lab-card-title-group">
+                    <h3>Hotspot Invites</h3>
+                    <span>B2B Spot</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Pull up a custom hotspot list in chatrooms and invite your match directly to cafes/lounges near campus in rich-text cards.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-hotspot_invites" {% if labs_prefs.hotspot_invites %}checked{% endif %} onchange="toggleFeature('hotspot_invites')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 7 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">💬</div>
+                <div class="lab-card-title-group">
+                    <h3>Profile Icebreakers</h3>
+                    <span>Context</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Answer 3 funny, school-specific prompts (Rolex at 2 AM, school takes) instead of generic bios to ease icebreaking.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-profile_icebreakers" {% if labs_prefs.profile_icebreakers %}checked{% endif %} onchange="toggleFeature('profile_icebreakers')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 8 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🏹</div>
+                <div class="lab-card-title-group">
+                    <h3>Cupid Mode</h3>
+                    <span>viral</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Send temporary Cupid links to friends who can view profile cards and recommend potential matches directly to your inbox.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-cupid_mode" {% if labs_prefs.cupid_mode %}checked{% endif %} onchange="toggleFeature('cupid_mode')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 9 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🔥</div>
+                <div class="lab-card-title-group">
+                    <h3>Reply Vibe Icons</h3>
+                    <span>Anti-Ghost</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Display Flame 🔥 or Ice Cube 🧊 responsiveness indicators on profiles derived from read/reply backend data logs.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-reply_vibe" {% if labs_prefs.reply_vibe %}checked{% endif %} onchange="toggleFeature('reply_vibe')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 10 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">📚</div>
+                <div class="lab-card-title-group">
+                    <h3>Study Buddy Switch</h3>
+                    <span>Platonic</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Toggle Romance and Platonic switches to filter matches strictly by faculty, courses, and educational networking tags.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-study_buddy" {% if labs_prefs.study_buddy %}checked{% endif %} onchange="toggleFeature('study_buddy')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 11 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">⚡</div>
+                <div class="lab-card-title-group">
+                    <h3>24-Hour Stories</h3>
+                    <span>Retention</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Publish ephemeral photo or text statuses at the top of the deck to share current activities with potential campus matches.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-campus_stories" {% if labs_prefs.campus_stories %}checked{% endif %} onchange="toggleFeature('campus_stories')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 12 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">💎</div>
+                <div class="lab-card-title-group">
+                    <h3>Super Vibe micro</h3>
+                    <span>Purchase</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Allows student power users to initiate cheap KSH 10 M-Pesa STK prompts to push their profiles instantly to the top of grids.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-super_vibe" {% if labs_prefs.super_vibe %}checked{% endif %} onchange="toggleFeature('super_vibe')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 13 -->
+        <div class="feature-lab-card">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🚨</div>
+                <div class="lab-card-title-group">
+                    <h3>Safety Toolkit</h3>
+                    <span>Security</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Add a discrete SOS tray inside chat boxes that coordinates with WhatsApp to dispatch live locations during danger.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-sos_safety" {% if labs_prefs.sos_safety %}checked{% endif %} onchange="toggleFeature('sos_safety')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 14 -->
+        <div class="feature-lab-card" style="border-left-color: #a855f7;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🎡</div>
+                <div class="lab-card-title-group">
+                    <h3>Daily Reward Wheel</h3>
+                    <span>Gamification</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Harness dynamic, recurring user retention loops by spinning the wheel daily to claim free algorithmic profile boosts.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" checked disabled>
+                    <span class="slider" style="opacity: 0.6; cursor: not-allowed; background-color: #38bdf8;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 15 -->
+        <div class="feature-lab-card" style="border-left-color: #a855f7;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🌌</div>
+                <div class="lab-card-title-group">
+                    <h3>Cosmic Synergy</h3>
+                    <span>Icebreaker</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Input your zodiac sign and MBTI personality to calculate exact relationship compatibility matches dynamically.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" checked disabled>
+                    <span class="slider" style="opacity: 0.6; cursor: not-allowed; background-color: #38bdf8;"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 16: Vibe Playlist Match -->
+        <div class="feature-lab-card" style="border-left-color: #38bdf8;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🎵</div>
+                <div class="lab-card-title-group">
+                    <h3>Vibe Playlist</h3>
+                    <span>Music Match</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Sync your Spotify playlist anthems and let our algorithm match your exact daily music vibe with compatible listeners.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-music_match" {% if labs_prefs.music_match %}checked{% endif %} onchange="toggleFeature('music_match')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 17: Anonymous Love Letters -->
+        <div class="feature-lab-card" style="border-left-color: #ec4899;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">💌</div>
+                <div class="lab-card-title-group">
+                    <h3>Love Letters</h3>
+                    <span>Anonymous</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Drop locked anonymous notes to your crush's reg number or handle. The note only unlocks when a mutual note is sent back.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-love_letters" {% if labs_prefs.love_letters %}checked{% endif %} onchange="toggleFeature('love_letters')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 18: Faculty Compatibility Index -->
+        <div class="feature-lab-card" style="border-left-color: #f59e0b;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🎓</div>
+                <div class="lab-card-title-group">
+                    <h3>Faculty Synergy</h3>
+                    <span>Compatibility</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Calculate mathematical pairing chances between departments (CS, Nursing, Business, etc.) using historic comrade dating statistics.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-faculty_synergy" {% if labs_prefs.faculty_synergy %}checked{% endif %} onchange="toggleFeature('faculty_synergy')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 19: Campus Map Hotspots Heatmap -->
+        <div class="feature-lab-card" style="border-left-color: #10b981;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">📍</div>
+                <div class="lab-card-title-group">
+                    <h3>Hotspot Heatmap</h3>
+                    <span>Live Map</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Browse privacy-safe, real-time heatmaps of campus dating hotspots, crowded study desks, and late-night restaurant hangouts.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-hotspot_heatmap" {% if labs_prefs.hotspot_heatmap %}checked{% endif %} onchange="toggleFeature('hotspot_heatmap')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 20: 2 AM Rolex Late Chat -->
+        <div class="feature-lab-card" style="border-left-color: #a855f7;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🌙</div>
+                <div class="lab-card-title-group">
+                    <h3>2 AM Rolex Chat</h3>
+                    <span>Night-Owl</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Access a dedicated late-night student room open only between 11 PM and 3 AM for quick chats over local bites and coffee cravings.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-late_rolex" {% if labs_prefs.late_rolex %}checked{% endif %} onchange="toggleFeature('late_rolex')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 21: STK Expense Splitter -->
+        <div class="feature-lab-card" style="border-left-color: #10b981;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">💸</div>
+                <div class="lab-card-title-group">
+                    <h3>STK Date Splitter</h3>
+                    <span>M-Pesa split</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Trigger direct, secure M-Pesa STK splitted billing bills right inside match conversations for smooth coffee date bookings.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-stk_split" {% if labs_prefs.stk_split %}checked{% endif %} onchange="toggleFeature('stk_split')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 22: Campus Meme Matcher -->
+        <div class="feature-lab-card" style="border-left-color: #ec4899;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">🎭</div>
+                <div class="lab-card-title-group">
+                    <h3>Meme Matcher</h3>
+                    <span>Humor Check</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">React to trending campus memes and let our humor score match you with comrades holding the exact same sarcasm standards.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-meme_matcher" {% if labs_prefs.meme_matcher %}checked{% endif %} onchange="toggleFeature('meme_matcher')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 23: Catfish Face Verification -->
+        <div class="feature-lab-card" style="border-left-color: #f59e0b;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">👑</div>
+                <div class="lab-card-title-group">
+                    <h3>Face Verify</h3>
+                    <span>Anti-Catfish</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Record a 3-second secure live gesture face recording to score a high-trust gold crown badge visible to all campus deck users.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-face_verification" {% if labs_prefs.face_verification %}checked{% endif %} onchange="toggleFeature('face_verification')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 24: Vibe Check Trivia -->
+        <div class="feature-lab-card" style="border-left-color: #38bdf8;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">❓</div>
+                <div class="lab-card-title-group">
+                    <h3>Vibe Check Trivia</h3>
+                    <span>Quiz Games</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Fire a 5-question quick icebreaker quiz directly inside chat dialogs to instantly compare values, humor, and lifestyle match.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-vibe_check" {% if labs_prefs.vibe_check %}checked{% endif %} onchange="toggleFeature('vibe_check')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Feature 25: The "Heartbeat" Ping -->
+        <div class="feature-lab-card" style="border-left-color: #e60026;">
+            <div class="lab-card-header">
+                <div class="lab-card-icon">💓</div>
+                <div class="lab-card-title-group">
+                    <h3>Heartbeat Ping</h3>
+                    <span>Haptic Pulse</span>
+                </div>
+            </div>
+            <p class="lab-card-desc">Send a subtle real-time pulse ping that creates a beautiful, glowing device haptic vibration on your crush's active screen.</p>
+            <div class="switch-container">
+                <span class="switch-label">STATUS</span>
+                <label class="switch">
+                    <input type="checkbox" id="pref-heartbeat_ping" {% if labs_prefs.heartbeat_ping %}checked{% endif %} onchange="toggleFeature('heartbeat_ping')">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Copy Wingman ambassador link
+    function copyReferralLink() {
+        const copyText = document.getElementById("referral-url");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        
+        const btn = document.querySelector(".btn-copy-url");
+        btn.innerText = "COPIED! ✅";
+        setTimeout(() => btn.innerText = "COPY", 2000);
+    }
+
+    // Toggle beta switch preference via AJAX
+    function toggleFeature(featureKey) {
+        const checkbox = document.getElementById("pref-" + featureKey);
+        const state = checkbox.checked;
+
+        fetch('/api/labs/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feature: featureKey, state: state })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(!data.success) {
+                checkbox.checked = !state;
+                alert("⚠️ Preferences save error: " + (data.message || "Failed."));
+            }
+        })
+        .catch(err => {
+            checkbox.checked = !state;
+            alert("⚠️ Connection failed. Try again!");
+        });
+    }
+
+    // Save Cosmic parameters
+    function saveZodiacMbti() {
+        const zodiac = document.getElementById("user-zodiac").value;
+        const mbti = document.getElementById("user-mbti").value;
+        const btn = document.getElementById("btn-save-traits");
+
+        btn.innerText = "Aligning Celestial Orbits... 🪐";
+        btn.disabled = true;
+
+        fetch('/api/labs/profile_traits', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zodiac: zodiac, mbti: mbti })
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(data.message || "Alignment Complete!");
+        })
+        .catch(err => alert("⚠️ Stars dropped out of alignment. Refresh!"))
+        .finally(() => {
+            btn.innerText = "Align Cosmic Stars ✨";
+            btn.disabled = false;
+        });
+    }
+
+    // Spill anonymous confessions tea
+    function submitConfession() {
+        const text = document.getElementById("confess-text").value.trim();
+        const campus = document.getElementById("confess-campus").value;
+        const btn = document.getElementById("btn-post-confess");
+
+        if(!text) return alert("You must write some tea before spilling!");
+        
+        btn.innerText = "Spilling... 🤫";
+        btn.disabled = true;
+
+        fetch('/api/labs/confess', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text, campus: campus })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                alert(data.message);
+                location.reload(); // Refresh to see post
+            } else {
+                alert("⚠️ Spillage failed: " + data.message);
+            }
+        })
+        .catch(err => alert("⚠️ Network error. Refresh and try again!"))
+        .finally(() => {
+            btn.innerText = "SPILL TEA 🤫";
+            btn.disabled = false;
+        });
+    }
+
+    // Upvote / Downvote secret posts
+    function voteConfession(cid, direction) {
+        fetch('/api/labs/vote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: cid, direction: direction })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                document.getElementById("vote-" + cid).innerText = data.score;
+            }
+        });
+    }
+
+    // === 🎡 6. PREMIUM REWARD WHEEL SPINNER SCRIPT ===
+    document.addEventListener("DOMContentLoaded", () => {
+        const wheel = document.getElementById("lucky-wheel");
+        const spinBtn = document.getElementById("spin-btn");
+        const statusText = document.getElementById("spin-status");
+
+        let spinning = false;
+
+        spinBtn.addEventListener("click", () => {
+            if (spinning) return;
+            
+            spinBtn.innerText = "⏳";
+            spinning = true;
+
+            fetch('/api/labs/spin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Generate random target angles (5-8 full spins + random slice)
+                    const randomRotationCount = 5 + Math.floor(Math.random() * 3);
+                    const randomSliceAngle = Math.floor(Math.random() * 360);
+                    const targetAngle = (randomRotationCount * 360) + randomSliceAngle;
+
+                    wheel.style.transform = `rotate(${targetAngle}deg)`;
+                    statusText.innerText = "🔮 Spinning Cupid's Loom... 🎡";
+
+                    setTimeout(() => {
+                        statusText.innerText = "🎉 WON: " + data.prize;
+                        alert("🎉 Cupid Reward Dispatch! \n\n" + data.message);
+                        spinning = false;
+                        spinBtn.innerText = "DONE";
+                        spinBtn.style.cursor = 'not-allowed';
+                        spinBtn.style.opacity = '0.5';
+                    }, 6200); // Spinner completes transition at 6s
+                } else {
+                    alert("⏳ " + data.message);
+                    spinning = false;
+                    spinBtn.innerText = "SPIN";
+                }
+            })
+            .catch(err => {
+                alert("⚠️ Compass alignment failed. Refresh!");
+                spinning = false;
+                spinBtn.innerText = "SPIN";
+            });
+        });
+    });
+</script>
+{% endblock %}

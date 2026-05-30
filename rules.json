@@ -16,13 +16,10 @@
       }
     },
 
-    // --- ⚡ NEW: Real-Time Event Presence ---
-    // Required so that live event pages can see participants in real-time
+    // --- ⚡ Real-Time Event Presence ---
     "party_participants": {
       ".read": true,
       "$user_id": {
-        // Only the actual user can update their own presence via the client if needed, 
-        // though the Python backend usually handles this.
         ".write": "auth != null && auth.uid === $user_id",
         ".indexOn": ["joined_at", "shape_seed"]
       },
@@ -30,11 +27,25 @@
     },
 
     // ========================================================
-    // 3. PERFORMANCE INDEXES & PROFILE ACCESS
+    // PERFORMANCE INDEXES & PROFILE ACCESS
     // ========================================================
     "profiles": {
       ".read": "auth != null",
-      ".indexOn": ["email", "phone", "referral_code", "wingman_code", "is_paid", "is_online", "gender", "daily_streak", "class_code", "created_at", "institution_name", "institution_type"]
+      ".indexOn": [
+        "email", 
+        "phone", 
+        "referral_code", 
+        "wingman_code", 
+        "is_paid", 
+        "is_online", 
+        "gender", 
+        "daily_streak", 
+        "class_code", 
+        "created_at", 
+        "institution_name", 
+        "institution_type",
+        "crush_votes"
+      ]
     },
     
     "notifications": {
@@ -48,7 +59,7 @@
     },
     
     "swipes": {
-      ".indexOn": ["user_id", "target_id"]
+      ".indexOn": ["user_id", "target_id", "timestamp"]
     },
     
     "bookings": {
@@ -69,11 +80,20 @@
       }
     },
 
+    "chats": {
+      "$room_id": {
+        ".indexOn": ["timestamp"]
+      }
+    },
+
+    "confessions": {
+      ".indexOn": ["timestamp", "score"]
+    },
+
     "missed_connections": {
       ".indexOn": ["timestamp", "upvotes"]
     },
 
-    
     "gossip": {
       ".indexOn": ["timestamp", "upvotes"]
     },

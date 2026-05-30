@@ -41,20 +41,41 @@ initialize_firebase()
 # DATABASE HELPER FUNCTIONS (STUDENT USERS)
 # ==========================================
 
+_profiles_cache = None
+_profiles_cache_expiry = None
+
 def get_all_profiles() -> list:
-    """Fetches all students from the 'profiles' node."""
+    """Fetches all students from the 'profiles' node with a 15-second cache buffer for speed."""
+    global _profiles_cache, _profiles_cache_expiry
     try:
+        now = datetime.now()
+        if _profiles_cache is not None and _profiles_cache_expiry is not None and now < _profiles_cache_expiry:
+            return _profiles_cache
+
         users_dict = db.reference('profiles').get()
         if not users_dict:
             return []
-        return [{**data, 'id': uid} for uid, data in users_dict.items() if data]
+        
+        profiles = [{**data, 'id': uid} for uid, data in users_dict.items() if data]
+        _profiles_cache = profiles
+        _profiles_cache_expiry = now + timedelta(seconds=15)
+        return profiles
     except Exception as e:
         logger.error(f"Error fetching profiles: {e}")
+        if _profiles_cache is not None:
+            return _profiles_cache
         return []
+
+def clear_profiles_cache():
+    """Manually invalidates the memory cache to force a fresh database read."""
+    global _profiles_cache, _profiles_cache_expiry
+    _profiles_cache = None
+    _profiles_cache_expiry = None
 
 def save_swipe(user_id: str, target_id: str, action: str, timestamp: str) -> str:
     """Pushes a new swipe record and returns its generated ID."""
     try:
+        clear_profiles_cache()
         new_ref = db.reference('swipes').push({
             'user_id': user_id,
             'target_id': target_id,
@@ -125,6 +146,7 @@ def get_all_feedback() -> list:
 def update_user_bio(user_id: str, bio: str) -> bool:
     """Updates the user's bio in their profile."""
     try:
+        clear_profiles_cache()
         db.reference(f'profiles/{user_id}').update({'bio': bio})
         return True
     except Exception as e:
@@ -289,6 +311,7 @@ def delete_user_account(user_id: str) -> bool:
     of their schedules, bookings, and swipes.
     """
     try:
+        clear_profiles_cache()
         # 1. Delete main profile
         db.reference(f'profiles/{user_id}').delete()
         
@@ -344,18 +367,31 @@ def register_restaurant(owner_name: str, email: str, business_name: str, locatio
         logger.error(f"Error registering restaurant: {e}")
         return ""
 
+_restaurants_cache = {}
+_restaurants_cache_expiry = None
+
 def get_all_restaurants(active_only: bool = True) -> list:
-    """Fetches restaurants. active_only=True filters for paid subscriptions."""
+    """Fetches restaurants with a 30-second cache buffer for high performance."""
+    global _restaurants_cache, _restaurants_cache_expiry
     try:
+        now = datetime.now()
+        cache_key = f"active_{active_only}"
+        if cache_key in _restaurants_cache and _restaurants_cache_expiry is not None and now < _restaurants_cache_expiry:
+            return _restaurants_cache[cache_key]
+
         data = db.reference('restaurants').get()
         if not data:
             return []
         
-        return [
+        res = [
             {**rdata, 'id': rid} 
             for rid, rdata in data.items() 
             if not active_only or rdata.get('subscription_active', False)
         ]
+        
+        _restaurants_cache[cache_key] = res
+        _restaurants_cache_expiry = now + timedelta(seconds=30)
+        return res
     except Exception as e:
         logger.error(f"Error fetching restaurants: {e}")
         return []

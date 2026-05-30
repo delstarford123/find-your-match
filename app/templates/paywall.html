@@ -231,22 +231,230 @@
         align-items: center;
         width: 100%;
     }
+
+    /* === PACKAGE SELECTOR === */
+    .package-options {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 25px;
+        position: relative;
+        z-index: 2;
+    }
+
+    .package-card {
+        background: #fcfcfc;
+        border: 2px solid #f0f0f0;
+        border-radius: 20px;
+        padding: 20px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        box-sizing: border-box;
+    }
+
+    .package-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(114, 0, 0, 0.04);
+        border-color: #ffd6dd;
+    }
+
+    .package-card.active {
+        background: white;
+        border-color: #E60026;
+        box-shadow: 0 10px 25px rgba(230, 0, 38, 0.08);
+    }
+
+    .package-card.active::after {
+        content: '✓';
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: #E60026;
+        color: white;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .package-card[data-package="diamond"].active {
+        border-color: #8a2be2;
+        box-shadow: 0 10px 25px rgba(138, 43, 226, 0.12);
+    }
+
+    .package-card[data-package="diamond"].active::after {
+        background: #8a2be2;
+    }
+
+    .package-card[data-package="diamond"] {
+        border-color: #eae5f8;
+    }
+    
+    .package-card[data-package="diamond"]:hover {
+        border-color: #d8cbf2;
+    }
+
+    .popular-tag {
+        position: absolute;
+        top: -10px;
+        left: 20px;
+        background: linear-gradient(135deg, #8a2be2 0%, #4b0082 100%);
+        color: white;
+        font-size: 10px;
+        font-weight: 900;
+        padding: 4px 10px;
+        border-radius: 50px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 10px rgba(138, 43, 226, 0.3);
+    }
+
+    .package-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 8px;
+    }
+
+    .package-name {
+        font-size: 17px;
+        font-weight: 900;
+        color: #720000;
+    }
+
+    .package-card[data-package="diamond"] .package-name {
+        color: #4b0082;
+    }
+
+    .package-price {
+        font-size: 22px;
+        font-weight: 900;
+        color: #111;
+    }
+
+    .package-price small {
+        font-size: 12px;
+        font-weight: 700;
+        color: #888;
+    }
+
+    .package-desc {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.4;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .view-comparison-btn {
+        background: none;
+        border: none;
+        color: #E60026;
+        font-weight: 800;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: underline;
+        margin-bottom: 25px;
+        position: relative;
+        z-index: 2;
+        outline: none;
+    }
+    .view-comparison-btn:hover {
+        color: #720000;
+    }
+
+    .comp-row {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr;
+        gap: 10px;
+        font-size: 12px;
+        padding: 6px 0;
+        border-bottom: 1px solid #f9f9f9;
+        font-weight: 600;
+        color: #444;
+    }
+    .comp-row span.y { color: #28a745; text-align: center; font-weight: 900; }
+    .comp-row span.n { color: #ccc; text-align: center; font-weight: bold; }
 </style>
 
 <div class="paywall-wrapper">
     <div class="pay-card">
         <div id="status-box" class="status-alert"></div>
+        <input type="hidden" id="selected-package" value="gold">
 
         <div class="price-badge">Monthly Access</div>
-        <h1 class="pay-title">Unlock Your Match</h1>
-        <p class="pay-subtitle">Join hundreds of verified students finding connections today.</p>
+        <h1 class="pay-title">Choose Your Package</h1>
+        <p class="pay-subtitle">Find verification, connections, and live calling on campus.</p>
 
-        <ul class="benefits-list">
-            <li><span class="check-icon">✓</span> Unlimited Swiping in the Deck</li>
-            <li><span class="check-icon">✓</span> AI Schedule Compatibility Matching</li>
-            <li><span class="check-icon">✓</span> Secure Real-time Chatting</li>
-            <li><span class="check-icon">✓</span> Access to Partner Date Venues</li>
-        </ul>
+        <!-- === DYNAMIC PACKAGE SELECTOR CARDS === -->
+        <div class="package-options">
+            <div class="package-card active" data-package="gold" data-amount="50" onclick="selectPackage(this)">
+                <div class="package-header">
+                    <span class="package-name">💫 Gold Package</span>
+                    <span class="package-price">50 <small>KSH</small></span>
+                </div>
+                <p class="package-desc">Standard access to swipe deck, chatting, auto-matching, WebRTC calls & secrets gossip board.</p>
+            </div>
+            
+            <div class="package-card" data-package="diamond" data-amount="100" onclick="selectPackage(this)">
+                <div class="popular-tag">RECOMMENDED 💎</div>
+                <div class="package-header">
+                    <span class="package-name">👑 Diamond Package</span>
+                    <span class="package-price">100 <small>KSH</small></span>
+                </div>
+                <p class="package-desc">All Gold Features + **Priority exposure boost**, Monday match email, Lights Out lobby, Tarot matching & 15 other premium features.</p>
+            </div>
+        </div>
+
+        <button class="view-comparison-btn" onclick="toggleComparison()">Compare Package Features List ▾</button>
+
+        <!-- === FEATURES COMPARISON SHEET === -->
+        <div id="features-comparison" style="display: none; text-align: left; background: #fafafa; border: 1.5px solid #f0f0f0; border-radius: 20px; padding: 20px; margin-bottom: 25px; animation: slideDownFade 0.3s ease forwards;">
+            <h4 style="margin: 0 0 15px 0; color: #720000; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">What's Included</h4>
+            <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; font-size: 11px; font-weight: 800; border-bottom: 1.5px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                <span style="color: #666;">Feature</span>
+                <span style="text-align: center; color: #E60026;">Gold</span>
+                <span style="text-align: center; color: #8a2be2;">Diamond</span>
+            </div>
+            
+            <div class="comp-row"><span>💫 Swipe Deck & Chats</span><span class="y">✓</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤝 Date Spot Booking</span><span class="y">✓</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤫 Secrets Gossip Board</span><span class="y">✓</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📞 WebRTC Voice/Video Calls</span><span class="y">✓</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤝 Smart Auto-Matchmaker</span><span class="y">✓</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🚀 Profile Presentation Boost</span><span class="n">✕</span><span class="y">✓ (5x visibility)</span></div>
+            <div class="comp-row"><span>👑 Diamond VIP Crown Badge</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔍 Secret Admirer Reveal Card</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>💌 Monday Love Match Email</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🌃 Friday "Lights Out" Lobby</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🪐 MBTI & Tarot Matching</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛰️ Proximity Meetup Radar</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎵 Spotify Mixtapes sharing</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤖 Savage AI Wingman Coach</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>⏪ Pass Rollback (Swipe Undo)</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>👀 Profile Visitors Analytics</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🌟 Double Take passed cards</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛡️ Incest Lineage Deep Scan</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎁 Spinner Cooldown Bypass</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔥 Partner Spot 20% Discounts</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>⚡ Direct Match Message Ping</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎯 Faculty-Specific Smart Filters</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🕶️ Stealth Incognito Mode</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎭 Blind Date Avatar Mode</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🏆 Crush Board 3x Multiplier</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📅 Common Hour Date Scheduler</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎧 Spotify Mixtape Sync Matcher</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔮 Astrology Compatibility Synastry</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📈 AI Profile Curation & Roaster</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>💫 Golden Super-Like Blast</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛡️ SafeWalk Pro GPS Tracker</span><span class="n">✕</span><span class="y">✓</span></div>
+        </div>
 
         <div class="mpesa-input-group" id="input-container">
             <label for="student-phone">M-Pesa Number</label>
@@ -362,6 +570,9 @@
         }
 
         // 1. UI Loading State
+        const selectedPackage = document.getElementById('selected-package').value;
+        const amount = selectedPackage === 'diamond' ? 100 : 50;
+        
         btnText.innerText = "Requesting M-Pesa...";
         spinner.style.display = "block";
         btn.disabled = true;
@@ -375,7 +586,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': CSRF_TOKEN
             },
-            body: JSON.stringify({ phone_number: phone })
+            body: JSON.stringify({ phone_number: phone, package: selectedPackage })
         })
         .then(res => res.json())
         .then(data => {
@@ -461,7 +672,10 @@
         const manualBtn = document.getElementById('btn-manual-check');
         const manualText = document.getElementById('manual-check-text');
         
-        btnText.innerText = "Pay KSH 50 to Unlock";
+        const selectedPackage = document.getElementById('selected-package').value;
+        const amount = selectedPackage === 'diamond' ? 100 : 50;
+        
+        btnText.innerText = `Pay KSH ${amount} to Unlock`;
         spinner.style.display = "none";
         btn.style.background = "linear-gradient(135deg, #E60026 0%, #720000 100%)";
         btn.disabled = false;
@@ -472,6 +686,30 @@
         if (manualBtn) {
             manualBtn.disabled = false;
             manualText.innerText = "I've Already Paid - Check Status";
+        }
+    }
+
+    function selectPackage(card) {
+        document.querySelectorAll('.package-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        
+        const packageType = card.getAttribute('data-package');
+        const amount = card.getAttribute('data-amount');
+        document.getElementById('selected-package').value = packageType;
+        
+        const btnText = document.getElementById('btn-text');
+        btnText.innerText = `Pay KSH ${amount} to Unlock`;
+    }
+
+    function toggleComparison() {
+        const comp = document.getElementById('features-comparison');
+        const btn = document.querySelector('.view-comparison-btn');
+        if (comp.style.display === 'none') {
+            comp.style.display = 'block';
+            btn.innerText = 'Hide Features List ▴';
+        } else {
+            comp.style.display = 'none';
+            btn.innerText = 'Compare Package Features List ▾';
         }
     }
 </script>

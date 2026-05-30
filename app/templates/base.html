@@ -514,6 +514,7 @@
     </style>
 </head>
 <body>
+    <div id="page-loader-bar" style="position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #E60026 0%, #38BDF8 50%, #EF4444 100%); z-index: 1000000; width: 0%; transition: width 0.4s ease, opacity 0.4s ease; opacity: 1; pointer-events: none; will-change: width, opacity; transform: translateZ(0);"></div>
     <div id="dreamscape-bg"></div>
 
 <style>
@@ -528,6 +529,9 @@
         overflow: hidden;
         pointer-events: none; /* VERY IMPORTANT: Lets users click through the background */
         background: radial-gradient(circle at center, #0B1219 0%, #06090e 100%);
+        /* Hardware accelerated container */
+        transform: translateZ(0);
+        will-change: transform;
     }
 
     /* The styling for the image orbs */
@@ -544,6 +548,10 @@
         /* A slight vintage/warm filter to make the images look cinematic and precious */
         filter: grayscale(10%) sepia(20%) contrast(1.1);
         border: 1px solid rgba(255, 255, 255, 0.1);
+        
+        /* Hardware accelerated floating orbs */
+        will-change: transform, opacity;
+        transform: translate3d(0, 0, 0);
     }
 </style>
     
@@ -613,21 +621,23 @@
                 <div class="dropdown">
                     <button class="dropbtn" onclick="toggleDropdown(this)">Dating ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('swipe') }}">🔥 Swipe Deck</a>
-                        <a href="{{ url_for('ai_wingman') }}">🕶️ JivoT AI Wingman</a>
-                        <a href="{{ url_for('discover_venues') }}">📍 Date Spots</a>
-                        <a href="{{ url_for('venues') }}">🏢 All Venues</a>
+                        <a href="{{ url_for('swipe') }}">🔥 Swipe & Match</a>
+                        <a href="{{ url_for('labs_dashboard') }}" style="color: #38bdf8 !important; font-weight: 800;">🛰️ Compatibility Radar</a>
+                        <a href="{{ url_for('tarot_dashboard') }}">🔮 Tarot & Zodiac Matches</a>
+                        <a href="{{ url_for('ai_wingman') }}">🤖 AI Wingman Coach</a>
+                        <a href="{{ url_for('discover_venues') }}">📍 Approved Date Spots</a>
+                        <a href="{{ url_for('venues') }}">🏢 View All Venues</a>
                     </div>
                 </div>
 
                 <div class="dropdown">
                     <button class="dropbtn" onclick="toggleDropdown(this)">Social ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('campus_feed') }}">📰 Campus News</a>
-                        <a href="{{ url_for('campus_gossip') }}">🤫 Campus Gossip</a>
-                        <a href="{{ url_for('lights_out') }}">🌙 Lights Out</a>
-                        <a href="{{ url_for('secret_admirer') }}">💘 Secret Admirer</a>
-                        <a href="{{ url_for('party') }}">💘 Comrades Party</a>
+                        <a href="{{ url_for('campus_feed') }}">📰 Campus News Feed</a>
+                        <a href="{{ url_for('campus_gossip') }}">🤫 Secrets & Gossip Board</a>
+                        <a href="{{ url_for('secret_admirer') }}">💘 Secret Crush Matching</a>
+                        <a href="{{ url_for('party') }}">🌙 Comrades Night Club</a>
+                        <a href="{{ url_for('leaderboard') }}">👑 Crush Leaderboard</a>
                     </div>
                 </div>
 
@@ -635,23 +645,26 @@
                     <button class="dropbtn" onclick="toggleDropdown(this)">Messenger ▾</button>
                     <div class="dropdown-content">
                         <a href="/directory" class="premium-nav-link">
-                            💬 <span>Wee Chat</span>
+                            💬 <span>Inbox Messages</span>
                             <span class="pulse-dot"></span>
                         </a>
                         <a href="{{ url_for('talk_directory') }}" class="premium-nav-link">
-                            🎙 <span>Live Talk</span>
+                            📞 <span>Voice & Video Calls</span>
                         </a>
+                        <a href="{{ url_for('lights_out') }}">🔒 Anonymous Chat Lobby</a>
                     </div>
                 </div>
 
                 <div class="dropdown">
                     <button class="dropbtn" onclick="toggleDropdown(this)">Account ▾</button>
                     <div class="dropdown-content">
-                        <a href="{{ url_for('dashboard') }}">📊 Dashboard</a>
-                        <a href="{{ url_for('profile') }}">👤 Edit Profile</a>
-                        <a href="{{ url_for('settings') }}">⚙️ Preferences</a>
-                        <a href="{{ url_for('safety') }}">🛡️ Safety Center</a>
-                        <a href="{{ url_for('setup_notifications') }}">🔔 Notifications</a>
+                        <a href="{{ url_for('dashboard') }}">📊 My Dashboard</a>
+                        <a href="{{ url_for('profile') }}">👤 Edit My Profile</a>
+                        <a href="{{ url_for('settings') }}">⚙️ Account Settings</a>
+                        <a href="{{ url_for('rewards_hub') }}">🎁 Daily Rewards Spinner</a>
+                        <a href="{{ url_for('referrals') }}">📢 Refer & Earn</a>
+                        <a href="{{ url_for('setup_notifications') }}">🔔 Notification Settings</a>
+                        <a href="{{ url_for('safety') }}">🛡️ Safety & Emergency Center</a>
                     </div>
                 </div>
                 
@@ -939,6 +952,52 @@
     </script>
 
     <script>
+        // === 🚀 PROFESSIONAL PAGE LOADER & FETCH INTERCEPTOR ===
+        (function() {
+            const loader = document.getElementById('page-loader-bar');
+            if (loader) {
+                // Initialize to 35% during initial parsing
+                loader.style.width = '35%';
+                
+                window.addEventListener('DOMContentLoaded', () => {
+                    loader.style.width = '75%';
+                });
+                
+                window.addEventListener('load', () => {
+                    loader.style.width = '100%';
+                    setTimeout(() => {
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.style.width = '0%'; }, 400);
+                    }, 400);
+                });
+
+                // Intercept global fetch requests to show sleek progress feedback
+                const originalFetch = window.fetch;
+                window.fetch = async function(...args) {
+                    loader.style.opacity = '1';
+                    loader.style.background = 'linear-gradient(90deg, #E60026 0%, #38BDF8 50%, #EF4444 100%)';
+                    loader.style.width = '45%';
+                    try {
+                        const response = await originalFetch(...args);
+                        loader.style.width = '100%';
+                        setTimeout(() => { 
+                            loader.style.opacity = '0'; 
+                            setTimeout(() => { loader.style.width = '0%'; }, 400);
+                        }, 400);
+                        return response;
+                    } catch (err) {
+                        loader.style.width = '100%';
+                        loader.style.background = '#E60026'; // Indicate failure
+                        setTimeout(() => { 
+                            loader.style.opacity = '0'; 
+                            setTimeout(() => { loader.style.width = '0%'; }, 400);
+                        }, 800);
+                        throw err;
+                    }
+                };
+            }
+        })();
+
         // Update year safely
         const yearSpan = document.getElementById('current-year');
         if(yearSpan) yearSpan.textContent = new Date().getFullYear();
@@ -1832,7 +1891,7 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", () => {
-        const totalImages = 27;
+        const totalImages = 16; // Optimized from 27 for premium mobile performance
         const bgContainer = document.getElementById('dreamscape-bg');
         
         // 1. Generate the 27 Orbs

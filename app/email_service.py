@@ -482,6 +482,387 @@ def send_admin_alert_email(recipient_email, recipient_name, action_type, reason)
             </div>
         </body>
         </html>
+     """)
+ 
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_monday_matches_email(recipient_email, recipient_name, perfect_matches):
+    """
+    Sends the weekly Monday Perfect Matches recommendation email containing contact details,
+    compatibility, university bio, and direct profile view links of top opposite-sex matches.
+    """
+    subject = "💌 Monday Love Sheet: Your Perfect Matches & Contact Details!"
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+    
+    # 1. Build Matches HTML blocks with view profile CTA button
+    matches_html = ""
+    for m in perfect_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_html += f"""
+        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
+            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
+            
+            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
+                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
+                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
+                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+                    👤 Click to View Profile
+                </a>
+            </div>
+        </div>
+        """
+
+    # 2. Build plain text fallback
+    matches_text = ""
+    for m in perfect_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+        
+        It's Monday! The FYM perfect matchmaking algorithm has compiled your compatibility reports.
+        Below are your top perfect matches on campus along with their contact details. Click the links below to view their profiles:
+        
+        {matches_text}
+        
+        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
+        
+        Have fun!
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="font-size: 45px;">💌</span>
+                </div>
+                
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Monday Love Match Sheet!</h2>
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+                    Hello <strong>{recipient_name}</strong>, it is Monday! To help you secure a date this week, the FYM algorithm has retrieved your top opposite-sex perfect matches (>80% compatibility) with their contact cards. Click to view their profiles!
+                </p>
+                
+                <!-- === PERFECT MATCHES CARDS === -->
+                {matches_html}
+                
+                <!-- === SAFETY NOTICE === -->
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
+                </div>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    Have an amazing week! <br>
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_friday_matches_email(recipient_email, recipient_name, perfect_matches):
+    """
+    Sends the weekly Friday Perfect Matches recommendation email containing contact details,
+    compatibility, university bio, and direct profile view links of top 50 opposite-sex matches.
+    """
+    subject = "💌 Friday Perfect Matches: Your Weekend Matchmaking Sheet!"
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+    
+    # 1. Build Matches HTML blocks with view profile CTA button
+    matches_html = ""
+    for m in perfect_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_html += f"""
+        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
+            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
+            
+            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
+                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
+                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
+                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+                    👤 Click to View Profile
+                </a>
+            </div>
+        </div>
+        """
+
+    # 2. Build plain text fallback
+    matches_text = ""
+    for m in perfect_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+        
+        It's Friday! The FYM weekend matchmaker has compiled your compatibility reports.
+        Below are your top 50 perfect matches (>80% compatibility) on campus with contact details. Make your move before Lights Out!
+        
+        {matches_text}
+        
+        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
+        
+        Have fun!
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="font-size: 45px;">💖</span>
+                </div>
+                
+                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Friday Perfect Match Sheet!</h2>
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+                    Hello <strong>{recipient_name}</strong>, it is Friday! To prepare you for the weekend, the FYM algorithm has scanned the network and compiled your top 50 opposite-sex perfect matches (>80% compatibility) with contact cards. Make your move before the Friday Lights Out lobby opens!
+                </p>
+                
+                <!-- === PERFECT MATCHES CARDS === -->
+                {matches_html}
+                
+                <!-- === SAFETY NOTICE === -->
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
+                </div>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    Have an amazing weekend! <br>
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_spotify_playlist_email(recipient_email, recipient_name, sender_name, playlist_url):
+    """
+    Dispatches a flirty retro mixtape cassette email when a user shares their Spotify playlist with a partner.
+    """
+    subject = f"🎵 {sender_name} sent you a romantic Spotify Playlist Mixtape!"
+    
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+        
+        {sender_name} has shared a flirty dating mixtape playlist with you on Spotify!
+        Listen to it here: {playlist_url}
+        
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #1DB954; box-shadow: 0 15px 35px rgba(0,0,0,0.06);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="font-size: 45px;">🎵</span>
+                </div>
+                
+                <h2 style="color: #1DB95Green; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px; color: #1DB954;">Spotify Mixtape Shared!</h2>
+                
+                <div style="background: #191414; color: white; border-radius: 20px; padding: 30px 20px; text-align: center; position: relative; border: 4px solid #1DB954; margin: 25px 0; box-shadow: 0 8px 25px rgba(29,185,84,0.15);">
+                    <div style="width: 120px; height: 10px; background: #333; margin: 0 auto 20px auto; border-radius: 10px;"></div>
+                    <div style="font-size: 13px; font-weight: 900; color: #1DB954; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px;">Retro Cassette Mixtape</div>
+                    <div style="font-size: 20px; font-weight: 950; color: #fff; margin-bottom: 25px;">⚡ {sender_name}'s Flirty Anthems</div>
+                    
+                    <a href="{playlist_url}" target="_blank" style="background: #1DB954; color: black; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: 950; font-size: 15px; display: inline-block; box-shadow: 0 4px 15px rgba(29,185,84,0.4);">
+                        ▶️ Play Mix on Spotify
+                    </a>
+                </div>
+                
+                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
+                    Hello <strong>{recipient_name}</strong>, music is the shortcut to connection! Your match <strong>{sender_name}</strong> wants to share their dating anthems with you. Click the green button above to connect and start listening together!
+                </p>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    Listen and enjoy! <br>
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_meetup_request_email(recipient_email, recipient_name, sender_name):
+    """
+    Emails a target student notifying them that an opposite-gender classmate wishes to meet up geographically.
+    """
+    subject = f"📍 Flirty Alert: {sender_name} wants to meet up with you near campus!"
+    
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+        
+        Exciting news! {sender_name} is geographically close and wants to meet up with you!
+        Log in to your FIND YOUR MATCH dashboard to coordinate your meetup.
+        
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="font-size: 45px;">📍</span>
+                </div>
+                
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Geographic Meetup Requested!</h2>
+                
+                <p style="color: #333; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500;">
+                    Hello <strong>{recipient_name}</strong>, exciting news! Your match <strong>{sender_name}</strong> is geographically nearby and has sent a premium meetup request!
+                </p>
+                
+                <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin: 25px 0; text-align: center;">
+                    <p style="color: #E60026; font-size: 16px; font-weight: 900; margin-top: 0;">📍 {sender_name} is close by!</p>
+                    <p style="color: #4A0008; font-size: 14px; margin-bottom: 20px;">Do you want to meetup with them in a verified, public spot?</p>
+                    
+                    <a href="https://match-ai.onrender.com/dashboard" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+                        💖 Open Dashboard & Respond
+                    </a>
+                </div>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    Safe dating is happy dating! <br>
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_proximity_meetup_email(recipient_email, recipient_name, nearby_matches):
+    """
+    Sends the Proximity Proximity Meetup Reveal email containing the profiles and images
+    of opposite-sex Diamond users located within a 1 KM radius who agreed to meet.
+    """
+    subject = "🤝 Proximity Meetup Agreed! Nearby Match Profiles Revealed!"
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+    
+    # 1. Build Matches HTML blocks with view profile CTA button
+    matches_html = ""
+    for m in nearby_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_html += f"""
+        <div style="background: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(168,85,247,0.02); display: flex; align-items: center; gap: 20px;">
+            <img src="{m['img']}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E9D5FF; flex-shrink: 0;" alt="{m['name']}">
+            <div>
+                <h3 style="color: #4b0082; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+                <p style="margin: 0 0 5px 0; font-size: 13px; font-weight: 700; color: #a855f7; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+                <p style="margin: 0 0 10px 0; font-size: 13px; color: #666; font-style: italic;">"{m['bio']}"</p>
+                
+                <div style="background: white; border-radius: 10px; padding: 10px; border: 1px dashed #E9D5FF; font-size: 12px; color: #333; margin-bottom: 10px;">
+                    <p style="margin: 2px 0;"><strong>📞 Phone:</strong> <a href="tel:{m['phone']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">+{m['phone']}</a></p>
+                    <p style="margin: 2px 0;"><strong>✉️ Email:</strong> <a href="mailto:{m['email']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">{m['email']}</a></p>
+                </div>
+                
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); color: white; padding: 6px 14px; text-decoration: none; border-radius: 6px; font-weight: 900; font-size: 12px; display: inline-block; box-shadow: 0 2px 8px rgba(168,85,247,0.2);">
+                    👤 View Profile
+                </a>
+            </div>
+        </div>
+        """
+
+    # 2. Build plain text fallback
+    matches_text = ""
+    for m in nearby_matches:
+        profile_url = f"{base_url}/student/{m['id']}"
+        matches_text += f"- {m['name']} ({m['compatibility']}%): {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. View: {profile_url}\n\n"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+        
+        Fantastic news! You and a nearby student have agreed to meet up and physically talk!
+        Below are the profiles and images of opposite-sex premium comrades detected within a 1 KM radius of your location:
+        
+        {matches_text}
+        
+        Enjoy your meetup! Meet in a safe, public campus spot.
+        
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="font-size: 45px;">🤝</span>
+                </div>
+                
+                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Meetup Confirmed! 📍</h2>
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+                    Hello <strong>{recipient_name}</strong>! You and a nearby premium comrade have both clicked **Yes** to meet up and physically talk! 
+                    As promised, here are the profiles and pictures of active matches detected within a **1 KM radius** of your coordinates:
+                </p>
+                
+                <!-- === MATCHES CARDS === -->
+                {matches_html}
+                
+                <!-- === SAFETY NOTICE === -->
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+                    🛡️ <strong>Safety Advisory:</strong> Meet for physical talks strictly in well-populated campus spots (e.g. Student Union, university Library, CBD Partner Cafes). Stay safe and enjoy your conversation!
+                </div>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    Have a wonderful conversation! <br>
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
+            </div>
+        </body>
+        </html>
     """)
 
     return _send_email(recipient_email, subject, text_content, html_content)

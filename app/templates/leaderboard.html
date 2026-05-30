@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === LEADERBOARD PLATINUM STYLES === */
+    .leaderboard-wrapper {
+        width: 100%;
+        max-width: 1000px;
+        margin: 0 auto;
+        animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        position: relative;
+        z-index: 5;
+    }
+
+    .leaderboard-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .leaderboard-badge {
+        background: rgba(236, 72, 153, 0.1);
+        color: #f472b6;
+        border: 1px solid rgba(236, 72, 153, 0.3);
+        padding: 6px 18px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+    }
+
+    .leaderboard-header h1 {
+        font-size: clamp(32px, 6vw, 48px);
+        font-weight: 950;
+        color: #4e0000;
+        letter-spacing: -2px;
+        margin-bottom: 15px;
+        line-height: 1.1;
+    }
+
+    .leaderboard-header h1 span {
+        background: linear-gradient(90deg, #ec4899 0%, #a855f7 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .leaderboard-header p {
+        color: #666;
+        font-size: clamp(14px, 2.5vw, 17px);
+        font-weight: 500;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* === TOP 3 CHAMPIONS GRID === */
+    .podium-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 25px;
+        margin-bottom: 50px;
+        align-items: end;
+    }
+
+    @media (max-width: 768px) {
+        .podium-container {
+            grid-template-columns: 1fr;
+            max-width: 400px;
+            margin: 0 auto 40px auto;
+            align-items: stretch;
+        }
+    }
+
+    .podium-card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 30px;
+        padding: 30px 20px 25px 20px;
+        text-align: center;
+        position: relative;
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+    }
+
+    .podium-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(236, 72, 153, 0.15);
+    }
+
+    /* Rank Heights & Highlight styles */
+    .podium-card.rank-1 {
+        height: 380px;
+        border-color: #f59e0b;
+        background: linear-gradient(180deg, rgba(254, 243, 199, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+        box-shadow: 0 20px 45px rgba(245, 158, 11, 0.15);
+        z-index: 3;
+    }
+
+    .podium-card.rank-2 {
+        height: 330px;
+        border-color: #cbd5e1;
+        background: linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+        z-index: 2;
+    }
+
+    .podium-card.rank-3 {
+        height: 300px;
+        border-color: #b45309;
+        background: linear-gradient(180deg, rgba(255, 237, 213, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+        z-index: 1;
+    }
+
+    @media (max-width: 768px) {
+        .podium-card.rank-1, .podium-card.rank-2, .podium-card.rank-3 {
+            height: auto;
+        }
+    }
+
+    /* Badges / Crowns */
+    .crown-container {
+        position: absolute;
+        top: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 45px;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15));
+        animation: crownFloat 2.5s infinite ease-in-out;
+    }
+
+    @keyframes crownFloat {
+        0%, 100% { transform: translate(-50%, 0); }
+        50% { transform: translate(-50%, -6px); }
+    }
+
+    .rank-tag {
+        background: #333;
+        color: white;
+        font-size: 11px;
+        font-weight: 900;
+        padding: 4px 12px;
+        border-radius: 50px;
+        width: fit-content;
+        margin: 0 auto 15px auto;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .rank-1 .rank-tag { background: #f59e0b; color: #78350f; }
+    .rank-2 .rank-tag { background: #64748b; }
+    .rank-3 .rank-tag { background: #b45309; }
+
+    /* Avatar Frame */
+    .podium-avatar-wrapper {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        margin: 0 auto 15px auto;
+        padding: 4px;
+        background: white;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        position: relative;
+    }
+
+    .rank-1 .podium-avatar-wrapper { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+    .rank-2 .podium-avatar-wrapper { background: linear-gradient(135deg, #cbd5e1, #94a3b8); }
+    .rank-3 .podium-avatar-wrapper { background: linear-gradient(135deg, #b45309, #d97706); }
+
+    .podium-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .podium-name {
+        font-size: 19px;
+        font-weight: 950;
+        color: #4e0000;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .podium-meta {
+        font-size: 12px;
+        color: #666;
+        font-weight: 600;
+        margin-bottom: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .podium-votes {
+        font-size: 24px;
+        font-weight: 950;
+        color: #ec4899;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 15px;
+    }
+
+    .podium-votes span {
+        font-size: 12px;
+        font-weight: 700;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* === LEADERBOARD ROW LIST (Ranks 4-20) === */
+    .leaderboard-list {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 24px;
+        padding: 10px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05);
+        margin-bottom: 60px;
+    }
+
+    .leaderboard-row {
+        display: grid;
+        grid-template-columns: 60px 70px 1fr 140px 100px;
+        align-items: center;
+        padding: 15px 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        transition: background-color 0.2s, transform 0.2s;
+        border-radius: 16px;
+    }
+
+    @media (max-width: 600px) {
+        .leaderboard-row {
+            grid-template-columns: 50px 60px 1fr 80px;
+            padding: 12px 10px;
+        }
+        .row-institution {
+            display: none;
+        }
+    }
+
+    .leaderboard-row:hover {
+        background: rgba(236, 72, 153, 0.04);
+        transform: scale(1.005);
+    }
+
+    .leaderboard-row:last-child {
+        border-bottom: none;
+    }
+
+    .row-rank {
+        font-size: 18px;
+        font-weight: 900;
+        color: #888;
+        text-align: center;
+    }
+
+    .row-avatar-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        padding: 2px;
+        background: rgba(0,0,0,0.05);
+    }
+
+    .row-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .row-info {
+        padding-left: 10px;
+    }
+
+    .row-name {
+        font-size: 16px;
+        font-weight: 900;
+        color: #4e0000;
+        margin-bottom: 2px;
+    }
+
+    .row-course {
+        font-size: 12px;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .row-institution {
+        font-size: 13px;
+        font-weight: 700;
+        color: #555;
+    }
+
+    .row-votes {
+        font-size: 18px;
+        font-weight: 950;
+        color: #ec4899;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .row-votes span {
+        font-size: 11px;
+        font-weight: 700;
+        color: #888;
+    }
+
+    /* === VOTE BUTTONS === */
+    .btn-vote {
+        background: linear-gradient(135deg, #f472b6 0%, #c084fc 100%);
+        color: white;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 10px rgba(244, 114, 182, 0.25);
+    }
+
+    .btn-vote:hover {
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 6px 15px rgba(244, 114, 182, 0.4);
+    }
+
+    .btn-vote:active {
+        transform: translateY(0) scale(1);
+    }
+
+    .btn-vote.voted {
+        background: #cbd5e1 !important;
+        color: #64748b !important;
+        box-shadow: none !important;
+        cursor: not-allowed;
+    }
+
+    /* Heart Burst Animation */
+    @keyframes heartBurst {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1); }
+    }
+
+    .animate-heart {
+        animation: heartBurst 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+</style>
+
+<div class="leaderboard-wrapper">
+    <div class="leaderboard-header">
+        <div class="leaderboard-badge">👑 CAMPUS CRUSHES</div>
+        <h1>Comrades <span>Crush Leaderboard</span></h1>
+        <p>The top highly voted, charming student profiles across registered institutions. Cast your daily anonymous votes to crown the King & Queen of the campus swiping deck!</p>
+    </div>
+
+    <!-- === PODIUM (TOP 3) === -->
+    <div class="podium-container">
+        {% if profiles|length >= 2 %}
+            <!-- Rank 2: Silver -->
+            {% set p2 = profiles[1] %}
+            <div class="podium-card rank-2">
+                <div class="crown-container">🥈</div>
+                <div class="rank-tag">2nd Place</div>
+                <div class="podium-avatar-wrapper">
+                    <img src="{{ p2.img }}" alt="{{ p2.name }}" class="podium-avatar">
+                </div>
+                <div class="podium-name">{{ p2.name }}</div>
+                <div class="podium-meta">{{ p2.course }} • {{ p2.institution }}</div>
+                <div class="podium-votes">
+                    <span class="votes-num" id="votes-{{ p2.id }}">{{ p2.votes }}</span>
+                    <span>Votes</span>
+                </div>
+                <button class="btn-vote" onclick="castVote('{{ p2.id }}', this)">
+                    ❤️ Vote Crush
+                </button>
+            </div>
+        {% endif %}
+
+        {% if profiles|length >= 1 %}
+            <!-- Rank 1: Gold -->
+            {% set p1 = profiles[0] %}
+            <div class="podium-card rank-1">
+                <div class="crown-container">👑</div>
+                <div class="rank-tag">1st Place</div>
+                <div class="podium-avatar-wrapper">
+                    <img src="{{ p1.img }}" alt="{{ p1.name }}" class="podium-avatar">
+                </div>
+                <div class="podium-name">{{ p1.name }}</div>
+                <div class="podium-meta">{{ p1.course }} • {{ p1.institution }}</div>
+                <div class="podium-votes">
+                    <span class="votes-num" id="votes-{{ p1.id }}">{{ p1.votes }}</span>
+                    <span>Votes</span>
+                </div>
+                <button class="btn-vote" onclick="castVote('{{ p1.id }}', this)">
+                    ❤️ Vote Crush
+                </button>
+            </div>
+        {% endif %}
+
+        {% if profiles|length >= 3 %}
+            <!-- Rank 3: Bronze -->
+            {% set p3 = profiles[2] %}
+            <div class="podium-card rank-3">
+                <div class="crown-container">🥉</div>
+                <div class="rank-tag">3rd Place</div>
+                <div class="podium-avatar-wrapper">
+                    <img src="{{ p3.img }}" alt="{{ p3.name }}" class="podium-avatar">
+                </div>
+                <div class="podium-name">{{ p3.name }}</div>
+                <div class="podium-meta">{{ p3.course }} • {{ p3.institution }}</div>
+                <div class="podium-votes">
+                    <span class="votes-num" id="votes-{{ p3.id }}">{{ p3.votes }}</span>
+                    <span>Votes</span>
+                </div>
+                <button class="btn-vote" onclick="castVote('{{ p3.id }}', this)">
+                    ❤️ Vote Crush
+                </button>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- === RUNNER UPS ROW LIST (Ranks 4-20) === -->
+    <div class="leaderboard-list">
+        {% if profiles|length > 3 %}
+            {% for p in profiles[3:] %}
+                <div class="leaderboard-row">
+                    <div class="row-rank">#{{ loop.index + 3 }}</div>
+                    <div class="row-avatar-wrapper">
+                        <img src="{{ p.img }}" alt="{{ p.name }}" class="row-avatar">
+                    </div>
+                    <div class="row-info">
+                        <div class="row-name">{{ p.name }}</div>
+                        <div class="row-course">{{ p.course }}</div>
+                    </div>
+                    <div class="row-institution">{{ p.institution }}</div>
+                    <div class="row-votes">
+                        <span class="votes-num" id="votes-{{ p.id }}">{{ p.votes }}</span>
+                        <span>votes</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <button class="btn-vote" onclick="castVote('{{ p.id }}', this)">
+                            ❤️ Vote
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div style="padding: 40px; text-align: center; color: #888; font-weight: 700;">
+                ✨ Cast votes to fill up the ranks!
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function castVote(targetId, btnElement) {
+        if (btnElement.classList.contains('voted')) return;
+        
+        // Trigger pulse vibration for premium haptic experience
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+
+        // Fire ajax POST call to `/api/crush-vote`
+        fetch('/api/crush-vote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ target_id: targetId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update votes count display
+                const voteSpan = document.getElementById(`votes-${targetId}`);
+                if (voteSpan) {
+                    voteSpan.textContent = data.new_votes;
+                    voteSpan.classList.add('animate-heart');
+                    setTimeout(() => {
+                        voteSpan.classList.remove('animate-heart');
+                    }, 400);
+                }
+                
+                // Style button to signify casted vote success
+                btnElement.textContent = "💖 Voted!";
+                btnElement.classList.add('voted');
+                btnElement.disabled = true;
+                
+                // Show floating flirty message
+                showFloatingNotification("💖 Your crush vote has been registered anonymously! Spreading the love...");
+            } else {
+                showFloatingNotification("⚠️ " + (data.message || "Could not cast vote."));
+            }
+        })
+        .catch(err => {
+            console.error("Crush vote submission failed:", err);
+            showFloatingNotification("⚠️ Connection lost. Try again!");
+        });
+    }
+
+    function showFloatingNotification(msg) {
+        const notifyDiv = document.createElement('div');
+        notifyDiv.style.position = 'fixed';
+        notifyDiv.style.bottom = '30px';
+        notifyDiv.style.left = '50%';
+        notifyDiv.style.transform = 'translateX(-50%) translateY(20px)';
+        notifyDiv.style.background = 'rgba(15, 23, 42, 0.95)';
+        notifyDiv.style.color = '#fff';
+        notifyDiv.style.padding = '12px 24px';
+        notifyDiv.style.borderRadius = '50px';
+        notifyDiv.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+        notifyDiv.style.zIndex = '99999';
+        notifyDiv.style.fontSize = '14px';
+        notifyDiv.style.fontWeight = '700';
+        notifyDiv.style.backdropFilter = 'blur(10px)';
+        notifyDiv.style.border = '1px solid rgba(255,255,255,0.1)';
+        notifyDiv.style.transition = 'opacity 0.4s, transform 0.4s';
+        notifyDiv.style.opacity = '0';
+        
+        document.body.appendChild(notifyDiv);
+        notifyDiv.textContent = msg;
+        
+        // Trigger show
+        setTimeout(() => {
+            notifyDiv.style.opacity = '1';
+            notifyDiv.style.transform = 'translateX(-50%) translateY(0)';
+        }, 50);
+
+        // Remove
+        setTimeout(() => {
+            notifyDiv.style.opacity = '0';
+            notifyDiv.style.transform = 'translateX(-50%) translateY(-20px)';
+            setTimeout(() => {
+                notifyDiv.remove();
+            }, 400);
+        }, 3000);
+    }
+</script>
+{% endblock %}

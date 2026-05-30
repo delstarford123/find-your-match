@@ -350,9 +350,14 @@
                         {% endif %}
                     </div>
                     
-                    <p class="sidebar-last-msg" style="font-size: 13px; color: {% if match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.is_mutual_match %}bold{% else %}normal{% endif %};">
-                        {{ match.last_message | default('Tap to start chatting') }}
-                    </p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <p class="sidebar-last-msg" style="flex: 1; font-size: 13px; color: {% if match.unread_count > 0 %}#E60026{% elif match.is_mutual_match %}#E60026{% else %}#888{% endif %}; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: {% if match.unread_count > 0 or match.is_mutual_match %}bold{% else %}normal{% endif %};">
+                            {{ match.last_message | default('Tap to start chatting') }}
+                        </p>
+                        {% if match.unread_count > 0 %}
+                            <span class="unread-badge" style="background: #E60026; color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(230,0,38,0.35); flex-shrink: 0;">{{ match.unread_count }}</span>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endfor %}
@@ -857,6 +862,25 @@
     let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('fym_offline_queue')) || {};
 
+    // Sync localStorage unread map with the official Firebase-rendered badges from the server
+    document.querySelectorAll('.match-item').forEach(item => {
+        const uid = item.getAttribute('data-uid');
+        const badge = item.querySelector('.unread-badge');
+        if (badge) {
+            const count = parseInt(badge.textContent.trim()) || 0;
+            if (count > 0) {
+                const sidebarMsg = item.querySelector('.sidebar-last-msg');
+                const lastMsgText = sidebarMsg ? sidebarMsg.textContent.trim() : "New Message";
+                unreadMap[uid] = { count: count, text: lastMsgText };
+            }
+        } else {
+            if (unreadMap[uid]) {
+                delete unreadMap[uid];
+            }
+        }
+    });
+    localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
+
     // 🔥 BLURRED LINES JS STATE 🔥
     const MAX_MESSAGES = 20;
     const MAX_BLUR = 15;
@@ -1317,6 +1341,17 @@
                     sidebarMsg.style.color = '#E60026';
                     sidebarMsg.style.fontWeight = 'bold';
                 }
+                
+                // Real-time unread count badge update
+                let badge = sidebarItem.querySelector('.unread-badge');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'unread-badge';
+                    badge.style.cssText = "background: #E60026; color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(230,0,38,0.35); flex-shrink: 0;";
+                    const container = sidebarItem.querySelector('.sidebar-last-msg').parentElement;
+                    if (container) container.appendChild(badge);
+                }
+                badge.innerText = currentCount + 1;
             }
             return;
         }

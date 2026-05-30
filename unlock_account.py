@@ -35,8 +35,8 @@ def initialize_firebase():
 # ==========================================
 # 2. THE UNLOCK FUNCTION (BY EMAIL)
 # ==========================================
-def grant_vip_access(email_address):
-    """Searches for a user by email and grants them a 30-day VIP pass."""
+def grant_vip_access(email_address, package='gold'):
+    """Searches for a user by email and grants them a 30-day VIP pass with the selected package."""
     email_clean = email_address.strip().lower()
     print(f"\n🔍 Searching database for email: {email_clean}...")
     
@@ -53,15 +53,16 @@ def grant_vip_access(email_address):
                 now_eat = datetime.now(EAT)
                 expiry_date = (now_eat + timedelta(days=30)).isoformat()
                 
-                # Flip the switch and add the expiry date!
+                # Flip the switch and add the expiry date & subscription package!
                 db.reference(f'profiles/{uid}').update({
                     'is_paid': True,
+                    'subscription_package': package,
                     'subscription_expiry': expiry_date,
-                    'last_payment_receipt': 'GOD_MODE_VIP_PASS' # So you know how they got it
+                    'last_payment_receipt': f'GOD_MODE_{package.upper()}_PASS' # So you know how they got it
                 })
                 
                 print(f"\n👤 Found User: {name} (ID: {uid})")
-                print(f"✅ SUCCESS: VIP Access Granted!")
+                print(f"✅ SUCCESS: {package.upper()} VIP Access Granted!")
                 print(f"📅 Pass expires on: {expiry_date[:10]}")
         else:
             print(f"\n❌ ERROR: Could not find any account registered with {email_clean}.")
@@ -87,6 +88,16 @@ if __name__ == "__main__":
             print("Exiting tool. Goodbye!")
             break
         elif target_email:
-            grant_vip_access(target_email)
+            print("\nSelect the subscription package to grant:")
+            print("1. Gold Package (50 KSH)")
+            print("2. Diamond Package (100 KSH)")
+            package_choice = input("Enter choice (1 or 2, default is 1): ").strip()
+            
+            if package_choice == '2':
+                selected_package = 'diamond'
+            else:
+                selected_package = 'gold'
+                
+            grant_vip_access(target_email, selected_package)
         else:
             print("Please enter a valid email address.")

@@ -1,0 +1,423 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === REWARDS STYLE === */
+    .rewards-wrapper {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideUpFade 0.5s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        position: relative;
+        z-index: 5;
+    }
+
+    .rewards-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    
+    .rewards-badge {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+    }
+
+    .rewards-header h1 {
+        font-size: clamp(28px, 6vw, 44px);
+        font-weight: 950;
+        color: #720000;
+        letter-spacing: -1.5px;
+        margin-bottom: 12px;
+        line-height: 1.1;
+    }
+
+    .rewards-header h1 span {
+        background: linear-gradient(90deg, #F59E0B 0%, #10B981 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .rewards-header p {
+        color: #666;
+        font-size: clamp(14px, 2.5vw, 16px);
+        font-weight: 500;
+        max-width: 550px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* === REWARDS ROW LAYOUT === */
+    .rewards-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(20px, 4vw, 30px);
+        margin-bottom: 40px;
+    }
+
+    @media (max-width: 800px) {
+        .rewards-grid { grid-template-columns: 1fr; }
+    }
+
+    /* === STREAK CARD === */
+    .streak-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 28px;
+        padding: 30px;
+        box-shadow: var(--shadow-lg);
+        text-align: left;
+    }
+
+    .streak-card h2 {
+        color: #720000;
+        font-weight: 900;
+        font-size: 22px;
+        margin: 0 0 5px 0;
+    }
+
+    .streak-tracker {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        margin: 25px 0;
+    }
+
+    .streak-day {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        background: white;
+        border: 1.5px solid #eee;
+        border-radius: 12px;
+        padding: 10px 4px;
+        font-size: 11px;
+        font-weight: 800;
+        color: #888;
+        transition: 0.2s;
+    }
+
+    .streak-day.active {
+        border-color: #f59e0b;
+        background: #fffbeb;
+        color: #f59e0b;
+        transform: scale(1.04);
+        box-shadow: 0 4px 10px rgba(245,158,11,0.15);
+    }
+
+    .streak-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+    }
+
+    .streak-day.active .streak-circle {
+        background: #f59e0b;
+        color: white;
+    }
+
+    /* === LUCKY WHEEL CARD === */
+    .wheel-card {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        backdrop-filter: var(--glass-backdrop);
+        -webkit-backdrop-filter: var(--glass-backdrop);
+        border-radius: 28px;
+        padding: 30px;
+        box-shadow: var(--shadow-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .wheel-outer {
+        position: relative;
+        width: 220px;
+        height: 220px;
+        margin: 20px auto;
+        border-radius: 50%;
+        border: 8px solid #1e293b;
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.3), inset 0 0 15px rgba(0,0,0,0.6);
+        background: conic-gradient(
+            #E60026 0deg 60deg,
+            #A855F7 60deg 120deg,
+            #38BDF8 120deg 180deg,
+            #10B981 180deg 240deg,
+            #F59E0B 240deg 300deg,
+            #EC4899 300deg 360deg
+        );
+        transition: transform 6s cubic-bezier(0.1, 0.8, 0.1, 1);
+        will-change: transform;
+    }
+
+    .wheel-pointer {
+        width: 0;
+        height: 0;
+        border-left: 12px solid transparent;
+        border-right: 12px solid transparent;
+        border-top: 20px solid #E60026;
+        filter: drop-shadow(0 3px 5px rgba(0,0,0,0.3));
+        margin-bottom: -10px;
+        z-index: 10;
+    }
+
+    .wheel-center-pin {
+        position: absolute;
+        inset: 75px;
+        background: #1e293b;
+        border-radius: 50%;
+        border: 3px solid white;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 900;
+        font-size: 13px;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.2s;
+    }
+    .wheel-center-pin:active { transform: scale(0.92); }
+
+    /* === VOUCHERS LIST === */
+    .vouchers-section {
+        background: var(--glass-bg);
+        border: var(--glass-border);
+        border-radius: 28px;
+        padding: 30px;
+        box-shadow: var(--shadow-lg);
+        text-align: left;
+        margin-bottom: 80px;
+    }
+
+    .vouchers-section h2 {
+        color: #720000;
+        font-weight: 900;
+        font-size: 22px;
+        margin: 0 0 15px 0;
+    }
+
+    .vouchers-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    @media (max-width: 650px) {
+        .vouchers-grid { grid-template-columns: 1fr; }
+    }
+
+    .voucher-card {
+        background: white;
+        border: 1.5px solid #FFD6DD;
+        border-radius: 16px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        transition: 0.2s;
+    }
+    .voucher-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(230,0,38,0.05);
+        border-color: #E60026;
+    }
+
+    .voucher-details h3 {
+        font-size: 16px;
+        font-weight: 900;
+        color: #720000;
+        margin: 0 0 4px 0;
+    }
+    .voucher-details p {
+        font-size: 12px;
+        color: #666;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .btn-claim {
+        background: #FEF2F4;
+        color: #E60026;
+        border: 1px solid #FFD6DD;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 800;
+        font-size: 12px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-claim:hover {
+        background: #E60026;
+        color: white;
+        border-color: #E60026;
+    }
+</style>
+
+<div class="rewards-wrapper">
+    <div class="rewards-header">
+        <div class="rewards-badge">🎁 LOYALTY PORTAL</div>
+        <h1>Comrade <span>Rewards & Streaks</span></h1>
+        <p>Log in daily to build your matchmaking streak, spin Cupid's Lucky Wheel to win algorithmic boosts, and claim discount date vouchers at popular local student spots!</p>
+    </div>
+
+    <div class="rewards-grid">
+        <!-- 🎁 STREAKS HUB -->
+        <div class="streak-card">
+            <h2>Login Streak: {{ login_streak }} Days 🔥</h2>
+            <p style="color:#666; font-size:13px; margin:5px 0 0 0; font-weight:500;">Complete a 7-day streak to score a free V3 gold verify crown badge!</p>
+            
+            <div class="streak-tracker">
+                {% for i in range(1, 8) %}
+                <div class="streak-day {% if login_streak >= i %}active{% endif %}">
+                    <span>Day {{ i }}</span>
+                    <div class="streak-circle">{% if login_streak >= i %}✓{% else %}🔒{% endif %}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="background:linear-gradient(135deg, #FEF2F4 0%, #ffffff 100%); border:1px dashed #FFD6DD; border-radius:16px; padding:15px; font-size:13px; font-weight:600; color:#4A0008; display:flex; align-items:center; gap:10px;">
+                <span>✨</span>
+                <div>Streak Multiplier active! Your swiping deck profile visibility is boosted by <strong>{{ login_streak * 10 }}%</strong>.</div>
+            </div>
+        </div>
+
+        <!-- 🎡 LUCKY SPINNER -->
+        <div class="wheel-card">
+            <h2 style="color: #720000; font-weight: 900; font-size: 22px; margin: 0 0 5px 0;">Lucky Spinner</h2>
+            <p style="color: #666; font-size: 13px; margin: 5px 0 10px 0; font-weight: 500;">Spin daily to win vouchers, profile boosts, or free premium vibes.</p>
+            
+            <div class="wheel-pointer"></div>
+            <div class="wheel-outer" id="lucky-wheel">
+                <div class="wheel-center-pin" id="spin-btn">SPIN</div>
+            </div>
+            
+            <div id="spin-status" style="font-weight: 900; font-size: 14px; color: #E60026; margin-top: 10px; min-height: 20px;">
+                {% if not can_spin %}
+                    ⏳ Already spun today. Check back tomorrow!
+                {% else %}
+                    💎 Spin Available!
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 🏷️ DATE VOUCHERS -->
+    <div class="vouchers-section">
+        <h2>Date Venue Vouchers & Perks</h2>
+        <p style="color:#666; font-size:13px; margin:-10px 0 20px 0; font-weight:500;">Claim exclusive student discount vouchers and redeem them during café dates.</p>
+        
+        <div class="vouchers-grid">
+            <div class="voucher-card">
+                <div class="voucher-details">
+                    <h3>MCU Café perk ☕</h3>
+                    <p>Free muffin with any couple coffee order.</p>
+                </div>
+                <button class="btn-claim" onclick="claimVoucher('MCU Café Perk')">Claim</button>
+            </div>
+
+            <div class="voucher-card">
+                <div class="voucher-details">
+                    <h3>Lurambi Lounge 🍔</h3>
+                    <p>15% off total bill for MMUST verified students.</p>
+                </div>
+                <button class="btn-claim" onclick="claimVoucher('Lurambi Lounge 15% Off')">Claim</button>
+            </div>
+
+            <div class="voucher-card">
+                <div class="voucher-details">
+                    <h3>Campus Gate Coffee 🥐</h3>
+                    <p>Buy 1 pastry get 1 free on Friday evenings.</p>
+                </div>
+                <button class="btn-claim" onclick="claimVoucher('Campus Gate Coffee Pastry')">Claim</button>
+            </div>
+
+            <div class="voucher-card">
+                <div class="voucher-details">
+                    <h3>Library Courtyard Perks 🥤</h3>
+                    <p>Free soda on study date bookings above KSH 150.</p>
+                </div>
+                <button class="btn-claim" onclick="claimVoucher('Library Courtyard Soda')">Claim</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const wheel = document.getElementById("lucky-wheel");
+        const spinBtn = document.getElementById("spin-btn");
+        const statusText = document.getElementById("spin-status");
+
+        let spinning = false;
+
+        spinBtn.addEventListener("click", () => {
+            if (spinning) return;
+            
+            spinBtn.innerText = "⏳";
+            spinning = true;
+
+            fetch('/api/labs/spin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const randomRotationCount = 6 + Math.floor(Math.random() * 2);
+                    const randomSliceAngle = Math.floor(Math.random() * 360);
+                    const targetAngle = (randomRotationCount * 360) + randomSliceAngle;
+
+                    wheel.style.transform = `rotate(${targetAngle}deg)`;
+                    statusText.innerText = "🔮 Spinning Lucky Orbit... 🎡";
+
+                    setTimeout(() => {
+                        statusText.innerText = "🎉 WON: " + data.prize;
+                        alert("🎉 Cupid rewards dispatched! \n\n" + data.message);
+                        spinning = false;
+                        spinBtn.innerText = "DONE";
+                        spinBtn.style.cursor = 'not-allowed';
+                        spinBtn.style.opacity = '0.5';
+                    }, 6200); 
+                } else {
+                    alert("⏳ " + data.message);
+                    spinning = false;
+                    spinBtn.innerText = "SPIN";
+                }
+            })
+            .catch(err => {
+                alert("⚠️ Alignment dropped out. Try again!");
+                spinning = false;
+                spinBtn.innerText = "SPIN";
+            });
+        });
+    });
+
+    function claimVoucher(voucherName) {
+        alert(`🎉 Voucher Claimed Successfully! \n\nYour QR code for "${voucherName}" has been dispatched. Present it to the cashier on your next date to redeem.`);
+    }
+</script>
+{% endblock %}

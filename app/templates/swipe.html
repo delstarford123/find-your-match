@@ -416,6 +416,8 @@
     // GLOBAL VARIABLES & NOTIFICATIONS
     // ==========================================
     window.currentUserId = "{{ current_user.id }}";
+    window.currentUserZodiac = "{{ current_user.zodiac | default('') }}";
+    window.currentUserMbti = "{{ current_user.mbti | default('') }}";
     const myId = "{{ session.get('user_id') }}";
     const socket = io();
 
@@ -578,6 +580,45 @@
         const ageEl = document.getElementById('profile-age');
         const bioEl = document.getElementById('profile-bio');
         const compatBadge = document.getElementById('compat-badge');
+        const stampLike = document.getElementById('stamp-like');
+        const stampNope = document.getElementById('stamp-nope');
+
+        // --- 🚀 MICRO PARTICLE HEART BURST EFFECT ---
+        function triggerHeartBurst(x, y) {
+            const container = document.body;
+            const colors = ['#E60026', '#FF4B2B', '#FFD6DD', '#FF7A90', '#720000'];
+            const icons = ['❤️', '✨', '💖', '💘', '💕'];
+            
+            for (let i = 0; i < 16; i++) {
+                const p = document.createElement('div');
+                p.innerText = icons[Math.floor(Math.random() * icons.length)];
+                p.style.position = 'fixed';
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                p.style.fontSize = `${gsap.utils.random(18, 30)}px`;
+                p.style.pointerEvents = 'none';
+                p.style.zIndex = '210000';
+                p.style.userSelect = 'none';
+                container.appendChild(p);
+
+                // Radial direction calculations
+                const angle = (i / 16) * Math.PI * 2 + gsap.utils.random(-0.2, 0.2);
+                const distance = gsap.utils.random(70, 150);
+                const destX = x + Math.cos(angle) * distance;
+                const destY = y + Math.sin(angle) * distance - gsap.utils.random(20, 60);
+
+                gsap.to(p, {
+                    x: destX - x,
+                    y: destY - y,
+                    opacity: 0,
+                    scale: 0.1,
+                    rotation: gsap.utils.random(-180, 180),
+                    duration: gsap.utils.random(0.7, 1.2),
+                    ease: "power2.out",
+                    onComplete: () => p.remove()
+                });
+            }
+        }
 
         // 1. Fetch Profiles from API
         fetch(`/api/profiles?user_id=${window.currentUserId}`)
@@ -605,7 +646,7 @@
             }
         }
 
-        // 2. Render Profile Function
+        // 2. Render Profile Function with premium lazy fade-in
         window.renderProfile = function(profile) {
             if (!profile) {
                 card.classList.add('hidden');
@@ -614,7 +655,47 @@
             }
             
             imgEl.style.display = 'none';
+            gsap.set(imgEl, { opacity: 0, scale: 0.98 });
             if (shimmer) shimmer.style.display = 'block';
+
+            // COSMIC SYNERGY CALCULATION
+            let cosmicSynergy = null;
+            if (!profile.is_ad && window.currentUserZodiac && profile.zodiac) {
+                const fire = ['Aries', 'Leo', 'Sagittarius'];
+                const air = ['Gemini', 'Libra', 'Aquarius'];
+                const earth = ['Taurus', 'Virgo', 'Capricorn'];
+                const water = ['Cancer', 'Scorpio', 'Pisces'];
+                
+                const getElement = (z) => {
+                    if (fire.includes(z)) return 'fire';
+                    if (air.includes(z)) return 'air';
+                    if (earth.includes(z)) return 'earth';
+                    if (water.includes(z)) return 'water';
+                    return '';
+                };
+                
+                const element1 = getElement(window.currentUserZodiac);
+                const element2 = getElement(profile.zodiac);
+                
+                let synergy = 60; // base synergy
+                if (element1 && element2) {
+                    if (element1 === element2) synergy += 25; // same element: high vibe
+                    else if ((element1 === 'fire' && element2 === 'air') || (element1 === 'air' && element2 === 'fire')) synergy += 30; // fire + air
+                    else if ((element1 === 'earth' && element2 === 'water') || (element1 === 'water' && element2 === 'earth')) synergy += 30; // earth + water
+                    else synergy += 10;
+                }
+                
+                if (window.currentUserMbti && profile.mbti) {
+                    const char1 = window.currentUserMbti.charAt(0);
+                    const char2 = profile.mbti.charAt(0);
+                    const last1 = window.currentUserMbti.slice(1);
+                    const last2 = profile.mbti.slice(1);
+                    
+                    if (char1 !== char2) synergy += 5; // Opposites attract on Extrovert/Introvert
+                    if (last1 === last2) synergy += 5; // Share rest of traits
+                }
+                cosmicSynergy = Math.min(synergy, 99);
+            }
 
             // DYNAMIC BADGE LOGIC
             const score = profile.ai_score || profile.compatibility || Math.floor(Math.random() * 20) + 70;
@@ -626,11 +707,17 @@
                 compatBadge.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.5)';
             } else if (score >= 80) {
                 compatBadge.innerHTML = `❤️ Perfect Match (${score}%)`;
+                if (cosmicSynergy) {
+                    compatBadge.innerHTML += `<br><span style="font-size: 10px; opacity: 0.95; font-weight:800; display:block; margin-top:4px;">🌌 Cosmic Synergy: ${cosmicSynergy}% (${profile.zodiac} + ${profile.mbti || 'INFJ'})</span>`;
+                }
                 compatBadge.style.background = 'rgba(230, 0, 38, 0.95)';
                 compatBadge.style.color = 'white';
                 compatBadge.style.border = '1px solid #720000';
             } else {
                 compatBadge.innerHTML = `✨ ${score}% Match`;
+                if (cosmicSynergy) {
+                    compatBadge.innerHTML += `<br><span style="font-size: 10px; opacity: 0.95; font-weight:800; display:block; margin-top:4px;">🌌 Cosmic Synergy: ${cosmicSynergy}% (${profile.zodiac} + ${profile.mbti || 'INFJ'})</span>`;
+                }
                 compatBadge.style.background = 'rgba(255, 255, 255, 0.95)';
                 compatBadge.style.color = '#720000';
                 compatBadge.style.border = '1px solid #FFD6DD';
@@ -640,11 +727,19 @@
             imgEl.onload = () => {
                 imgEl.style.display = 'block';
                 if (shimmer) shimmer.style.display = 'none';
+                
+                // Rich image fade-in transition
+                gsap.fromTo(imgEl, 
+                    { opacity: 0, scale: 0.97 }, 
+                    { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out" }
+                );
             };
             
             imgEl.onerror = () => { 
                 imgEl.onerror = null;
                 imgEl.src = '/static/img/placeholder.png'; 
+                imgEl.style.display = 'block';
+                if (shimmer) shimmer.style.display = 'none';
             };
             
             imgEl.src = profile.img || '/static/img/placeholder.png';
@@ -672,82 +767,167 @@
                 intentEl.style.display = 'none';
             }
             
-            document.getElementById('stamp-like').style.opacity = '0';
-            document.getElementById('stamp-nope').style.opacity = '0';
+            gsap.set([stampLike, stampNope], { opacity: 0 });
 
             // Preload the next card's image for zero latency!
             preloadNextImage(currentIndex + 1);
         };
 
-        // 3. Handle Button Clicks (Like / Pass)
-        window.handleSwipe = function(action) {
+        // 3. Handle Swipe Animations & Syncing
+        let isAnimating = false;
+        window.handleSwipe = function(action, wasDragged = false) {
             const currentProfile = profiles[currentIndex];
-            if (!currentProfile) return;
+            if (!currentProfile || isAnimating) return;
+            isAnimating = true;
 
-            const stamp = action === 'like' ? document.getElementById('stamp-like') : document.getElementById('stamp-nope');
-            if(stamp) stamp.style.opacity = '1';
-
-            // Buttery smooth throw animation
-            card.style.transform = action === 'like' ? 'translateX(130%) translateY(-30px) rotate(20deg)' : 'translateX(-130%) translateY(-30px) rotate(-20deg)';
-            card.style.opacity = '0';
-
-            // IF IT'S AN AD AND THEY LIKE IT, REDIRECT
-            if (currentProfile.is_ad && action === 'like') {
-                setTimeout(() => {
-                    if (currentProfile.click_link) {
-                        window.open(currentProfile.click_link, '_blank');
-                    }
-                }, 400);
+            const stamp = action === 'like' ? stampLike : stampNope;
+            
+            // If button clicked, fade in stamp first
+            if (!wasDragged) {
+                gsap.to(stamp, { opacity: 1, duration: 0.1 });
+                // Trigger visual heart burst at card center
+                const rect = card.getBoundingClientRect();
+                if (action === 'like') {
+                    triggerHeartBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                }
             }
 
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            const throwX = action === 'like' ? window.innerWidth * 1.3 : -window.innerWidth * 1.3;
+            const throwRot = action === 'like' ? 25 : -25;
 
-            // Don't hit swipe API for ads to avoid DB pollution, just move to next
-            if (currentProfile.is_ad) {
-                // Record click metric optionally here
-                fetch('/api/admin/action', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                    body: JSON.stringify({ action: 'track_ad_click', target_id: currentProfile.id })
-                });
-            } else {
-                fetch('/api/swipe', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({ target_id: currentProfile.id, action: action })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.match) {
-                        window.triggerMatchCelebration(data.match_details, currentProfile.id);
+            // Direct GSAP GPU-driven throw transition
+            gsap.to(card, {
+                x: throwX,
+                y: -50,
+                rotation: throwRot,
+                opacity: 0,
+                duration: 0.45,
+                ease: "power2.in",
+                onComplete: () => {
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+                    if (currentProfile.is_ad) {
+                        fetch('/api/admin/action', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                            body: JSON.stringify({ action: 'track_ad_click', target_id: currentProfile.id })
+                        });
+                        if (action === 'like' && currentProfile.click_link) {
+                            window.open(currentProfile.click_link, '_blank');
+                        }
+                    } else {
+                        fetch('/api/swipe', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({ target_id: currentProfile.id, action: action })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.match) {
+                                window.triggerMatchCelebration(data.match_details, currentProfile.id);
+                            }
+                        });
                     }
-                });
-            }
 
-            setTimeout(() => {
-                currentIndex++;
-                card.style.transition = 'none'; 
-                card.style.transform = 'translateX(0) translateY(0) rotate(0)';
-                
-                renderProfile(profiles[currentIndex]);
-                
-                requestAnimationFrame(() => {
-                    card.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease';
-                    card.style.opacity = '1';
-                });
-            }, 350); 
+                    // Increment and instantly reset variables
+                    currentIndex++;
+                    gsap.set(card, { x: 0, y: 0, rotation: 0, opacity: 1 });
+                    gsap.set([stampLike, stampNope], { opacity: 0 });
+                    
+                    renderProfile(profiles[currentIndex]);
+                    isAnimating = false;
+                }
+            });
         };
 
-        // 4. 🔥 UPGRADED MATCH CELEBRATION UI 🔥
+        // --- 🎮 4. PREMIUM POINTER PHYSICS DRAGGING ---
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let dragX = 0;
+        let dragY = 0;
+
+        card.addEventListener('pointerdown', (e) => {
+            // Block drag actions ifAnimating or deck is empty
+            if (isAnimating || currentIndex >= profiles.length || card.classList.contains('hidden')) return;
+            
+            isDragging = true;
+            card.setPointerCapture(e.pointerId);
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            card.style.cursor = 'grabbing';
+            gsap.killTweensOf(card);
+            gsap.killTweensOf([stampLike, stampNope]);
+        });
+
+        card.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            
+            dragX = e.clientX - startX;
+            dragY = e.clientY - startY;
+            
+            const rotation = dragX * 0.08; // Delicate rotation
+            
+            // Dynamic opacities based on pull distance
+            const opacityLike = Math.max(0, Math.min(1, (dragX - 40) / 100));
+            const opacityNope = Math.max(0, Math.min(1, (-dragX - 40) / 100));
+            
+            gsap.set(card, {
+                x: dragX,
+                y: dragY * 0.35, // damp vertical drag
+                rotation: rotation
+            });
+
+            gsap.set(stampLike, { opacity: opacityLike });
+            gsap.set(stampNope, { opacity: opacityNope });
+        });
+
+        const endDrag = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            card.style.cursor = 'grab';
+            
+            const threshold = 130;
+            if (dragX > threshold) {
+                // Drag Swipe Like
+                const rect = card.getBoundingClientRect();
+                triggerHeartBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                window.handleSwipe('like', true);
+            } else if (dragX < -threshold) {
+                // Drag Swipe Pass
+                window.handleSwipe('pass', true);
+            } else {
+                // Satisfying elastic return bounce
+                gsap.to(card, {
+                    x: 0,
+                    y: 0,
+                    rotation: 0,
+                    duration: 0.6,
+                    ease: "elastic.out(1.1, 0.65)"
+                });
+                gsap.to([stampLike, stampNope], {
+                    opacity: 0,
+                    duration: 0.2,
+                    ease: "power2.out"
+                });
+            }
+            dragX = 0;
+            dragY = 0;
+        };
+
+        card.addEventListener('pointerup', endDrag);
+        card.addEventListener('pointercancel', endDrag);
+
+        // --- 🎉 5. GLORIOUS MUTUAL MATCH CELEBRATION EFFECTS ---
         window.triggerMatchCelebration = function(matchData, partnerId) {
             const firstName = matchData.name.split(' ')[0];
             
             document.getElementById('match-name-celeb').innerText = firstName;
             document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
             
-            // Display the dynamic match reason directly on the screen
             const reasonEl = document.getElementById('match-reason-celeb');
             if (matchData.reason) {
                 reasonEl.innerText = matchData.reason;
@@ -756,8 +936,16 @@
             }
 
             document.getElementById('match-overlay').style.display = 'flex';
-            
             document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
+
+            // Trigger glorious cascading bursts around avatar zones
+            setTimeout(() => {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                triggerHeartBurst(w * 0.35, h * 0.4);
+                setTimeout(() => triggerHeartBurst(w * 0.65, h * 0.4), 200);
+                setTimeout(() => triggerHeartBurst(w * 0.5, h * 0.35), 400);
+            }, 300);
 
             const container = document.getElementById('icebreaker-container');
             container.innerHTML = '<p style="font-size:12px; color:rgba(255,255,255,0.7); margin-bottom: 15px; font-weight: 800; letter-spacing: 1px;">AI SUGGESTED ICEBREAKERS</p>';

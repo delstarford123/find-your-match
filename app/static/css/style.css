@@ -23,11 +23,20 @@
     --radius-lg: 20px;
     --radius-xl: 28px;
 
-    /* Premium Shadows */
-    --shadow-sm: 0 2px 8px rgba(114, 0, 0, 0.04);
-    --shadow-md: 0 8px 24px rgba(114, 0, 0, 0.08);
-    --shadow-lg: 0 18px 40px rgba(114, 0, 0, 0.12);
-    --shadow-primary: 0 8px 20px rgba(230, 0, 38, 0.25);
+    /* Premium layered HSL shadows - softer and more professional */
+    --shadow-sm: 0 2px 4px hsl(343deg 100% 10% / 0.03), 0 1px 2px hsl(343deg 100% 10% / 0.02);
+    --shadow-md: 0 6px 16px hsl(343deg 100% 10% / 0.04), 0 3px 6px hsl(343deg 100% 10% / 0.03);
+    --shadow-lg: 0 20px 40px hsl(343deg 100% 10% / 0.06), 0 8px 16px hsl(343deg 100% 10% / 0.04);
+    --shadow-primary: 0 8px 24px rgba(230, 0, 38, 0.2);
+    
+    /* Sleek Transition Definitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-springy: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    /* Glassmorphism Styles */
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+    --glass-backdrop: blur(12px) saturate(120%);
 }
 
 /* =========================================
@@ -117,7 +126,7 @@ input, select, textarea, button {
     color: #111;
     font-weight: 600;
     outline: none;
-    transition: all 0.25s ease;
+    transition: var(--transition-smooth);
     -webkit-appearance: none;
     appearance: none;
     display: block;
@@ -126,7 +135,7 @@ input, select, textarea, button {
 .form-input:focus, .form-input:focus-visible {
     border-color: var(--primary);
     background: #fff;
-    box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
+    box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.15);
 }
 
 .form-input::placeholder { color: #a0a0a0; font-weight: 500; }
@@ -181,9 +190,11 @@ main.container {
     z-index: 10;
 }
 
-/* Auth / Settings Card */
+/* Auth / Settings Card - Upgraded with premium glassmorphism */
 .form-container {
-    background: var(--surface);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
     /* Fluid padding ensures it doesn't crowd small screens */
     padding: clamp(25px, 6vw, 45px) clamp(20px, 5vw, 35px);
     border-radius: var(--radius-xl);
@@ -191,9 +202,13 @@ main.container {
     width: min(100%, 440px);
     margin: 0 auto;
     box-shadow: var(--shadow-lg);
-    border: 1px solid var(--primary-light);
+    border: var(--glass-border);
     animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     word-break: break-word;
+    
+    /* Hardware accelerated layer */
+    will-change: transform, opacity;
+    transform: translateZ(0);
 }
 
 /* Generic Content Card */
@@ -204,6 +219,20 @@ main.container {
     box-shadow: var(--shadow-md);
     overflow: hidden;
     width: 100%;
+    transition: var(--transition-smooth);
+    
+    /* Promotes card rendering to GPU */
+    will-change: transform, box-shadow;
+    transform: translate3d(0,0,0);
+}
+
+/* Premium Card hover logic */
+@media (hover: hover) {
+    .card:hover {
+        transform: translateY(-4px) translate3d(0,-2px,0);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--primary-light);
+    }
 }
 
 /* =========================================
@@ -229,7 +258,8 @@ main.container {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: var(--transition-springy);
+    will-change: transform, box-shadow;
 }
 
 @media (hover: hover) {
@@ -263,7 +293,8 @@ main.container {
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: var(--transition-smooth);
+    will-change: transform, background, border-color, color;
 }
 
 @media (hover: hover) {
@@ -312,12 +343,13 @@ main.container {
     justify-content: center;
     align-items: center;
     padding: clamp(15px, 4vw, 25px);
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0.4s;
+    will-change: opacity, visibility;
 }
 
 .modal.hidden {
-    display: none !important;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
 }
 
@@ -329,11 +361,17 @@ main.container {
     padding: clamp(25px, 6vw, 40px);
     text-align: center;
     box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: scale(0.85) translateY(15px);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     max-height: calc(100dvh - 40px);
     overflow-y: auto;
     word-break: break-word;
+    will-change: transform;
+}
+
+.modal:not(.hidden) .modal-content {
+    transform: scale(1) translateY(0);
 }
 
 /* =========================================

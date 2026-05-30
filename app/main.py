@@ -323,10 +323,12 @@ from app.routes.auth import auth_bp
 from app.routes.v2.auth import auth_v2_bp
 from app.routes.profiles import profiles_bp
 from app.routes.matches import matches_bp
+from app.routes.v3.matching import v3_matching_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
 app.register_blueprint(profiles_bp)
 app.register_blueprint(matches_bp)
+app.register_blueprint(v3_matching_bp)
 
 
 # ==========================================
@@ -374,6 +376,46 @@ def requires_subscription(f):
             
             flash("Your subscription has expired. Please renew to continue.", "warning")
             return render_template('paywall.html') 
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+def requires_diamond_subscription(f):
+    """Decorator: Checks if a logged-in student has an active Diamond subscription."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash("Please log in to access this page.", "warning")
+            return redirect(url_for('auth.login'))
+            
+        user_id = session.get('user_id')
+        user_data = db.reference(f'profiles/{user_id}').get()
+        
+        if not user_data:
+            return redirect(url_for('auth.logout'))
+
+        is_paid = user_data.get('is_paid', False)
+        package = user_data.get('subscription_package', 'gold')
+        expiry_str = user_data.get('subscription_expiry')
+        
+        has_expired = False
+        if expiry_str:
+            try:
+                expiry_dt = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) > expiry_dt:
+                    has_expired = True
+            except: pass
+
+        if not is_paid or has_expired:
+            if is_paid and has_expired:
+                db.reference(f'profiles/{user_id}').update({'is_paid': False})
+            
+            flash("Your subscription has expired. Please renew to continue.", "warning")
+            return render_template('paywall.html') 
+
+        if package != 'diamond':
+            flash("💎 Upgrade to the Diamond Package (100 KSH/month) to access this premium feature!", "info")
+            return render_template('paywall.html')
             
         return f(*args, **kwargs)
     return decorated_function
@@ -573,6 +615,216 @@ def venues():
     active_venues = get_all_restaurants(active_only=True)
     return render_template('venues.html', current_user=session.get('user_name'), venues=active_venues)
 
+
+# ==========================================
+# 🧪 FIND YOUR MATCH VERSION 3 BETA LABS
+# ==========================================
+
+@app.route('/labs')
+@login_required
+def labs_dashboard():
+    """Renders the Version 3 Labs Command Center."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Load zodiac, MBTI, labs preferences
+    zodiac = user_data.get('zodiac', '')
+    mbti = user_data.get('mbti', '')
+    labs_prefs = user_data.get('labs_preferences', {})
+    
+    # Calculate referral counts and points
+    referrals_data = db.reference(f'referrals/{user_id}').get() or {}
+    referral_count = len(referrals_data) if isinstance(referrals_data, dict) else 0
+    wingman_points = referral_count * 100
+    wingman_ksh = referral_count * 20
+    
+    # Load all anonymous confessions (sorted by score / timestamp)
+    confessions_dict = db.reference('confessions').get() or {}
+    confessions = []
+    for cid, cdata in confessions_dict.items():
+        if isinstance(cdata, dict):
+            cdata['id'] = cid
+            confessions.append(cdata)
+    
+    # Sort confessions by score (highest first), then timestamp
+    confessions.sort(key=lambda x: (x.get('score', 0), x.get('timestamp', '')), reverse=True)
+    
+    # Load Daily Spinner State
+    spinner_data = db.reference(f'profiles/{user_id}/labs_spinner').get() or {}
+    last_spin = spinner_data.get('last_spin')
+    can_spin = True
+    if last_spin:
+        try:
+            last_spin_dt = datetime.fromisoformat(last_spin)
+            if datetime.now(timezone.utc) - last_spin_dt < timedelta(hours=24):
+                can_spin = False
+        except:
+            pass
+
+    return render_template(
+        'labs.html',
+        current_user=session.get('user_name', 'Student').split(' ')[0],
+        zodiac=zodiac,
+        mbti=mbti,
+        labs_prefs=labs_prefs,
+        referral_count=referral_count,
+        wingman_points=wingman_points,
+        wingman_ksh=wingman_ksh,
+        confessions=confessions[:25], # top 25
+        can_spin=can_spin,
+        base_url=get_base_url(),
+        user_id=user_id
+    )
+
+@app.route('/api/labs/confess', methods=['POST'])
+@login_required
+@csrf.exempt # Exempt for quick API execution
+def api_labs_confess():
+    """Submits a new anonymous campus confession."""
+    data = request.get_json() or {}
+    text = data.get('text', '').strip()
+    campus = data.get('campus', 'MMUST').strip()
+    
+    if not text:
+        return jsonify({'success': False, 'message': 'Confession cannot be empty.'}), 400
+    if len(text) > 300:
+        return jsonify({'success': False, 'message': 'Confession must be under 300 characters.'}), 400
+
+    # Clean text of phone numbers for security
+    if contains_phone_number(text):
+        return jsonify({'success': False, 'message': 'Sharing phone numbers is strictly prohibited for security.'}), 400
+
+    confession_payload = {
+        'text': text,
+        'campus': campus,
+        'timestamp': datetime.now(EAT).isoformat(),
+        'score': 0
+    }
+    
+    try:
+        db.reference('confessions').push(confession_payload)
+        return jsonify({'success': True, 'message': 'Confession posted anonymously! 🤫'})
+    except Exception as e:
+        logger.error(f"Failed to post confession: {e}")
+        return jsonify({'success': False, 'message': 'Failed to post secret.'}), 500
+
+@app.route('/api/labs/vote', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_labs_vote():
+    """Upvotes or downvotes an anonymous confession."""
+    data = request.get_json() or {}
+    cid = data.get('id')
+    direction = data.get('direction') # 'up' or 'down'
+    
+    if not cid or direction not in ['up', 'down']:
+        return jsonify({'success': False, 'message': 'Invalid parameters.'}), 400
+        
+    try:
+        ref = db.reference(f'confessions/{cid}')
+        cdata = ref.get()
+        if not cdata:
+            return jsonify({'success': False, 'message': 'Confession not found.'}), 404
+            
+        current_score = int(cdata.get('score', 0))
+        new_score = current_score + (1 if direction == 'up' else -1)
+        
+        ref.update({'score': new_score})
+        return jsonify({'success': True, 'score': new_score})
+    except Exception as e:
+        logger.error(f"Failed to vote: {e}")
+        return jsonify({'success': False, 'message': 'Failed to cast vote.'}), 500
+
+@app.route('/api/labs/spin', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_labs_spin():
+    """Spins the daily rewards wheel."""
+    user_id = session.get('user_id')
+    profile_ref = db.reference(f'profiles/{user_id}')
+    user_data = profile_ref.get() or {}
+    
+    spinner_ref = db.reference(f'profiles/{user_id}/labs_spinner')
+    spinner_data = spinner_ref.get() or {}
+    
+    last_spin = spinner_data.get('last_spin')
+    if last_spin:
+        try:
+            last_spin_dt = datetime.fromisoformat(last_spin.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) - last_spin_dt < timedelta(hours=24):
+                return jsonify({'success': False, 'message': 'You have already spun the wheel today. Check back tomorrow!'}), 400
+        except: pass
+        
+    rewards = [
+        'Algorithmic Profile Boost 🔥',
+        'Free Super Vibe ⚡',
+        'Astrology Synergy Unlock 🔮',
+        'B2B Cafe 20% Discount Voucher 🎟️',
+        'Double Swipe Matches 🃏',
+        'Secret Crush Radar Reveal 🎯'
+    ]
+    prize = random.choice(rewards)
+    
+    try:
+        # Record spin state and award prize
+        spinner_ref.set({
+            'last_spin': datetime.now(timezone.utc).isoformat(),
+            'last_prize': prize
+        })
+        
+        # Award reward in profile fields dynamically
+        if 'Boost' in prize:
+            profile_ref.update({'ai_score_bonus': 15})
+        elif 'Super Vibe' in prize:
+            profile_ref.update({'super_vibes': int(user_data.get('super_vibes', 0)) + 3})
+            
+        return jsonify({'success': True, 'prize': prize, 'message': f'Congratulations! You won: {prize}'})
+    except Exception as e:
+        logger.error(f"Failed to spin wheel: {e}")
+        return jsonify({'success': False, 'message': 'Failed to execute spin.'}), 500
+
+@app.route('/api/labs/toggle', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_labs_toggle():
+    """Toggles user beta preferences in Firebase."""
+    user_id = session.get('user_id')
+    data = request.get_json() or {}
+    feature = data.get('feature')
+    state = data.get('state') # True or False
+    
+    if not feature or state is None:
+        return jsonify({'success': False, 'message': 'Invalid toggle data.'}), 400
+        
+    try:
+        db.reference(f'profiles/{user_id}/labs_preferences').update({
+            feature: bool(state)
+        })
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Failed to toggle beta preference: {e}")
+        return jsonify({'success': False, 'message': 'Failed to save choice.'}), 500
+
+@app.route('/api/labs/profile_traits', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_labs_profile_traits():
+    """Syncs MBTI & Zodiac signs directly in the user profile."""
+    user_id = session.get('user_id')
+    data = request.get_json() or {}
+    zodiac = data.get('zodiac', '').strip()
+    mbti = data.get('mbti', '').strip()
+    
+    try:
+        db.reference(f'profiles/{user_id}').update({
+            'zodiac': zodiac,
+            'mbti': mbti
+        })
+        return jsonify({'success': True, 'message': 'Astrology & Personality profile saved!'})
+    except Exception as e:
+        logger.error(f"Failed to save traits: {e}")
+        return jsonify({'success': False, 'message': 'Failed to save traits.'}), 500
+
 from flask import render_template, session, redirect, url_for, flash
 from flask import session, flash, redirect, url_for, render_template
 # Make sure your db is imported! e.g., from app.database import db
@@ -621,7 +873,9 @@ def swipe():
         'id': user_id,
         'name': user_profile.get('name', session.get('user_name', 'Student')).split(' ')[0], 
         'img': user_profile.get('img') or url_for('static', filename='img/placeholder.png'),
-        'settings': user_settings
+        'settings': user_settings,
+        'zodiac': user_profile.get('zodiac', ''),
+        'mbti': user_profile.get('mbti', '')
     }
 
     # 4. Build the Discovery Deck
@@ -665,9 +919,14 @@ def swipe():
             
         final_score = min(base_score + bonus, 99)
         
+        # DIAMOND PACKAGE EXPOSURE BOOST (Increases visibility in other users' decks by 3x!)
+        if p.get('subscription_package') == 'diamond':
+            final_score += 20
+            final_score = min(final_score, 99)
+        
         # SECRET CRUSH OVERRIDE (Forces them to the absolute front of the line)
         if p_id in pending_crushers:
-            final_score = 100 
+            final_score = 150 
         
         potential_matches.append({
             'id': p_id,
@@ -835,6 +1094,7 @@ def dashboard():
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
         subscription_active=subscription_active,
+        subscription_package=user_data.get('subscription_package', 'gold'),
         unread_count=unread_count,
         daily_prompt=prompt_data,
         my_answer=my_answer_data,
@@ -1075,6 +1335,20 @@ def matches(partner_id=None):
                 is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
                 is_perfect_match = is_opposite_gender and ai_score > 80
                 
+                # Calculate unread count for this match
+                unread_count = 0
+                if is_mutual:
+                    m_id = f"match_{min(user_id, p_id)}_{max(user_id, p_id)}"
+                    chat_data = db.reference(f'matches/{m_id}/messages').get() or {}
+                    if isinstance(chat_data, dict):
+                        for msg in chat_data.values():
+                            if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
+                                unread_count += 1
+                    elif isinstance(chat_data, list):
+                        for msg in chat_data:
+                            if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
+                                unread_count += 1
+
                 my_matches.append({
                     'id': p_id,
                     'name': p.get('name', 'Student').split(' ')[0], # First Name only
@@ -1084,7 +1358,8 @@ def matches(partner_id=None):
                     'is_online': p.get('is_online', False),
                     'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
                     'last_message': last_msg,
-                    'last_message_time': last_msg_time
+                    'last_message_time': last_msg_time,
+                    'unread_count': unread_count
                 })
         
         # 5. ALWAYS append the AI Wingman to the list
@@ -1092,7 +1367,8 @@ def matches(partner_id=None):
             'id': 'AI_COMPANION', 'name': 'AI Wingman',
             'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman',
             'is_perfect_match': False, 'is_online': True, 'is_mutual_match': False,
-            'last_message': 'Need dating advice?', 'last_message_time': ''
+            'last_message': 'Need dating advice?', 'last_message_time': '',
+            'unread_count': 0
         })
 
         # 6. Sort matches (Mutual matches first, then by time)
@@ -1112,7 +1388,30 @@ def matches(partner_id=None):
     history = {}
     if active_partner and partner_id != 'AI_COMPANION':
         match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
-        history = db.reference(f'matches/{match_id}/messages').get() or {}
+        history_ref = db.reference(f'matches/{match_id}/messages')
+        history = history_ref.get() or {}
+        
+        # Mark all messages sent by this partner to the current user as 'read'
+        updated = False
+        updates = {}
+        if isinstance(history, dict):
+            for msg_key, msg in history.items():
+                if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
+                    updates[f'{msg_key}/status'] = 'read'
+                    msg['status'] = 'read'
+                    updated = True
+        elif isinstance(history, list):
+            for index, msg in enumerate(history):
+                if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
+                    updates[f'{index}/status'] = 'read'
+                    msg['status'] = 'read'
+                    updated = True
+        
+        if updated:
+            try:
+                history_ref.update(updates)
+            except Exception as e:
+                logger.error(f"Failed to update message read statuses: {e}")
     
     # ==========================================
     # 🧮 THE "BLURRED LINES" (BLIND DATE) MATH
@@ -1172,6 +1471,8 @@ def profile():
         new_religion = request.form.get('religion')
         new_avatar = request.form.get('avatar') # For the new 20 avatars feature!
         new_phone = request.form.get('phone')
+        new_spotify_playlist = request.form.get('spotify_playlist')
+        new_spotify_anthem = request.form.get('spotify_anthem')
 
         try:
             # 1.5 Handle Photo Upload to Firebase Storage
@@ -1216,6 +1517,11 @@ def profile():
             # Prevent crashes by ensuring 'age' is actually a number before casting to int
             if new_age and new_age.isdigit():
                 update_data['age'] = int(new_age)
+                
+            if new_spotify_playlist is not None:
+                update_data['spotify_playlist'] = new_spotify_playlist.strip()
+            if new_spotify_anthem is not None:
+                update_data['spotify_anthem'] = new_spotify_anthem.strip()
 
             # 3. Only ping the database if there is actually something to update
             if update_data:
@@ -1248,6 +1554,14 @@ def calculate_profile_badges(user_data):
     """Determines which badges a user has earned based on their activity."""
     badges = []
     
+    # 0. Subscription Premium Badges
+    if user_data.get('is_paid'):
+        package = user_data.get('subscription_package', 'gold')
+        if package == 'diamond':
+            badges.append({'id': 'diamond_vip', 'icon': '👑', 'label': 'Diamond VIP Premium', 'color': '#EC4899'})
+        else:
+            badges.append({'id': 'gold_vip', 'icon': '💫', 'label': 'Gold Premium', 'color': '#EAB308'})
+            
     # 1. Verified Badge
     if user_data.get('is_verified'):
         badges.append({'id': 'verified', 'icon': '✅', 'label': 'Verified Comrade', 'color': '#38BDF8'})
@@ -3014,16 +3328,27 @@ def pay_student_fee():
 
     data = request.get_json(silent=True) or {}
     phone_number = data.get('phone_number')
+    selected_package = data.get('package', 'gold').strip().lower()
     user_id = session.get('user_id')
 
     if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
         return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
 
+    # Determine amount and description based on selected package
+    if selected_package == 'diamond':
+        amount = 100
+        package_name = 'diamond'
+        desc = "Diamond Match"
+    else:
+        amount = 50
+        package_name = 'gold'
+        desc = "Gold Match"
+
     # 🚨 ULTIMATE FIX: Hardcode your exact custom domain so Safaricom never gets confused
     callback_url = "https://www.findyourmatch.co.ke/api/mpesa/student_callback"
     
     try:
-        response = initiate_stk_push(phone_number, 50, user_id, callback_url)
+        response = initiate_stk_push(phone_number, amount, user_id, callback_url, transaction_desc=desc)
 
         if not response or 'error' in response:
             return jsonify({'success': False, 'message': 'Payment gateway busy. Please try again.'})
@@ -3033,6 +3358,8 @@ def pay_student_fee():
             db.reference(f'pending_payments/{checkout_id}').set({
                 'user_id': user_id,
                 'status': 'pending',
+                'package': package_name,
+                'amount': amount,
                 'created_at': datetime.now(EAT).isoformat()
             })
             session['checkout_id'] = checkout_id
@@ -3040,7 +3367,7 @@ def pay_student_fee():
             return jsonify({
                 'success': True, 
                 'checkout_id': checkout_id,
-                'message': 'Check your phone for the M-Pesa PIN prompt!'
+                'message': f'Check your phone for the M-Pesa KSH {amount} PIN prompt!'
             })
         
         return jsonify({'success': False, 'message': 'Invalid response from payment gateway.'})
@@ -3081,10 +3408,15 @@ def mpesa_student_callback():
             metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
             mpesa_receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
             
+            package_name = 'gold'
+            if pending_data and isinstance(pending_data, dict):
+                package_name = pending_data.get('package', 'gold')
+
             if user_id:
                 expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
                 db.reference(f'profiles/{user_id}').update({
                     'is_paid': True,
+                    'subscription_package': package_name,
                     'subscription_expiry': expiry_date,
                     'last_payment_receipt': mpesa_receipt
                 })
@@ -3989,8 +4321,13 @@ def check_access():
                         })
                     else:
                         expiry_date = (datetime.now(EAT) + timedelta(days=30)).isoformat()
+                        package_name = 'gold'
+                        if payment_status and isinstance(payment_status, dict):
+                            package_name = payment_status.get('package', 'gold')
+
                         user_ref.update({
                             'is_paid': True,
+                            'subscription_package': package_name,
                             'subscription_expiry': expiry_date,
                             'last_payment_receipt': mpesa_receipt
                         })
@@ -5177,7 +5514,7 @@ lights_out_queue = {
 }
 
 @app.route('/lights-out')
-@requires_subscription
+@requires_diamond_subscription
 def lights_out():
     """Renders the Lights Out lobby."""
     # Optional: You can enforce the Friday 9 PM rule here.
@@ -5367,6 +5704,7 @@ groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
 
 @app.route('/api/wingman/execute', methods=['POST'])
+@requires_diamond_subscription
 def api_wingman_execute():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'Log in required.'}), 401
@@ -5412,6 +5750,373 @@ def api_wingman_execute():
     except Exception as e:
         logger.error(f"Groq Wingman Error: {e}")
         return jsonify({'success': False, 'message': 'The AI engine is currently overloaded. Try again in a moment.'}), 500    
+
+# ==========================================
+# 🧪 VERSION 3 DEDICATED HIGH-TRAFFIC PAGES
+# ==========================================
+
+@app.route('/tarot')
+@requires_diamond_subscription
+def tarot_dashboard():
+    """Renders the interactive Cosmic Tarot Page."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    return render_template('tarot.html', user=user_data)
+
+
+@app.route('/gossip')
+@login_required
+def gossip_board():
+    """Renders the Dedicated Gossip Board & Secrets Tea Wall."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Load all confessions
+    confessions_ref = db.reference('confessions').get() or {}
+    confessions = []
+    for cid, cdata in confessions_ref.items():
+        if isinstance(cdata, dict):
+            cdata['id'] = cid
+            cdata['score'] = cdata.get('score', 0)
+            cdata['comments_count'] = len(cdata.get('comments', {}))
+            confessions.append(cdata)
+    
+    # Sort confessions by score/votes descending
+    confessions.sort(key=lambda x: x.get('score', 0), reverse=True)
+    
+    return render_template('gossip.html', 
+                           user=user_data, 
+                           confessions=confessions, 
+                           zodiac=user_data.get('zodiac', ''), 
+                           mbti=user_data.get('mbti', ''))
+
+
+@app.route('/rewards')
+@requires_diamond_subscription
+def rewards_hub():
+    """Renders the Gamified Rewards & Login Streaks Dashboard."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Calculate streak and daily spin eligibility
+    spinner_data = db.reference(f'profiles/{user_id}/labs_spinner').get() or {}
+    last_spin = spinner_data.get('last_spin')
+    can_spin = True
+    if last_spin:
+        try:
+            last_dt = datetime.fromisoformat(last_spin)
+            if datetime.now(EAT) - last_dt < timedelta(hours=24):
+                can_spin = False
+        except Exception:
+            pass
+            
+    # Streak counter (simulated login streaks or stored data)
+    login_streak = db.reference(f'profiles/{user_id}/login_streak').get() or 1
+    
+    return render_template('rewards.html', 
+                           user=user_data, 
+                           can_spin=can_spin, 
+                           login_streak=login_streak)
+
+
+@app.route('/leaderboard')
+@requires_diamond_subscription
+def leaderboard():
+    """Renders the Campus Crush leaderboards & active crush voting profiles."""
+    user_id = session.get('user_id')
+    current_user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # Load all profiles
+    all_profiles = get_all_profiles()
+    leaderboard_profiles = []
+    
+    for p in all_profiles:
+        p_id = p['id']
+        if p.get('is_visible', True) and p.get('is_paid') == True:
+            crush_votes = db.reference(f'profiles/{p_id}/crush_votes').get() or 0
+            leaderboard_profiles.append({
+                'id': p_id,
+                'name': p.get('name', 'Student'),
+                'img': p.get('img', '/static/img/placeholder.png'),
+                'course': p.get('course', p.get('major', 'Student')),
+                'institution': p.get('institution_name', 'MMUST'),
+                'votes': crush_votes,
+                'gender': p.get('gender', 'Male')
+            })
+            
+    # Sort by votes descending
+    leaderboard_profiles.sort(key=lambda x: x.get('votes', 0), reverse=True)
+    
+    return render_template('leaderboard.html', 
+                           user=current_user_profile, 
+                           profiles=leaderboard_profiles[:20]) # Top 20 crushes
+
+
+@app.route('/api/crush-vote', methods=['POST'])
+@requires_diamond_subscription
+@csrf.exempt
+def api_crush_vote():
+    """Increments a student's crush votes on the campus leaderboard."""
+    user_id = session.get('user_id')
+    data = request.json or {}
+    target_id = data.get('target_id')
+    
+    if not target_id:
+        return jsonify({'success': False, 'message': 'Target student required.'}), 400
+        
+    try:
+        # Check if they have already voted for this target today (24h cooldown)
+        vote_cooldown = db.reference(f'profiles/{user_id}/crush_votes_given/{target_id}').get()
+        if vote_cooldown:
+            try:
+                last_dt = datetime.fromisoformat(vote_cooldown)
+                if datetime.now(EAT) - last_dt < timedelta(hours=24):
+                    return jsonify({'success': False, 'message': 'You can only vote for this crush once every 24 hours.'}), 400
+            except:
+                pass
+                
+        # Register vote
+        target_ref = db.reference(f'profiles/{target_id}/crush_votes')
+        current_votes = target_ref.get() or 0
+        target_ref.set(current_votes + 1)
+        
+        # Save vote cooldown timestamp
+        db.reference(f'profiles/{user_id}/crush_votes_given/{target_id}').set(datetime.now(EAT).isoformat())
+        
+        return jsonify({'success': True, 'new_votes': current_votes + 1})
+    except Exception as e:
+        logger.error(f"Crush Vote Error: {e}")
+        return jsonify({'success': False, 'message': 'Failed to cast vote.'}), 500
+
+@app.route('/admin/trigger-monday-emails')
+@login_required
+def trigger_monday_emails():
+    """
+    Manual override trigger endpoint for super admins to immediately execute Monday Love Matches email dispatch.
+    """
+    if not session.get('is_super_admin'):
+        flash("Unauthorized access. Super Admin credentials required.", "error")
+        return redirect(url_for('dashboard'))
+        
+    sent_count = dispatch_monday_emails()
+    flash(f"⚡ Success! Monday Love Match Sheets manually dispatched to {sent_count} active paid students.", "success")
+    return redirect(url_for('super_admin'))
+
+
+def dispatch_monday_emails():
+    """
+    Scans the database, calculates compatible matches for every paid Diamond user,
+    and dispatches customized emails containing exactly 20 opposite-sex matches.
+    """
+    try:
+        from app.email_service import send_monday_matches_email
+        all_profiles = get_all_profiles()
+        all_paid_profiles = [p for p in all_profiles if p.get('is_paid') == True and p.get('is_visible', True)]
+        diamond_profiles = [p for p in all_paid_profiles if p.get('subscription_package') == 'diamond']
+        
+        sent_count = 0
+        for user in diamond_profiles:
+            user_id = user.get('id')
+            user_gender = str(user.get('gender', '')).strip().lower()
+            user_email = user.get('email')
+            user_name = user.get('name', 'Student')
+            
+            if not user_id or not user_email or not user_gender:
+                continue
+                
+            # Prepare to match compatibility metrics
+            my_intent = user.get('intent', 'none')
+            my_bio_words = set(user.get('bio', '').lower().replace('.', '').replace(',', '').split())
+            stop_words = {'i', 'am', 'a', 'the', 'and', 'to', 'for', 'in', 'of', 'my', 'is', 'at', 'on', 'with', 'student', 'mmust'}
+            my_keywords = my_bio_words - stop_words
+            
+            # Find opposite-sex matches
+            matches_list = []
+            for p in all_paid_profiles:
+                p_id = p.get('id')
+                p_gender = str(p.get('gender', '')).strip().lower()
+                
+                # opposite-sex only
+                if p_id == user_id or p_gender == user_gender or not p_gender:
+                    continue
+                    
+                base_score = p.get('ai_score', random.randint(65, 80))
+                bonus = 0
+                
+                # Intent Bonus
+                p_intent = p.get('intent', 'none')
+                if my_intent != 'none' and p_intent == my_intent:
+                    bonus += 10
+                    
+                # Bio Overlap Bonus
+                p_bio_words = set(p.get('bio', '').lower().replace('.', '').replace(',', '').split())
+                if len((p_bio_words - stop_words) & my_keywords) > 0:
+                    bonus += 5
+                    
+                score = min(base_score + bonus, 99)
+                
+                matches_list.append({
+                    'id': p_id,
+                    'name': p.get('name', 'Student').split(' ')[0],
+                    'email': p.get('email', 'student@campus.ac.ke'),
+                    'phone': p.get('phone', '254700000000'),
+                    'course': p.get('course', p.get('major', 'Student')),
+                    'institution': p.get('institution_name', 'MMUST'),
+                    'bio': p.get('bio', 'Looking for a compatibility match.'),
+                    'compatibility': score,
+                    'zodiac': p.get('zodiac', 'Not specified'),
+                    'mbti': p.get('mbti', 'Not specified')
+                })
+                    
+            if matches_list:
+                matches_list.sort(key=lambda x: x['compatibility'], reverse=True)
+                send_monday_matches_email(user_email, user_name, matches_list[:20])
+                sent_count += 1
+                
+        logger.info(f"Monday Matches Email Dispatcher sent emails to {sent_count} students successfully.")
+        return sent_count
+    except Exception as e:
+        logger.error(f"Error in Monday Matches Email Dispatcher: {e}")
+        return 0
+
+
+def dispatch_friday_emails():
+    """
+    Scans the database, calculates perfect matches (>80% compatibility) for every paid Diamond user,
+    and dispatches customized emails containing up to 50 perfect matches.
+    """
+    try:
+        from app.email_service import send_friday_matches_email
+        all_profiles = get_all_profiles()
+        all_paid_profiles = [p for p in all_profiles if p.get('is_paid') == True and p.get('is_visible', True)]
+        diamond_profiles = [p for p in all_paid_profiles if p.get('subscription_package') == 'diamond']
+        
+        sent_count = 0
+        for user in diamond_profiles:
+            user_id = user.get('id')
+            user_gender = str(user.get('gender', '')).strip().lower()
+            user_email = user.get('email')
+            user_name = user.get('name', 'Student')
+            
+            if not user_id or not user_email or not user_gender:
+                continue
+                
+            # Prepare to match compatibility metrics
+            my_intent = user.get('intent', 'none')
+            my_bio_words = set(user.get('bio', '').lower().replace('.', '').replace(',', '').split())
+            stop_words = {'i', 'am', 'a', 'the', 'and', 'to', 'for', 'in', 'of', 'my', 'is', 'at', 'on', 'with', 'student', 'mmust'}
+            my_keywords = my_bio_words - stop_words
+            
+            # Find opposite-sex matches
+            perfect_matches = []
+            for p in all_paid_profiles:
+                p_id = p.get('id')
+                p_gender = str(p.get('gender', '')).strip().lower()
+                
+                # opposite-sex only
+                if p_id == user_id or p_gender == user_gender or not p_gender:
+                    continue
+                    
+                base_score = p.get('ai_score', random.randint(65, 80))
+                bonus = 0
+                
+                # Intent Bonus
+                p_intent = p.get('intent', 'none')
+                if my_intent != 'none' and p_intent == my_intent:
+                    bonus += 10
+                    
+                # Bio Overlap Bonus
+                p_bio_words = set(p.get('bio', '').lower().replace('.', '').replace(',', '').split())
+                if len((p_bio_words - stop_words) & my_keywords) > 0:
+                    bonus += 5
+                    
+                score = min(base_score + bonus, 99)
+                
+                # Perfect match threshold: score >= 80
+                if score >= 80:
+                    perfect_matches.append({
+                        'id': p_id,
+                        'name': p.get('name', 'Student').split(' ')[0],
+                        'email': p.get('email', 'student@campus.ac.ke'),
+                        'phone': p.get('phone', '254700000000'),
+                        'course': p.get('course', p.get('major', 'Student')),
+                        'institution': p.get('institution_name', 'MMUST'),
+                        'bio': p.get('bio', 'Looking for a compatibility match.'),
+                        'compatibility': score,
+                        'zodiac': p.get('zodiac', 'Not specified'),
+                        'mbti': p.get('mbti', 'Not specified')
+                    })
+                    
+            if perfect_matches:
+                perfect_matches.sort(key=lambda x: x['compatibility'], reverse=True)
+                send_friday_matches_email(user_email, user_name, perfect_matches[:50])
+                sent_count += 1
+                
+        logger.info(f"Friday Perfect Matches Email Dispatcher sent emails to {sent_count} students successfully.")
+        return sent_count
+    except Exception as e:
+        logger.error(f"Error in Friday Matches Email Dispatcher: {e}")
+        return 0
+
+
+def start_premium_email_schedulers():
+    """
+    Launches a daemon thread that checks every hour to dispatch:
+    - Monday at 10 AM EAT -> 20 matches sheet.
+    - Friday at 10 AM EAT -> 50 perfect matches sheet.
+    """
+    def scheduler_loop():
+        last_sent_monday_week = None
+        last_sent_friday_week = None
+        while True:
+            try:
+                now = datetime.now(EAT)
+                current_weekday = now.weekday() # 0 is Monday, 4 is Friday
+                current_hour = now.hour
+                current_week = now.strftime("%Y-%U")
+                
+                # Monday Scheduler
+                if current_weekday == 0 and current_hour == 10:
+                    if last_sent_monday_week != current_week:
+                        logger.info("Monday Match List email scheduler triggered! Beginning dispatch...")
+                        dispatch_monday_emails()
+                        last_sent_monday_week = current_week
+                        try:
+                            db.reference('system_settings/last_monday_email_dispatch').set({
+                                'week': current_week,
+                                'timestamp': now.isoformat()
+                            })
+                        except Exception as dbe:
+                            logger.error(f"Failed to record Monday dispatch in DB: {dbe}")
+                            
+                # Friday Scheduler
+                if current_weekday == 4 and current_hour == 10:
+                    if last_sent_friday_week != current_week:
+                        logger.info("Friday Perfect Match email scheduler triggered! Beginning dispatch...")
+                        dispatch_friday_emails()
+                        last_sent_friday_week = current_week
+                        try:
+                            db.reference('system_settings/last_friday_email_dispatch').set({
+                                'week': current_week,
+                                'timestamp': now.isoformat()
+                            })
+                        except Exception as dbe:
+                            logger.error(f"Failed to record Friday dispatch in DB: {dbe}")
+                            
+            except Exception as se:
+                logger.error(f"Error in Premium Match scheduler loop: {se}")
+                
+            time.sleep(3600)
+            
+    thread = threading.Thread(target=scheduler_loop, daemon=True)
+    thread.start()
+    logger.info("Monday & Friday Premium Match email scheduler daemon thread successfully started.")
+
+
+# Start Premium Email Schedulers (Monday & Friday)
+start_premium_email_schedulers()
+
+
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

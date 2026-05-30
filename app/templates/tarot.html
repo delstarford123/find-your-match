@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* === TAROT STYLES === */
+    .tarot-wrapper {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        animation: slideUpFade 0.5s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        position: relative;
+        z-index: 5;
+        text-align: center;
+    }
+
+    .tarot-header {
+        margin-bottom: 40px;
+    }
+    
+    .tarot-badge {
+        background: rgba(168, 85, 247, 0.1);
+        color: #c084fc;
+        border: 1px solid rgba(168, 85, 247, 0.3);
+        padding: 6px 16px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+    }
+
+    .tarot-header h1 {
+        font-size: clamp(28px, 6vw, 44px);
+        font-weight: 950;
+        color: #720000;
+        letter-spacing: -1.5px;
+        margin-bottom: 12px;
+        line-height: 1.1;
+    }
+
+    .tarot-header h1 span {
+        background: linear-gradient(90deg, #A855F7 0%, #EC4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .tarot-header p {
+        color: #666;
+        font-size: clamp(14px, 2.5vw, 16px);
+        font-weight: 500;
+        max-width: 550px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    /* === CARDS DECK LAYOUT === */
+    .deck-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: clamp(15px, 3vw, 30px);
+        margin: 40px 0;
+        perspective: 1000px;
+    }
+
+    @media (max-width: 700px) {
+        .deck-container {
+            grid-template-columns: 1fr;
+            max-width: 320px;
+            margin: 30px auto;
+        }
+    }
+
+    /* Card Flip Structure */
+    .tarot-card {
+        height: clamp(340px, 45dvh, 420px);
+        cursor: pointer;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .tarot-card.flipped {
+        transform: rotateY(180deg);
+        cursor: default;
+    }
+
+    .card-face {
+        position: absolute;
+        inset: 0;
+        border-radius: 24px;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        border: 2px solid #FFD6DD;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 25px 20px;
+        box-sizing: border-box;
+    }
+
+    /* CARD FRONT (Back of Tarot Card - Face Down) */
+    .card-front {
+        background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+        border-color: #a855f7;
+        color: white;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .card-front .design-circle {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 2px dashed rgba(168, 85, 247, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        background: rgba(255,255,255,0.03);
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+        animation: pulseOrbit 3s infinite ease-in-out;
+    }
+
+    @keyframes pulseOrbit {
+        0% { transform: scale(1) rotate(0deg); border-color: rgba(168, 85, 247, 0.4); }
+        50% { transform: scale(1.05) rotate(180deg); border-color: rgba(236, 72, 153, 0.6); }
+        100% { transform: scale(1) rotate(360deg); border-color: rgba(168, 85, 247, 0.4); }
+    }
+
+    /* CARD BACK (Front of Tarot Card - Face Up) */
+    .card-back {
+        background: white;
+        transform: rotateY(180deg);
+        text-align: left;
+    }
+
+    .card-back.lovers { border-color: #EC4899; background: linear-gradient(180deg, #FFF0F2 0%, #FFFFFF 100%); }
+    .card-back.star { border-color: #38BDF8; background: linear-gradient(180deg, #E0F2FE 0%, #FFFFFF 100%); }
+    .card-back.moon { border-color: #A855F7; background: linear-gradient(180deg, #F3E8FF 0%, #FFFFFF 100%); }
+
+    .card-title-badge {
+        font-size: 11px;
+        font-weight: 900;
+        padding: 4px 10px;
+        border-radius: 6px;
+        text-transform: uppercase;
+        width: fit-content;
+    }
+    
+    .lovers .card-title-badge { background: #FCE7F3; color: #EC4899; }
+    .star .card-title-badge { background: #E0F2FE; color: #0284C7; }
+    .moon .card-title-badge { background: #F3E8FF; color: #7E22CE; }
+
+    .card-art {
+        font-size: 70px;
+        text-align: center;
+        margin: 15px 0;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    }
+
+    .card-name {
+        font-size: 20px;
+        font-weight: 950;
+        color: #4A0008;
+        margin-bottom: 8px;
+    }
+
+    .card-forecast {
+        font-size: 13px;
+        color: #555;
+        line-height: 1.5;
+        font-weight: 500;
+        margin-bottom: 12px;
+        flex-grow: 1;
+    }
+
+    .card-stats {
+        border-top: 1px dashed rgba(0,0,0,0.08);
+        padding-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 800;
+        color: #888;
+    }
+
+    .card-stats strong {
+        color: #4A0008;
+    }
+
+    /* === ACTIONS === */
+    .tarot-actions {
+        margin-top: 40px;
+        margin-bottom: 60px;
+    }
+
+    .btn-tarot {
+        background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+        color: white;
+        border: none;
+        padding: 16px 35px;
+        border-radius: 50px;
+        font-size: 16px;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(168, 85, 247, 0.3);
+        transition: 0.3s;
+    }
+    .btn-tarot:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 30px rgba(168, 85, 247, 0.4);
+    }
+    .btn-tarot:active { transform: translateY(0); }
+</style>
+
+<div class="tarot-wrapper">
+    <div class="tarot-header">
+        <div class="tarot-badge">🔮 COSMIC PREDICTIONS</div>
+        <h1>Love <span>Tarot Deck Drawer</span></h1>
+        <p>Align your celestial dating coordinates. Focus your energy on your crush or dating intent, and click to draw three cards representing your romantic Past, Present, and Future.</p>
+    </div>
+
+    <!-- === TAROT DECK === -->
+    <div class="deck-container">
+        <!-- Card 1: Past -->
+        <div class="tarot-card" onclick="drawCard(this, 1)">
+            <div class="card-face card-front">
+                <div class="design-circle">🌟</div>
+                <div style="font-weight: 900; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;">Past Vibe</div>
+                <div style="font-size: 10px; opacity: 0.7;">Click to reveal</div>
+            </div>
+            <div class="card-face card-back lovers">
+                <div class="card-title-badge">Past Influence</div>
+                <div class="card-art">💘</div>
+                <div>
+                    <div class="card-name">The Lovers</div>
+                    <div class="card-forecast">A strong emotional alignment or choice in your recent past paved the way for deep mutual matches. Trust your intuitive attraction.</div>
+                </div>
+                <div class="card-stats">
+                    <div>🔥 Love Score: <strong>98%</strong></div>
+                    <div>🪐 Chemistry Elements: <strong>Fire & Air</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Present -->
+        <div class="tarot-card" onclick="drawCard(this, 2)">
+            <div class="card-face card-front">
+                <div class="design-circle">✨</div>
+                <div style="font-weight: 900; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;">Present Vibe</div>
+                <div style="font-size: 10px; opacity: 0.7;">Click to reveal</div>
+            </div>
+            <div class="card-face card-back star">
+                <div class="card-title-badge">Present Energy</div>
+                <div class="card-art">✨</div>
+                <div>
+                    <div class="card-name">The Star</div>
+                    <div class="card-forecast">A phase of hope, algorithmic favor, and positive cosmic synergy. Comrades are viewing you as a glowing beacon on the swipe deck right now!</div>
+                </div>
+                <div class="card-stats">
+                    <div>⚡ Attraction Index: <strong>94%</strong></div>
+                    <div>💎 Lucky MBTI: <strong>INFJ / ENFP</strong></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Future -->
+        <div class="tarot-card" onclick="drawCard(this, 3)">
+            <div class="card-face card-front">
+                <div class="design-circle">🌙</div>
+                <div style="font-weight: 900; font-size: 14px; letter-spacing: 1px; text-transform: uppercase;">Future Path</div>
+                <div style="font-size: 10px; opacity: 0.7;">Click to reveal</div>
+            </div>
+            <div class="card-face card-back moon">
+                <div class="card-title-badge">Future Path</div>
+                <div class="card-art">🌙</div>
+                <div>
+                    <div class="card-name">The Moon</div>
+                    <div class="card-forecast">Expect flirty mysteries and sudden matching revelations. A secret crush is brewing anonymously under the cover of library study sessions.</div>
+                </div>
+                <div class="card-stats">
+                    <div>🔮 Synergy Rate: <strong>89%</strong></div>
+                    <div>📍 Best Spot: <strong>Library Courtyard</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ACTIONS === -->
+    <div class="tarot-actions">
+        <button class="btn-tarot" onclick="resetTarot()">Reshuffle Tarot Deck 🔮</button>
+    </div>
+</div>
+
+<script>
+    let drawnCount = 0;
+
+    function drawCard(cardElement, index) {
+        if (cardElement.classList.contains('flipped')) return;
+        
+        cardElement.classList.add('flipped');
+        drawnCount++;
+
+        // Trigger subtle screen buzz if on mobile
+        if (navigator.vibrate) {
+            navigator.vibrate([30, 50, 30]);
+        }
+
+        if (drawnCount === 3) {
+            setTimeout(() => {
+                alert("✨ The Celestial alignment is complete! \n\nYour Past, Present, and Future romantic orbits are fully calibrated. Keep matching to manifest your star signs!");
+            }, 900);
+        }
+    }
+
+    function resetTarot() {
+        document.querySelectorAll('.tarot-card').forEach(card => {
+            card.classList.remove('flipped');
+        });
+        drawnCount = 0;
+    }
+</script>
+{% endblock %}
