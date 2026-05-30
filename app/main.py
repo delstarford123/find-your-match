@@ -1451,6 +1451,82 @@ def matches(partner_id=None):
                            messages_left=messages_left)           # Pass progress to UI    
         
         
+@app.context_processor
+def utility_processor():
+    def get_music_embed_info(url):
+        if not url:
+            return None
+        url = url.strip()
+        
+        # 1. Spotify parsing
+        if 'spotify.com' in url:
+            parts = url.split('/')
+            for i, part in enumerate(parts):
+                if part in ['track', 'playlist', 'album', 'artist'] and i + 1 < len(parts):
+                    item_id = parts[i+1].split('?')[0]
+                    return {
+                        'type': 'spotify',
+                        'embed_url': f"https://open.spotify.com/embed/{part}/{item_id}",
+                        'original_url': url,
+                        'icon': '🟢'
+                    }
+                    
+        # 2. YouTube parsing
+        if 'youtube.com' in url or 'youtu.be' in url:
+            video_id = None
+            playlist_id = None
+            
+            # YouTube playlist
+            if 'list=' in url:
+                import urllib.parse as urlparse
+                parsed = urlparse.urlparse(url)
+                params = urlparse.parse_qs(parsed.query)
+                playlist_id = params.get('list', [None])[0]
+                if playlist_id:
+                    return {
+                        'type': 'youtube',
+                        'embed_url': f"https://www.youtube.com/embed/videoseries?list={playlist_id}",
+                        'original_url': url,
+                        'icon': '🔴'
+                    }
+                    
+            # YouTube shorts
+            if '/shorts/' in url:
+                parts = url.split('/shorts/')
+                if len(parts) > 1:
+                    video_id = parts[1].split('?')[0].split('/')[0]
+                    
+            # Regular watch link
+            elif 'v=' in url:
+                import urllib.parse as urlparse
+                parsed = urlparse.urlparse(url)
+                params = urlparse.parse_qs(parsed.query)
+                video_id = params.get('v', [None])[0]
+                
+            # Short links
+            elif 'youtu.be/' in url:
+                parts = url.split('youtu.be/')
+                if len(parts) > 1:
+                    video_id = parts[1].split('?')[0].split('/')[0]
+                    
+            if video_id:
+                return {
+                    'type': 'youtube',
+                    'embed_url': f"https://www.youtube.com/embed/{video_id}",
+                    'original_url': url,
+                    'icon': '🔴'
+                }
+                
+        # Generic/Unsupported link fallback
+        return {
+            'type': 'generic',
+            'embed_url': None,
+            'original_url': url,
+            'icon': '🎵'
+        }
+        
+    return dict(get_music_embed_info=get_music_embed_info)
+
         
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required

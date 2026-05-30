@@ -242,6 +242,73 @@
                 {{ student.bio or "This student is keeping it mysterious... for now!" }}
             </div>
 
+            <!-- === CAMPUS MIXTAPE ANTHEM === -->
+            {% if student.spotify_playlist %}
+                {% set music = get_music_embed_info(student.spotify_playlist) %}
+                {% if music %}
+                <div style="background: linear-gradient(135deg, #111 0%, #1e1e1e 100%); border: 1px solid #333; border-radius: 24px; padding: clamp(15px, 4vw, 20px); margin-bottom: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); position: relative; overflow: hidden;">
+                    <!-- Ambient glows -->
+                    <div style="position: absolute; top: -50px; right: -50px; width: 120px; height: 120px; border-radius: 50%; background: {% if music.type == 'spotify' %}rgba(29, 185, 84, 0.15){% else %}rgba(255, 0, 0, 0.15){% endif %}; filter: blur(30px); pointer-events: none;"></div>
+                    
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid #2a2a2a; padding-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">{{ music.icon }}</span>
+                            <span style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #aaa; letter-spacing: 1px;">
+                                {% if music.type == 'spotify' %}Spotify Mixtape{% else %}YouTube Anthem{% endif %}
+                            </span>
+                        </div>
+                        {% if student.spotify_anthem %}
+                        <div style="font-size: 12px; font-weight: 800; color: #fff; background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 12px; border: 1px solid #444; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            🎵 {{ student.spotify_anthem }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if music.embed_url %}
+                        <div style="border-radius: 14px; overflow: hidden; background: #000; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+                            {% if music.type == 'spotify' %}
+                                <iframe style="border-radius:0; border: none; display: block;" src="{{ music.embed_url }}" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                            {% else %}
+                                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="{{ music.embed_url }}" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <!-- Fallback link if url isn't embeddable -->
+                        <div style="background: rgba(255,255,255,0.03); border: 1px dashed #444; border-radius: 14px; padding: 20px; text-align: center;">
+                            <div style="font-size: 28px; margin-bottom: 8px;">🔗</div>
+                            <div style="font-size: 13px; color: #ccc; font-weight: 600; margin-bottom: 12px;">Dating anthem link shared by student</div>
+                        </div>
+                    {% endif %}
+
+                    {% if music.type == 'spotify' %}
+                    <!-- Premium Login Prompt and Direct CTA -->
+                    <div style="margin-top: 15px; background: rgba(29, 185, 84, 0.08); border: 1px solid rgba(29, 185, 84, 0.15); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; align-items: stretch;">
+                        <p style="margin: 0; font-size: 11px; color: #1DB954; font-weight: 600; line-height: 1.4; text-align: center;">
+                            💡 <strong>Vibe Check Tip</strong>: Spotify embeds play a 30s preview unless you are logged into Spotify in this browser. Tap play and log in, or click below to play full song in your Spotify app!
+                        </p>
+                        <a href="{{ music.original_url }}" target="_blank" style="background: #1DB954; color: white; border: none; padding: 10px; border-radius: 10px; text-decoration: none; font-weight: 900; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3); transition: 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            ▶️ Open in Spotify App
+                        </a>
+                    </div>
+                    {% elif music.type == 'youtube' %}
+                    <div style="margin-top: 12px;">
+                        <a href="{{ music.original_url }}" target="_blank" style="background: #FF0000; color: white; border: none; padding: 10px; border-radius: 10px; text-decoration: none; font-weight: 900; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3); transition: 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            ▶️ Play in YouTube App
+                        </a>
+                    </div>
+                    {% else %}
+                    <div style="margin-top: 12px;">
+                        <a href="{{ music.original_url }}" target="_blank" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 10px; border-radius: 10px; text-decoration: none; font-weight: 900; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 15px rgba(230,0,38,0.25); transition: 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            ▶️ Listen to Anthem
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endif %}
+
             {% if daily_qa %}
             <div style="background: #F0F9FF; border: 2px solid #BAE6FD; border-radius: 20px; padding: 20px; margin-bottom: 25px; position: relative; overflow: hidden;">
                 <div style="position: absolute; top: -10px; right: -10px; font-size: 40px; opacity: 0.1; transform: rotate(15deg);">💡</div>

@@ -16,7 +16,7 @@
       }
     },
 
-    // --- ⚡ Real-Time Event Presence ---
+    
     "party_participants": {
       ".read": true,
       "$user_id": {
@@ -26,9 +26,7 @@
       ".indexOn": ["joined_at"]
     },
 
-    // ========================================================
-    // PERFORMANCE INDEXES & PROFILE ACCESS
-    // ========================================================
+
     "profiles": {
       ".read": "auth != null",
       ".indexOn": [
