@@ -3866,7 +3866,8 @@ def handle_message(data):
     except Exception as e:
         logger.error(f"Shadowban check failed: {e}")
 
-    # 2. VALIDATION: Prevent empty ghost messages    receiver_id = data.get('receiver_id')
+    # 2. VALIDATION: Prevent empty ghost messages
+    receiver_id = data.get('receiver_id')
     msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
     temp_id = data.get('temp_id') # Crucial for the ✓✓ frontend confirmation
