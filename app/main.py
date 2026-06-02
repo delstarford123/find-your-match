@@ -224,7 +224,8 @@ def get_real_system_stats():
         if isinstance(all_profiles, dict):
             for p_data in all_profiles.values():
                 if isinstance(p_data, dict) and p_data.get('is_paid'):
-                    real_student_revenue += 50
+                    package = p_data.get('subscription_package', 'gold')
+                    real_student_revenue += 99 if package == 'diamond' else 50
                     
         # Calculate B2B Revenue from ledger
         if isinstance(all_ledger, dict):
@@ -414,7 +415,7 @@ def requires_diamond_subscription(f):
             return render_template('paywall.html') 
 
         if package != 'diamond':
-            flash("💎 Upgrade to the Diamond Package (100 KSH/month) to access this premium feature!", "info")
+            flash("💎 Upgrade to the Diamond Package (99 KSH/month) to access this premium feature!", "info")
             return render_template('paywall.html')
             
         return f(*args, **kwargs)
@@ -3472,7 +3473,7 @@ def pay_student_fee():
 
     # Determine amount and description based on selected package
     if selected_package == 'diamond':
-        amount = 100
+        amount = 99
         package_name = 'diamond'
         desc = "Diamond Match"
     else:

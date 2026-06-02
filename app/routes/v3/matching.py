@@ -40,7 +40,7 @@ def requires_diamond_subscription_api(f):
             return jsonify({
                 "success": False, 
                 "status": "error", 
-                "message": "💎 Upgrade to the Diamond Package (100 KSH/month) to access this premium feature!"
+                "message": "💎 Upgrade to the Diamond Package (99 KSH/month) to access this premium feature!"
             }), 403
             
         return f(*args, **kwargs)

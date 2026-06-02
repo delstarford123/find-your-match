@@ -402,11 +402,11 @@
                 <p class="package-desc">Standard access to swipe deck, chatting, auto-matching, WebRTC calls & secrets gossip board.</p>
             </div>
             
-            <div class="package-card" data-package="diamond" data-amount="100" onclick="selectPackage(this)">
+            <div class="package-card" data-package="diamond" data-amount="99" onclick="selectPackage(this)">
                 <div class="popular-tag">RECOMMENDED 💎</div>
                 <div class="package-header">
                     <span class="package-name">👑 Diamond Package</span>
-                    <span class="package-price">100 <small>KSH</small></span>
+                    <span class="package-price">99 <small>KSH</small></span>
                 </div>
                 <p class="package-desc">All Gold Features + **Priority exposure boost**, Monday match email, Lights Out lobby, Tarot matching & 15 other premium features.</p>
             </div>
@@ -571,7 +571,7 @@
 
         // 1. UI Loading State
         const selectedPackage = document.getElementById('selected-package').value;
-        const amount = selectedPackage === 'diamond' ? 100 : 50;
+        const amount = selectedPackage === 'diamond' ? 99 : 50;
         
         btnText.innerText = "Requesting M-Pesa...";
         spinner.style.display = "block";
@@ -673,7 +673,7 @@
         const manualText = document.getElementById('manual-check-text');
         
         const selectedPackage = document.getElementById('selected-package').value;
-        const amount = selectedPackage === 'diamond' ? 100 : 50;
+        const amount = selectedPackage === 'diamond' ? 99 : 50;
         
         btnText.innerText = `Pay KSH ${amount} to Unlock`;
         spinner.style.display = "none";

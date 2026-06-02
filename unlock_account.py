@@ -90,7 +90,7 @@ if __name__ == "__main__":
         elif target_email:
             print("\nSelect the subscription package to grant:")
             print("1. Gold Package (50 KSH)")
-            print("2. Diamond Package (100 KSH)")
+            print("2. Diamond Package (99 KSH)")
             package_choice = input("Enter choice (1 or 2, default is 1): ").strip()
             
             if package_choice == '2':
