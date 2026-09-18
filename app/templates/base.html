@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
-    <meta name="google-site-verification" content="o-FuWsUbs8Yoz8wQZSzgAoPlr_Pr-P5l4qCaEsZ-iw0" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="google-site-verification" content="z9m-dLab_TqQwDY6NGz_2npoG8Vu8FTanOFOYS3EV4I" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>FIND YOUR MATCH - Multi-Institution AI Dating</title>
-    
+    <title>FIND YOUR MATCH - Multi-Institution social site</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
 
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -27,583 +30,271 @@
 
 
     <link rel="apple-touch-icon" href="/static/img/icon-192.png">
-    
-    
-    <meta name="title" content="FIND YOUR MATCH | Multi-Institution AI Dating">
-    <meta name="description" content="Connect with students across all institutions. We use AI to sync schedules, match aesthetics, and align vibes for verified campus dating in Kenya.">
-    
+
+
+    <meta name="title" content="FIND YOUR MATCH | Multi-Institution social site">
+    <meta name="description"
+        content="Connect with students across all institutions. We use AI to sync schedules, match aesthetics, and align vibes for verified campus social network in Kenya.">
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
-    <meta property="og:title" content="Find Your Match - Cross-Institution Dating AI">
-    <meta property="og:description" content="Join the most advanced dating network for students in Kenya. AI-powered matching, schedule syncing, and more!">
+    <meta property="og:title" content="Find Your Match - Multi-Institution social site">
+    <meta property="og:description"
+        content="Join the most advanced social network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta property="og:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="{{ request.url }}">
-    <meta property="twitter:title" content="Find Your Match - Cross-Institution Dating AI">
-    <meta property="twitter:description" content="Join the most advanced dating network for students in Kenya. AI-powered matching, schedule syncing, and more!">
+    <meta property="twitter:title" content="Find Your Match - Multi-Institution social site">
+    <meta property="twitter:description"
+        content="Join the most advanced social network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta property="twitter:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
-    
 
-    <style>
-        /* === GLOBAL CSS VARIABLES === */
-        :root {
-            --primary: #E60026;
-            --primary-light: #FFD6DD;
-            --secondary: #720000;
-            --secondary-dark: #4A0008;
-            --text-dark: var(--secondary-dark);
-            --bg-color: #FEF2F4;
-            --nav-height: 70px;
-            /* Safe area variables for iPhone notches and home bars */
-            --safe-top: env(safe-area-inset-top, 0px);
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --safe-left: env(safe-area-inset-left, 0px);
-            --safe-right: env(safe-area-inset-right, 0px);
-        }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
-        /* ONE-FINGER SCROLL FIX & ZOOM PREVENTION */
-        html, body {
-            -webkit-tap-highlight-color: transparent; 
-            -webkit-text-size-adjust: 100%; 
-            touch-action: manipulation; 
-        }
+    <!-- FIREBASE GLOBAL REALTIME ENGINE (Replaces Socket.IO) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDUgNemh6L12y45b1kFZxAgsspwygvgkGc",
+            authDomain: "mmust-dating-site.firebaseapp.com",
+            databaseURL: "https://mmust-dating-site-default-rtdb.firebaseio.com",
+            projectId: "mmust-dating-site",
+            storageBucket: "mmust-dating-site.firebasestorage.app",
+            messagingSenderId: "572096461211",
+            appId: "1:572096461211:web:e38b542343ac8e4eca893e",
+            measurementId: "G-YDFCFRS3HW"
+        };
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        const fdb = firebase.database();
+        let messaging = null;
+        try {
+            if (firebase.messaging.isSupported()) {
+                messaging = firebase.messaging();
 
-        body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            background-color: var(--bg-color);
-            color: var(--text-dark);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh; 
-            min-height: 100dvh; 
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            overflow-x: hidden; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-        }
+                // Request permission and get token
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        messaging.getToken({ vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' }).then((currentToken) => {
+                            if (currentToken) {
+                                // Send the token to your server
+                                fetch('/api/save_fcm_token', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ fcm_token: currentToken })
+                                }).catch(err => console.error("FCM Token save failed:", err));
+                            }
+                        }).catch((err) => {
+                            console.log('An error occurred while retrieving token. ', err);
+                        });
+                    }
+                });
 
-        /* PREMIUM APP SCROLLBARS */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(114, 0, 0, 0.2); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(114, 0, 0, 0.4); }
-
-        /* Prevents iOS from auto-zooming on inputs */
-        input, select, textarea { font-size: 16px !important; font-family: inherit; }
-
-        /* === 🎬 SKIPPABLE AD SYSTEM === */
-        .ad-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(11, 17, 32, 0.98); z-index: 999999;
-            display: none; justify-content: center; align-items: center;
-            backdrop-filter: blur(15px); padding: 20px;
-        }
-        .ad-content {
-            position: relative; width: 100%; max-width: 500px; text-align: center;
-            animation: adPopIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        #ad-media-container {
-            width: 100%; border-radius: 24px; overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            background: #1e293b; border: 1px solid rgba(255,255,255,0.1);
-        }
-        #ad-media-container img, #ad-media-container video {
-            width: 100%; height: auto; max-height: 70vh; display: block; object-fit: contain;
-        }
-        .ad-learn-more {
-            display: inline-block; margin-top: 20px; padding: 14px 28px;
-            background: #38bdf8; color: #0f172a; text-decoration: none;
-            font-weight: 900; border-radius: 14px; font-size: 16px;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);
-        }
-        .ad-learn-more:hover { transform: scale(1.05); background: #7dd3fc; }
-        .skip-btn {
-            position: absolute; bottom: -80px; right: 0;
-            background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1); padding: 12px 24px;
-            border-radius: 16px; font-weight: 700; cursor: not-allowed;
-            transition: all 0.3s ease;
-        }
-        .skip-btn.active {
-            background: #ef4444; color: white; border-color: #ef4444;
-            cursor: pointer; box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
-        }
-        @keyframes adPopIn { 
-            0% { opacity: 0; transform: scale(0.9) translateY(20px); } 
-            100% { opacity: 1; transform: scale(1) translateY(0); } 
-        }
-
-        /* === 🚨 BULLETPROOF NAVBAR FIX 🚨 === */
-        header {
-            position: relative;
-            z-index: 99990; 
-        }
-
-        .navbar {
-            position: fixed !important; 
-            top: 0; left: 0; right: 0;
-            height: calc(var(--nav-height) + var(--safe-top));
-            padding-top: var(--safe-top);
-            background: linear-gradient(135deg, rgba(114, 0, 0, 0.95) 0%, rgba(230, 0, 38, 0.95) 100%);
-            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            display: flex; justify-content: space-between; align-items: center;
-            /* Fluid padding to prevent crushing on small screens */
-            padding-left: max(clamp(10px, 4vw, 30px), var(--safe-left)); 
-            padding-right: max(clamp(10px, 4vw, 30px), var(--safe-right));
-            z-index: 100000 !important; 
-            box-shadow: 0 4px 25px rgba(114, 0, 0, 0.35); 
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            pointer-events: auto !important;
-        }
-        
-        .nav-left-group { display: flex; align-items: center; gap: clamp(10px, 2vw, 30px); }
-        
-        .logo {
-            font-weight: 900; font-size: clamp(14px, 3.5vw, 20px); 
-            color: white; text-decoration: none; letter-spacing: -0.5px;
-            display: flex; align-items: center; gap: clamp(4px, 1vw, 8px);
-            text-shadow: 0 2px 4px rgba(74, 0, 8, 0.4); 
-            z-index: 100000; white-space: nowrap;
-        }
-        
-        .nav-links { display: flex; align-items: center; gap: clamp(15px, 2vw, 25px); z-index: 100000; height: 100%; }
-        .nav-links > a {
-            text-decoration: none; color: rgba(255, 255, 255, 0.9);
-            font-weight: 600; font-size: 15px; transition: all 0.2s;
-            padding: 10px 0; 
-            display: flex; align-items: center;
-        }
-        .nav-links > a:hover { color: white; transform: translateY(-1px); }
-        
-        /* === UPGRADED DROPDOWN MENUS (DESKTOP) === */
-        .dropdown { 
-            position: relative; display: flex; align-items: center; 
-            z-index: 100000; height: 100%; 
-        }
-        
-        /* The Invisible Bridge to fix the Hover Dead Zone */
-        .dropdown::after {
-            content: ''; position: absolute; top: 100%; left: 0; width: 100%; height: 20px;
-        }
-
-        .dropbtn {
-            background: none; border: none; cursor: pointer;
-            color: rgba(255, 255, 255, 0.9); font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
-            display: flex; align-items: center; gap: 5px; transition: 0.2s; padding: 25px 0; height: 100%;
-        }
-        
-        .dropdown-content {
-            display: none; position: absolute; top: calc(100% - 5px); left: 0;
-            background-color: white; min-width: 240px;
-            box-shadow: 0 15px 35px rgba(114, 0, 0, 0.15);
-            border-radius: 16px; z-index: 100001; 
-            border: 1px solid var(--primary-light); 
-            animation: fadeIn 0.2s ease-out; padding: 10px 0;
-        }
-        
-        /* Desktop trigger: both hover OR click will open it */
-        @media (hover: hover) {
-            .dropbtn:hover { color: white; }
-            .dropdown:hover .dropdown-content { display: block; }
-        }
-        .dropdown.active .dropdown-content { display: block; } /* Click support */
-        
-        .dropdown-content a {
-            color: var(--text-dark) !important; padding: 12px 20px;
-            text-decoration: none; display: block; 
-            font-size: 14px; font-weight: 600; position: relative; z-index: 100002;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .dropdown-content a:hover {
-            background-color: #FEF2F4; color: var(--primary) !important;
-            padding-left: 28px;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        /* === CTA BUTTONS === */
-        .nav-right-actions { display: flex; align-items: center; gap: 15px; z-index: 100000; }
-        .btn-nav {
-            background: white; color: var(--secondary) !important;
-            padding: 10px 20px; border-radius: 30px; font-weight: 800 !important;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none;
-            box-shadow: 0 4px 10px rgba(114, 0, 0, 0.15); white-space: nowrap;
-        }
-        .btn-nav:hover {
-            transform: translateY(-2px); box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25);
-            color: var(--primary) !important;
-        }
-
-        /* === MOBILE MENU TOGGLE & OVERLAY === */
-        .mobile-menu-btn {
-            display: none; font-size: 26px; background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.3); 
-            color: white !important; cursor: pointer !important; z-index: 1000010 !important; 
-            transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 44px; height: 44px; 
-            align-items: center; justify-content: center; border-radius: 12px;
-            pointer-events: auto !important;
-        }
-        .mobile-menu-btn:active { transform: scale(0.9) rotate(5deg); background: rgba(255,255,255,0.25); }
-        
-        .mobile-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-            z-index: 99995; 
-            opacity: 0; visibility: hidden; transition: 0.3s;
-        }
-        .mobile-overlay.active { opacity: 1; visibility: visible; }
-
-        /* === MOBILE MENU STYLES === */
-        @media (max-width: 900px) {
-            .mobile-menu-btn { display: flex; }
-            .nav-left-group { width: 100%; justify-content: space-between; }
-            .nav-right-actions { display: none; }
-            
-            .nav-links {
-                position: fixed; top: calc(var(--nav-height) + var(--safe-top)); left: 0; right: 0;
-                background: white; flex-direction: column; 
-                padding: 10px 25px max(40px, var(--safe-bottom)); 
-                box-shadow: 0 15px 30px rgba(114, 0, 0, 0.2);
-                transform: translateY(-150%);
-                transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                z-index: 99998; align-items: flex-start; height: auto;
-                overflow-y: auto; max-height: calc(100dvh - var(--nav-height) - var(--safe-top));
-                border-bottom-left-radius: 24px; border-bottom-right-radius: 24px;
+                messaging.onMessage((payload) => {
+                    console.log('Message received. ', payload);
+                    // You can show a custom toast here if you like
+                });
             }
-            .nav-links.active { transform: translateY(0); }
-            
-            .nav-links > a, .dropdown { width: 100%; border-bottom: 1px solid #f0f0f0; height: auto;}
-            
-            .nav-links > a, .dropbtn {
-                color: var(--text-dark) !important; text-align: left; 
-                padding: 18px 0; font-size: 17px; display: flex; 
-                justify-content: space-between; width: 100%;
+        } catch (e) {
+            console.warn("Firebase Messaging not fully configured or supported.", e);
+        }
+
+        {% if session.get('user_id') %}
+        // === FIREBASE PRESENCE SYSTEM ===
+        const myUserIdStr = "{{ session.get('user_id') }}";
+        const userStatusRef = fdb.ref('/profiles/' + myUserIdStr + '/is_online');
+        const userLastActiveRef = fdb.ref('/profiles/' + myUserIdStr + '/last_active');
+
+        fdb.ref('.info/connected').on('value', function(snapshot) {
+            if (snapshot.val() === false) {
+                return;
             }
-            
-            .dropdown-content {
-                position: static; box-shadow: none; border: none; padding: 0 0 10px 15px;
-                display: none; border-radius: 0; background: transparent; 
-                margin-top: 0; width: 100%; animation: none;
-            }
-            .dropdown-content a { padding: 14px 15px; font-size: 15px; border-bottom: 1px solid rgba(0,0,0,0.05); }
-            .dropdown-content a:last-child { border-bottom: none; }
-            .dropdown.active .dropdown-content { display: block; }
-            
-            .mobile-auth-btn { 
-                background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%) !important; 
-                color: white !important; text-align: center !important; border-radius: 14px; 
-                margin-top: 25px; border: none !important; justify-content: center !important;
-                padding: 16px !important; font-weight: 800; font-size: 16px;
-                box-shadow: 0 8px 20px rgba(230, 0, 38, 0.2); display: none; width: 100%;
-            }
-            .mobile-only-link { border-bottom: none !important; color: var(--primary) !important; font-weight: 800 !important; padding-bottom: 0 !important; display: none; width: 100%; justify-content: center;}
-        }
-
-        /* === WORLD-CLASS GLASSMORPHISM BOTTOM NAV === */
-        .mobile-bottom-nav {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: calc(70px + var(--safe-bottom));
-            background: rgba(114, 0, 0, 0.45);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
-            z-index: 99999;
-            justify-content: space-around;
-            align-items: center;
-            padding-bottom: var(--safe-bottom);
-            box-shadow: 0 -8px 32px 0 rgba(0, 0, 0, 0.35);
-        }
-
-        @media (max-width: 900px) {
-            .mobile-bottom-nav { display: flex; }
-            footer { padding-bottom: calc(90px + var(--safe-bottom)) !important; }
-            .support-trigger-btn { bottom: calc(85px + var(--safe-bottom)) !important; }
-        }
-
-        .mobile-nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-decoration: none;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 10px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: 0.3s;
-        }
-
-        .mobile-nav-item span { font-size: 24px; margin-bottom: 2px; }
-        .mobile-nav-item:hover, .mobile-nav-item.active { color: white; transform: translateY(-3px); }
-
-        /* === FLOATING TOAST NOTIFICATIONS === */
-        .toast-container { 
-            position: fixed; top: calc(var(--nav-height) + var(--safe-top) + 15px); right: 15px; left: 15px; 
-            z-index: 100010; 
-            display: flex; flex-direction: column; gap: 10px; pointer-events: none; 
-        }
-        @media (min-width: 600px) { .toast-container { left: auto; max-width: 400px; right: 20px; } }
-        
-        .alert {
-            padding: 16px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
-            box-shadow: 0 10px 30px rgba(74, 0, 8, 0.25); animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            display: flex; align-items: center; justify-content: space-between; pointer-events: auto; line-height: 1.4;
-        }
-        .alert-success { background: white; color: #155724; border-left: 6px solid #28a745; }
-        .alert-error, .alert-danger { background: white; color: #721c24; border-left: 6px solid var(--primary); }
-        .alert-warning { background: white; color: #856404; border-left: 6px solid #ffc107; }
-        .alert-info { background: white; color: #0c5460; border-left: 6px solid #17a2b8; }
-        
-        .close-toast { background: none; border: none; font-size: 22px; cursor: pointer; color: inherit; opacity: 0.4; margin-left: 15px; padding: 0 5px; min-width: 30px; min-height: 30px; display: flex; align-items: center; justify-content: center;}
-        .close-toast:hover { opacity: 1; }
-
-        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes slideOut { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-        /* === MAIN CONTENT === */
-        .container { 
-            flex: 1; width: 100%; max-width: 1200px; 
-            margin: calc(var(--nav-height) + var(--safe-top)) auto 0; 
-            padding: 0 max(15px, var(--safe-left)) 0 max(15px, var(--safe-right)); 
-            position: relative; z-index: 10; 
-        }
-
-        /* === 📲 PROFESSIONAL PWA INSTALL OVERLAY === */
-        .pwa-install-overlay {
-            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); 
-            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            z-index: 200000; display: none; align-items: center; justify-content: center;
-            padding: 20px; animation: fadeInModal 0.4s ease;
-        }
-        .pwa-install-card {
-            background: white; width: 100%; max-width: 400px; border-radius: 32px;
-            padding: 40px 30px; text-align: center; position: relative;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.5); border: 1px solid #FFD6DD;
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .pwa-close {
-            position: absolute; top: 20px; right: 20px; background: #f1f5f9;
-            border: none; width: 36px; height: 36px; border-radius: 50%;
-            font-size: 20px; font-weight: bold; color: #64748b; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; transition: 0.2s;
-        }
-        .pwa-close:hover { background: #fee2e2; color: #ef4444; }
-        
-        .pwa-icon-wrap {
-            width: 80px; height: 80px; margin: 0 auto 25px; border-radius: 20px;
-            overflow: hidden; box-shadow: 0 10px 25px rgba(230,0,38,0.2);
-            border: 2px solid #FEF2F4;
-        }
-        .pwa-icon-wrap img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .pwa-install-card h3 { font-size: 24px; font-weight: 900; color: #720000; margin-bottom: 12px; letter-spacing: -0.5px; }
-        .pwa-install-card p { color: #666; font-size: 15px; line-height: 1.6; margin-bottom: 30px; }
-        
-        .pwa-actions { display: flex; flex-direction: column; gap: 12px; }
-        .btn-pwa-install {
-            background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-            color: white; border: none; padding: 16px; border-radius: 14px;
-            font-size: 16px; font-weight: 900; cursor: pointer;
-            box-shadow: 0 8px 20px rgba(230,0,38,0.25); transition: transform 0.2s;
-        }
-        .btn-pwa-install:active { transform: scale(0.97); }
-        .btn-pwa-later {
-            background: transparent; color: #64748b; border: 1px solid #e2e8f0;
-            padding: 12px; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer;
-        }
-        .btn-pwa-later:hover { background: #f8fafc; color: #1e293b; }
-
-        /* === SUPPORT BUTTON === */
-        .support-trigger-btn {
-            position: fixed; bottom: max(20px, var(--safe-bottom)); right: max(20px, var(--safe-right)); 
-            background: #E60026; color: white; border: none; border-radius: 50px; 
-            padding: 8px 16px; cursor: pointer; box-shadow: 0 4px 15px rgba(230,0,38,0.4); 
-            z-index: 99990; font-weight: 800; font-size: 13px; transition: all 0.2s ease;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .support-trigger-btn:hover { transform: scale(1.05); background: #720000; }
-
-        /* === FOOTER === */
-        footer { 
-            background: var(--secondary-dark); color: white; text-align: center; 
-            padding: 40px 20px calc(40px + var(--safe-bottom)); 
-            margin-top: auto; position: relative; z-index: 10;
-        }
-        footer p { font-size: 14px; opacity: 0.9; margin: 0; }
-        
-        .footer-partner-link {
-            display: inline-block; color: var(--primary-light); text-decoration: none;
-            font-weight: 800; font-size: 13px; border: 1.5px solid rgba(255, 214, 221, 0.4);
-            padding: 12px 25px; border-radius: 30px; margin-top: 25px; transition: all 0.3s;
-        }
-        .footer-partner-link:hover { background: white; border-color: white; color: var(--secondary); transform: translateY(-2px); }
-
-        /* ========================================== */
-        /* MOBILE PERFORMANCE MASTER PATCH */
-        /* ========================================== */
-        .card, .btn-action, .crush-modal-content, .referral-card, .bell-popover {
-            will-change: transform, opacity;
-            transform: translateZ(0); -webkit-transform: translateZ(0);
-            backface-visibility: hidden; -webkit-backface-visibility: hidden;
-            perspective: 1000px;
-        }
-
-        @media (max-width: 768px) {
-            #match-overlay, .crush-modal, #supportModalOverlay {
-                backdrop-filter: blur(5px);
-                -webkit-backdrop-filter: blur(5px);
-                background: rgba(0, 0, 0, 0.8) !important;
-            }
-            .card * { box-shadow: none !important; }
-        }
-
-        #shimmer, .img-gradient { pointer-events: none; }
-        
-        /* === SUPPORT MODAL STYLES === */
-        .support-modal-overlay {
-            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-            z-index: 100020; align-items: center; justify-content: center;
-            padding: 15px; /* Ensures modal doesn't touch screen edges */
-            animation: fadeInModal 0.3s ease;
-        }
-        .support-modal-card {
-            background: white; padding: clamp(25px, 6vw, 40px) clamp(20px, 5vw, 30px); 
-            border-radius: 20px;
-            /* Fluid width ensures it perfectly fits small phones without scrolling */
-            width: min(100%, 420px); position: relative;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            border-top: 6px solid var(--primary);
-            max-height: calc(100dvh - 30px);
-            overflow-y: auto;
-        }
-        .close-modal-btn {
-            position: absolute; right: 15px; top: 15px; background: #f1f5f9;
-            border: none; width: 36px; height: 36px; border-radius: 50%;
-            font-size: 22px; font-weight: bold; color: #475569; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s ease;
-        }
-        @media (hover: hover) { .close-modal-btn:hover { background: #fee2e2; color: #ef4444; transform: rotate(90deg); } }
-        .close-modal-btn:active { transform: scale(0.9); }
-        
-        .support-input {
-            width: 100%; padding: 14px; border-radius: 12px; 
-            border: 2px solid #f0f0f0; background: #fafafa; 
-            font-family: inherit; font-size: 16px !important; /* NO ZOOM */
-            outline: none; transition: border-color 0.2s; font-weight: 600;
-        }
-        .support-input:focus { border-color: var(--primary); background: #fff; }
-
-        @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    </style>
+            // When I disconnect, set is_online to false
+            userStatusRef.onDisconnect().set(false).then(function() {
+                // When I connect, set is_online to true
+                userStatusRef.set(true);
+                // Also update last_active when I disconnect
+                userLastActiveRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+            });
+        });
+        {% endif %}
+    </script>
 </head>
+
 <body>
-    <div id="page-loader-bar" style="position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #E60026 0%, #38BDF8 50%, #EF4444 100%); z-index: 1000000; width: 0%; transition: width 0.4s ease, opacity 0.4s ease; opacity: 1; pointer-events: none; will-change: width, opacity; transform: translateZ(0);"></div>
+    <div id="page-loader-bar"
+        style="position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #E60026 0%, #38BDF8 50%, #EF4444 100%); z-index: 1000000; width: 0%; transition: width 0.4s ease, opacity 0.4s ease; opacity: 1; pointer-events: none; will-change: width, opacity; transform: translateZ(0);">
+    </div>
     <div id="dreamscape-bg"></div>
 
-<style>
-    /* The container sits perfectly in the back, locked to the screen */
-    #dreamscape-bg {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: -999; /* Deep in the background */
-        overflow: hidden;
-        pointer-events: none; /* VERY IMPORTANT: Lets users click through the background */
-        background: radial-gradient(circle at center, #0B1219 0%, #06090e 100%);
-        /* Hardware accelerated container */
-        transform: translateZ(0);
-        will-change: transform;
-    }
+    <!-- GLOBAL TOAST NOTIFICATION UI -->
+    <div id="global-toast-container"
+        style="position: fixed; top: 20px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;">
+    </div>
 
-    /* The styling for the image orbs */
-    .love-orb {
-        position: absolute;
-        border-radius: 50%;
-        background-size: cover;
-        background-position: center;
-        opacity: 0; /* Starts invisible so it can fade in */
-        
-        /* Adds a soft, romantic glowing edge */
-        box-shadow: 0 0 25px rgba(236, 72, 153, 0.2), inset 0 0 15px rgba(0,0,0,0.5);
-        
-        /* A slight vintage/warm filter to make the images look cinematic and precious */
-        filter: grayscale(10%) sepia(20%) contrast(1.1);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        
-        /* Hardware accelerated floating orbs */
-        will-change: transform, opacity;
-        transform: translate3d(0, 0, 0);
-    }
-</style>
-    
-<style>
-    /* === NAVIGATION ENHANCEMENTS === */
-    .logo-text {
-        font-size: 24px; 
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-        margin-right: 6px;
-    }
+    <style>
+        .toast-notification {
+            background: rgba(11, 18, 25, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 12px 16px;
+            width: 320px;
+            max-width: 90vw;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            cursor: pointer;
+            pointer-events: auto;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
-    /* Premium Dropdown Link Formatting */
-    .dropdown-content a.premium-nav-link {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        position: relative;
-        font-weight: 800;
-        color: #F8FAFC;
-    }
+        .toast-notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
 
-    /* The glowing notification dot for Wee Chat */
-    .pulse-dot {
-        width: 8px; 
-        height: 8px; 
-        background: #E60026; 
-        border-radius: 50%; 
-        box-shadow: 0 0 8px rgba(230, 0, 38, 0.6); 
-        animation: pulseDot 2s infinite;
-        margin-left: auto; /* Pushes the dot to the far right of the dropdown */
-    }
+        .toast-notification img {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #E60026;
+        }
 
-    @keyframes pulseDot { 
-        0%, 100% { opacity: 1; transform: scale(1); } 
-        50% { opacity: 0.5; transform: scale(1.3); } 
-    }
-</style>
+        .toast-content {
+            flex: 1;
+            overflow: hidden;
+        }
 
-<header>
-    <nav class="navbar" id="main-navbar">
-        <div class="nav-left-group">
-            <a href="{{ url_for('home') }}" class="logo">
-                <span class="logo-text">✨</span> FIND YOUR MATCH
-            </a>
-        </div>
-        
-        <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
+        .toast-title {
+            font-weight: 800;
+            font-size: 15px;
+            margin-bottom: 2px;
+            color: #F8FAFC;
+        }
 
-        <div class="nav-links" id="nav-links">
-            <a href="{{ url_for('home') }}">Home</a>
-            
-            {% if session.get('is_super_admin') %}
+        .toast-message {
+            font-size: 13px;
+            color: #94A3B8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+
+    <style>
+        /* The container sits perfectly in the back, locked to the screen */
+        #dreamscape-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -999;
+            /* Deep in the background */
+            overflow: hidden;
+            pointer-events: none;
+            /* VERY IMPORTANT: Lets users click through the background */
+            background: radial-gradient(circle at center, #0B1219 0%, #06090e 100%);
+            /* Hardware accelerated container */
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        /* The styling for the image orbs */
+        .love-orb {
+            position: absolute;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            /* Starts invisible so it can fade in */
+
+            /* Adds a soft, romantic glowing edge */
+            box-shadow: 0 0 25px rgba(236, 72, 153, 0.2), inset 0 0 15px rgba(0, 0, 0, 0.5);
+
+            /* A slight vintage/warm filter to make the images look cinematic and precious */
+            filter: grayscale(10%) sepia(20%) contrast(1.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+            /* Hardware accelerated floating orbs */
+            will-change: transform, opacity;
+            transform: translate3d(0, 0, 0);
+        }
+    </style>
+
+    <style>
+        /* === NAVIGATION ENHANCEMENTS === */
+        .logo-text {
+            font-size: 24px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            margin-right: 6px;
+        }
+
+        /* Premium Dropdown Link Formatting */
+        .dropdown-content a.premium-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            font-weight: 800;
+            color: #F8FAFC;
+        }
+
+        /* The glowing notification dot for Wee Chat */
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #E60026;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(230, 0, 38, 0.6);
+            animation: pulseDot 2s infinite;
+            margin-left: auto;
+            /* Pushes the dot to the far right of the dropdown */
+        }
+
+        @keyframes pulseDot {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.3);
+            }
+        }
+    </style>
+
+    <header>
+        <nav class="navbar" id="main-navbar">
+            <div class="nav-left-group">
+                <a href="{{ url_for('home') }}" class="logo">
+                    <span class="logo-text">✨</span> FIND YOUR MATCH
+                </a>
+            </div>
+
+            <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
+
+            <div class="nav-links" id="nav-links">
+                <a href="{{ url_for('home') }}">Home</a>
+
+                {% if session.get('is_super_admin') %}
                 <div class="dropdown">
                     <button class="dropbtn" onclick="toggleDropdown(this)">Admin ▾</button>
                     <div class="dropdown-content">
@@ -611,18 +302,19 @@
                         <a href="{{ url_for('super_admin') }}">Safety Controls</a>
                     </div>
                 </div>
-            {% endif %}
+                {% endif %}
 
-            {% if session.get('role') == 'business' %}
+                {% if session.get('role') == 'business' %}
                 <a href="{{ url_for('business_dashboard') }}">Merchant Portal</a>
                 <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
-            
-            {% elif session.get('user_id') %}
+
+                {% elif session.get('user_id') %}
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">Dating ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Social ▾</button>
                     <div class="dropdown-content">
                         <a href="{{ url_for('swipe') }}">🔥 Swipe & Match</a>
-                        <a href="{{ url_for('labs_dashboard') }}" style="color: #38bdf8 !important; font-weight: 800;">🛰️ Compatibility Radar</a>
+                        <a href="{{ url_for('labs_dashboard') }}"
+                            style="color: #38bdf8 !important; font-weight: 800;">🛰️ Compatibility Radar</a>
                         <a href="{{ url_for('tarot_dashboard') }}">🔮 Tarot & Zodiac Matches</a>
                         <a href="{{ url_for('ai_wingman') }}">🤖 AI Wingman Coach</a>
                         <a href="{{ url_for('discover_venues') }}">📍 Approved Date Spots</a>
@@ -636,7 +328,7 @@
                         <a href="{{ url_for('campus_feed') }}">📰 Campus News Feed</a>
                         <a href="{{ url_for('campus_gossip') }}">🤫 Secrets & Gossip Board</a>
                         <a href="{{ url_for('secret_admirer') }}">💘 Secret Crush Matching</a>
-                        <a href="{{ url_for('party') }}">🌙 Comrades Night Club</a>
+                        <a href="{{ url_for('party') }}">🌙 Comrades Club</a>
                         <a href="{{ url_for('leaderboard') }}">👑 Crush Leaderboard</a>
                     </div>
                 </div>
@@ -667,36 +359,37 @@
                         <a href="{{ url_for('safety') }}">🛡️ Safety & Emergency Center</a>
                     </div>
                 </div>
-                
+
                 <a href="{{ url_for('auth.logout') }}" class="mobile-auth-btn">Log Out</a>
-            {% else %}
+                {% else %}
                 <a href="{{ url_for('auth.login') }}" class="mobile-only-link">Log In</a>
                 <a href="{{ url_for('auth.signup') }}" class="mobile-auth-btn">Sign Up</a>
-            {% endif %}
-        </div>
+                {% endif %}
+            </div>
 
-        <div class="nav-right-actions">
-            {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
+            <div class="nav-right-actions">
+                {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
                 <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
-            {% else %}
-                <a href="{{ url_for('auth.login') }}" style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}"
+                    style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
                 <a href="{{ url_for('auth.signup') }}" class="btn-nav">Sign Up</a>
-            {% endif %}
-        </div>
-    </nav>
-    
-    <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
-</header>
+                {% endif %}
+            </div>
+        </nav>
+
+        <div class="mobile-overlay" id="mobile-overlay" onclick="toggleMenu()"></div>
+    </header>
     <div class="toast-container" id="toast-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">
-                  {{ message }}
-                  <button class="close-toast" onclick="closeToast(this)">&times;</button>
-              </div>
-            {% endfor %}
-          {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+            {{ message }}
+            <button class="close-toast" onclick="closeToast(this)">&times;</button>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
     </div>
 
@@ -706,7 +399,8 @@
             <div class="party-invite-card">
                 <div class="neon-badge">TONIGHT</div>
                 <h2>COMRADES NIGHT CLUB</h2>
-                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously? (Open every night except Friday)</p>
+                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously? (Open every night except
+                    Friday)</p>
                 <div class="invite-actions">
                     <button onclick="acceptParty()" class="btn-accept">ENTER CLUB 🔥</button>
                     <button onclick="closePartyInvite()" class="btn-close">Maybe Later</button>
@@ -718,27 +412,97 @@
 
         <style>
             .party-invite-overlay {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
-                display: flex; align-items: center; justify-content: center; z-index: 100020;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(8px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100020;
                 animation: fadeIn 0.5s ease;
             }
+
             .party-invite-card {
-                background: #111; border: 3px solid #f0f; border-radius: 30px;
-                padding: 40px 30px; width: 90%; max-width: 400px; text-align: center;
-                box-shadow: 0 0 50px rgba(255,0,255,0.4); position: relative;
+                background: #111;
+                border: 3px solid #f0f;
+                border-radius: 30px;
+                padding: 40px 30px;
+                width: 90%;
+                max-width: 400px;
+                text-align: center;
+                box-shadow: 0 0 50px rgba(255, 0, 255, 0.4);
+                position: relative;
             }
+
             .neon-badge {
-                position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
-                background: #0ff; color: #000; padding: 5px 15px; border-radius: 10px;
-                font-weight: 900; font-size: 12px; box-shadow: 0 0 15px #0ff;
+                position: absolute;
+                top: -15px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #0ff;
+                color: #000;
+                padding: 5px 15px;
+                border-radius: 10px;
+                font-weight: 900;
+                font-size: 12px;
+                box-shadow: 0 0 15px #0ff;
             }
-            .party-invite-card h2 { color: #fff; font-size: 28px; font-weight: 900; margin: 15px 0 10px; text-shadow: 0 0 10px #f0f; }
-            .party-invite-card p { color: #ccc; font-size: 15px; line-height: 1.5; margin-bottom: 30px; }
-            .invite-actions { display: flex; flex-direction: column; gap: 12px; }
-            .btn-accept { background: #f0f; color: #fff; border: none; padding: 15px; border-radius: 30px; font-weight: 900; cursor: pointer; font-size: 16px; box-shadow: 0 0 20px #f0f; }
-            .btn-close { background: transparent; color: #888; border: 1px solid #333; padding: 12px; border-radius: 30px; cursor: pointer; }
-            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+            .party-invite-card h2 {
+                color: #fff;
+                font-size: 28px;
+                font-weight: 900;
+                margin: 15px 0 10px;
+                text-shadow: 0 0 10px #f0f;
+            }
+
+            .party-invite-card p {
+                color: #ccc;
+                font-size: 15px;
+                line-height: 1.5;
+                margin-bottom: 30px;
+            }
+
+            .invite-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .btn-accept {
+                background: #f0f;
+                color: #fff;
+                border: none;
+                padding: 15px;
+                border-radius: 30px;
+                font-weight: 900;
+                cursor: pointer;
+                font-size: 16px;
+                box-shadow: 0 0 20px #f0f;
+            }
+
+            .btn-close {
+                background: transparent;
+                color: #888;
+                border: 1px solid #333;
+                padding: 12px;
+                border-radius: 30px;
+                cursor: pointer;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+
+                to {
+                    opacity: 1;
+                }
+            }
         </style>
 
         <script>
@@ -749,12 +513,12 @@
                 const hasJoinedToday = localStorage.getItem('party_joined_' + now.toDateString());
                 const isForceParty = {{ 'true' if force_party else 'false' }};
 
-                if ((isForceParty || (!isFriday && isAfter10PM)) && !hasJoinedToday && window.location.pathname !== '/party') {
-                    document.getElementById('partyInviteModal').style.display = 'flex';
-                    // Try to play audio (will require user interaction first usually)
-                    const audio = document.getElementById('partyAudio');
-                    audio.play().catch(e => console.log("Audio autoplay blocked, waiting for interaction"));
-                }
+            if ((isForceParty || (!isFriday && isAfter10PM)) && !hasJoinedToday && window.location.pathname !== '/party') {
+                document.getElementById('partyInviteModal').style.display = 'flex';
+                // Try to play audio (will require user interaction first usually)
+                const audio = document.getElementById('partyAudio');
+                audio.play().catch(e => console.log("Audio autoplay blocked, waiting for interaction"));
+            }
             }
             function acceptParty() {
                 localStorage.setItem('party_joined_' + new Date().toDateString(), 'true');
@@ -771,7 +535,7 @@
 
         {% block content %}{% endblock %}
     </main>
-    
+
     <!-- === 📲 PROFESSIONAL PWA INSTALL POP-UP === -->
     <div id="install-banner" class="pwa-install-overlay">
         <div class="pwa-install-card">
@@ -788,28 +552,35 @@
         </div>
     </div>
 
+    {% if request.endpoint == 'home' %}
     <footer>
-        <p>&copy; <span id="current-year"></span> 
+        <p>&copy; <span id="current-year"></span>
             <a href="{{ url_for('super_admin') }}" style="color: inherit; text-decoration: none; cursor: default;">
                 FIND YOUR MATCH <span style="color: #E60026; cursor: pointer;" title="Admin Portal">❤️</span>
             </a>
         </p>
 
         <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
-            Powered by <a href="https://www.delstarfordworks.co.ke" target="_blank" rel="noopener noreferrer" style="color: #FFD6DD; text-decoration: none; font-weight: 800; letter-spacing: 0.5px;">DELSTARFORD WORKS</a>
+            Powered by <a href="https://www.delstarfordworks.co.ke" target="_blank" rel="noopener noreferrer"
+                style="color: #FFD6DD; text-decoration: none; font-weight: 800; letter-spacing: 0.5px;">DELSTARFORD
+                WORKS</a>
         </p>
-        
-        <div style="margin-top: 20px; display: flex; justify-content: center; gap: 20px; font-size: 13px; font-weight: 600;">
-            <a href="{{ url_for('privacy') }}" style="color: #FFD6DD; text-decoration: none; opacity: 0.9; transition: 0.2s;">Privacy Policy</a>
-            <a href="{{ url_for('terms') }}" style="color: #FFD6DD; text-decoration: none; opacity: 0.9; transition: 0.2s;">Terms of Service</a>
+
+        <div
+            style="margin-top: 20px; display: flex; justify-content: center; gap: 20px; font-size: 13px; font-weight: 600;">
+            <a href="{{ url_for('privacy') }}"
+                style="color: #FFD6DD; text-decoration: none; opacity: 0.9; transition: 0.2s;">Privacy Policy</a>
+            <a href="{{ url_for('terms') }}"
+                style="color: #FFD6DD; text-decoration: none; opacity: 0.9; transition: 0.2s;">Terms of Service</a>
         </div>
-        
+
         {% if session.get('role') != 'business' and not session.get('is_super_admin') %}
         <a href="{{ url_for('auth.business_register') }}" class="footer-partner-link">
             Are you a Restaurant Owner? Partner with us.
         </a>
         {% endif %}
     </footer>
+    {% endif %}
 
     <!-- PREMIUM MOBILE BOTTOM NAV -->
     {% if session.get('user_id') %}
@@ -818,11 +589,13 @@
             <span>🔥</span>
             Swipe
         </a>
-        <a href="{{ url_for('full_directory') }}" class="mobile-nav-item {{ 'active' if request.endpoint == 'full_directory' }}">
+        <a href="{{ url_for('full_directory') }}"
+            class="mobile-nav-item {{ 'active' if request.endpoint == 'full_directory' }}">
             <span>💬</span>
             Chats
         </a>
-        <a href="{{ url_for('campus_gossip') }}" class="mobile-nav-item {{ 'active' if request.endpoint == 'campus_gossip' }}">
+        <a href="{{ url_for('campus_gossip') }}"
+            class="mobile-nav-item {{ 'active' if request.endpoint == 'campus_gossip' }}">
             <span>🤫</span>
             Gossip
         </a>
@@ -840,10 +613,11 @@
     <div id="supportModalOverlay" class="support-modal-overlay">
         <div class="support-modal-card">
             <button class="close-modal-btn" onclick="closeSupportModal()">&times;</button>
-            
+
             <h3 style="margin: 0 0 10px 0; color: #720000; font-size: 22px; font-weight: 900;">How can we improve?</h3>
-            <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">We read every submission. Help us make Find Your Match better for everyone!</p>
-            
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">We read every submission.
+                Help us make Find Your Match better for everyone!</p>
+
             <div style="margin-bottom: 15px;">
                 <select id="support_type" class="support-input">
                     <option value="suggestion">💡 I have a Suggestion/Idea</option>
@@ -853,14 +627,16 @@
             </div>
 
             <div id="message_container" style="margin-bottom: 15px;">
-                <textarea id="support_message" class="support-input" rows="4" placeholder="Tell us more about your idea or issue..."></textarea>
+                <textarea id="support_message" class="support-input" rows="4"
+                    placeholder="Tell us more about your idea or issue..."></textarea>
             </div>
 
             <div id="call_container" style="display: none; margin-bottom: 15px;">
                 <input type="text" id="support_phone" class="support-input" placeholder="Your Phone (e.g., 07XXXXXXXX)">
             </div>
 
-            <button onclick="submitSupport()" style="width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 16px; border-radius: 12px; cursor: pointer; font-weight: 900; font-size: 16px; box-shadow: 0 5px 15px rgba(230,0,38,0.2);">
+            <button onclick="submitSupport()"
+                style="width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 16px; border-radius: 12px; cursor: pointer; font-weight: 900; font-size: 16px; box-shadow: 0 5px 15px rgba(230,0,38,0.2);">
                 Send to Admin
             </button>
         </div>
@@ -870,15 +646,15 @@
         // Modal State Functions
         function openSupportModal() {
             document.getElementById('supportModalOverlay').style.display = 'flex';
-            document.body.style.overflow = 'hidden'; 
+            document.body.style.overflow = 'hidden';
         }
         function closeSupportModal() {
             document.getElementById('supportModalOverlay').style.display = 'none';
-            document.body.style.overflow = ''; 
+            document.body.style.overflow = '';
         }
 
-        document.getElementById('supportModalOverlay').addEventListener('click', function(e) {
-            if(e.target === this) closeSupportModal();
+        document.getElementById('supportModalOverlay').addEventListener('click', function (e) {
+            if (e.target === this) closeSupportModal();
         });
 
         // 1. FIRST VISIT LOGIC
@@ -887,7 +663,7 @@
                 setTimeout(() => {
                     openSupportModal();
                     localStorage.setItem('fym_has_visited', 'true');
-                }, 4000); 
+                }, 4000);
             }
         });
 
@@ -900,8 +676,8 @@
         });
 
         // Support Form Logic
-        document.getElementById('support_type').addEventListener('change', function() {
-            if(this.value === 'call') {
+        document.getElementById('support_type').addEventListener('change', function () {
+            if (this.value === 'call') {
                 document.getElementById('message_container').style.display = 'none';
                 document.getElementById('call_container').style.display = 'block';
             } else {
@@ -916,7 +692,7 @@
 
             if (type === 'call') {
                 const phone = document.getElementById('support_phone').value;
-                if(!phone) { alert("Please enter your phone number."); return; }
+                if (!phone) { alert("Please enter your phone number."); return; }
 
                 fetch('/api/support/submit', {
                     method: 'POST',
@@ -930,7 +706,7 @@
                     closeSupportModal();
                 });
             } else {
-                if(!message) { alert("Please type your message."); return; }
+                if (!message) { alert("Please type your message."); return; }
 
                 fetch('/api/support/submit', {
                     method: 'POST',
@@ -941,7 +717,7 @@
                     body: JSON.stringify({ type: type, message: message })
                 }).then(res => res.json()).then(data => {
                     alert(data.message);
-                    if(data.success) {
+                    if (data.success) {
                         document.getElementById('support_message').value = '';
                         closeSupportModal();
                     }
@@ -953,16 +729,16 @@
 
     <script>
         // === 🚀 PROFESSIONAL PAGE LOADER & FETCH INTERCEPTOR ===
-        (function() {
+        (function () {
             const loader = document.getElementById('page-loader-bar');
             if (loader) {
                 // Initialize to 35% during initial parsing
                 loader.style.width = '35%';
-                
+
                 window.addEventListener('DOMContentLoaded', () => {
                     loader.style.width = '75%';
                 });
-                
+
                 window.addEventListener('load', () => {
                     loader.style.width = '100%';
                     setTimeout(() => {
@@ -973,23 +749,23 @@
 
                 // Intercept global fetch requests to show sleek progress feedback
                 const originalFetch = window.fetch;
-                window.fetch = async function(...args) {
+                window.fetch = async function (...args) {
                     loader.style.opacity = '1';
                     loader.style.background = 'linear-gradient(90deg, #E60026 0%, #38BDF8 50%, #EF4444 100%)';
                     loader.style.width = '45%';
                     try {
                         const response = await originalFetch(...args);
                         loader.style.width = '100%';
-                        setTimeout(() => { 
-                            loader.style.opacity = '0'; 
+                        setTimeout(() => {
+                            loader.style.opacity = '0';
                             setTimeout(() => { loader.style.width = '0%'; }, 400);
                         }, 400);
                         return response;
                     } catch (err) {
                         loader.style.width = '100%';
                         loader.style.background = '#E60026'; // Indicate failure
-                        setTimeout(() => { 
-                            loader.style.opacity = '0'; 
+                        setTimeout(() => {
+                            loader.style.opacity = '0';
                             setTimeout(() => { loader.style.width = '0%'; }, 400);
                         }, 800);
                         throw err;
@@ -1000,25 +776,25 @@
 
         // Update year safely
         const yearSpan = document.getElementById('current-year');
-        if(yearSpan) yearSpan.textContent = new Date().getFullYear();
+        if (yearSpan) yearSpan.textContent = new Date().getFullYear();
 
         /* === NAVBAR LOGIC === */
         function toggleMenu() {
             const nav = document.getElementById('nav-links');
             const btn = document.getElementById('menu-btn');
             const overlay = document.getElementById('mobile-overlay');
-            
+
             nav.classList.toggle('active');
-            
+
             if (nav.classList.contains('active')) {
-                btn.innerHTML = '✕'; 
+                btn.innerHTML = '✕';
                 overlay.classList.add('active');
                 document.body.style.overflow = 'hidden';
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'flex'; });
             } else {
                 btn.innerHTML = '☰';
                 overlay.classList.remove('active');
-                document.body.style.overflow = ''; 
+                document.body.style.overflow = '';
                 document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
                 document.querySelectorAll('.mobile-auth-btn, .mobile-only-link').forEach(el => { el.style.display = 'none'; });
             }
@@ -1027,25 +803,25 @@
         // Upgraded Desktop + Mobile Dropdown Logic
         function toggleDropdown(button) {
             const parentDropdown = button.parentElement;
-            
+
             // Close any other open dropdowns first
             document.querySelectorAll('.dropdown.active').forEach(d => {
                 if (d !== parentDropdown) d.classList.remove('active');
             });
-            
+
             // Toggle the one that was clicked
             parentDropdown.classList.toggle('active');
         }
 
         // Close dropdowns if clicking anywhere outside of them
-        window.addEventListener('click', function(e) {
+        window.addEventListener('click', function (e) {
             if (!e.target.closest('.dropdown') && !e.target.closest('.mobile-menu-btn')) {
                 document.querySelectorAll('.dropdown.active').forEach(d => {
                     d.classList.remove('active');
                 });
             }
         });
-        
+
         /* === TOAST LOGIC === */
         function closeToast(button) {
             const toast = button.parentElement;
@@ -1053,7 +829,7 @@
             setTimeout(() => toast.remove(), 400);
         }
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             const toasts = document.querySelectorAll('.alert');
             toasts.forEach(toast => {
                 setTimeout(() => {
@@ -1084,7 +860,7 @@
                 try {
                     const registration = await navigator.serviceWorker.register('/sw.js');
                     console.log('SW Registered:', registration.scope);
-                    
+
                     {% if session.get('user_id') %}
                     // Automatically request permission if logged in
                     const permission = await Notification.requestPermission();
@@ -1094,9 +870,9 @@
                             userVisibleOnly: true,
                             applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
                         });
-                        
+
                         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-                        
+
                         await fetch('/api/save_subscription', {
                             method: 'POST',
                             headers: {
@@ -1112,7 +888,7 @@
                 }
             }
         }
-        
+
         window.addEventListener('load', registerServiceWorker);
 
         /* === PWA INSTALL PROMPT === */
@@ -1121,21 +897,21 @@
         const installBtn = document.getElementById('install-btn');
 
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault(); 
-            deferredPrompt = e; 
-            installBanner.style.display = 'flex'; 
+            e.preventDefault();
+            deferredPrompt = e;
+            installBanner.style.display = 'flex';
         });
 
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
-                installBanner.style.display = 'none'; 
-                deferredPrompt.prompt(); 
-                
+                installBanner.style.display = 'none';
+                deferredPrompt.prompt();
+
                 const { outcome } = await deferredPrompt.userChoice;
                 if (outcome === 'accepted') {
                     console.log('User accepted the install prompt');
                 }
-                deferredPrompt = null; 
+                deferredPrompt = null;
             }
         });
 
@@ -1144,7 +920,7 @@
             console.log('App was successfully installed!');
         });
 
-        window.closeInstallBanner = function() {
+        window.closeInstallBanner = function () {
             document.getElementById('install-banner').style.display = 'none';
         };
 
@@ -1155,7 +931,7 @@
             const allImages = document.querySelectorAll('img:not([loading="eager"])');
             allImages.forEach(img => {
                 img.setAttribute('loading', 'lazy');
-                img.setAttribute('decoding', 'async'); 
+                img.setAttribute('decoding', 'async');
             });
 
             document.addEventListener("visibilitychange", () => {
@@ -1171,821 +947,760 @@
             });
         });
     </script>
-<style>
-    #globalIncomingCall {
-        display: none; position: fixed; inset: 0; z-index: 99999;
-        background: rgba(8, 13, 20, 0.95); backdrop-filter: blur(15px);
-        flex-direction: column; align-items: center; justify-content: center; 
-        color: white; font-family: 'Outfit', sans-serif;
-    }
-    #globalIncomingCall.active { display: flex; animation: globalFadeIn 0.3s ease; }
-    @keyframes globalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    <style>
+        #globalIncomingCall {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(8, 13, 20, 0.95);
+            backdrop-filter: blur(15px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: 'Outfit', sans-serif;
+        }
 
-    .g-ring-container { 
-        position: relative; width: 140px; height: 140px; margin-bottom: 30px; 
-        display: flex; align-items: center; justify-content: center;
-    }
-    .g-ring { 
-        position: absolute; border-radius: 50%; border: 2px solid #38BDF8; 
-        animation: globalExpandRing 2s infinite; 
-    }
-    .g-ring:nth-child(1) { width: 100px; height: 100px; animation-delay: 0s; }
-    .g-ring:nth-child(2) { width: 120px; height: 120px; animation-delay: 0.5s; }
-    .g-ring:nth-child(3) { width: 140px; height: 140px; animation-delay: 1s; }
-    @keyframes globalExpandRing { 
-        0%{opacity:0.8; transform:scale(0.85)} 
-        100%{opacity:0; transform:scale(1.2)} 
-    }
-    
-    .g-avatar { 
-        width: 90px; height: 90px; border-radius: 50%; object-fit: cover; 
-        border: 4px solid #38BDF8; position: relative; z-index: 5; 
-    }
-    
-    .g-name { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
-    .g-type { font-size: 15px; color: #38BDF8; font-weight: 600; margin-bottom: 40px; letter-spacing: 1px;}
-    
-    .g-actions { display: flex; gap: 30px; }
-    .g-btn { 
-        width: 75px; height: 75px; border-radius: 50%; border: none; 
-        font-size: 32px; cursor: pointer; transition: 0.2s; display: flex; 
-        align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-    }
-    .g-btn:active { transform: scale(0.9); }
-    .g-btn.decline { background: #EF4444; color: white; }
-    .g-btn.answer { background: #10B981; color: white; animation: globalBounce 2s infinite; }
-    @keyframes globalBounce { 
-        0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 
-        40% {transform: translateY(-10px);} 
-        60% {transform: translateY(-5px);} 
-    }
-</style>
+        #globalIncomingCall.active {
+            display: flex;
+            animation: globalFadeIn 0.3s ease;
+        }
 
-<!-- === 🎬 SKIPPABLE AD OVERLAY === -->
-<div id="ad-overlay" class="ad-overlay" style="display: none;">
-    <div class="ad-content">
-        <div id="ad-media-container"></div>
-        
-        <a id="ad-click-link" href="#" target="_blank" class="ad-learn-more" style="display: none;">Learn More</a>
-        
-        <button id="skip-ad-btn" class="skip-btn" disabled>
-            Skip Ad <span id="skip-timer"></span>
-        </button>
-    </div>
-</div>
-
-<div id="globalIncomingCall">
-    <div class="g-ring-container">
-        <div class="g-ring"></div><div class="g-ring"></div><div class="g-ring"></div>
-        <img id="gIncImg" src="" class="g-avatar">
-    </div>
-    <div class="g-name" id="gIncName">Student Name</div>
-    <div class="g-type" id="gIncType">Incoming Call...</div>
-    
-    <div class="g-actions">
-        <button class="g-btn decline" onclick="globalDeclineCall()">✖</button>
-        <button class="g-btn answer" id="gBtnAnswer">📞</button>
-    </div>
-</div>
-{% if session.get('user_id') %}
-<style>
-    /* Sleek, docked glassmorphism button */
-    .live-floating-btn {
-        position: fixed;
-        left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        background: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        border-left: none; /* Merges with the edge of the screen */
-        padding: 16px 8px;
-        border-radius: 0 16px 16px 0;
-        z-index: 9990; /* High z-index, but below incoming call alerts */
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        text-decoration: none;
-        box-shadow: 4px 0 15px rgba(0,0,0,0.4);
-        transition: 0.3s ease-in-out;
-        cursor: pointer;
-    }
-
-    /* Hover animation pops it out slightly */
-    .live-floating-btn:hover {
-        background: rgba(16, 185, 129, 0.15);
-        transform: translateY(-50%) translateX(5px);
-        box-shadow: 6px 0 25px rgba(16, 185, 129, 0.3);
-        border-color: rgba(16, 185, 129, 0.6);
-    }
-
-    /* The glowing green heartbeat dot */
-    .live-dot-wrap {
-        position: relative;
-        width: 14px; height: 14px;
-    }
-    .live-dot-ping {
-        position: absolute; inset: 0; border-radius: 50%;
-        background: #10B981; 
-        animation: livePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-    }
-    .live-dot-core {
-        position: absolute; inset: 3px; border-radius: 50%; background: #10B981;
-    }
-    @keyframes livePing { 
-        75%, 100% { transform: scale(2.5); opacity: 0; } 
-    }
-    
-    /* Vertical text to save horizontal screen space */
-    .live-text-vertical {
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        transform: rotate(180deg);
-        color: #F8FAFC;
-        font-family: 'Outfit', sans-serif;
-        font-weight: 800;
-        font-size: 13px;
-        letter-spacing: 1.5px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .live-text-vertical span { 
-        color: #10B981; 
-        font-size: 16px; 
-        font-weight: 900;
-    }
-</style>
-
-<a href="/talk" class="live-floating-btn" id="liveFloatBtn" title="Go to Live Calls">
-    <div class="live-dot-wrap">
-        <div class="live-dot-ping"></div>
-        <div class="live-dot-core"></div>
-    </div>
-    <div class="live-text-vertical">
-        USERS ONLINE <span id="liveUserCount">...</span>
-    </div>
-</a>
-
-<!-- === 🆘 SOS EMERGENCY BUTTON === -->
-<div id="sosTooltip" class="sos-tooltip" style="display: none;">
-    <button class="sos-tooltip-close" onclick="closeSosTooltip()">&times;</button>
-    <p>In danger? Click here to alert the <strong>FIND YOUR MATCH</strong> family for help.</p>
-</div>
-
-<button class="sos-floating-btn" id="sosTriggerBtn" onclick="triggerEmergencySOS()" title="EMERGENCY SOS">
-    <div class="sos-ring"></div>
-    <div class="sos-inner">SOS</div>
-</button>
-
-<!-- === 🚨 EMERGENCY ALERT OVERLAY 🚨 === -->
-<div id="emergencyOverlay" class="emergency-overlay">
-    <div class="emergency-card">
-        <button class="emergency-close" onclick="stopEmergencyAlert()" title="Stop Local Alarm">&times;</button>
-        
-        <div class="emergency-icon-wrap">
-            <div class="emergency-pulse"></div>
-            <div class="emergency-pulse-2"></div>
-            <span class="emergency-emoji">🚨</span>
-        </div>
-        
-        <h2 class="emergency-title">SOS EMERGENCY</h2>
-        
-        <div class="sos-user-hero">
-            <img id="sosUserImg" src="/static/img/placeholder.png" class="sos-user-img">
-            <div class="sos-user-details">
-                <h3 id="sosUserName">A Comrade</h3>
-                <div id="sosUserPhone" class="sos-phone-display">📞 +254XXXXXXXX</div>
-                <div class="sos-status-tag">IMMEDIATE DANGER</div>
-            </div>
-        </div>
-        
-        <div class="sos-location-box">
-            <div class="sos-loc-header">📍 LAST KNOWN LOCATION</div>
-            <div id="sosLocationText" class="sos-location-text">Fetching live GPS data...</div>
-            <div class="sos-action-links">
-                <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">GET DIRECTIONS</a>
-                <a id="sosFullPageLink" href="#" class="sos-report-btn">VIEW FULL REPORT</a>
-            </div>
-        </div>
-
-        <div id="sosSenderControls" class="sos-controls-box" style="display: none;">
-            <button onclick="stopGlobalEmergencySOS()" class="btn-global-stop">
-                ✅ I AM SAFE - STOP GLOBAL ALARM
-            </button>
-            <p class="sos-control-hint">This will notify everyone that you are safe.</p>
-        </div>
-
-        <div id="receiver-stop-btn" class="sos-controls-box" style="display: none;">
-            <button onclick="stopEmergencyAlert()" class="btn-local-stop">
-                🔇 STOP ALARM ON MY DEVICE
-            </button>
-            <p class="sos-control-hint">Please call for help if you are nearby!</p>
-        </div>
-    </div>
-</div>
-
-<style>
-    /* SOS OVERLAY & CARD STYLES */
-    .emergency-overlay {
-        position: fixed; inset: 0; background: rgba(74, 0, 8, 0.95);
-        z-index: 2000000; display: none; align-items: center; justify-content: center;
-        padding: 20px; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        animation: fadeIn 0.3s ease;
-    }
-    .emergency-overlay.active { display: flex; }
-    
-    .emergency-card {
-        background: white; width: 100%; max-width: 440px; border-radius: 32px;
-        padding: 35px 25px; position: relative; text-align: center;
-        box-shadow: 0 40px 100px rgba(0,0,0,0.6); border: 5px solid #E60026;
-        animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    
-    .emergency-close {
-        position: absolute; top: 15px; right: 15px; background: #f1f5f9;
-        border: none; width: 36px; height: 36px; border-radius: 50%;
-        font-size: 20px; font-weight: bold; color: #64748b; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; z-index: 10;
-    }
-
-    .emergency-icon-wrap { position: relative; width: 70px; height: 70px; margin: 0 auto 15px; }
-    .emergency-pulse, .emergency-pulse-2 { position: absolute; inset: 0; border-radius: 50%; background: #E60026; opacity: 0.3; animation: emergencyPulse 2s infinite; }
-    .emergency-pulse-2 { animation-delay: 1s; }
-    .emergency-emoji { font-size: 40px; position: relative; z-index: 5; line-height: 70px; }
-    
-    .emergency-title { color: #E60026; font-weight: 950; font-size: 24px; letter-spacing: 2px; margin-bottom: 25px; text-transform: uppercase; }
-    
-    .sos-user-hero { 
-        display: flex; align-items: center; gap: 15px; background: #FEF2F4; 
-        padding: 15px; border-radius: 20px; margin-bottom: 20px; text-align: left;
-        border: 1px solid #FFD6DD;
-    }
-    .sos-user-img { width: 70px; height: 70px; border-radius: 16px; object-fit: cover; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    .sos-user-details h3 { font-size: 20px; font-weight: 900; color: #111; margin: 0; }
-    .sos-phone-display { font-size: 16px; font-weight: 800; color: #E60026; margin: 3px 0; }
-    .sos-status-tag { font-size: 9px; font-weight: 900; color: white; background: #E60026; padding: 3px 8px; border-radius: 5px; width: fit-content; }
-
-    .sos-location-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 20px; margin-bottom: 10px; }
-    .sos-loc-header { font-size: 10px; font-weight: 900; color: #64748b; letter-spacing: 1px; margin-bottom: 8px; }
-    .sos-location-text { font-weight: 800; color: #1e293b; font-size: 14px; line-height: 1.4; margin-bottom: 15px; }
-    
-    .sos-action-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .sos-map-btn, .sos-report-btn { 
-        padding: 12px; border-radius: 12px; font-size: 11px; font-weight: 900; 
-        text-decoration: none; transition: 0.2s; display: flex; align-items: center; justify-content: center;
-    }
-    .sos-map-btn { background: #111; color: white; }
-    .sos-report-btn { background: white; color: #111; border: 1.5px solid #ddd; }
-
-    .sos-controls-box { margin-top: 15px; padding-top: 15px; border-top: 1.5px dashed #e2e8f0; }
-    .btn-global-stop { background: #10B981; color: white; border: none; padding: 16px; border-radius: 15px; font-weight: 900; font-size: 14px; cursor: pointer; width: 100%; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3); }
-    .btn-local-stop { background: #E60026; color: white; border: none; padding: 16px; border-radius: 15px; font-weight: 900; font-size: 14px; cursor: pointer; width: 100%; box-shadow: 0 8px 20px rgba(230,0,38,0.25); }
-    .sos-control-hint { font-size: 10px; color: #94a3b8; margin-top: 8px; font-weight: 600; }
-
-    @keyframes emergencyPulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.2); opacity: 0; } }
-</style>
-
-<style>
-    /* SOS Floating Button */
-    .sos-floating-btn {
-        position: fixed;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        background: #E60026;
-        padding: 18px 12px;
-        border-radius: 20px 0 0 20px;
-        border: 2px solid white;
-        border-right: none;
-        z-index: 9991;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: -5px 0 20px rgba(230, 0, 38, 0.4);
-        transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .sos-floating-btn:hover {
-        transform: translateY(-50%) translateX(-10px);
-        background: #720000;
-    }
-    .sos-inner {
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        transform: rotate(180deg);
-        color: white;
-        font-weight: 900;
-        font-size: 16px;
-        letter-spacing: 2px;
-    }
-    .sos-ring {
-        position: absolute;
-        inset: -5px;
-        border: 2px solid #E60026;
-        border-radius: 25px 0 0 25px;
-        animation: sosPing 1.5s infinite;
-        opacity: 0;
-    }
-    @keyframes sosPing {
-        0% { transform: scale(1); opacity: 1; }
-        100% { transform: scale(1.3); opacity: 0; }
-    }
-
-    /* Emergency Overlay */
-    .emergency-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(114, 0, 0, 0.95);
-        z-index: 20000;
-        display: none;
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        backdrop-filter: blur(10px);
-        animation: fadeIn 0.3s ease;
-    }
-    .emergency-overlay.active { display: flex; }
-    
-    .emergency-card {
-        background: white;
-        width: 100%;
-        max-width: 450px;
-        border-radius: 32px;
-        padding: 40px 30px;
-        position: relative;
-        text-align: center;
-        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
-        border: 4px solid #E60026;
-        animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    @keyframes emergencyPop {
-        0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-        100% { transform: scale(1) rotate(0); opacity: 1; }
-    }
-    
-    .emergency-close {
-        position: absolute;
-        top: 20px; right: 20px;
-        background: #f0f0f0;
-        border: none;
-        width: 40px; height: 40px;
-        border-radius: 50%;
-        font-size: 24px;
-        font-weight: bold;
-        color: #333;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: 0.2s;
-    }
-    .emergency-close:hover { background: #e0e0e0; transform: scale(1.1); }
-    
-    .emergency-icon-wrap {
-        position: relative;
-        width: 80px; height: 80px;
-        margin: 0 auto 20px;
-    }
-    .emergency-pulse, .emergency-pulse-2 {
-        position: absolute; inset: 0; border-radius: 50%; background: #E60026; opacity: 0.3;
-        animation: emergencyPulse 2s infinite;
-    }
-    .emergency-pulse-2 { animation-delay: 1s; }
-    .emergency-emoji { font-size: 50px; position: relative; z-index: 5; line-height: 80px; }
-    
-    @keyframes emergencyPulse {
-        0% { transform: scale(1); opacity: 0.6; }
-        100% { transform: scale(2.5); opacity: 0; }
-    }
-    
-    .emergency-title { color: #E60026; font-weight: 900; font-size: 28px; letter-spacing: 2px; margin-bottom: 30px; }
-    
-    .emergency-info {
-        display: flex; align-items: center; gap: 20px; background: #FEF2F4;
-        padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: left;
-    }
-    .sos-user-img { width: 70px; height: 70px; border-radius: 50%; border: 3px solid #E60026; object-fit: cover; }
-    .sos-user-name { font-size: 20px; font-weight: 900; color: #111; margin: 0; }
-    .sos-danger-text { color: #E60026; font-weight: 800; font-size: 14px; margin: 5px 0 0; }
-    
-    .sos-location-box { background: #f8f9fa; border: 1px solid #eee; padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: center; }
-    .sos-location-text { font-weight: 700; color: #444; font-size: 15px; line-height: 1.4; margin-bottom: 15px; }
-    .sos-map-btn {
-        display: inline-block; background: #111; color: white; padding: 12px 20px;
-        border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 13px;
-        transition: 0.2s;
-    }
-    .sos-map-btn:hover { background: #000; transform: translateY(-2px); }
-    
-    .sos-action-text { font-size: 11px; font-weight: 800; color: #aaa; letter-spacing: 1px; }
-
-    /* SOS Tooltip */
-    .sos-tooltip {
-        position: fixed;
-        right: 65px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: white;
-        color: #111;
-        padding: 16px 20px;
-        border-radius: 20px;
-        width: 240px;
-        font-size: 14px;
-        font-weight: 600;
-        line-height: 1.5;
-        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.2);
-        z-index: 9990;
-        border: 2px solid #FFD6DD;
-        animation: tooltipPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        pointer-events: auto;
-    }
-    .sos-tooltip::after {
-        content: '';
-        position: absolute;
-        right: -12px;
-        top: 50%;
-        transform: translateY(-50%);
-        border-top: 10px solid transparent;
-        border-bottom: 10px solid transparent;
-        border-left: 12px solid white;
-    }
-    .sos-tooltip-close {
-        position: absolute;
-        top: 8px;
-        right: 10px;
-        background: #f1f5f9;
-        border: none;
-        width: 24px; height: 24px;
-        border-radius: 50%;
-        font-size: 14px;
-        font-weight: bold;
-        color: #64748b;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        transition: 0.2s;
-    }
-    .sos-tooltip-close:hover { background: #fee2e2; color: #ef4444; }
-    
-    @keyframes tooltipPop {
-        0% { opacity: 0; transform: translateY(-50%) translateX(30px) scale(0.8); }
-        100% { opacity: 1; transform: translateY(-50%) translateX(0) scale(1); }
-    }
-</style>
-
-<script>
-    function updateLiveOnlineCount() {
-        fetch('/api/online_count')
-            .then(res => res.json())
-            .then(data => {
-                // Update the number inside the button
-                const countElement = document.getElementById('liveUserCount');
-                if (countElement) {
-                    countElement.innerText = data.count;
-                }
-            })
-            .catch(err => console.error("Failed to fetch live users", err));
-    }
-    
-    // Fetch the count immediately when the page loads
-    updateLiveOnlineCount();
-    
-    // Silently update the count in the background every 15 seconds
-    setInterval(updateLiveOnlineCount, 15000);
-</script>
-{% endif %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
-<script>
-    // Ensure scripts do not conflict if loaded multiple times
-    if (typeof globalSocket === 'undefined') {
-        const globalSocket = io();
-        const myUserId = "{{ session.get('user_id') }}";
-        let globalIncomingCallerId = null;
-        let globalRingtoneInterval = null;
-
-        // Synthesized Ringtone Generator
-        function playGlobalRingtone(on) {
-            clearInterval(globalRingtoneInterval);
-            if (!on) return;
-            function beep() {
-                try {
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    [880, 660].forEach((f, i) => {
-                        const o = ctx.createOscillator();
-                        const g = ctx.createGain();
-                        o.connect(g); g.connect(ctx.destination);
-                        o.frequency.value = f; 
-                        o.type = 'sine';
-                        g.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.22);
-                        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.22 + 0.2);
-                        o.start(ctx.currentTime + i * 0.22);
-                        o.stop(ctx.currentTime + i * 0.22 + 0.22);
-                    });
-                } catch(e) {
-                    console.warn("Audio Context blocked until interaction.");
-                }
+        @keyframes globalFadeIn {
+            from {
+                opacity: 0;
             }
-            beep();
-            globalRingtoneInterval = setInterval(beep, 1800);
-        }
 
-        if (myUserId) {
-            globalSocket.on('connect', () => { 
-                globalSocket.emit('join_call_room', { user_id: myUserId }); 
-            });
-
-            // 📢 GLOBAL BROADCAST LISTENER
-            globalSocket.on('global_broadcast', (data) => {
-                let overlay = document.getElementById('global-broadcast-overlay');
-                if(!overlay) {
-                    overlay = document.createElement('div');
-                    overlay.id = 'global-broadcast-overlay';
-                    overlay.style = "position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(8px); animation: fadeIn 0.3s ease;";
-                    document.body.appendChild(overlay);
-                }
-                overlay.innerHTML = `
-                    <div style="background: #0f172a; border: 2px solid #38bdf8; border-radius: 24px; padding: 30px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 0 50px rgba(56, 189, 248, 0.3); animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-                        <div style="font-size: 50px; margin-bottom: 15px;">📢</div>
-                        <h2 style="color: #38bdf8; margin: 0 0 10px 0; font-weight: 900; font-family: 'Outfit', sans-serif;">ADMIN ALERT</h2>
-                        <p style="color: #f8fafc; font-size: 18px; line-height: 1.5; font-weight: 500; font-family: 'Outfit', sans-serif;">${data.message}</p>
-                        <button onclick="this.closest('#global-broadcast-overlay').remove()" style="margin-top: 25px; width: 100%; padding: 15px; background: #38bdf8; color: #0f172a; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; font-size: 16px; font-family: 'Outfit', sans-serif;">Understood</button>
-                    </div>
-                `;
-            });
-
-            // === 🚨 SOS BROADCAST LISTENER 🚨 ===
-            let sosAudio1 = new Audio('/static/audio/danger1.mp3');
-            let sosAudio2 = new Audio('/static/audio/danger2.mp3');
-            let sosAlarmInterval = null;
-            let sosTimeout = null;
-
-            globalSocket.on('receive_sos', (data) => {
-                // Update UI with the name and phone of the person in trouble
-                document.getElementById('sosUserImg').src = data.sender_img || '/static/img/placeholder.png';
-                document.getElementById('sosUserName').innerText = data.sender_name || 'A Comrade';
-                document.getElementById('sosUserPhone').innerText = '📞 +' + (data.sender_phone || '254XXXXXXXX');
-                document.getElementById('sosLocationText').innerText = data.location_name || "Active Campus Alert";
-                
-                // Update Links
-                if (data.alert_id) {
-                    document.getElementById('sosFullPageLink').href = `/emergency/${data.alert_id}`;
-                }
-                
-                if (data.latitude && data.longitude) {
-                    document.getElementById('sosMapLink').href = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
-                    document.getElementById('sosMapLink').style.display = 'inline-block';
-                } else {
-                    document.getElementById('sosMapLink').style.display = 'none';
-                }
-
-                // Show/Hide controls based on who sent it
-                const isMe = data.sender_id === myUserId;
-                document.getElementById('sosSenderControls').style.display = isMe ? 'block' : 'none';
-                document.getElementById('receiver-stop-btn').style.display = isMe ? 'none' : 'block';
-                
-                // Show the card
-                document.getElementById('emergencyOverlay').classList.add('active');
-
-                if (isMe) return; // Don't play siren for self
-
-                // Start Persistent Alarm (1 Hour Loop)
-                stopEmergencyAlert(); // Clear any old ones
-                
-                const playLoop = () => {
-                    sosAudio1.play().catch(e => console.log("Audio blocked"));
-                    setTimeout(() => {
-                        sosAudio2.play().catch(e => console.log("Audio blocked"));
-                    }, 3000);
-                };
-
-                playLoop();
-                sosAlarmInterval = setInterval(playLoop, 7000);
-
-                // Auto-stop after 1 hour
-                sosTimeout = setTimeout(() => {
-                    stopEmergencyAlert();
-                }, 3600000); 
-                
-                if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
-            });
-
-            globalSocket.on('receive_sos_stop', (data) => {
-                // Remote signal to stop the alarm
-                stopEmergencyAlert();
-                if (data.sender_id !== myUserId) {
-                    alert("✅ Emergency Resolved: The student is now safe.");
-                }
-            });
-
-            window.stopGlobalEmergencySOS = function() {
-                if (!confirm("Confirm you are safe? This will silence the alarm for ALL students.")) return;
-                globalSocket.emit('stop_emergency_sos', { sender_id: myUserId });
-                stopEmergencyAlert();
-            };
-
-            window.stopEmergencyAlert = function() {
-                document.getElementById('emergencyOverlay').classList.remove('active');
-                clearInterval(sosAlarmInterval);
-                clearTimeout(sosTimeout);
-                sosAudio1.pause(); sosAudio1.currentTime = 0;
-                sosAudio2.pause(); sosAudio2.currentTime = 0;
-            };
-
-            // === 💡 SOS TOOLTIP LOGIC ===
-            window.closeSosTooltip = function() {
-                document.getElementById('sosTooltip').style.display = 'none';
-                localStorage.setItem('sos_tooltip_closed', 'true');
-            };
-
-            // Show tooltip on load if not previously closed
-            setTimeout(() => {
-                if (!localStorage.getItem('sos_tooltip_closed')) {
-                    document.getElementById('sosTooltip').style.display = 'block';
-                }
-            }, 2000);
-
-            window.triggerEmergencySOS = function() {
-                if (!confirm("🚨 CONFIRM EMERGENCY 🚨\n\nAre you in immediate danger? This will alert ALL online users and share your current location.")) return;
-
-                const btn = document.getElementById('sosTriggerBtn');
-                btn.disabled = true;
-                btn.style.opacity = '0.5';
-
-                // Try to get location
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition((pos) => {
-                        const payload = {
-                            sender_id: myUserId,
-                            latitude: pos.coords.latitude,
-                            longitude: pos.coords.longitude
-                        };
-                        globalSocket.emit('emergency_sos', payload);
-                        alert("🚨 SOS DISPATCHED! Stay safe, help is being notified.");
-                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
-                    }, (err) => {
-                        // Emit even without location
-                        globalSocket.emit('emergency_sos', { sender_id: myUserId });
-                        alert("🚨 SOS DISPATCHED! (Location access denied, but users notified)");
-                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
-                    });
-                } else {
-                    globalSocket.emit('emergency_sos', { sender_id: myUserId });
-                    alert("🚨 SOS DISPATCHED!");
-                    setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
-                }
-            };
-            
-            globalSocket.on('incoming_call', (data) => {
-                // Prevent popup if already on the call page
-                if (window.location.pathname.includes('/call/')) return; 
-
-                globalIncomingCallerId = data.caller_id;
-                
-                // Configure UI elements
-                document.getElementById('gIncImg').src = data.caller_img || '/static/img/placeholder.png';
-                document.getElementById('gIncName').innerText = data.caller_name || 'A Student';
-                
-                const isVideo = data.is_video === true || data.is_video === 'true';
-                const callColor = isVideo ? '#A855F7' : '#38BDF8';
-                
-                document.getElementById('gIncType').innerText = isVideo ? '📹 Incoming Video Call' : '🎙 Incoming Voice Call';
-                document.getElementById('gIncType').style.color = callColor;
-                document.getElementById('gIncImg').style.borderColor = callColor;
-                
-                // Update ring animation colors
-                document.querySelectorAll('.g-ring').forEach(ring => {
-                    ring.style.borderColor = callColor;
-                });
-
-                // Configure answer button redirection
-                document.getElementById('gBtnAnswer').onclick = function() {
-                    playGlobalRingtone(false);
-                    document.getElementById('globalIncomingCall').classList.remove('active');
-                    window.location.href = `/call/${data.caller_id}?action=answer&video=${isVideo}`;
-                };
-
-                // Trigger modal and audio
-                document.getElementById('globalIncomingCall').classList.add('active');
-                playGlobalRingtone(true);
-            });
-
-            globalSocket.on('call_ended', () => {
-                playGlobalRingtone(false);
-                document.getElementById('globalIncomingCall').classList.remove('active');
-                globalIncomingCallerId = null;
-            });
-        }
-
-        function globalDeclineCall() {
-            playGlobalRingtone(false);
-            document.getElementById('globalIncomingCall').classList.remove('active');
-            if (globalIncomingCallerId) {
-                globalSocket.emit('end_call', { target_id: globalIncomingCallerId, reason: 'declined' });
-                globalIncomingCallerId = null;
+            to {
+                opacity: 1;
             }
         }
-    }
-</script>
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const totalImages = 16; // Optimized from 27 for premium mobile performance
-        const bgContainer = document.getElementById('dreamscape-bg');
-        
-        // 1. Generate the 27 Orbs
-        for (let i = 1; i <= totalImages; i++) {
-            let orb = document.createElement('div');
-            orb.className = 'love-orb';
-            
-            // Link to your static folder images
-            orb.style.backgroundImage = `url('/static/img/${i}.jpg')`; 
-            
-            // Randomize their sizes so it looks natural (between 50px and 140px)
-            let size = gsap.utils.random(50, 140);
-            orb.style.width = `${size}px`;
-            orb.style.height = `${size}px`;
-            
-            bgContainer.appendChild(orb);
-            
-            // Start the infinite animation loop for this specific orb
-            animateOrb(orb);
+        .g-ring-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        // 2. The GSAP Floating Logic
-        function animateOrb(orb) {
-            // Pick a random starting point at the bottom of the screen
-            let startX = gsap.utils.random(0, window.innerWidth);
-            let startY = window.innerHeight + 150; // Starts below the screen
-            
-            // Randomize how long it takes to float up (between 20 and 45 seconds - very slow and peaceful)
-            let duration = gsap.utils.random(20, 45); 
-            
-            // Randomize when it starts, so they don't all clump together at the beginning
-            let delay = gsap.utils.random(0, 30);
-
-            // Reset the orb to the bottom
-            gsap.set(orb, {
-                x: startX,
-                y: startY,
-                opacity: 0,
-                scale: gsap.utils.random(0.6, 1.2),
-                rotation: gsap.utils.random(-30, 30) // Give it a slight tilt
-            });
-
-            // Create the timeline
-            let tl = gsap.timeline({
-                delay: delay,
-                onComplete: () => animateOrb(orb) // When it finishes, restart it infinitely
-            });
-
-            // The Animation Sequence
-            tl.to(orb, {
-                // Fade in softly (Keep opacity low so it doesn't distract from the app text)
-                opacity: gsap.utils.random(0.15, 0.35), 
-                duration: duration * 0.2, 
-                ease: "power1.inOut"
-            })
-            .to(orb, {
-                // Float up to above the top of the screen
-                y: -200, 
-                // Drift slightly left or right like a balloon in the wind
-                x: startX + gsap.utils.random(-150, 150), 
-                rotation: gsap.utils.random(-60, 60),
-                duration: duration,
-                ease: "none"
-            }, "<") // The "<" symbol tells GSAP to run this at the same time as the fade-in
-            .to(orb, {
-                // Fade back out before it disappears
-                opacity: 0,
-                duration: duration * 0.2,
-                ease: "power1.inOut"
-            }, `-=${duration * 0.2}`); // Start fading out near the end of the duration
+        .g-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid #38BDF8;
+            animation: globalExpandRing 2s infinite;
         }
-    });
-</script>
+
+        .g-ring:nth-child(1) {
+            width: 100px;
+            height: 100px;
+            animation-delay: 0s;
+        }
+
+        .g-ring:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            animation-delay: 0.5s;
+        }
+
+        .g-ring:nth-child(3) {
+            width: 140px;
+            height: 140px;
+            animation-delay: 1s;
+        }
+
+        @keyframes globalExpandRing {
+            0% {
+                opacity: 0.8;
+                transform: scale(0.85)
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.2)
+            }
+        }
+
+        .g-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #38BDF8;
+            position: relative;
+            z-index: 5;
+        }
+
+        .g-name {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .g-type {
+            font-size: 15px;
+            color: #38BDF8;
+            font-weight: 600;
+            margin-bottom: 40px;
+            letter-spacing: 1px;
+        }
+
+        .g-actions {
+            display: flex;
+            gap: 30px;
+        }
+
+        .g-btn {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            border: none;
+            font-size: 32px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .g-btn:active {
+            transform: scale(0.9);
+        }
+
+        .g-btn.decline {
+            background: #EF4444;
+            color: white;
+        }
+
+        .g-btn.answer {
+            background: #10B981;
+            color: white;
+            animation: globalBounce 2s infinite;
+        }
+
+        @keyframes globalBounce {
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-10px);
+            }
+
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+    </style>
+
+    <!-- === 🎬 SKIPPABLE AD OVERLAY === -->
+    <div id="ad-overlay" class="ad-overlay" style="display: none;">
+        <div class="ad-content">
+            <div id="ad-media-container"></div>
+
+            <a id="ad-click-link" href="#" target="_blank" class="ad-learn-more" style="display: none;">Learn More</a>
+
+            <button id="skip-ad-btn" class="skip-btn" disabled>
+                Skip Ad <span id="skip-timer"></span>
+            </button>
+        </div>
+    </div>
+
+    <div id="globalIncomingCall">
+        <div class="g-ring-container">
+            <div class="g-ring"></div>
+            <div class="g-ring"></div>
+            <div class="g-ring"></div>
+            <img id="gIncImg" src="" class="g-avatar">
+        </div>
+        <div class="g-name" id="gIncName">Student Name</div>
+        <div class="g-type" id="gIncType">Incoming Call...</div>
+
+        <div class="g-actions">
+            <button class="g-btn decline" onclick="globalDeclineCall()">✖</button>
+            <button class="g-btn answer" id="gBtnAnswer">📞</button>
+        </div>
+    </div>
+    {% if session.get('user_id') %}
+    <style>
+        /* Sleek, docked glassmorphism button */
+        .live-floating-btn {
+            position: fixed;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-left: none;
+            /* Merges with the edge of the screen */
+            padding: 16px 8px;
+            border-radius: 0 16px 16px 0;
+            z-index: 9990;
+            /* High z-index, but below incoming call alerts */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.4);
+            transition: 0.3s ease-in-out;
+            cursor: pointer;
+        }
+
+        /* Hover animation pops it out slightly */
+        .live-floating-btn:hover {
+            background: rgba(16, 185, 129, 0.15);
+            transform: translateY(-50%) translateX(5px);
+            box-shadow: 6px 0 25px rgba(16, 185, 129, 0.3);
+            border-color: rgba(16, 185, 129, 0.6);
+        }
+
+        /* The glowing green heartbeat dot */
+        .live-dot-wrap {
+            position: relative;
+            width: 14px;
+            height: 14px;
+        }
+
+        .live-dot-ping {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: #10B981;
+            animation: livePing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        .live-dot-core {
+            position: absolute;
+            inset: 3px;
+            border-radius: 50%;
+            background: #10B981;
+        }
+
+        @keyframes livePing {
+
+            75%,
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        /* Vertical text to save horizontal screen space */
+        .live-text-vertical {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            color: #F8FAFC;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .live-text-vertical span {
+            color: #10B981;
+            font-size: 16px;
+            font-weight: 900;
+        }
+    </style>
+
+    <a href="/talk" class="live-floating-btn" id="liveFloatBtn" title="Go to Live Calls">
+        <div class="live-dot-wrap">
+            <div class="live-dot-ping"></div>
+            <div class="live-dot-core"></div>
+        </div>
+        <div class="live-text-vertical">
+            USERS ONLINE <span id="liveUserCount">...</span>
+        </div>
+    </a>
+
+    <!-- === 🚨 EMERGENCY ALERT OVERLAY (Receiver only) 🚨 === -->
+    <div id="emergencyOverlay" class="emergency-overlay">
+        <div class="emergency-card">
+            <button class="emergency-close" onclick="stopEmergencyAlert()" title="Stop Local Alarm">&times;</button>
+
+            <div class="emergency-icon-wrap">
+                <div class="emergency-pulse"></div>
+                <div class="emergency-pulse-2"></div>
+                <span class="emergency-emoji">🚨</span>
+            </div>
+
+            <h2 class="emergency-title">SOS EMERGENCY</h2>
+
+            <div class="sos-user-hero">
+                <img id="sosUserImg" src="/static/img/placeholder.png" class="sos-user-img">
+                <div class="sos-user-details">
+                    <h3 id="sosUserName">A Comrade</h3>
+                    <div id="sosUserPhone" class="sos-phone-display">📞 +254XXXXXXXX</div>
+                    <div class="sos-status-tag">IMMEDIATE DANGER</div>
+                </div>
+            </div>
+
+            <div class="sos-location-box">
+                <div class="sos-loc-header">📍 LAST KNOWN LOCATION</div>
+                <div id="sosLocationText" class="sos-location-text">Fetching live GPS data...</div>
+                <div class="sos-action-links">
+                    <a id="sosMapLink" href="#" target="_blank" class="sos-map-btn">GET DIRECTIONS</a>
+                    <a id="sosFullPageLink" href="#" class="sos-report-btn">VIEW FULL REPORT</a>
+                </div>
+            </div>
+
+            <div id="sosSenderControls" class="sos-controls-box" style="display: none;">
+                <button onclick="stopGlobalEmergencySOS()" class="btn-global-stop">
+                    ✅ I AM SAFE - STOP GLOBAL ALARM
+                </button>
+                <p class="sos-control-hint">This will notify everyone that you are safe.</p>
+            </div>
+
+            <div id="receiver-stop-btn" class="sos-controls-box" style="display: none;">
+                <button onclick="stopEmergencyAlert()" class="btn-local-stop">
+                    🔇 STOP ALARM ON MY DEVICE
+                </button>
+                <p class="sos-control-hint">Please call for help if you are nearby!</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* SOS OVERLAY & CARD STYLES */
+        .emergency-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(74, 0, 8, 0.95);
+            z-index: 2000000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .emergency-overlay.active {
+            display: flex;
+        }
+
+        .emergency-card {
+            background: white;
+            width: 100%;
+            max-width: 440px;
+            border-radius: 32px;
+            padding: 35px 25px;
+            position: relative;
+            text-align: center;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
+            border: 5px solid #E60026;
+            animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .emergency-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #f1f5f9;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: bold;
+            color: #64748b;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .emergency-icon-wrap {
+            position: relative;
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 15px;
+        }
+
+        .emergency-pulse,
+        .emergency-pulse-2 {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: #E60026;
+            opacity: 0.3;
+            animation: emergencyPulse 2s infinite;
+        }
+
+        .emergency-pulse-2 {
+            animation-delay: 1s;
+        }
+
+        .emergency-emoji {
+            font-size: 40px;
+            position: relative;
+            z-index: 5;
+            line-height: 70px;
+        }
+
+        .emergency-title {
+            color: #E60026;
+            font-weight: 950;
+            font-size: 24px;
+            letter-spacing: 2px;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+        }
+
+        .sos-user-hero {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #FEF2F4;
+            padding: 15px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            text-align: left;
+            border: 1px solid #FFD6DD;
+        }
+
+        .sos-user-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 16px;
+            object-fit: cover;
+            border: 3px solid white;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sos-user-details h3 {
+            font-size: 20px;
+            font-weight: 900;
+            color: #111;
+            margin: 0;
+        }
+
+        .sos-phone-display {
+            font-size: 16px;
+            font-weight: 800;
+            color: #E60026;
+            margin: 3px 0;
+        }
+
+        .sos-status-tag {
+            font-size: 9px;
+            font-weight: 900;
+            color: white;
+            background: #E60026;
+            padding: 3px 8px;
+            border-radius: 5px;
+            width: fit-content;
+        }
+
+        .sos-location-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+        }
+
+        .sos-loc-header {
+            font-size: 10px;
+            font-weight: 900;
+            color: #64748b;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .sos-location-text {
+            font-weight: 800;
+            color: #1e293b;
+            font-size: 14px;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+
+        .sos-action-links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .sos-map-btn,
+        .sos-report-btn {
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 900;
+            text-decoration: none;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sos-map-btn {
+            background: #111;
+            color: white;
+        }
+
+        .sos-report-btn {
+            background: white;
+            color: #111;
+            border: 1.5px solid #ddd;
+        }
+
+        .sos-controls-box {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1.5px dashed #e2e8f0;
+        }
+
+        .btn-global-stop {
+            background: #10B981;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 15px;
+            font-weight: 900;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-local-stop {
+            background: #E60026;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 15px;
+            font-weight: 900;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 8px 20px rgba(230, 0, 38, 0.25);
+        }
+
+        .sos-control-hint {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+
+        @keyframes emergencyPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(2.2);
+                opacity: 0;
+            }
+        }
+    </style>
+
+    <style>
+        /* Emergency Overlay */
+        .emergency-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(114, 0, 0, 0.95);
+            z-index: 20000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .emergency-overlay.active {
+            display: flex;
+        }
+
+        .emergency-card {
+            background: white;
+            width: 100%;
+            max-width: 450px;
+            border-radius: 32px;
+            padding: 40px 30px;
+            position: relative;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            border: 4px solid #E60026;
+            animation: emergencyPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes emergencyPop {
+            0% {
+                transform: scale(0.5) rotate(-10deg);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1) rotate(0);
+                opacity: 1;
+            }
+        }
+
+        .emergency-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f0f0f0;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+
+        .emergency-close:hover {
+            background: #e0e0e0;
+            transform: scale(1.1);
+        }
+
+        .emergency-icon-wrap {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+        }
+
+        .emergency-pulse,
+        .emergency-pulse-2 {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: #E60026;
+            opacity: 0.3;
+            animation: emergencyPulse 2s infinite;
+        }
+
+        .emergency-pulse-2 {
+            animation-delay: 1s;
+        }
+
+        .emergency-emoji {
+            font-size: 50px;
+            position: relative;
+            z-index: 5;
+            line-height: 80px;
+        }
+
+        @keyframes emergencyPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        .emergency-title {
+            color: #E60026;
+            font-weight: 900;
+            font-size: 28px;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+        }
+
+        .sos-user-img {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 3px solid #E60026;
+            object-fit: cover;
+        }
+
+        .sos-location-box {
+            background: #f8f9fa;
+            border: 1px solid #eee;
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .sos-location-text {
+            font-weight: 700;
+            color: #444;
+            font-size: 15px;
+            line-height: 1.4;
+            margin-bottom: 15px;
+        }
+
+        .sos-map-btn {
+            display: inline-block;
+            background: #111;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 800;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        .sos-map-btn:hover {
+            background: #000;
+            transform: translateY(-2px);
+        }
+    </style>
+
+
+    {% endif %}
+
+
     <script>
         // === 🎬 SKIPPABLE AD EXECUTION ENGINE ===
         document.addEventListener("DOMContentLoaded", async () => {
             // Only show ads to logged-in students, not businesses or admins
-            const isStudent = {{ 'true' if session.get('user_id') and not session.get('is_super_admin') else 'false' }};
-            if (!isStudent) return;
+            const isStudent = {{ 'true' if session.get('user_id') and not session.get('is_super_admin') else 'false'
+        }};
+        if (!isStudent) return;
 
-            // Check if user has already seen an ad recently in this session
-            if (sessionStorage.getItem("ad_seen")) return;
+        // Check if user has already seen an ad recently in this session
+        if (sessionStorage.getItem("ad_seen")) return;
 
-            try {
-                const response = await fetch('/api/get_active_ad');
-                const data = await response.json();
+        try {
+            const response = await fetch('/api/get_active_ad');
+            const data = await response.json();
 
-                if (data.success && data.ad) {
-                    // Slight delay for a smoother entry
-                    setTimeout(() => playAd(data.ad), 2000);
-                }
-            } catch (error) {
-                console.error("Failed to load ad:", error);
+            if (data.success && data.ad) {
+                // Slight delay for a smoother entry
+                setTimeout(() => playAd(data.ad), 2000);
             }
+        } catch (error) {
+            console.error("Failed to load ad:", error);
+        }
         });
 
         function playAd(adData) {
@@ -1996,7 +1711,7 @@
             const clickLink = document.getElementById('ad-click-link');
 
             // 1. Render Media
-            mediaContainer.innerHTML = ''; 
+            mediaContainer.innerHTML = '';
             if (adData.type === 'image') {
                 mediaContainer.innerHTML = `<img src="${adData.media_url}" alt="Advertisement">`;
             } else if (adData.type === 'video') {
@@ -2055,6 +1770,230 @@
             }, totalDuration * 1000);
         }
     </script>
+
+    <script>
+        const currentUserId = "{{ session.get('user_id') }}";
+        let globalIncomingCallerId = null;
+
+        if (currentUserId && currentUserId !== 'None') {
+            // 1. Listen for Incoming Calls
+            fdb.ref('incoming_calls/' + currentUserId).on('child_added', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
+
+                // Immediately delete the trigger so it doesn't fire again on reload
+                snapshot.ref.remove();
+
+                // Prevent popup if already on the call page
+                if (window.location.pathname.includes('/call/')) return;
+
+                globalIncomingCallerId = data.caller_id;
+
+                // Configure UI elements
+                document.getElementById('gIncImg').src = data.caller_img || '/static/img/placeholder.png';
+                document.getElementById('gIncName').innerText = data.caller_name || 'A Student';
+
+                const isVideo = data.is_video === true || data.is_video === 'true';
+                const callColor = isVideo ? '#A855F7' : '#38BDF8';
+
+                document.getElementById('gIncType').innerText = isVideo ? '📹 Incoming Video Call' : '🎙 Incoming Voice Call';
+                document.getElementById('gIncType').style.color = callColor;
+                document.getElementById('gIncImg').style.borderColor = callColor;
+
+                // Update ring animation colors
+                document.querySelectorAll('.g-ring').forEach(ring => {
+                    ring.style.borderColor = callColor;
+                });
+
+                // Configure answer button redirection
+                document.getElementById('gBtnAnswer').onclick = function () {
+                    playGlobalRingtone(false);
+                    document.getElementById('globalIncomingCall').classList.remove('active');
+                    window.location.href = `/call/${data.caller_id}?action=answer&video=${isVideo}`;
+                };
+
+                // Trigger modal and audio
+                document.getElementById('globalIncomingCall').classList.add('active');
+                if (typeof playGlobalRingtone === 'function') playGlobalRingtone(true);
+            });
+
+            // Listen for Call Ends from Caller
+            fdb.ref('signals/' + currentUserId).on('child_added', (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.type === 'end_call') {
+                    if (typeof playGlobalRingtone === 'function') playGlobalRingtone(false);
+                    document.getElementById('globalIncomingCall').classList.remove('active');
+                    globalIncomingCallerId = null;
+                    snapshot.ref.remove();
+                }
+            });
+        }
+
+        function globalDeclineCall() {
+            if (typeof playGlobalRingtone === 'function') playGlobalRingtone(false);
+            document.getElementById('globalIncomingCall').classList.remove('active');
+            if (globalIncomingCallerId) {
+                // Signal the caller that the call was declined
+                fdb.ref('signals/' + globalIncomingCallerId).push({ type: 'end_call', reason: 'declined' });
+                globalIncomingCallerId = null;
+            }
+        }
+
+        // ==========================================
+        // 1.5 Global Chat Notifications
+        // ==========================================
+        const notificationAudio = new Audio('/static/audio/ding.mp3');
+
+        fdb.ref('chat_notifications/' + currentUserId).on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // If the user is currently on the chat page with this specific sender, do not show a toast.
+            if (window.activeChatId === String(data.sender_id)) {
+                snapshot.ref.remove(); // Clean up silently
+                return;
+            }
+
+            // Show Toast
+            showGlobalToast(data);
+
+            // Clean up from Firebase immediately so it doesn't stay forever
+            snapshot.ref.remove();
+        });
+
+        function showGlobalToast(data) {
+            notificationAudio.play().catch(e => console.log('Audio blocked by browser'));
+
+            const container = document.getElementById('global-toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast-notification';
+
+            // Clicking the toast takes you to the chat
+            toast.onclick = () => {
+                window.location.href = `/matches/${data.sender_id}`;
+            };
+
+            toast.innerHTML = `
+                <img src="${data.sender_img || '/static/img/placeholder.png'}" alt="Profile">
+                <div class="toast-content">
+                    <div class="toast-title">${data.sender_name}</div>
+                    <div class="toast-message">${data.message}</div>
+                </div>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // Remove after 5 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400); // Wait for transition
+            }, 5000);
+        }
+
+        // 2. Global Emergency SOS Listener
+        window.sosAudio1 = new Audio('/static/audio/danger1.mp3');
+        window.sosAudio2 = new Audio('/static/audio/danger2.mp3');
+
+        fdb.ref('emergency_alerts').on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            // We only trigger alarm if it's active and happened in the last 1 hour
+            const isRecent = data.timestamp ? (new Date() - new Date(data.timestamp)) < 3600000 : true;
+
+            if (data && data.status === 'active' && isRecent) {
+                if (!document.getElementById('emergencyOverlay').classList.contains('active')) {
+                    document.getElementById('emergencyOverlay').classList.add('active');
+
+                    // Safely update UI elements
+                    const locText = document.getElementById('sosLocationText');
+                    if (locText) {
+                        locText.innerText = data.latitude ? `Lat: ${data.latitude}, Lng: ${data.longitude}` : "Campus Location Triggered";
+                    }
+
+                    const nameText = document.getElementById('sosUserName');
+                    if (nameText) nameText.innerText = data.sender_name || "A Comrade";
+
+                    const phoneText = document.getElementById('sosUserPhone');
+                    if (phoneText) phoneText.innerText = "📞 " + (data.sender_phone || "+254XXXXXXXXX");
+
+                    const imgElem = document.getElementById('sosUserImg');
+                    if (imgElem) imgElem.src = data.sender_img || '/static/img/placeholder.png';
+
+                    // Update map link if coordinates exist
+                    const mapLink = document.getElementById('sosMapLink');
+                    if (mapLink && data.latitude && data.longitude) {
+                        mapLink.href = `https://www.google.com/maps?q=${data.latitude},${data.longitude}`;
+                    } else if (mapLink) {
+                        mapLink.style.display = 'none';
+                    }
+
+                    // Show appropriate controls
+                    if (data.sender_id === currentUserId) {
+                        document.getElementById('sosSenderControls').style.display = 'block';
+                        document.getElementById('receiver-stop-btn').style.display = 'none';
+                    } else {
+                        document.getElementById('sosSenderControls').style.display = 'none';
+                        document.getElementById('receiver-stop-btn').style.display = 'block';
+                    }
+
+                    // Start Persistent Alarm
+                    stopEmergencyAlert();
+                    window.sosAlarmActive = true;
+                    const playLoop = () => {
+                        if (!window.sosAlarmActive) return;
+                        if (typeof window.sosAudio1 !== 'undefined') window.sosAudio1.play().catch(e => console.log("Audio blocked"));
+                        window.sosInnerTimeout = setTimeout(() => {
+                            if (!window.sosAlarmActive) return;
+                            if (typeof window.sosAudio2 !== 'undefined') window.sosAudio2.play().catch(e => console.log("Audio blocked"));
+                        }, 3000);
+                    };
+
+                    playLoop();
+                    window.sosAlarmInterval = setInterval(playLoop, 7000);
+                    window.sosTimeout = setTimeout(stopEmergencyAlert, 5000); // 5 sec auto stop
+
+                    if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+                }
+            }
+        });
+
+        fdb.ref('emergency_alerts').on('child_changed', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.status === 'resolved') {
+                stopEmergencyAlert();
+                if (data.sender_id !== currentUserId) {
+                    alert("✅ Emergency Resolved: The student is now safe.");
+                }
+            }
+        });
+
+        window.stopGlobalEmergencySOS = function () {
+            if (!confirm("Confirm you are safe? This will silence the alarm for ALL students.")) return;
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            fetch('/api/sos/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfMeta ? csrfMeta.content : '' }
+            });
+            stopEmergencyAlert();
+        };
+
+        window.stopEmergencyAlert = function () {
+            window.sosAlarmActive = false;
+            const overlay = document.getElementById('emergencyOverlay');
+            if (overlay) overlay.classList.remove('active');
+            if (typeof window.sosAlarmInterval !== 'undefined') clearInterval(window.sosAlarmInterval);
+            if (typeof window.sosInnerTimeout !== 'undefined') clearTimeout(window.sosInnerTimeout);
+            if (typeof window.sosTimeout !== 'undefined') clearTimeout(window.sosTimeout);
+            if (typeof window.sosAudio1 !== 'undefined') { window.sosAudio1.pause(); window.sosAudio1.currentTime = 0; }
+            if (typeof window.sosAudio2 !== 'undefined') { window.sosAudio2.pause(); window.sosAudio2.currentTime = 0; }
+        };
+    </script>
     {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
 </body>
+
 </html>
