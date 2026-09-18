@@ -2,6 +2,9 @@
 
 {% block content %}
 <style>
+    /* HIDE FOOTER ON SWIPE PAGE */
+    footer { display: none !important; }
+
     /* === 🚨 CRITICAL NAVBAR FIX 🚨 === */
     /* Forces the 3D swipe deck to stay underneath your global navigation bar */
     .deck-wrapper {
@@ -300,6 +303,43 @@
         .btn-whatsapp-invite:hover { box-shadow: 0 15px 30px rgba(37, 211, 102, 0.4); transform: translateY(-2px); }
         .btn-settings-adj:hover { background: #FEF2F4; border-color: #E60026; transform: translateY(-2px); }
     }
+
+    /* === MATCHES GRID (EMPTY STATE) === */
+    .matches-grid {
+        display: flex; gap: 15px; overflow-x: auto; padding: 10px 0 20px; 
+        scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        width: 100%; max-width: 90vw;
+    }
+    .matches-grid::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+    
+    .match-card {
+        scroll-snap-align: center;
+        flex: 0 0 calc(45% - 10px); min-width: 140px; max-width: 160px;
+        background: white; border-radius: 20px; overflow: hidden;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column;
+        text-align: left; border: 1px solid #FFD6DD;
+    }
+    
+    .match-img-wrapper { position: relative; width: 100%; aspect-ratio: 1; }
+    .match-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    
+    .perfect-match-badge, .compat-badge {
+        position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+        background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: white;
+        padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 900;
+        white-space: nowrap; box-shadow: 0 4px 10px rgba(230,0,38,0.4);
+    }
+    
+    .match-info { padding: 12px; flex: 1; display: flex; flex-direction: column; }
+    .match-info h3 { margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: #111; }
+    .match-info p { margin: 0; font-size: 12px; color: #666; font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    
+    .btn-chat-teaser {
+        margin-top: auto; padding: 8px; border-radius: 12px; background: #f4f6f8;
+        color: #E60026; font-weight: 800; font-size: 12px; text-align: center;
+        text-decoration: none; display: block; margin-top: 10px;
+    }
 </style>
 
 <button class="radar-btn" onclick="document.getElementById('crush-modal').style.display='flex'">
@@ -322,6 +362,45 @@
 </div>
 
 <div class="deck-wrapper">
+    {% if not profile_complete %}
+    <div id="profile-completion-banner" style="display: none; position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: calc(100% - 30px); max-width: 420px; z-index: 10000; box-shadow: 0 10px 25px rgba(0,0,0,0.15); border-radius: 16px;">
+        <!-- Close Button -->
+        <button onclick="dismissProfileBanner(event)" style="position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; background: #fff; border: 1px solid #fcd34d; border-radius: 50%; color: #b45309; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            ✕
+        </button>
+        <a href="{{ url_for('complete_profile') }}" class="alert-box" style="border-color: #f59e0b; background: #fffbeb; padding: 12px; display: flex; align-items: center; border-radius: 16px; text-decoration: none;">
+            <div class="alert-icon" style="background: #fef3c7; color: #d97706; font-size: 20px; margin-right: 12px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; flex-shrink: 0;">⚠️</div>
+            <div class="alert-text" style="flex: 1; display: flex; flex-direction: column;">
+                <strong style="color: #b45309; font-size: 14px; font-weight: 900; margin-bottom: 2px;">Complete Your Profile</strong>
+                <span style="color: #92400e; font-size: 12px; font-weight: 500;">Add a photo and phone number to start matching. Tap here!</span>
+            </div>
+            <div class="alert-arrow" style="color: #f59e0b; font-size: 18px; font-weight: bold; opacity: 0.5;">→</div>
+        </a>
+    </div>
+    
+    <script>
+        function dismissProfileBanner(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            document.getElementById('profile-completion-banner').style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastShown = localStorage.getItem('profile_banner_last_shown');
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (lastShown !== today) {
+                const banner = document.getElementById('profile-completion-banner');
+                if (banner) {
+                    banner.style.display = 'block';
+                    localStorage.setItem('profile_banner_last_shown', today);
+                }
+            }
+        });
+    </script>
+    {% endif %}
     <div class="deck-container">
         <div id="is-match-signal">ITS A MATCH!</div>
 
@@ -377,6 +456,38 @@
                     Adjust Discovery Filters
                 </a>
             </div>
+
+            {% if top_teasers %}
+            <div style="margin-top: 50px;">
+                <h3 style="color: #720000; font-weight: 900; margin-bottom: 5px;">Your Perfect Matches Await</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Top singles carefully selected by the algorithm.</p>
+                
+                <div class="matches-grid">
+                    {% for match in top_teasers %}
+                    <div class="match-card">
+                        <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
+                            <div class="match-img-wrapper">
+                                <img src="{{ match.img }}" alt="{{ match.name }}" loading="lazy">
+                                {% if match.is_perfect_match %}
+                                    <div class="compat-badge perfect-match-badge">❤️ Perfect Match</div>
+                                {% else %}
+                                    <div class="compat-badge">{{ match.compatibility }}% Match</div>
+                                {% endif %}
+                            </div>
+                        </a>
+                        
+                        <div class="match-info">
+                            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
+                                <h3>{{ match.name }}</h3>
+                            </a>
+                            <p>{{ match.bio }}</p>
+                            <a href="{{ url_for('view_student', target_id=match.id) }}" class="btn-chat-teaser">👀 View Profile</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -410,7 +521,6 @@
     <button onclick="closeMatchOverlay()" style="background:transparent; color:white; border:none; margin-top:20px; cursor:pointer; opacity:0.7; font-weight: 800; font-size: 14px; letter-spacing: 1px; padding: 10px;">KEEP SWIPING</button>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
     // ==========================================
     // GLOBAL VARIABLES & NOTIFICATIONS
@@ -419,7 +529,7 @@
     window.currentUserZodiac = "{{ current_user.zodiac | default('') }}";
     window.currentUserMbti = "{{ current_user.mbti | default('') }}";
     const myId = "{{ session.get('user_id') }}";
-    const socket = io();
+    // const socket = io(); // Temporarily disabled to prevent server crashes
 
     let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('fym_offline_queue')) || {};
@@ -478,6 +588,7 @@
 
     updateBellUI();
 
+    /* Temporarily disabled
     socket.on('receive_message', function(data) {
         const senderId = data.sender || data.sender_id;
         if (senderId === myId || senderId === 'SYSTEM_AI') return;
@@ -500,6 +611,7 @@
         bell.style.transform = 'scale(1.2) rotate(15deg)';
         setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 400);
     });
+    */
 
     window.addEventListener('click', function(e) {
         const bellPop = document.getElementById('bell-popover');

@@ -35,7 +35,7 @@ def initialize_firebase():
 # ==========================================
 # 2. THE UNLOCK FUNCTION (BY EMAIL)
 # ==========================================
-def grant_vip_access(email_address, package='gold'):
+def grant_vip_access(email_address, package='premium'):
     """Searches for a user by email and grants them a 30-day VIP pass with the selected package."""
     email_clean = email_address.strip().lower()
     print(f"\n🔍 Searching database for email: {email_clean}...")
@@ -88,16 +88,6 @@ if __name__ == "__main__":
             print("Exiting tool. Goodbye!")
             break
         elif target_email:
-            print("\nSelect the subscription package to grant:")
-            print("1. Gold Package (50 KSH)")
-            print("2. Diamond Package (99 KSH)")
-            package_choice = input("Enter choice (1 or 2, default is 1): ").strip()
-            
-            if package_choice == '2':
-                selected_package = 'diamond'
-            else:
-                selected_package = 'gold'
-                
-            grant_vip_access(target_email, selected_package)
+            grant_vip_access(target_email, 'premium')
         else:
             print("Please enter a valid email address.")

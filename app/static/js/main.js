@@ -1,265 +1,234 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // --- UI ELEMENTS ---
-    const card = document.getElementById('profile-card');
-    const shimmer = document.getElementById('shimmer');
-    const profileImg = document.getElementById('profile-img');
-    const aiTag = document.getElementById('ai-tag');
-    const matchSignal = document.getElementById('is-match-signal');
-    
-    const overlay = document.getElementById('match-overlay');
-    const feedbackModal = document.getElementById('feedback-modal');
-    
-    // --- STATE ---
-    let profiles = []; 
-    let currentIndex = 0;
-    let isAnimating = false;
-    let isDragging = false;
-    let startX = 0;
-    
-    const myUserId = window.currentUserId || "MMUST_STUDENT"; 
-    const hasGSAP = typeof gsap !== 'undefined';
 
-    // 1. STARTUP
-    init();
-
-    async function init() {
-        await fetchProfiles();
-        // Check for feedback after a short delay
-        setTimeout(checkPendingDateFeedback, 2000);
-    }
-
-    async function fetchProfiles() {
-        try {
-            // Show loading state initially
-            if (shimmer) shimmer.style.display = 'block';
-            
-            const res = await fetch(`/api/profiles?user_id=${myUserId}`);
-            if (!res.ok) throw new Error("Server error");
-            
-            profiles = await res.json();
-            
-            if (profiles && profiles.length > 0) {
-                loadProfile();
-            } else {
-                showEmptyState();
-            }
-        } catch (err) {
-            console.error("Failed to fetch profiles:", err);
-            showEmptyState();
-        }
-    }
-
-    function loadProfile() {
-        if (currentIndex >= profiles.length) {
-            showEmptyState();
-            return;
-        }
-        
-        isAnimating = false;
-        const profile = profiles[currentIndex];
-        
-        // --- 1. Prepare UI for next profile ---
-        if (shimmer) shimmer.style.display = 'block';
-        if (profileImg) profileImg.style.display = 'none';
-        if (aiTag) aiTag.classList.add('hidden');
-        
-        // NEW: Signal if this is a mutual match immediately
-        if (typeof window.updateMatchSignal === 'function') {
-            window.updateMatchSignal(profile.is_mutual_match);
-        }
-
-        // --- 2. Update Text Fields ---
-        const nameEl = document.getElementById('profile-name');
-        const bioEl = document.getElementById('profile-bio');
-        const ageEl = document.getElementById('profile-age');
-
-        if (nameEl) nameEl.innerText = profile.name || "Explorer";
-        if (bioEl) bioEl.innerText = profile.bio || "Searching for connections...";
-        if (ageEl) ageEl.innerText = profile.age ? `, ${profile.age}` : "";
-        
-        // --- 3. AI Badge Logic ---
-        if (aiTag && (profile.is_perfect_match || (profile.bio && profile.bio.includes("✨")))) {
-            aiTag.innerText = "✨ AI TOP PICK";
-            aiTag.classList.remove('hidden');
-        }
-
-        // --- 4. Image Handling (Prevents White Screen) ---
-        const img = new Image();
-        img.src = profile.img || "/static/img/placeholder.png";
-        
-        // Set a timeout: if image takes too long, show placeholder
-        const imgTimeout = setTimeout(() => {
-            if (profileImg.style.display === 'none') {
-                profileImg.src = "/static/img/placeholder.png";
-                revealProfile();
-            }
-        }, 5000);
-
-        img.onload = () => {
-            clearTimeout(imgTimeout);
-            profileImg.src = img.src;
-            revealProfile();
-        };
-
-        img.onerror = () => {
-            clearTimeout(imgTimeout);
-            profileImg.src = "/static/img/placeholder.png";
-            revealProfile();
-        };
-    }
-
-    function revealProfile() {
-        if (shimmer) shimmer.style.display = 'none';
-        if (profileImg) profileImg.style.display = 'block';
-
-        if (hasGSAP) {
-            // Smooth reveal animation
-            gsap.fromTo(['#profile-name', '#profile-age', '#profile-bio'], 
-                { y: 15, opacity: 0 }, 
-                { y: 0, opacity: 1, duration: 0.4, stagger: 0.08, ease: "power2.out" }
-            );
-            // Reset card visuals
-            gsap.set(card, { x: 0, y: 0, rotation: 0, opacity: 1, scale: 1 });
-            gsap.set(['.stamp'], { opacity: 0 });
-        }
-    }
-
-    // --- SWIPE LOGIC ---
-    window.handleSwipe = function(direction) {
-        if (currentIndex >= profiles.length || isAnimating) return;
-        isAnimating = true;
-
-        const targetProfile = profiles[currentIndex];
-
-        // 1. Update Database (Background)
-        fetch('/api/swipe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                user_id: myUserId, 
-                target_id: targetProfile.id, 
-                action: direction 
-            })
-        }).catch(e => console.error("Swipe sync failed:", e));
-
-        // 2. Animation
-        if (hasGSAP) {
-            const endX = direction === 'like' ? 800 : -800;
-            const rotation = direction === 'like' ? 35 : -35;
-            const stamp = direction === 'like' ? '#stamp-like' : '#stamp-nope';
-
-            // Show stamp fully during animation
-            gsap.to(stamp, { opacity: 1, duration: 0.1 });
-            
-            gsap.to(card, {
-                x: endX,
-                rotation: rotation,
-                opacity: 0,
-                duration: 0.5,
-                ease: "power2.in",
-                onComplete: () => finalizeSwipe(direction, targetProfile)
-            });
-        } else {
-            finalizeSwipe(direction, targetProfile);
-        }
-    };
-
-    function finalizeSwipe(direction, profile) {
-        // If it's a mutual match and they liked, show the big celebration
-        if (direction === 'like' && profile.is_mutual_match) {
-            if (typeof window.triggerMatchCelebration === 'function') {
-                window.triggerMatchCelebration(profile);
-            }
-        } else {
-            currentIndex++;
-            loadProfile();
-        }
-    }
-
-    // Called from Celebration Modal
-    window.loadNextProfile = function() {
-        currentIndex++;
-        loadProfile();
-    };
-
-    function showEmptyState() {
-        const activeProfileUI = document.getElementById('active-profile');
-        const swipeButtonsUI = document.getElementById('swipe-buttons');
-        const emptyStateUI = document.getElementById('empty-state');
-
-        if (activeProfileUI) activeProfileUI.classList.add('hidden');
-        if (swipeButtonsUI) swipeButtonsUI.classList.add('hidden');
-        if (matchSignal) matchSignal.style.display = 'none';
-        
-        if (emptyStateUI) {
-            emptyStateUI.classList.remove('hidden');
-            emptyStateUI.style.display = 'flex';
-            if (hasGSAP) gsap.from(emptyStateUI, { scale: 0.95, opacity: 0, duration: 0.5 });
-        }
-    }
-
-    // --- INTERACTIVE PHYSICS ---
-    if (card) {
-        card.onpointerdown = (e) => {
-            if (currentIndex >= profiles.length || isAnimating) return;
-            isDragging = true;
-            startX = e.clientX;
-            card.style.transition = 'none';
-            if (hasGSAP) gsap.killTweensOf(card);
-        };
-
-        document.addEventListener('pointermove', (e) => {
-            if (!isDragging) return;
-            
-            const x = e.clientX - startX;
-            const rotation = x * 0.1;
-            
-            // Calculate stamp opacities (appear as you drag further)
-            const opacityLike = Math.max(0, Math.min(1, (x - 50) / 100));
-            const opacityNope = Math.max(0, Math.min(1, (-x - 50) / 100));
-
-            if (hasGSAP) {
-                gsap.set(card, { x: x, rotation: rotation });
-                gsap.set('#stamp-like', { opacity: opacityLike });
-                gsap.set('#stamp-nope', { opacity: opacityNope });
-            } else {
-                card.style.transform = `translateX(${x}px) rotate(${rotation}deg)`;
-            }
-        });
-
-        document.addEventListener('pointerup', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            
-            const x = e.clientX - startX;
-            const threshold = 130;
-
-            if (Math.abs(x) > threshold) {
-                window.handleSwipe(x > 0 ? 'like' : 'pass');
-            } else {
-                // Snap back to center
-                if (hasGSAP) {
-                    gsap.to(card, { x: 0, rotation: 0, duration: 0.5, ease: "elastic.out(1, 0.6)" });
-                    gsap.to(['.stamp'], { opacity: 0, duration: 0.2 });
-                } else {
-                    card.style.transition = '0.3s ease';
-                    card.style.transform = 'translate(0,0) rotate(0deg)';
+function updateLiveOnlineCount() {
+        fetch('/api/online_count')
+            .then(res => res.json())
+            .then(data => {
+                // Update the number inside the button
+                const countElement = document.getElementById('liveUserCount');
+                if (countElement) {
+                    countElement.innerText = data.count;
                 }
-            }
-        });
+            })
+            .catch(err => console.error("Failed to fetch live users", err));
     }
+    
+    // Fetch the count immediately when the page loads
+    updateLiveOnlineCount();
+    
+    // Silently update the count in the background every 60 seconds (reduced from 15s to save server load)
+    setInterval(updateLiveOnlineCount, 60000);
 
-    async function checkPendingDateFeedback() {
-        try {
-            const res = await fetch(`/api/check-pending-date?user_id=${myUserId}`);
-            const data = await res.json();
-            if (data.show_feedback && feedbackModal) {
-                const fbName = document.getElementById('fb-name');
-                if (fbName) fbName.innerText = data.match_name;
-                feedbackModal.classList.remove('hidden');
+    /* DISABLED FOR HOSTPINNACLE
+                // Start Persistent Alarm (1 Hour Loop)
+                stopEmergencyAlert(); // Clear any old ones
+                
+                const playLoop = () => {
+                    sosAudio1.play().catch(e => console.log("Audio blocked"));
+                    setTimeout(() => {
+                        sosAudio2.play().catch(e => console.log("Audio blocked"));
+                    }, 3000);
+                };
+
+                playLoop();
+                sosAlarmInterval = setInterval(playLoop, 7000);
+
+                // Auto-stop after 1 hour
+                sosTimeout = setTimeout(() => {
+                    stopEmergencyAlert();
+                }, 3600000); 
+                
+                if (navigator.vibrate) navigator.vibrate([500, 200, 500, 200, 500]);
+            });
+
+            globalSocket.on('receive_sos_stop', (data) => {
+                // Remote signal to stop the alarm
+                stopEmergencyAlert();
+                if (data.sender_id !== myUserId) {
+                    alert("✅ Emergency Resolved: The student is now safe.");
+                }
+            });
+
+            window.stopGlobalEmergencySOS = function() {
+                if (!confirm("Confirm you are safe? This will silence the alarm for ALL students.")) return;
+                globalSocket.emit('stop_emergency_sos', { sender_id: myUserId });
+                stopEmergencyAlert();
+            };
+
+            window.stopEmergencyAlert = function() {
+                document.getElementById('emergencyOverlay').classList.remove('active');
+                clearInterval(sosAlarmInterval);
+                clearTimeout(sosTimeout);
+                sosAudio1.pause(); sosAudio1.currentTime = 0;
+                sosAudio2.pause(); sosAudio2.currentTime = 0;
+            };
+
+            // === 💡 SOS TOOLTIP LOGIC ===
+            window.closeSosTooltip = function() {
+                document.getElementById('sosTooltip').style.display = 'none';
+                localStorage.setItem('sos_tooltip_closed', 'true');
+            };
+
+            // Show tooltip on load if not previously closed
+            setTimeout(() => {
+                if (!localStorage.getItem('sos_tooltip_closed')) {
+                    document.getElementById('sosTooltip').style.display = 'block';
+                }
+            }, 2000);
+
+            window.triggerEmergencySOS = function() {
+                if (!confirm("🚨 CONFIRM EMERGENCY 🚨\n\nAre you in immediate danger? This will alert ALL online users and share your current location.")) return;
+
+                const btn = document.getElementById('sosTriggerBtn');
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+
+                // Try to get location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        const payload = {
+                            sender_id: myUserId,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude
+                        };
+                        globalSocket.emit('emergency_sos', payload);
+                        alert("🚨 SOS DISPATCHED! Stay safe, help is being notified.");
+                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                    }, (err) => {
+                        // Emit even without location
+                        globalSocket.emit('emergency_sos', { sender_id: myUserId });
+                        alert("🚨 SOS DISPATCHED! (Location access denied, but users notified)");
+                        setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                    });
+                } else {
+                    globalSocket.emit('emergency_sos', { sender_id: myUserId });
+                    alert("🚨 SOS DISPATCHED!");
+                    setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 10000);
+                }
+            };
+            
+            globalSocket.on('incoming_call', (data) => {
+                // Prevent popup if already on the call page
+                if (window.location.pathname.includes('/call/')) return; 
+
+                globalIncomingCallerId = data.caller_id;
+                
+                // Configure UI elements
+                document.getElementById('gIncImg').src = data.caller_img || '/static/img/placeholder.png';
+                document.getElementById('gIncName').innerText = data.caller_name || 'A Student';
+                
+                const isVideo = data.is_video === true || data.is_video === 'true';
+                const callColor = isVideo ? '#A855F7' : '#38BDF8';
+                
+                document.getElementById('gIncType').innerText = isVideo ? '📹 Incoming Video Call' : '🎙 Incoming Voice Call';
+                document.getElementById('gIncType').style.color = callColor;
+                document.getElementById('gIncImg').style.borderColor = callColor;
+                
+                // Update ring animation colors
+                document.querySelectorAll('.g-ring').forEach(ring => {
+                    ring.style.borderColor = callColor;
+                });
+
+                // Configure answer button redirection
+                document.getElementById('gBtnAnswer').onclick = function() {
+                    playGlobalRingtone(false);
+                    document.getElementById('globalIncomingCall').classList.remove('active');
+                    window.location.href = `/call/${data.caller_id}?action=answer&video=${isVideo}`;
+                };
+
+                // Trigger modal and audio
+                document.getElementById('globalIncomingCall').classList.add('active');
+                playGlobalRingtone(true);
+            });
+
+            globalSocket.on('call_ended', () => {
+                playGlobalRingtone(false);
+                document.getElementById('globalIncomingCall').classList.remove('active');
+                globalIncomingCallerId = null;
+            });
+        }
+
+        function globalDeclineCall() {
+            playGlobalRingtone(false);
+            document.getElementById('globalIncomingCall').classList.remove('active');
+            if (globalIncomingCallerId) {
+                globalSocket.emit('end_call', { target_id: globalIncomingCallerId, reason: 'declined' });
+                globalIncomingCallerId = null;
             }
-        } catch (e) {
-            // Silently fail if route doesn't exist yet
         }
     }
-});
+    */
+
+document.addEventListener("DOMContentLoaded", () => {
+        const totalImages = 16; // Optimized from 27 for premium mobile performance
+        const bgContainer = document.getElementById('dreamscape-bg');
+        
+        // 1. Generate the 27 Orbs
+        for (let i = 1; i <= totalImages; i++) {
+            let orb = document.createElement('div');
+            orb.className = 'love-orb';
+            
+            // Link to your static folder images
+            orb.style.backgroundImage = `url('/static/img/${i}.jpg')`; 
+            
+            // Randomize their sizes so it looks natural (between 50px and 140px)
+            let size = gsap.utils.random(50, 140);
+            orb.style.width = `${size}px`;
+            orb.style.height = `${size}px`;
+            
+            bgContainer.appendChild(orb);
+            
+            // Start the infinite animation loop for this specific orb
+            animateOrb(orb);
+        }
+
+        // 2. The GSAP Floating Logic
+        function animateOrb(orb) {
+            // Pick a random starting point at the bottom of the screen
+            let startX = gsap.utils.random(0, window.innerWidth);
+            let startY = window.innerHeight + 150; // Starts below the screen
+            
+            // Randomize how long it takes to float up (between 20 and 45 seconds - very slow and peaceful)
+            let duration = gsap.utils.random(20, 45); 
+            
+            // Randomize when it starts, so they don't all clump together at the beginning
+            let delay = gsap.utils.random(0, 30);
+
+            // Reset the orb to the bottom
+            gsap.set(orb, {
+                x: startX,
+                y: startY,
+                opacity: 0,
+                scale: gsap.utils.random(0.6, 1.2),
+                rotation: gsap.utils.random(-30, 30) // Give it a slight tilt
+            });
+
+            // Create the timeline
+            let tl = gsap.timeline({
+                delay: delay,
+                onComplete: () => animateOrb(orb) // When it finishes, restart it infinitely
+            });
+
+            // The Animation Sequence
+            tl.to(orb, {
+                // Fade in softly (Keep opacity low so it doesn't distract from the app text)
+                opacity: gsap.utils.random(0.15, 0.35), 
+                duration: duration * 0.2, 
+                ease: "power1.inOut"
+            })
+            .to(orb, {
+                // Float up to above the top of the screen
+                y: -200, 
+                // Drift slightly left or right like a balloon in the wind
+                x: startX + gsap.utils.random(-150, 150), 
+                rotation: gsap.utils.random(-60, 60),
+                duration: duration,
+                ease: "none"
+            }, "<") // The "<" symbol tells GSAP to run this at the same time as the fade-in
+            .to(orb, {
+                // Fade back out before it disappears
+                opacity: 0,
+                duration: duration * 0.2,
+                ease: "power1.inOut"
+            }, `-=${duration * 0.2}`); // Start fading out near the end of the duration
+        }
+    });

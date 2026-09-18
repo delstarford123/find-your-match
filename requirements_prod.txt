@@ -1,0 +1,30 @@
+# ==========================================
+# 🌐 WEB FRAMEWORK & UTILITIES (PRODUCTION)
+# ==========================================
+Flask
+Flask-WTF
+Flask-Mail
+Flask-Cors
+pytz
+python-dotenv
+requests
+
+# ==========================================
+# 🗄️ DATABASE & EXTERNAL APIs
+# ==========================================
+firebase-admin
+groq
+twilio
+
+# ==========================================
+# 🛠️ UTILITIES & SECURITY
+# ==========================================
+pywebpush
+qrcode
+Pillow
+Flask-Limiter
+
+# ==========================================
+# 📊 MATHEMATICAL UTILITIES
+# ==========================================
+numpy

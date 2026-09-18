@@ -158,16 +158,22 @@
 
     <audio id="remoteAudio" autoplay playsinline></audio>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script>
         // ==========================================
         // 1. INITIALIZATION & VARIABLES
         // ==========================================
-        const socket = io();
+        const firebaseConfig = { databaseURL: "{{ config['FIREBASE_DB_URL'] }}" };
+        firebase.initializeApp(firebaseConfig);
+        const fdb = firebase.database();
+        
         const myId = "{{ session.get('user_id') }}";
         const partnerId = "{{ partner_id }}";
         const action = "{{ action }}"; 
         const isVideoCall = {{ is_video | lower }};
+        const roomId = `call_${[myId, partnerId].sort().join('_')}`;
+        const callsRef = fdb.ref(`calls/${roomId}`);
         
         let pc = null;
         let localStream = null;
@@ -179,9 +185,8 @@
         
         let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-        socket.on('connect', () => { 
-            socket.emit('join_call_room', { user_id: myId }); 
-        });
+        // Clean up when leaving page
+        window.addEventListener('beforeunload', () => endCall(true));
 
         // ==========================================
         // 2. WHATSAPP-STYLE VIDEO SWAP
@@ -192,12 +197,10 @@
 
             // Only swap if the user clicks the video that is currently SMALL (PiP)
             if (clickedType === 'local' && localIsPip) {
-                // Local goes Fullscreen, Remote goes Small
                 localVid.className = 'video-main mirrored';
                 remoteVid.className = 'video-pip pip-hover';
                 localIsPip = false;
             } else if (clickedType === 'remote' && !localIsPip) {
-                // Remote goes Fullscreen, Local goes Small
                 remoteVid.className = 'video-main';
                 localVid.className = 'video-pip mirrored pip-hover';
                 localIsPip = true;
@@ -232,7 +235,7 @@
 
             pc.onicecandidate = e => {
                 if (e.candidate) {
-                    socket.emit('webrtc_ice_candidate', { target_id: partnerId, candidate: e.candidate });
+                    callsRef.child(`candidates_${myId}`).push(e.candidate.toJSON());
                 }
             };
 
@@ -249,6 +252,22 @@
                     setTimeout(() => endCall(false), 3000);
                 }
             };
+
+            // Listen for remote ICE candidates
+            callsRef.child(`candidates_${partnerId}`).on('child_added', snapshot => {
+                const candidateData = snapshot.val();
+                if (!candidateData) return;
+                
+                // If remoteDescription is not set yet, we must queue the candidate or wait
+                let retries = 0;
+                let addCandidateInterval = setInterval(() => {
+                    if (pc && pc.remoteDescription) {
+                        pc.addIceCandidate(new RTCIceCandidate(candidateData)).catch(e => console.error("ICE Error", e));
+                        clearInterval(addCandidateInterval);
+                    }
+                    if (++retries > 50) clearInterval(addCandidateInterval);
+                }, 100);
+            });
         }
 
         function finalizeConnection() {
@@ -288,74 +307,93 @@
 
             if (action === 'call') {
                 document.getElementById('callStatus').innerText = "Ringing...";
-                socket.emit('call_invite', {
-                    target_id: partnerId, 
+                // Clear old call data
+                await callsRef.remove();
+                
+                // Send push notification to receiver's Firebase node
+                fdb.ref(`incoming_calls/${partnerId}`).push({
                     caller_id: myId,
                     caller_name: "{{ session.get('user_name', 'Student').split()[0] }}",
                     caller_img: "{{ session.get('profile_img', '/static/img/placeholder.png') }}",
-                    is_video: isVideoCall
+                    is_video: isVideoCall,
+                    timestamp: Date.now()
                 });
+
+                setupPeerConnection();
+
+                // Caller waits for receiver to be ready before creating offer
+                callsRef.child('receiver_ready').on('value', async snap => {
+                    if (snap.val() === true) {
+                        document.getElementById('callStatus').innerText = "Connecting...";
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        callsRef.child('offer').set({ type: offer.type, sdp: offer.sdp });
+                    }
+                });
+
+                // Caller waits for receiver's answer
+                callsRef.child('answer').on('value', async snap => {
+                    const answer = snap.val();
+                    if (answer && !pc.currentRemoteDescription) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                        finalizeConnection();
+                    }
+                });
+
             } else if (action === 'answer') {
                 document.getElementById('callStatus').innerText = "Connecting...";
-                socket.emit('receiver_ready', { caller_id: partnerId, target_id: myId });
+                setupPeerConnection();
+                
+                // Tell caller we are ready for their offer
+                callsRef.child('receiver_ready').set(true);
+
+                // Receiver waits for caller's offer
+                callsRef.child('offer').on('value', async snap => {
+                    const offer = snap.val();
+                    if (offer && !pc.currentRemoteDescription) {
+                        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        callsRef.child('answer').set({ type: answer.type, sdp: answer.sdp });
+                        finalizeConnection();
+                    }
+                });
             }
+            
+            // Listen for Call Termination
+            callsRef.child('ended').on('value', snap => {
+                if (snap.val() === true) {
+                    endCall(false);
+                }
+            });
+            
+            // Listen for Live Reactions
+            callsRef.child('reactions').on('child_added', snap => {
+                const data = snap.val();
+                if (data && data.sender !== myId) {
+                    showFloatingEmoji(data.emoji, false);
+                }
+            });
         }
-
-        socket.on('receiver_ready', async data => {
-            if (action === 'call') {
-                document.getElementById('callStatus').innerText = "Connecting...";
-                setupPeerConnection();
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                socket.emit('webrtc_offer', { target_id: partnerId, caller_id: myId, offer: offer });
-            }
-        });
-
-        socket.on('webrtc_offer', async data => {
-            if (action === 'answer' && data.caller_id === partnerId) {
-                setupPeerConnection();
-                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                socket.emit('webrtc_answer', { caller_id: partnerId, answer: answer });
-                finalizeConnection(); 
-            }
-        });
-
-        socket.on('call_answered', async data => {
-            if (action === 'call') {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                finalizeConnection(); 
-            }
-        });
-
-        socket.on('new_ice_candidate', async data => {
-            if (pc && data.candidate) {
-                try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } 
-                catch(e) { console.error("ICE Error:", e); }
-            }
-        });
 
         // ==========================================
         // 5. CALL TERMINATION
         // ==========================================
-        socket.on('call_ended', () => {
-            if (isCallConnected) {
-                endCall(false);
-            } else {
-                alert("The other person declined or hung up.");
-                window.location.href = '/talk';
-            }
-        });
-
         function endCall(notifyOther = true) {
-            if (notifyOther) socket.emit('end_call', { target_id: partnerId });
+            if (notifyOther) {
+                callsRef.child('ended').set(true);
+            }
             
             if (pc) pc.close();
             if (localStream) localStream.getTracks().forEach(t => t.stop());
             clearInterval(networkCheckInterval);
             
-            window.location.href = '/call-review/' + partnerId; 
+            if (!isCallConnected && notifyOther) {
+                alert("Call cancelled.");
+                window.location.href = '/talk';
+            } else {
+                window.location.href = '/call-review/' + partnerId; 
+            }
         }
 
         // ==========================================
@@ -448,12 +486,8 @@
 
         function sendReaction(emoji) {
             showFloatingEmoji(emoji, true);
-            socket.emit('call_reaction', { target_id: partnerId, emoji: emoji });
+            callsRef.child('reactions').push({ emoji: emoji, sender: myId });
         }
-
-        socket.on('receive_reaction', data => {
-            showFloatingEmoji(data.emoji, false);
-        });
 
         function showFloatingEmoji(emoji, isLocal) {
             const layer = document.getElementById('reaction-layer');

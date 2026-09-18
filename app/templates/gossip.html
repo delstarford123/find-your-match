@@ -454,8 +454,13 @@
                 commentEl.innerText = text;
                 container.appendChild(commentEl);
                 input.value = '';
+            } else {
+                alert(data.message || "Failed to post comment.");
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error(e); 
+            alert("Network error. Could not post comment.");
+        }
     }
 
     // Close modal on background click

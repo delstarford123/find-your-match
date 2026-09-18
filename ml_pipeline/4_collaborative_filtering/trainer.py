@@ -1,9 +1,8 @@
 import os
 import sys
 import logging
-import pandas as pd
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+import math
+from collections import defaultdict
 from typing import List
 
 # 1. Configure Production Logging
@@ -19,82 +18,102 @@ except ImportError:
     logger.error("Failed to import database modules. Running in standalone/mock mode.")
     def get_all_swipes(): return []
 
-def load_swipe_data() -> pd.DataFrame:
-    """Fetches and cleans swipe data for the matrix engine."""
-    swipes = get_all_swipes()
-    if not swipes:
-        return pd.DataFrame()
-    
-    df = pd.DataFrame(swipes)
-    
-    # Validation
-    required = {'user_id', 'target_id', 'action'}
-    if not required.issubset(df.columns):
-        return pd.DataFrame()
-
-    # Map interactions to numerical weights
-    # 'Like' = 1.0, 'Pass' = -1.0
-    df['score'] = df['action'].map({'like': 1, 'pass': -1}).fillna(0)
-    return df
-
 def get_recommendations(target_user_id: str, limit: int = 5) -> List[str]:
     """
-    Highly optimized recommendation engine using Vectorized Cosine Similarity.
+    Highly optimized recommendation engine using pure Python Cosine Similarity.
+    Eliminates dependencies on pandas and scikit-learn for memory-restricted production environments.
     """
-    df = load_swipe_data()
-    if df.empty:
+    swipes = get_all_swipes()
+    if not swipes:
         return []
 
-    # 1. Pivot into a User-Item Matrix (Rows: Swipers, Cols: Profiles being swiped)
-    # Using 'score' as the value. fill_value=0 represents 'No interaction'
-    user_matrix = df.pivot_table(index='user_id', columns='target_id', values='score', fill_value=0)
+    # 1. Build the User-Item matrix mapping using a nested dictionary
+    # user_matrix[user_id][target_id] = score (like = 1, pass = -1)
+    user_matrix = defaultdict(dict)
+    
+    # Track which users target has already seen/swiped on
+    seen_ids = set()
+    
+    for swipe in swipes:
+        uid = swipe.get('user_id')
+        tid = swipe.get('target_id')
+        action = swipe.get('action')
+        
+        if not uid or not tid or not action:
+            continue
+            
+        score = 1 if action.lower() == 'like' else -1
+        user_matrix[uid][tid] = score
+        
+        if uid == target_user_id:
+            seen_ids.add(tid)
 
-    if target_user_id not in user_matrix.index:
+    if target_user_id not in user_matrix:
         logger.info(f"New user {target_user_id} has no swipe history.")
         return []
 
-    # 2. Compute Similarity
-    # We compare the target user's vector against ALL other users
-    target_vector = user_matrix.loc[[target_user_id]]
-    similarities = cosine_similarity(target_vector, user_matrix)[0]
+    # The set of seen_ids should also include the user themselves to prevent self-recommendation
+    seen_ids.add(target_user_id)
+
+    target_vector = user_matrix[target_user_id]
     
-    # Map similarity scores to user IDs
-    sim_series = pd.Series(similarities, index=user_matrix.index)
+    # Calculate magnitude of target user vector
+    target_mag = math.sqrt(sum(val ** 2 for val in target_vector.values()))
+    if target_mag == 0:
+        return []
+
+    similarities = {}
     
-    # Filter: Only keep users with a positive correlation (>0) and exclude self
-    sim_series = sim_series[(sim_series.index != target_user_id) & (sim_series > 0)]
-    
-    if sim_series.empty:
+    # 2. Compute Cosine Similarity between target_vector and other users' vectors
+    for other_user_id, other_vector in user_matrix.items():
+        if other_user_id == target_user_id:
+            continue
+            
+        # Dot product
+        dot_product = 0.0
+        for item, score in target_vector.items():
+            if item in other_vector:
+                dot_product += score * other_vector[item]
+                
+        if dot_product <= 0:
+            continue  # Only keep users with a positive correlation (>0)
+            
+        # Magnitude of other vector
+        other_mag = math.sqrt(sum(val ** 2 for val in other_vector.values()))
+        if other_mag == 0:
+            continue
+            
+        similarity = dot_product / (target_mag * other_mag)
+        if similarity > 0:
+            similarities[other_user_id] = similarity
+
+    if not similarities:
         return []
 
     # 3. Weighted Scoring (Collaborative Filtering)
-    # Find profiles liked by 'similar' users that the target hasn't seen
-    similar_users_interactions = user_matrix.loc[sim_series.index]
+    # Find items liked by similar users that target has not seen
+    recommendation_rank = defaultdict(float)
     
-    # Binary 'liked' matrix (only count positive interactions)
-    likes_only = (similar_users_interactions > 0).astype(float)
-    
-    # Weight the likes by the similarity score of the person who gave the like
-    weighted_votes = likes_only.multiply(sim_series, axis=0)
-    
-    # Aggregate scores for each profile
-    recommendation_rank = weighted_votes.sum(axis=0)
+    for other_user_id, similarity in similarities.items():
+        other_vector = user_matrix[other_user_id]
+        for item, score in other_vector.items():
+            # Only count positive interactions (Likes) and skip seen/self profiles
+            if score > 0 and item not in seen_ids:
+                recommendation_rank[item] += similarity * score
 
-    # 4. Final Filtering
-    # Remove users the target has already interacted with
-    seen_ids = set(df[df['user_id'] == target_user_id]['target_id'])
-    seen_ids.add(target_user_id) # Don't recommend self
+    # 4. Final Filtering & Sorting
+    # Sort candidates by aggregate score (descending)
+    sorted_candidates = sorted(
+        [(item, score) for item, score in recommendation_rank.items() if score > 0],
+        key=lambda x: x[1],
+        reverse=True
+    )
     
-    # Clean up the results
-    valid_candidates = recommendation_rank.drop(labels=list(seen_ids), errors='ignore')
-    
-    # Sort and return IDs of top picks
-    top_matches = valid_candidates[valid_candidates > 0].sort_values(ascending=False).head(limit)
-    
-    return top_matches.index.tolist()
+    top_matches = [item for item, score in sorted_candidates[:limit]]
+    return top_matches
 
 if __name__ == "__main__":
-    print("\n🚀 [MMUST AI] Recommender Engine Active")
+    print("\n🚀 [MMUST AI] Recommender Engine Active (Pure Python Mode)")
     # Simulate a run
     user_to_test = "MMUST_STUDENT_X"
     suggestions = get_recommendations(user_to_test)

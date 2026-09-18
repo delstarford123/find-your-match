@@ -392,324 +392,468 @@
         <h1 class="pay-title">Choose Your Package</h1>
         <p class="pay-subtitle">Find verification, connections, and live calling on campus.</p>
 
-        <!-- === DYNAMIC PACKAGE SELECTOR CARDS === -->
+        <!-- === PREMIUM PACKAGE DETAILS === -->
         <div class="package-options">
-            <div class="package-card active" data-package="gold" data-amount="50" onclick="selectPackage(this)">
+            <div class="package-card active" data-package="gold" data-amount="50" style="border: 2px solid #E60026; background: #fff0f2;">
+                <div class="popular-tag">ALL FEATURES UNLOCKED 💎</div>
                 <div class="package-header">
-                    <span class="package-name">💫 Gold Package</span>
+                    <span class="package-name">👑 Premium Access</span>
                     <span class="package-price">50 <small>KSH</small></span>
                 </div>
-                <p class="package-desc">Standard access to swipe deck, chatting, auto-matching, WebRTC calls & secrets gossip board.</p>
-            </div>
-            
-            <div class="package-card" data-package="diamond" data-amount="99" onclick="selectPackage(this)">
-                <div class="popular-tag">RECOMMENDED 💎</div>
-                <div class="package-header">
-                    <span class="package-name">👑 Diamond Package</span>
-                    <span class="package-price">99 <small>KSH</small></span>
-                </div>
-                <p class="package-desc">All Gold Features + **Priority exposure boost**, Monday match email, Lights Out lobby, Tarot matching & 15 other premium features.</p>
+                <p class="package-desc">Complete unrestricted access to all campus social and safety features.</p>
             </div>
         </div>
 
-        <button class="view-comparison-btn" onclick="toggleComparison()">Compare Package Features List ▾</button>
+        <button class="view-comparison-btn" onclick="toggleComparison()">View All Included Features ▾</button>
 
-        <!-- === FEATURES COMPARISON SHEET === -->
+        <!-- === FEATURES LIST === -->
         <div id="features-comparison" style="display: none; text-align: left; background: #fafafa; border: 1.5px solid #f0f0f0; border-radius: 20px; padding: 20px; margin-bottom: 25px; animation: slideDownFade 0.3s ease forwards;">
-            <h4 style="margin: 0 0 15px 0; color: #720000; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">What's Included</h4>
-            <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; font-size: 11px; font-weight: 800; border-bottom: 1.5px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
-                <span style="color: #666;">Feature</span>
-                <span style="text-align: center; color: #E60026;">Gold</span>
-                <span style="text-align: center; color: #8a2be2;">Diamond</span>
-            </div>
+            <h4 style="margin: 0 0 15px 0; color: #720000; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">What's Included for 50 KSH</h4>
             
-            <div class="comp-row"><span>💫 Swipe Deck & Chats</span><span class="y">✓</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🤝 Date Spot Booking</span><span class="y">✓</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🤫 Secrets Gossip Board</span><span class="y">✓</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>📞 WebRTC Voice/Video Calls</span><span class="y">✓</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🤝 Smart Auto-Matchmaker</span><span class="y">✓</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🚀 Profile Presentation Boost</span><span class="n">✕</span><span class="y">✓ (5x visibility)</span></div>
-            <div class="comp-row"><span>👑 Diamond VIP Crown Badge</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🔍 Secret Admirer Reveal Card</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>💌 Monday Love Match Email</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🌃 Friday "Lights Out" Lobby</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🪐 MBTI & Tarot Matching</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🛰️ Proximity Meetup Radar</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🎵 Spotify Mixtapes sharing</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🤖 Savage AI Wingman Coach</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>⏪ Pass Rollback (Swipe Undo)</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>👀 Profile Visitors Analytics</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🌟 Double Take passed cards</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🛡️ Incest Lineage Deep Scan</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🎁 Spinner Cooldown Bypass</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🔥 Partner Spot 20% Discounts</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>⚡ Direct Match Message Ping</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🎯 Faculty-Specific Smart Filters</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🕶️ Stealth Incognito Mode</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🎭 Blind Date Avatar Mode</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🏆 Crush Board 3x Multiplier</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>📅 Common Hour Date Scheduler</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🎧 Spotify Mixtape Sync Matcher</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🔮 Astrology Compatibility Synastry</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>📈 AI Profile Curation & Roaster</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>💫 Golden Super-Like Blast</span><span class="n">✕</span><span class="y">✓</span></div>
-            <div class="comp-row"><span>🛡️ SafeWalk Pro GPS Tracker</span><span class="n">✕</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>💫 Swipe Deck & Unlimited Chats</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤝 Safe Date Spot Booking</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤫 Secrets Gossip Board</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📞 WebRTC Voice/Video Calls</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤝 Smart Auto-Matchmaker</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🚀 Profile Presentation Boost (5x)</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>👑 Premium VIP Crown Badge</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔍 Secret Admirer Reveal Card</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>💌 Monday Love Match Email</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🌃 Friday "Lights Out" Lobby</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🪐 MBTI & Tarot Matching</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛰️ Proximity Meetup Radar</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎵 Spotify Mixtapes sharing</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🤖 Savage AI Wingman Coach</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>⏪ Pass Rollback (Swipe Undo)</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>👀 Profile Visitors Analytics</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🌟 Double Take passed cards</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛡️ Incest Lineage Deep Scan</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎁 Spinner Cooldown Bypass</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔥 Partner Spot 20% Discounts</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>⚡ Direct Match Message Ping</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎯 Faculty-Specific Smart Filters</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🕶️ Stealth Incognito Mode</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎭 Blind Date Avatar Mode</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🏆 Crush Board 3x Multiplier</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📅 Common Hour Date Scheduler</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🎧 Spotify Mixtape Sync Matcher</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🔮 Astrology Compatibility Synastry</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>📈 AI Profile Curation & Roaster</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>💫 Golden Super-Like Blast</span><span class="y">✓</span></div>
+            <div class="comp-row"><span>🛡️ SafeWalk Pro GPS Tracker</span><span class="y">✓</span></div>
         </div>
 
-        <div class="mpesa-input-group" id="input-container">
-            <label for="student-phone">M-Pesa Number</label>
-            <input type="tel" id="student-phone" value="254" placeholder="2547XXXXXXXX" maxlength="12" autocomplete="tel" inputmode="numeric" pattern="[0-9]*">
-        </div>
-
-        <button id="btn-pay-student" onclick="payStudentFee()" class="btn-unlock">
-            <span id="btn-text">Pay KSH 50 to Unlock</span>
-            <div class="spinner" id="btn-spinner"></div>
-        </button>
-        
-        <div id="polling-view" class="polling-view">
-            <div id="waiting-msg" class="waiting-text" style="display: block; margin-top: 15px;">
-                Please enter your M-Pesa PIN on your phone.<br>Do not close this page...
+        <!-- PHASE 1: INPUT FORM (default) -->
+        <div id="phase-input">
+            <div class="mpesa-input-group" id="input-container">
+                <label for="student-phone">M-Pesa Number</label>
+                <input type="tel" id="student-phone" value="" placeholder="07XXXXXXXX or 01XXXXXXXX"
+                    maxlength="12" autocomplete="tel" inputmode="numeric" pattern="[0-9]*"
+                    oninput="autoFormatPhone(this)">
+                <div id="phone-hint" style="font-size:11px;color:#888;margin-top:6px;font-weight:600;">
+                    Enter your Safaricom number — we'll auto-format it.
+                </div>
             </div>
-            
-            <button id="btn-manual-check" onclick="manualCheck()" class="btn-secondary">
-                <span id="manual-check-text">I've Already Paid - Check Status</span>
-                <span id="manual-check-icon">🔄</span>
+
+            <button id="btn-pay-student" onclick="payStudentFee()" class="btn-unlock">
+                <span id="btn-text">Pay KSH 50 to Unlock</span>
+                <div class="spinner" id="btn-spinner"></div>
             </button>
+
+            <div class="security-note" style="margin-top:18px;">
+                <span style="font-size:16px;">🔒</span> Secured by Safaricom Daraja API
+            </div>
         </div>
 
-        <div class="security-note">
-            <span style="font-size: 16px;">🔒</span> Secured by Safaricom Daraja API
+        <!-- PHASE 2: WAITING / POLLING VIEW (shown after STK push sent) -->
+        <div id="phase-waiting" style="display:none; width:100%;">
+            <!-- Animated phone icon -->
+            <div style="text-align:center; margin-bottom:20px; position:relative; z-index:2;">
+                <div id="phone-pulse" style="
+                    width:80px; height:80px; border-radius:50%;
+                    background:linear-gradient(135deg,#E60026,#720000);
+                    display:flex; align-items:center; justify-content:center;
+                    margin:0 auto 16px; font-size:36px;
+                    box-shadow:0 0 0 0 rgba(230,0,38,0.4);
+                    animation: phonePulse 1.5s ease-out infinite;
+                ">📱</div>
+                <style>
+                    @keyframes phonePulse {
+                        0%   { box-shadow: 0 0 0 0 rgba(230,0,38,0.4); }
+                        70%  { box-shadow: 0 0 0 20px rgba(230,0,38,0); }
+                        100% { box-shadow: 0 0 0 0 rgba(230,0,38,0); }
+                    }
+                </style>
+                <h3 style="color:#720000; font-size:20px; font-weight:900; margin:0 0 8px;">
+                    Check Your Phone!
+                </h3>
+                <p style="color:#555; font-size:14px; font-weight:600; margin:0; line-height:1.6;">
+                    A KSH 50 M-Pesa prompt has been sent to<br>
+                    <strong id="waiting-phone-display" style="color:#E60026;font-size:16px;"></strong>
+                </p>
+            </div>
+
+            <!-- Pulsing dots -->
+            <div style="display:flex; gap:8px; justify-content:center; margin:16px 0; position:relative; z-index:2;">
+                <style>
+                    .dot { width:10px; height:10px; border-radius:50%; background:#E60026; animation:dotBounce 1.2s ease-in-out infinite; }
+                    .dot:nth-child(2) { animation-delay:0.2s; }
+                    .dot:nth-child(3) { animation-delay:0.4s; }
+                    @keyframes dotBounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4;} 40%{transform:scale(1);opacity:1;} }
+                </style>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <p id="waiting-status-text" style="text-align:center;color:#888;font-size:13px;font-weight:700;margin-bottom:22px;position:relative;z-index:2;">
+                Waiting for Safaricom confirmation...
+            </p>
+
+            <!-- CONFIRM PAYMENT BADGE -->
+            <div id="confirm-badge" style="
+                background: linear-gradient(135deg,#f0fdf4,#dcfce7);
+                border: 2px solid #28a745;
+                border-radius: 20px;
+                padding: 20px;
+                margin-bottom: 16px;
+                text-align: center;
+                position: relative;
+                z-index: 2;
+                box-shadow: 0 8px 20px rgba(40,167,69,0.12);
+            ">
+                <div style="font-size:28px; margin-bottom:8px;">✅</div>
+                <div style="font-weight:900; color:#166534; font-size:14px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">
+                    Already Entered Your PIN?
+                </div>
+                <div style="color:#15803d; font-size:13px; font-weight:600; margin-bottom:14px;">
+                    Click below to confirm your payment and get instant access.
+                </div>
+                <button id="btn-manual-check" onclick="manualCheck()" style="
+                    background:linear-gradient(135deg,#22c55e,#16a34a);
+                    color:white; border:none; padding:14px 28px;
+                    border-radius:14px; font-size:15px; font-weight:900;
+                    cursor:pointer; width:100%; letter-spacing:0.3px;
+                    box-shadow:0 6px 16px rgba(34,197,94,0.3);
+                    transition: transform 0.2s ease, box-shadow 0.2s ease;
+                " onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px rgba(34,197,94,0.4)'"
+                   onmouseout="this.style.transform='none';this.style.boxShadow='0 6px 16px rgba(34,197,94,0.3)'">
+                    <span id="manual-check-text">🔓 Confirm Payment &amp; Unlock Access</span>
+                </button>
+            </div>
+
+            <!-- Cancel / try again -->
+            <button onclick="cancelPayment()" style="
+                background:transparent; border:none; color:#aaa;
+                font-size:12px; font-weight:700; cursor:pointer;
+                margin-top:8px; text-decoration:underline;
+                position:relative; z-index:2;
+            ">Cancel &amp; Try a Different Number</button>
         </div>
-    </div>
-</div>
+
+        <!-- PHASE 3: SUCCESS VIEW -->
+        <div id="phase-success" style="display:none; text-align:center; width:100%;">
+            <div style="
+                background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+                border:2px solid #28a745; border-radius:24px;
+                padding:32px 24px; margin-bottom:20px;
+                box-shadow:0 12px 30px rgba(40,167,69,0.15);
+                position:relative; z-index:2;
+            ">
+                <div style="font-size:52px; margin-bottom:12px; animation:successPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275);">🎉</div>
+                <style>
+                    @keyframes successPop { from{transform:scale(0.3);opacity:0;} to{transform:scale(1);opacity:1;} }
+                </style>
+                <h3 style="color:#15803d;font-size:22px;font-weight:900;margin:0 0 8px;">Payment Confirmed!</h3>
+                <p style="color:#166534;font-size:14px;font-weight:600;margin:0 0 20px;">
+                    Your KSH 50 has been received. Welcome to Premium!
+                </p>
+                <div style="
+                    background:#22c55e; color:white; padding:16px;
+                    border-radius:14px; font-weight:900; font-size:15px;
+                    animation: pulse 1.5s infinite;
+                ">
+                    Redirecting you in... <span id="redirect-countdown">3</span>s
+                </div>
+            </div>
+        </div>
+
+    </div><!-- end .pay-card -->
+</div><!-- end .paywall-wrapper -->
 
 <div id="toast-container" class="toast-container"></div>
 
 <script>
     const CSRF_TOKEN = "{{ csrf_token() }}";
     let pollInterval = null;
+    let pendingPhone = '';
 
+    // =============================================
+    // STATE MACHINE — persisted via localStorage
+    // =============================================
+    // On page load, check if we were already in a payment flow
+    window.addEventListener('DOMContentLoaded', function() {
+        const saved = getSavedState();
+        if (saved && saved.phase === 'waiting') {
+            // STK push was already sent — restore waiting UI immediately
+            pendingPhone = saved.phone || '';
+            showPhase('waiting');
+            document.getElementById('waiting-phone-display').innerText = formatDisplayPhone(pendingPhone);
+            document.getElementById('waiting-status-text').innerText = 'Reconnected — still waiting for Safaricom...';
+            // Immediately do one check in case they already paid
+            manualCheckSilent();
+            // Resume polling
+            pollForPaymentSuccess();
+        }
+    });
+
+    function getSavedState() {
+        try { return JSON.parse(localStorage.getItem('fym_payment_state') || 'null'); } catch(e) { return null; }
+    }
+    function saveState(state) {
+        try { localStorage.setItem('fym_payment_state', JSON.stringify(state)); } catch(e) {}
+    }
+    function clearState() {
+        try { localStorage.removeItem('fym_payment_state'); } catch(e) {}
+    }
+
+    function showPhase(phase) {
+        document.getElementById('phase-input').style.display   = (phase === 'input')   ? 'block' : 'none';
+        document.getElementById('phase-waiting').style.display = (phase === 'waiting') ? 'block' : 'none';
+        document.getElementById('phase-success').style.display = (phase === 'success') ? 'block' : 'none';
+    }
+
+    function formatDisplayPhone(p) {
+        if (!p) return '';
+        if (p.startsWith('254') && p.length === 12) {
+            return '0' + p.slice(3, 6) + ' ' + p.slice(6, 9) + ' ' + p.slice(9);
+        }
+        return p;
+    }
+
+    // =============================================
+    // TOAST
+    // =============================================
     function showToast(msg, type = 'error') {
         const container = document.getElementById('toast-container');
-        
         const toast = document.createElement('div');
         toast.className = `toast-msg ${type}`;
-        toast.innerHTML = `
-            <span>${msg}</span>
-        `;
+        toast.innerHTML = `<span>${msg}</span>`;
         container.appendChild(toast);
-        
-        // Auto-remove after 4 seconds
         setTimeout(() => {
             if (document.body.contains(toast)) {
                 toast.style.animation = 'toastSlideOut 0.4s forwards';
                 setTimeout(() => toast.remove(), 400);
             }
-        }, 4000);
+        }, 5000);
     }
 
-    function showAlert(msg, type) {
-        const box = document.getElementById('status-box');
-        box.innerText = msg;
-        box.className = `status-alert status-${type}`;
-        box.style.display = 'block';
-        
-        if (type === 'error') {
-            setTimeout(() => {
-                box.style.display = 'none';
-            }, 5000);
+    // =============================================
+    // PHONE FORMAT
+    // =============================================
+    function autoFormatPhone(input) {
+        let val = input.value.replace(/[^0-9]/g, '');
+        input.value = val;
+        const hint = document.getElementById('phone-hint');
+        const converted = convertPhone(val);
+        if (converted && converted.startsWith('254') && converted.length === 12) {
+            hint.style.color = '#28a745';
+            hint.innerText = '\u2713 Ready: ' + formatDisplayPhone(converted);
+        } else if (val.length > 2) {
+            hint.style.color = '#888';
+            hint.innerText = 'Keep typing...';
+        } else {
+            hint.style.color = '#888';
+            hint.innerText = 'Enter your Safaricom number \u2014 we\'ll auto-format it.';
         }
     }
 
-    async function manualCheck() {
-        const btn = document.getElementById('btn-manual-check');
-        const text = document.getElementById('manual-check-text');
-        
-        btn.disabled = true;
-        text.innerText = "Checking...";
-        
-        try {
-            const response = await fetch(`/api/check_access?t=${new Date().getTime()}`, {
-                cache: 'no-store'
-            });
-            const data = await response.json();
-            
-            if (data.granted === true) {
-                // IMPORTANT: Stop the background polling if manual check succeeds!
-                if (pollInterval) clearInterval(pollInterval);
-                
-                showToast("Access Granted! Redirecting...", "success");
-                setTimeout(() => {
-                    window.location.href = '/swipe';
-                }, 100);
-            } else {
-                btn.disabled = false;
-                text.innerText = "I've Already Paid - Check Status";
-                showToast(data.message || 'Payment not yet received from Safaricom. Retrying...', 'error');
-            }
-        } catch (error) {
-            console.error("Manual check error:", error);
-            btn.disabled = false;
-            text.innerText = "I've Already Paid - Check Status";
-            showToast('Network error. Please try again.', 'error');
-        }
+    function convertPhone(raw) {
+        const d = raw.replace(/[^0-9]/g, '');
+        if (d.startsWith('254') && d.length === 12) return d;
+        if (d.startsWith('0')   && d.length === 10) return '254' + d.slice(1);
+        if (d.startsWith('7')   && d.length === 9)  return '254' + d;
+        if (d.startsWith('1')   && d.length === 9)  return '254' + d;
+        if (d.length === 9)                          return '254' + d;
+        return d;
     }
 
+    // =============================================
+    // PAY — INITIATE STK PUSH
+    // =============================================
     function payStudentFee() {
         const phoneInput = document.getElementById('student-phone');
-        const phone = phoneInput.value.replace(/[^0-9]/g, '').trim();
-        const btn = document.getElementById('btn-pay-student');
-        const btnText = document.getElementById('btn-text');
-        const spinner = document.getElementById('btn-spinner');
-        const pollingView = document.getElementById('polling-view');
-        const inputContainer = document.getElementById('input-container');
-        
-        if (phone.length !== 12 || !phone.startsWith("254")) {
-            showAlert("Please enter a valid Safaricom number (2547XXXXXXXX)", "error");
+        const raw  = phoneInput.value.replace(/[^0-9]/g, '').trim();
+        const phone = convertPhone(raw);
+
+        if (phone.length !== 12 || !phone.startsWith('254')) {
+            showToast('Please enter a valid Safaricom number. Format: 07XXXXXXXX', 'error');
             return;
         }
 
-        // 1. UI Loading State
-        const selectedPackage = document.getElementById('selected-package').value;
-        const amount = selectedPackage === 'diamond' ? 99 : 50;
-        
-        btnText.innerText = "Requesting M-Pesa...";
-        spinner.style.display = "block";
-        btn.disabled = true;
-        phoneInput.disabled = true;
-        inputContainer.style.opacity = "0.5";
-        document.getElementById('status-box').style.display = 'none';
-
-        fetch('/api/pay_student_fee', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRFToken': CSRF_TOKEN
-            },
-            body: JSON.stringify({ phone_number: phone, package: selectedPackage })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // 2. Waiting for PIN State
-                btnText.innerText = "Waiting for Payment...";
-                btn.style.background = "#720000";
-                pollingView.style.display = "flex";
-
-                // 3. Start Polling
-                pollForPaymentSuccess();
-                
-            } else {
-                showAlert(data.message || "Failed to initiate payment.", "error");
-                resetUI();
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showAlert("Network error. Please try again.", "error");
-            resetUI();
-        });
-    }
-
-    function pollForPaymentSuccess() {
+        // Lock button
         const btn = document.getElementById('btn-pay-student');
         const btnText = document.getElementById('btn-text');
         const spinner = document.getElementById('btn-spinner');
-        const pollingView = document.getElementById('polling-view');
+        btnText.innerText = 'Sending prompt...';
+        spinner.style.display = 'block';
+        btn.disabled = true;
 
-        let attempts = 0;
-        const maxAttempts = 80; // ~2 minutes with 1.5s intervals
+        fetch('/api/pay_student_fee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ phone_number: phone, package: 'premium' })
+        })
+        .then(r => r.json())
+        .then(data => {
+            spinner.style.display = 'none';
+            if (data.success) {
+                pendingPhone = phone;
+                // Save state so page reload restores the waiting view
+                saveState({ phase: 'waiting', phone: phone, ts: Date.now() });
+                showPhase('waiting');
+                document.getElementById('waiting-phone-display').innerText = formatDisplayPhone(phone);
+                pollForPaymentSuccess();
+                showToast('M-Pesa prompt sent! Check your phone \ud83d\udcf2', 'success');
+            } else {
+                btnText.innerText = 'Pay KSH 50 to Unlock';
+                btn.disabled = false;
+                showToast(data.message || 'Failed to send payment prompt. Try again.', 'error');
+            }
+        })
+        .catch(() => {
+            spinner.style.display = 'none';
+            btnText.innerText = 'Pay KSH 50 to Unlock';
+            btn.disabled = false;
+            showToast('Network error. Please check your connection.', 'error');
+        });
+    }
 
-        // Make sure to clear any existing intervals just in case
+    // =============================================
+    // CANCEL
+    // =============================================
+    function cancelPayment() {
         if (pollInterval) clearInterval(pollInterval);
+        clearState();
+        showPhase('input');
+        const btn = document.getElementById('btn-pay-student');
+        document.getElementById('btn-text').innerText = 'Pay KSH 50 to Unlock';
+        document.getElementById('btn-spinner').style.display = 'none';
+        btn.disabled = false;
+        btn.style.background = 'linear-gradient(135deg, #E60026 0%, #720000 100%)';
+    }
+
+    // =============================================
+    // POLL — auto-check every 2.5s
+    // =============================================
+    function pollForPaymentSuccess() {
+        if (pollInterval) clearInterval(pollInterval);
+        let attempts = 0;
+        const maxAttempts = 72; // ~3 minutes
 
         pollInterval = setInterval(async () => {
             attempts++;
             try {
-                // Append timestamp to destroy browser cache
-                const response = await fetch('/api/check_access?t=' + new Date().getTime(), { cache: 'no-store' });
-                const data = await response.json();
-                
+                const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+                const data = await r.json();
+
                 if (data.granted === true) {
                     clearInterval(pollInterval);
-                    
-                    // 4. Success State
-                    pollingView.style.display = "none";
-                    spinner.style.display = "none";
-                    btn.style.background = "#28a745"; 
-                    btnText.innerText = "Payment Received! ✅";
-                    showToast("Access Granted! Redirecting...", "success");
-                    
-                    setTimeout(() => {
-                        window.location.href = '/swipe';
-                    }, 100);
+                    handleSuccess();
                 } else if (data.status === 'failed') {
                     clearInterval(pollInterval);
-                    showAlert(data.message || "Payment failed or was cancelled.", "error");
-                    resetUI();
+                    clearState();
+                    showToast(data.message || 'Payment was cancelled or failed.', 'error');
+                    showPhase('input');
+                    const btn = document.getElementById('btn-pay-student');
+                    document.getElementById('btn-text').innerText = 'Pay KSH 50 to Unlock';
+                    document.getElementById('btn-spinner').style.display = 'none';
+                    btn.disabled = false;
+                    btn.style.background = 'linear-gradient(135deg,#E60026,#720000)';
                 }
-            } catch (error) {
-                console.error("Polling error:", error);
-            }
+            } catch(e) { /* network hiccup — keep trying */ }
 
             if (attempts >= maxAttempts) {
                 clearInterval(pollInterval);
-                showAlert("Request timed out. If you paid, please click the Manual Check button.", "error");
-                // Don't fully reset UI here, let them click the manual check button!
-                btnText.innerText = "Timeout. Check manually.";
-                spinner.style.display = "none";
+                document.getElementById('waiting-status-text').innerText =
+                    'Timed out. If you paid, click the green button below to confirm.';
             }
-        }, 1500);
+        }, 2500);
     }
-    
-    function resetUI() {
-        const btn = document.getElementById('btn-pay-student');
-        const btnText = document.getElementById('btn-text');
-        const spinner = document.getElementById('btn-spinner');
-        const pollingView = document.getElementById('polling-view');
-        const phoneInput = document.getElementById('student-phone');
-        const inputContainer = document.getElementById('input-container');
-        const manualBtn = document.getElementById('btn-manual-check');
-        const manualText = document.getElementById('manual-check-text');
-        
-        const selectedPackage = document.getElementById('selected-package').value;
-        const amount = selectedPackage === 'diamond' ? 99 : 50;
-        
-        btnText.innerText = `Pay KSH ${amount} to Unlock`;
-        spinner.style.display = "none";
-        btn.style.background = "linear-gradient(135deg, #E60026 0%, #720000 100%)";
-        btn.disabled = false;
-        phoneInput.disabled = false;
-        inputContainer.style.opacity = "1";
-        pollingView.style.display = "none";
-        
-        if (manualBtn) {
-            manualBtn.disabled = false;
-            manualText.innerText = "I've Already Paid - Check Status";
+
+    // =============================================
+    // MANUAL CHECK (green button)
+    // =============================================
+    async function manualCheck() {
+        const btn = document.getElementById('btn-manual-check');
+        const text = document.getElementById('manual-check-text');
+        btn.disabled = true;
+        text.innerText = 'Checking...';
+
+        try {
+            const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+            const data = await r.json();
+            if (data.granted === true) {
+                if (pollInterval) clearInterval(pollInterval);
+                handleSuccess();
+            } else {
+                btn.disabled = false;
+                text.innerText = '\ud83d\udd13 Confirm Payment & Unlock Access';
+                document.getElementById('waiting-status-text').innerText =
+                    data.message || 'Not confirmed yet. Please enter your PIN first, then click above.';
+                showToast('Payment not confirmed yet. Enter your PIN first.', 'error');
+            }
+        } catch(e) {
+            btn.disabled = false;
+            text.innerText = '\ud83d\udd13 Confirm Payment & Unlock Access';
+            showToast('Network error. Please try again.', 'error');
         }
     }
 
-    function selectPackage(card) {
-        document.querySelectorAll('.package-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        
-        const packageType = card.getAttribute('data-package');
-        const amount = card.getAttribute('data-amount');
-        document.getElementById('selected-package').value = packageType;
-        
-        const btnText = document.getElementById('btn-text');
-        btnText.innerText = `Pay KSH ${amount} to Unlock`;
+    // Silent check on page reload (no button disable)
+    async function manualCheckSilent() {
+        try {
+            const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+            const data = await r.json();
+            if (data.granted === true) {
+                if (pollInterval) clearInterval(pollInterval);
+                handleSuccess();
+            }
+        } catch(e) {}
     }
 
+    // =============================================
+    // SUCCESS
+    // =============================================
+    function handleSuccess() {
+        clearState();
+        showPhase('success');
+        showToast('\ud83c\udf89 Payment Confirmed! Welcome to Premium!', 'success');
+        // Countdown then redirect
+        let count = 3;
+        const countEl = document.getElementById('redirect-countdown');
+        const cd = setInterval(() => {
+            count--;
+            if (countEl) countEl.innerText = count;
+            if (count <= 0) {
+                clearInterval(cd);
+                window.location.replace('/swipe?unlocked=1&t=' + Date.now());
+            }
+        }, 1000);
+    }
+
+    // =============================================
+    // MISC
+    // =============================================
     function toggleComparison() {
         const comp = document.getElementById('features-comparison');
         const btn = document.querySelector('.view-comparison-btn');
         if (comp.style.display === 'none') {
             comp.style.display = 'block';
-            btn.innerText = 'Hide Features List ▴';
+            btn.innerText = 'Hide Features List \u25b4';
         } else {
             comp.style.display = 'none';
-            btn.innerText = 'Compare Package Features List ▾';
+            btn.innerText = 'View All Included Features \u25be';
         }
     }
 </script>

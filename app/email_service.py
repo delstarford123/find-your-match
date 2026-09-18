@@ -7,12 +7,14 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-from email.utils import formataddr
+from email.utils import formataddr, formatdate, make_msgid
 
 logger = logging.getLogger(__name__)
 
 # Define standard sender name for consistency
 SENDER_NAME_DEFAULT = "FIND YOUR MATCH AI"
+
+import ssl
 
 def _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT, attachments=None):
     """
@@ -35,6 +37,8 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
     msg['Subject'] = subject
     msg['From'] = formataddr((sender_name, sender_email))
     msg['To'] = recipient_email
+    msg['Date'] = formatdate(localtime=True)
+    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
 
     # Create the multipart message container for body
     msg_body = MIMEMultipart("alternative")
@@ -57,11 +61,20 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
                 logger.error(f"Failed to attach file {attachment.get('filename')}: {e}")
 
     try:
-        # Use context manager (with) to safely close connection even on failure
-        with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
-            server.login(sender_email, sender_password)
-            server.send_message(msg)
-            
+        # Many shared hosting providers (like cPanel) have self-signed or mismatched certs for mail.domain.com
+        context = ssl._create_unverified_context()
+        
+        if smtp_port == 465:
+            # Use context manager (with) to safely close connection even on failure
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls(context=context)
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+                
         logger.info(f"✅ Email '{subject}' sent to {recipient_email}")
         return True
     except smtplib.SMTPAuthenticationError:
@@ -860,6 +873,316 @@ def send_proximity_meetup_email(recipient_email, recipient_name, nearby_matches)
                     Have a wonderful conversation! <br>
                     <strong>The {SENDER_NAME_DEFAULT} Team</strong>
                 </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_male_campaign_email(recipient_email, recipient_name):
+    """
+    Sends the September 2025 online community campaign invitation email to male users.
+    Informs them about the Google Meet event and asks them to RSVP by replying.
+    """
+    subject = "🔥 You're Invited: Find Your Match Online Community Campaign!"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name},
+
+        Big News from the Find Your Match Community! 🎉
+
+        We are excited to announce an exclusive online community campaign — a special virtual
+        event where members of the Find Your Match family will come together to connect,
+        interact, and get to know each other in a whole new way!
+
+        This is your moment to be part of something truly special. Whether you're looking to
+        make new friends, meaningful connections, or find your perfect match — this event was
+        made for you.
+
+        📅 EVENT DETAILS:
+        ─────────────────────────────────
+        📆 Date    : Sunday, 7th September 2025
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+        💻 Platform: Google Meet
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+        ─────────────────────────────────
+
+        👉 ACTION REQUIRED:
+        Please reply to this email to confirm whether you will be attending.
+        Your RSVP helps us prepare adequately and ensures your spot is reserved!
+
+        We look forward to seeing you online. Let's make great connections together! 💪
+
+        Warm regards,
+        The {SENDER_NAME_DEFAULT} Team 💌
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
+                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+                        FYM Online Community Campaign
+                    </h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
+                        You're officially invited! 🎉
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 40px 35px;">
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+                    </p>
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
+                    </p>
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
+                    </p>
+
+                    <!-- EVENT DETAILS BOX -->
+                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
+                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
+                            </tr>
+                        </table>
+                        <!-- JOIN BUTTON -->
+                        <div style="text-align: center; margin-top: 22px;">
+                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
+                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
+                                🔗 Click to Join Google Meet
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- RSVP NOTICE -->
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
+                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
+                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
+                        </p>
+                    </div>
+
+                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
+                        We look forward to seeing you online.<br>Let's make great connections together! 💪
+                    </p>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+                        FIND YOUR MATCH AI — Powered Dating
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_female_campaign_email(recipient_email, recipient_name):
+    """
+    Sends the September 2025 online community campaign email to female users.
+    Includes the Google Meet event invite, profile update request, and work opportunity notice.
+    """
+    subject = "💌 You're Invited: FYM Online Campaign + Important Update & Opportunity!"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name},
+
+        Exciting Updates from the Find Your Match Team! 🌟
+        Please read through carefully — there are 3 important things for you!
+
+        ─────────────────────────────────────────────────
+        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
+        ─────────────────────────────────────────────────
+        We are hosting an exclusive online community campaign — a special virtual event
+        where the entire Find Your Match family will come together to connect, interact,
+        and get to know each other like never before!
+
+        📅 EVENT DETAILS:
+        📆 Date    : Sunday, 7th September 2025
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+        💻 Platform: Google Meet
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+        👉 Please reply to this email to confirm your attendance!
+
+        ─────────────────────────────────────────────────
+        📝 PART 2: UPDATE YOUR PROFILE
+        ─────────────────────────────────────────────────
+        We are raising the bar on profile quality! Kindly go to your Profile Section
+        and make sure the following are updated:
+          ✅ Profile Photo  — Upload a clear, recent photo of yourself
+          ✅ Phone Number   — Ensure your phone number is correctly added
+
+        A complete profile puts you front and centre for the best matches!
+
+        ─────────────────────────────────────────────────
+        💼 PART 3: EXCITING WORK OPPORTUNITY!
+        ─────────────────────────────────────────────────
+        We are looking for confident and enthusiastic ladies in our community who are
+        ready to be part of the Find Your Match team in an exciting upcoming role!
+
+        If you are ready and interested, simply reply to this email with:
+                        READY TO WORK
+        ...and our team will reach out with all the details.
+
+        ─────────────────────────────────────────────────
+
+        Thank you for being a valued part of our community. We can't wait to see you
+        at the event and hear from you! 💪
+
+        With love,
+        The {SENDER_NAME_DEFAULT} Team 💌
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
+                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+                        Important Updates Just For You!
+                    </h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
+                        3 exciting things inside — please read carefully 🌟
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 40px 35px;">
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+                    </p>
+                    <p style="font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 30px;">
+                        We have some amazing news and important requests for you. Please read through all three sections below!
+                    </p>
+
+                    <!-- PART 1 — CAMPAIGN -->
+                    <div style="border-left: 5px solid #E60026; padding-left: 18px; margin-bottom: 30px;">
+                        <h2 style="color: #E60026; font-size: 17px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">🎉 Part 1: Online Community Campaign</h2>
+                    </div>
+
+                    <p style="font-size: 15px; color: #555; line-height: 1.7; margin-top: 0;">
+                        We are hosting an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> like never before! Don't miss out!
+                    </p>
+
+                    <!-- EVENT DETAILS BOX -->
+                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 20px 0 30px 0;">
+                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700; width: 110px;">📆 Date</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 14px;">Sunday, 7th September 2025</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700;">🕘 Time</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 14px;">9:00 PM EAT (East Africa Time)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700;">💻 Platform</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 14px;">Google Meet</td>
+                            </tr>
+                        </table>
+                        <div style="text-align: center; margin-top: 22px;">
+                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
+                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 13px 30px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35);">
+                                🔗 Click to Join Google Meet
+                            </a>
+                        </div>
+                    </div>
+
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 16px 18px; margin-bottom: 35px;">
+                        <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm your attendance. Your RSVP helps us prepare!
+                        </p>
+                    </div>
+
+                    <!-- DIVIDER -->
+                    <hr style="border: none; border-top: 2px dashed #FFD6DD; margin: 0 0 30px 0;">
+
+                    <!-- PART 2 — PROFILE UPDATE -->
+                    <div style="border-left: 5px solid #720000; padding-left: 18px; margin-bottom: 15px;">
+                        <h2 style="color: #720000; font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">📝 Part 2: Update Your Profile</h2>
+                    </div>
+                    <p style="font-size: 15px; color: #555; line-height: 1.7;">
+                        We are improving profile quality across the platform. Please head to your <strong>Profile Section</strong> and ensure these are up to date:
+                    </p>
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px 22px; margin: 15px 0 30px 0;">
+                        <p style="margin: 6px 0; color: #166534; font-size: 15px;">✅ <strong>Profile Photo</strong> — Upload a clear, recent photo of yourself</p>
+                        <p style="margin: 6px 0; color: #166534; font-size: 15px;">✅ <strong>Phone Number</strong> — Ensure your phone number is correctly added</p>
+                    </div>
+
+                    <!-- DIVIDER -->
+                    <hr style="border: none; border-top: 2px dashed #FFD6DD; margin: 0 0 30px 0;">
+
+                    <!-- PART 3 — WORK OPPORTUNITY -->
+                    <div style="border-left: 5px solid #7c3aed; padding-left: 18px; margin-bottom: 15px;">
+                        <h2 style="color: #7c3aed; font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">💼 Part 3: Work Opportunity</h2>
+                    </div>
+                    <p style="font-size: 15px; color: #555; line-height: 1.7;">
+                        We are looking for <strong>confident and enthusiastic ladies</strong> within our community who are ready to join the Find Your Match team in an exciting upcoming role!
+                    </p>
+                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 20px 22px; margin: 15px 0 30px 0; text-align: center;">
+                        <p style="margin: 0 0 10px; color: #6b21a8; font-size: 15px; line-height: 1.6;">
+                            If you are <strong>ready and interested</strong>, simply reply to this email with:
+                        </p>
+                        <div style="background: #7c3aed; color: white; font-size: 20px; font-weight: 900; letter-spacing: 3px; padding: 16px 30px; border-radius: 12px; display: inline-block; margin: 5px 0;">
+                            READY TO WORK
+                        </div>
+                        <p style="margin: 12px 0 0; color: #888; font-size: 13px;">Our team will reach out with all the details!</p>
+                    </div>
+
+                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 10px;">
+                        Thank you for being a valued member of our community.<br>We can't wait to see you at the event! 💪
+                    </p>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+                        FIND YOUR MATCH AI — Powered Dating
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
+                    </p>
+                </div>
             </div>
         </body>
         </html>

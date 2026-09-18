@@ -9,6 +9,7 @@ Flask-Cors
 gunicorn[eventlet]
 eventlet
 pytz
+APScheduler
 # ==========================================
 # 🗄️ DATABASE & ENVIRONMENT
 # ==========================================
@@ -25,19 +26,6 @@ qrcode
 Pillow
 Flask-Limiter
 # ==========================================
-# 📊 DATA SCIENCE & MACHINE LEARNING
+# 📊 MATHEMATICAL UTILITIES
 # ==========================================
-pandas
 numpy
-scikit-learn
-
-# ==========================================
-# 🧠 AI, NLP & EXTERNAL APIs
-# ==========================================
-groq
-requests
-torch
-torchvision
-transformers
-sentence-transformers
-huggingface_hub

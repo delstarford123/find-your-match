@@ -353,7 +353,7 @@
         <div class="metrics-grid">
             <div class="metric-card highlight animate-up delay-1">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div class="m-title">💰 Total Gross Revenue</div>
+                    <div class="m-title">💰 This Month's Revenue</div>
                     <button onclick="openRevenueModal()" style="background: rgba(56, 189, 248, 0.1); border: 1px solid #38bdf8; color: #38bdf8; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: 800;">CORRECT</button>
                 </div>
                 <div class="m-value"><span>KSH</span> <span class="format-num">{{ total_revenue | default(0) }}</span></div>
@@ -363,6 +363,7 @@
                 
                 <!-- Monthly Breakdown List -->
                 <div class="revenue-breakdown" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                    <div style="font-size: 9px; color: #475569; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 8px;">📋 History</div>
                     {% for item in monthly_revenue_details %}
                     <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
                         <span style="color: #94a3b8; font-weight: 500;">{{ item.month }}</span>
@@ -372,6 +373,9 @@
                         </div>
                     </div>
                     {% endfor %}
+                    {% if not monthly_revenue_details %}
+                    <div style="font-size: 11px; color: #475569; font-style: italic;">No history yet.</div>
+                    {% endif %}
                 </div>
             </div>
             <!-- ... other metric cards ... -->
@@ -1408,10 +1412,14 @@
                 formData.append('attachments', attachmentFiles[i]);
             }
 
+            // Extract CSRF token from meta tag
+            const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = csrfMetaTag ? csrfMetaTag.getAttribute('content') : '';
+
             fetch('/api/admin/broadcast', {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': CSRF_TOKEN
+                    'X-CSRFToken': csrfToken
                 },
                 body: formData
             })

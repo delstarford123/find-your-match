@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Review {{ profile.name }}'s Profile - Find Your Match</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
     <style>
@@ -69,9 +70,13 @@
 
     <script>
         function submitVote(voteType) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             fetch('/api/bestie_vote', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
                 body: JSON.stringify({ target_id: '{{ target_id }}', vote: voteType })
             }).then(res => res.json()).then(data => {
                 document.getElementById('main-card').style.display = 'none';

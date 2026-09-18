@@ -45,7 +45,9 @@
     .user-info { display: flex; align-items: center; gap: 15px; flex: 1; min-width: 0;}
     
     .avatar-wrapper { position: relative; flex-shrink: 0; }
-    .avatar-wrapper img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #1E293B; display: block; }
+    .avatar-wrapper img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid #1E293B; display: block; transition: transform 0.2s, border-color 0.2s; }
+    .avatar-wrapper a { display: block; border-radius: 50%; }
+    .avatar-wrapper a:hover img { transform: scale(1.08); border-color: #38BDF8; }
     .status-pip {
         position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px;
         border-radius: 50%; background: #10B981; border: 2.5px solid #141F2E;
@@ -122,7 +124,9 @@
             <div class="user-card">
                 <div class="user-info">
                     <div class="avatar-wrapper">
-                        <img src="{{ u.img }}" alt="{{ u.name }}">
+                        <a href="/view_profile/{{ u.id }}" title="View {{ u.name }}'s profile">
+                            <img src="{{ u.img }}" alt="{{ u.name }}">
+                        </a>
                         <div class="status-pip"></div>
                     </div>
                     <div class="user-meta">

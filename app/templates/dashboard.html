@@ -502,10 +502,10 @@
         <div style="background: #FEF2F4; padding: 25px; border-radius: 20px; border: 2px solid #FFD6DD; text-align: left; margin-bottom: 25px; box-sizing: border-box;">
             <h4 style="margin: 0 0 12px 0; color: #720000; font-size: 13px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">Choose Your Renewal Option</h4>
             <p style="font-size: 13px; color: #666; font-weight: 500; margin: 0 0 15px 0; line-height: 1.4;">
-                Select between the standard **Gold Package (50 KSH)** or the premium **Diamond Package (99 KSH)** to immediately unlock finding matches on campus.
+                Renew your **Premium Package (50 KSH)** to immediately unlock finding matches on campus and regain access to all features.
             </p>
             <a href="/paywall" style="display: flex; justify-content: center; align-items: center; background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; text-decoration: none; padding: 15px; border-radius: 12px; font-weight: 900; font-size: 15px; box-shadow: 0 8px 20px rgba(230,0,38,0.25); text-align: center; width: 100%; box-sizing: border-box;">
-                Renew or Upgrade Package 🚀
+                Renew Premium 🚀
             </a>
         </div>
 
@@ -519,6 +519,41 @@
 <div class="dashboard-header">
     <h1>Welcome back, {{ current_user }}! </h1>
 </div>
+
+<h2 class="section-title">Discover Students</h2>
+{% if matches %}
+<div class="matches-grid">
+    {% for match in matches %}
+    <div class="match-card">
+        <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
+            <div class="match-img-wrapper">
+                <img src="{{ match.img }}" alt="{{ match.name }}" loading="lazy">
+                
+                {% if match.is_perfect_match %}
+                    <div class="compat-badge perfect-match-badge">❤️ Perfect Match</div>
+                {% else %}
+                    <div class="compat-badge">{{ match.compatibility }}% Match</div>
+                {% endif %}
+            </div>
+        </a>
+        
+        <div class="match-info">
+            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
+                <h3>{{ match.name }}</h3>
+            </a>
+            <p>{{ match.bio }}</p>
+            <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Message</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">👀</div>
+    <h2>It's quiet here...</h2>
+    <p>You don't have any new students visible right now. Adjust your filters or check back later!</p>
+</div>
+{% endif %}
 
 <!-- === 🤝 Pending Proximity Meetup Proposal Card === -->
 <div id="proximity-meetup-alert" style="display: none; max-width: 600px; margin: 0 auto 25px auto; padding: 0 clamp(15px, 5vw, 30px);">
@@ -548,6 +583,47 @@
 </style>
 
 <div class="campus-alerts">
+    {% if not profile_complete %}
+    <div id="profile-completion-banner" style="display: none; width: 100%; position: relative;">
+        <!-- Close Button -->
+        <button onclick="dismissProfileBanner(event)" style="position: absolute; top: -5px; right: -5px; width: 24px; height: 24px; background: #fff; border: 1px solid #fcd34d; border-radius: 50%; color: #b45309; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            ✕
+        </button>
+        <a href="{{ url_for('complete_profile') }}" class="alert-box" style="border-color: #f59e0b; background: #fffbeb;">
+            <div class="alert-icon" style="background: #fef3c7; color: #d97706;">⚠️</div>
+            <div class="alert-text">
+                <strong style="color: #b45309;">Complete Your Profile</strong>
+                <span style="color: #92400e;">Add a photo and phone number to start matching. Tap here!</span>
+            </div>
+            <div class="alert-arrow" style="color: #f59e0b;">→</div>
+        </a>
+    </div>
+    
+    <script>
+        function dismissProfileBanner(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            document.getElementById('profile-completion-banner').style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastShown = localStorage.getItem('profile_banner_last_shown');
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Show only if not already shown today
+            if (lastShown !== today) {
+                const banner = document.getElementById('profile-completion-banner');
+                if (banner) {
+                    banner.style.display = 'block';
+                    localStorage.setItem('profile_banner_last_shown', today);
+                }
+            }
+        });
+    </script>
+    {% endif %}
+
     <a href="{{ url_for('secret_admirer') }}" class="alert-box">
         <div class="alert-icon">🤫</div>
         <div class="alert-text">
@@ -606,18 +682,8 @@
 <div class="diamond-toolkit-container">
     <div class="diamond-toolkit-card">
         
-        {% if subscription_package != 'diamond' %}
-        <!-- Blur Lockout Overlay for Non-Diamond users -->
-        <div class="toolkit-locked-overlay">
-            <span class="locked-badge">👑</span>
-            <h2 class="locked-title">Diamond VIP Toolkit</h2>
-            <p class="locked-desc">Unlock these 20 premium match-boosting features to drastically increase your matching chances, enjoy 5x swiping visibility, access secret admirer reveals, rollback passes, and more!</p>
-            <a href="/paywall" class="btn-toolkit-upgrade">Upgrade to Diamond for 99 KSH 🚀</a>
-        </div>
-        {% endif %}
-        
         <div class="toolkit-header">
-            <h2 class="toolkit-title">💎 Diamond VIP Hub</h2>
+            <h2 class="toolkit-title">👑 Premium VIP Hub</h2>
             <span class="toolkit-badge">20 Active Boosters</span>
         </div>
         
@@ -897,40 +963,7 @@
 </div>
 {% endif %}
 
-<h2 class="section-title">Discover Students</h2>
-{% if matches %}
-<div class="matches-grid">
-    {% for match in matches %}
-    <div class="match-card">
-        <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none; display: block;">
-            <div class="match-img-wrapper">
-                <img src="{{ match.img }}" alt="{{ match.name }}" loading="lazy">
-                
-                {% if match.is_perfect_match %}
-                    <div class="compat-badge perfect-match-badge">❤️ Perfect Match</div>
-                {% else %}
-                    <div class="compat-badge">{{ match.compatibility }}% Match</div>
-                {% endif %}
-            </div>
-        </a>
-        
-        <div class="match-info">
-            <a href="{{ url_for('view_student', target_id=match.id) }}" style="text-decoration: none;">
-                <h3>{{ match.name }}</h3>
-            </a>
-            <p>{{ match.bio }}</p>
-            <a href="{{ url_for('matches', partner_id=match.id) }}" class="btn-chat">💬 Message</a>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% else %}
-<div class="empty-state">
-    <div class="empty-state-icon">👀</div>
-    <h2>It's quiet here...</h2>
-    <p>You don't have any new students visible right now. Adjust your filters or check back later!</p>
-</div>
-{% endif %}
+
 
 <h2 class="section-title" style="margin-top: 50px; display: flex; align-items: center; gap: 8px;">
     <span style="font-size: 24px;">📍</span> Campus Meetup Radar (Opposite Sex)
@@ -1007,6 +1040,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
             },
             body: JSON.stringify({ target_id: targetId })
         })
@@ -1095,7 +1129,7 @@
                 💘 In a serious relationship
             </button>
             <button onclick="submitMilestone('dating')" class="btn-milestone" style="background: #17a2b8;">
-                ☕ Still casually dating
+                ☕ Still casually socializing
             </button>
             <button onclick="submitMilestone('ended')" class="btn-milestone" style="background: white; color: #4A0008; border: 2px solid #FFD6DD; box-shadow: none;">
                 ❌ It didn't work out
@@ -1267,10 +1301,18 @@
         const phone = document.getElementById('student-mpesa-lock').value.trim();
         const statusDiv = document.getElementById('student-lock-status');
         const btn = document.getElementById('btn-renew-lock');
-        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        const rawPhone = phone.replace(/[^0-9]/g, '');
 
-        if(cleanPhone.length < 12 || !cleanPhone.startsWith('254')) {
-            alert("Please enter a valid 254 phone number.");
+        // Auto-convert 07.../01... to 254... format
+        let cleanPhone = rawPhone;
+        if (rawPhone.startsWith('0') && rawPhone.length === 10) {
+            cleanPhone = '254' + rawPhone.slice(1);
+        } else if ((rawPhone.startsWith('7') || rawPhone.startsWith('1')) && rawPhone.length === 9) {
+            cleanPhone = '254' + rawPhone;
+        }
+
+        if(cleanPhone.length !== 12 || !cleanPhone.startsWith('254')) {
+            alert("Please enter a valid Safaricom number. Format: 07XXXXXXXX or 01XXXXXXXX");
             return;
         }
 
@@ -1281,22 +1323,26 @@
 
         fetch('/api/pay_student_fee', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
             body: JSON.stringify({ phone_number: cleanPhone })
         })
         .then(res => res.json())
         .then(data => {
-            if(data.status === 'success') {
+            if(data.success) {
                 statusDiv.style.color = "#28a745";
                 statusDiv.innerText = "Waiting for payment confirmation...";
                 
                 // Poll for activation
                 const pollInterval = setInterval(async () => {
-                    const res = await fetch('/api/check_access');
+                    const res = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
                     const check = await res.json();
                     if (check.granted) {
                         clearInterval(pollInterval);
-                        window.location.reload();
+                        statusDiv.innerText = "🎉 Payment confirmed! Reloading...";
+                        setTimeout(() => window.location.reload(), 800);
                     }
                 }, 3000);
             } else {
@@ -1324,7 +1370,10 @@
 
         fetch('/api/submit_prompt_answer', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
             body: JSON.stringify({ answer: text })
         })
         .then(res => res.json())
@@ -1406,7 +1455,7 @@
                 showFloatingNotification("🎁 Spinner bypass successful! Daily reward wheel cooldown reset. Go to Rewards page to spin again.");
                 break;
             case 'coupon':
-                alert("🎟️ MMUST Dating Diamond Exclusive Perk: Present this coupon to claims 20% discount on food/drinks at Kakamega CBD Partner Lounges. (Code: DIAMOND-VIP-20)");
+                alert("🎟️ MMUST Social Diamond Exclusive Perk: Present this coupon to claims 20% discount on food/drinks at Kakamega CBD Partner Lounges. (Code: DIAMOND-VIP-20)");
                 break;
             case 'ping':
                 let targetReg = prompt("Enter comrade Registration Number to ping direct message to:");

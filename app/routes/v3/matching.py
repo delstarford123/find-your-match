@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Blueprint, request, jsonify, session
+from firebase_admin import messaging
 from app.database import db, get_all_profiles
 
 logger = logging.getLogger(__name__)
@@ -143,19 +144,32 @@ def record_swipe():
                     'compatibility': compatibility_score
                 }
 
-                # Try emitting websocket event
+                # Trigger Firebase Notification
                 try:
-                    from flask import current_app
-                    socketio = current_app.extensions.get('socketio')
-                    if socketio:
-                        current_name = current_profile.get('name', 'Someone').split(' ')[0]
-                        socketio.emit('receive_notification', {
-                            'title': 'New V3 Match! ❤️',
-                            'message': f'{current_name} liked you back! Check your Perfect Matches.',
-                            'type': 'success'
-                        }, room=target_user_id)
+                    current_name = current_profile.get('name', 'Someone').split(' ')[0]
+                    title = 'New V3 Match! ❤️'
+                    body = f'{current_name} liked you back! Check your Perfect Matches.'
+                    
+                    db.reference(f'notifications/{target_user_id}').push({
+                        'title': title,
+                        'message': body,
+                        'type': 'success',
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
+
+                    # Send FCM Push Notification
+                    fcm_token = target_profile.get('fcm_token')
+                    if fcm_token:
+                        message = messaging.Message(
+                            notification=messaging.Notification(
+                                title=title,
+                                body=body,
+                            ),
+                            token=fcm_token,
+                        )
+                        messaging.send(message)
                 except Exception as e:
-                    logger.error(f"Failed to emit V3 match socket event: {e}")
+                    logger.error(f"Failed to emit V3 match Firebase notification: {e}")
 
         return jsonify({
             "status": "success",
@@ -358,7 +372,7 @@ def meetup_radar():
             p_id = p.get('id')
             p_gender = str(p.get('gender', '')).strip().lower()
             
-            if p_id == current_user_id or not p.get('is_paid') or not p.get('is_visible', True):
+            if p_id == current_user_id or not p.get('is_visible', True):
                 continue
                 
             # Strict opposite gender check
@@ -422,18 +436,16 @@ def meetup_request():
         from app.email_service import send_meetup_request_email
         send_meetup_request_email(target_email, target_name, sender_name)
         
-        # Trigger SocketIO Real-Time Buzz
+        # Trigger Firebase Real-Time Buzz
         try:
-            from flask import current_app
-            socketio = current_app.extensions.get('socketio')
-            if socketio:
-                socketio.emit('receive_notification', {
-                    'title': '📍 Meetup Request!',
-                    'message': f'{sender_name} is nearby and wants to meet up with you! Check your email.',
-                    'type': 'info'
-                }, room=target_id)
+            db.reference(f'notifications/{target_id}').push({
+                'title': '📍 Meetup Request!',
+                'message': f'{sender_name} is nearby and wants to meet up with you! Check your email.',
+                'type': 'info',
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            })
         except Exception as se:
-            logger.error(f"Failed to emit meetup socket alert: {se}")
+            logger.error(f"Failed to emit meetup Firebase alert: {se}")
             
         return jsonify({'success': True, 'message': f'Geographical meetup request sent to {target_name.split(" ")[0]} successfully!'})
     except Exception as e:
@@ -550,16 +562,14 @@ def update_user_location():
                 else:
                     created_proposal = existing
                 
-                # Emit SocketIO real-time alert to the nearby comrade
+                # Emit Firebase real-time alert to the nearby comrade
                 try:
-                    from flask import current_app
-                    socketio = current_app.extensions.get('socketio')
-                    if socketio:
-                        socketio.emit('receive_notification', {
-                            'title': '📍 Comrade Nearby!',
-                            'message': f'A premium opposite-sex comrade is within 1 KM! Would you like to meet up and physically talk?',
-                            'type': 'success'
-                        }, room=p_id)
+                    db.reference(f'notifications/{p_id}').push({
+                        'title': '📍 Comrade Nearby!',
+                        'message': f'A premium opposite-sex comrade is within 1 KM! Would you like to meet up and physically talk?',
+                        'type': 'success',
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
                 except Exception as se:
                     logger.error(f"Failed to emit proximity meetup notification: {se}")
                     
@@ -680,23 +690,22 @@ def proximity_meetup_vote():
             if profile_b.get('email'):
                 send_proximity_meetup_email(profile_b.get('email'), profile_b.get('name', 'Comrade'), nearby_b)
                 
-            # Socket Alerts
+            # Firebase Notification Alerts
             try:
-                from flask import current_app
-                socketio = current_app.extensions.get('socketio')
-                if socketio:
-                    socketio.emit('receive_notification', {
-                        'title': '🤝 Meetup Agreed!',
-                        'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
-                        'type': 'success'
-                    }, room=user_a_id)
-                    socketio.emit('receive_notification', {
-                        'title': '🤝 Meetup Agreed!',
-                        'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
-                        'type': 'success'
-                    }, room=user_b_id)
+                db.reference(f'notifications/{user_a_id}').push({
+                    'title': '🤝 Meetup Agreed!',
+                    'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
+                    'type': 'success',
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
+                db.reference(f'notifications/{user_b_id}').push({
+                    'title': '🤝 Meetup Agreed!',
+                    'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
+                    'type': 'success',
+                    'timestamp': datetime.now(timezone.utc).isoformat()
+                })
             except Exception as se:
-                logger.error(f"Failed to emit meetup agree sockets: {se}")
+                logger.error(f"Failed to emit meetup agree notifications: {se}")
                 
             return jsonify({'success': True, 'agreed': True, 'message': '🤝 Proximity meetup agreed! Both users have been emailed nearby profiles and images.'})
             

@@ -344,7 +344,7 @@
             </h4>
             <div style="background: rgba(30, 30, 30, 0.02); border: 2px dashed rgba(230, 0, 38, 0.15); border-radius: 24px; padding: 25px; margin-bottom: 30px; position: relative;">
                 <p style="color: #555; font-size: 13.5px; margin-top: 0; line-height: 1.6; font-weight: 500;">
-                    Music connects hearts! Connect your Spotify track/playlist or YouTube video URL and set your favorite dating anthem so matches can vibe to your exact tunes directly on your profile!
+                    Music connects hearts! Connect your Spotify track/playlist or YouTube video URL and set your favorite social anthem so matches can vibe to your exact tunes directly on your profile!
                 </p>
                 <div class="input-group" style="margin-bottom: 20px;">
                     <label class="field-label" style="font-weight: 900; display: flex; align-items: center; gap: 6px;">
@@ -353,7 +353,7 @@
                     <input type="url" name="spotify_playlist" id="music_playlist_input" class="form-input" placeholder="e.g. https://open.spotify.com/... or https://www.youtube.com/watch?v=..." value="{{ user.spotify_playlist or '' }}" style="border-color: rgba(230, 0, 38, 0.2); outline: none;">
                 </div>
                 <div class="input-group" style="margin-bottom: 10px;">
-                    <label class="field-label" style="color: #4A0008; font-weight: 900;">⭐ Primary Dating Anthem (Song & Artist Name)</label>
+                    <label class="field-label" style="color: #4A0008; font-weight: 900;">⭐ Primary Social Anthem (Song & Artist Name)</label>
                     <input type="text" name="spotify_anthem" id="music_anthem_input" class="form-input" placeholder="e.g. Sauti Sol - Melanin" value="{{ user.spotify_anthem or '' }}" style="border-color: rgba(230, 0, 38, 0.2); outline: none;">
                 </div>
                 
@@ -498,13 +498,21 @@
                     <span class="age-badge" id="preview-age-badge">{{ user.age }}</span>
                 </h3>
 
-                <div id="preview-phone-row" style="margin-bottom: 15px; display: {{ 'flex' if user.phone else 'none' }}; flex-direction: column; align-items: center; gap: 5px; background: #FEF2F4; padding: 10px; border-radius: 12px; border: 1px solid #FFD6DD;">
+                <div id="preview-contact-row" style="margin-bottom: 15px; display: {{ 'flex' if user.phone or user.email else 'none' }}; flex-direction: column; align-items: center; gap: 5px; background: #FEF2F4; padding: 10px; border-radius: 12px; border: 1px solid #FFD6DD;">
                     <div style="font-size: 9px; font-weight: 900; color: #E60026; text-transform: uppercase; letter-spacing: 1px;">Contact Ready</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 16px;">📞</span>
-                        <span id="preview-phone" style="color: #720000; font-weight: 900; font-size: 15px;">
-                            +{{ user.phone if user.phone else '' }}
-                        </span>
+                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: center; width: 100%;">
+                        <div id="preview-phone-row" style="display: {{ 'flex' if user.phone else 'none' }}; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">📞</span>
+                            <span id="preview-phone" style="color: #720000; font-weight: 900; font-size: 15px;">
+                                +{{ user.phone if user.phone else '' }}
+                            </span>
+                        </div>
+                        <div id="preview-email-row" style="display: {{ 'flex' if user.email else 'none' }}; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">✉️</span>
+                            <span id="preview-email" style="color: #720000; font-weight: 800; font-size: 14px; word-break: break-all;">
+                                {{ user.email if user.email else '' }}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 

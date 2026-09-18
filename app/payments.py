@@ -137,10 +137,21 @@ def initiate_stk_push(phone_number, amount, account_reference, callback_url, tra
         return {"error": "Network timeout reaching Safaricom."}
 
 def check_payment_status(checkout_request_id):
-    """ACTIVELY asks Safaricom if a specific transaction was paid successfully."""
+    """
+    Asks Safaricom if a specific transaction was paid.
+
+    Safaricom Result Codes:
+      0    = SUCCESS (PAID)
+      1    = Insufficient funds → definitive FAILED
+      1032 = User cancelled → definitive CANCELED
+      1037 = DS timeout / user unreachable → still PENDING
+      2001 = Wrong PIN entered → still PENDING (user may retry)
+      17   = Request still being processed → PENDING
+      None / missing = query came too early → PENDING
+    """
     token = get_access_token()
     if not token:
-        return {"error": "Auth failed."}
+        return {"status": "PENDING", "error": "Auth failed."}
 
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     password = generate_password(timestamp)
@@ -161,25 +172,43 @@ def check_payment_status(checkout_request_id):
         response = requests.post(STK_QUERY_URL, json=payload, headers=headers, timeout=15)
         response.raise_for_status()
         data = response.json()
-        
-        result_code = str(data.get('ResultCode'))
-        
+
+        result_code = data.get('ResultCode')
+
+        # Safaricom may return None or empty string while still processing
+        if result_code is None or result_code == '':
+            return {"status": "PENDING", "data": data}
+
+        result_code = str(result_code)
+
         if result_code == "0":
             return {"status": "PAID", "data": data}
+
+        # Only these two codes are DEFINITIVE failures:
+        # 1032 = user explicitly pressed 'Cancel' on their phone
+        # 1    = genuinely insufficient M-Pesa balance
         elif result_code == "1032":
             return {"status": "CANCELED", "data": data}
+        elif result_code == "1":
+            return {"status": "FAILED", "data": data, "reason": "Insufficient M-Pesa balance."}
+
+        # All other codes (1037, 2001, 17, etc.) mean
+        # Safaricom is still processing — treat as PENDING
         else:
-            return {"status": "FAILED", "data": data}
-            
+            logger.info(f"STK Query: ambiguous code {result_code} — treating as PENDING")
+            return {"status": "PENDING", "data": data}
+
     except requests.exceptions.RequestException as e:
         if getattr(e, 'response', None) is not None:
             try:
                 error_data = e.response.json()
-                # Safaricom returns "Invalid CheckoutRequestID" if the user hasn't put in their PIN yet
                 err_msg = error_data.get('errorMessage', '').lower()
-                if "invalid" in err_msg or "not found" in err_msg:
-                    return {"status": "PENDING"}
+                # "The transaction is being processed" → PENDING
+                # "Invalid CheckoutRequestID" → PENDING (queried too fast)
+                # Any Safaricom error during processing → PENDING
+                logger.info(f"STK Query HTTP error: {err_msg[:80]}")
             except ValueError:
-                pass # Daraja returned HTML
-                
-        return {"status": "PENDING"}
+                pass  # Daraja returned HTML instead of JSON
+
+        # Any HTTP error from Safaricom = still processing
+        return {"status": "PENDING"}

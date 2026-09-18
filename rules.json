@@ -1,10 +1,8 @@
 {
   "rules": {
-    
     ".read": false,
     ".write": false,
 
-    
     "merchant_alerts": {
       "$restaurant_id": {
         ".read": true, 
@@ -16,7 +14,6 @@
       }
     },
 
-    
     "party_participants": {
       ".read": true,
       "$user_id": {
@@ -26,9 +23,9 @@
       ".indexOn": ["joined_at"]
     },
 
-
     "profiles": {
       ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": [
         "email", 
         "phone", 
@@ -47,84 +44,171 @@
     },
     
     "notifications": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       "$user_id": {
         ".indexOn": ["status", "timestamp"]
       }
     },
     
     "schedules": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["user_id"]
     },
     
     "swipes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["user_id", "target_id", "timestamp"]
     },
     
     "bookings": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["restaurant_id", "user_a_id", "user_b_id", "status", "timestamp"]
     },
     
     "restaurants": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["subscription_active", "email"]
     },
     
     "matches": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["users"]
     },
 
     "messages": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       "$match_id": {
         ".indexOn": ["timestamp"]
       }
     },
 
     "chats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       "$room_id": {
         ".indexOn": ["timestamp"]
       }
     },
 
     "confessions": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "score"]
     },
 
     "missed_connections": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "upvotes"]
     },
 
     "gossip": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "upvotes"]
     },
 
     "secret_crushes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["status", "timestamp"]
     },
 
     "daily_prompts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["date"]
     },
 
     "prompt_answers": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp"]
     },
 
     "admin_alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp"]
     },
     
     "call_requests": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "status"]
     },
     
     "feedbacks": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "type"]
     },
 
     "call_reviews": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp", "quality"]
     },
 
     "admin_audit_logs": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+
+    "active_ads": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["status"]
+    },
+
+    "party_chat": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_typing": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    
+    "users": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["is_online"]
+    },
+    "lights_out_queue": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+    "lights_out_rooms": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "calls": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "incoming_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "signals": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "emergency_alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
       ".indexOn": ["timestamp"]
     }
   }

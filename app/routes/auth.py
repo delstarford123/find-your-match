@@ -90,6 +90,11 @@ def signup():
         religion = request.form.get('religion')
         skip_pic = request.form.get('skip_pic') == 'on'
 
+        # Institution Fields
+        institution_type = request.form.get('institution_type', 'University').strip()
+        institution_name = request.form.get('institution_name', 'Other').strip()
+        course = request.form.get('course', '').strip()  # Optional course/programme field
+
         # Family Tree Fields (Hashed immediately for privacy)
         father_surname = hash_family_name(request.form.get('father_surname'))
         mother_maiden = hash_family_name(request.form.get('mother_maiden'))
@@ -188,6 +193,10 @@ def signup():
                 'img': profile_img,
                 'bio': bio,
                 'vibe_vector': [0.0, 0.0, 0.0, 0.0],
+                # 🏫 Institution Data (saved from signup form)
+                'institution_type': institution_type,
+                'institution': institution_name,   # Stored as 'institution' to match email templates
+                'course': course,
                 'is_verified': False,            # User must verify via code
                 'verification_code': str(otp_code), # Store code as string for exact matching
                 'referred_by': ref_code,         # Saves who invited them!

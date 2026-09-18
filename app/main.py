@@ -17,8 +17,12 @@ import ipaddress
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory
-from flask_socketio import SocketIO, emit, join_room
-from pywebpush import webpush, WebPushException
+try:
+    from pywebpush import webpush, WebPushException
+except ImportError as e:
+    print(f"⚠️ Warning: pywebpush could not be imported ({e}). Push notifications will be disabled.")
+    webpush = None
+    WebPushException = Exception
 from groq import Groq
 from flask_wtf.csrf import CSRFProtect
 # ==========================================
@@ -45,7 +49,9 @@ from app.email_service import (
     send_verification_email,
     send_broadcast_email,
     send_admin_alert_email,
-    send_premium_activation_email
+    send_premium_activation_email,
+    send_monday_matches_email,
+    send_friday_matches_email
 )
 
 from app.database import (
@@ -58,7 +64,7 @@ from app.database import (
 
 from app.services.recommendation_engine import generate_ranked_deck
 from app.services.moderation import contains_phone_number, analyze_safety
-from app.payments import initiate_stk_push, check_payment_status
+from app.payments import initiate_stk_push, check_payment_status, format_phone_number
 
 # ==========================================
 # 3. AI COMPANION SERVICE (GROQ)
@@ -68,13 +74,13 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 
-def get_ai_companion_response(user_text, user_gender="unknown"):
+def get_ai_companion_response(user_text, user_gender="unknown", system_prompt_override=None):
     """Connects to Groq and dynamically adjusts persona based on user gender."""
     if not client:
         print("⚠️ GROQ_API_KEY is missing from api_key.py!")
         return "My AI brain is currently resting. (API Key missing!)"
 
-    model_id = "llama-3.1-8b-instant" 
+    model_id = "llama3-8b-8192" 
     
     # Determine the AI's persona based on the user's gender
     user_g = str(user_gender).strip().lower()
@@ -91,11 +97,16 @@ def get_ai_companion_response(user_text, user_gender="unknown"):
         target_user = "university"
 
     # Build the dynamic system prompt
-    system_prompt = (
-        f"You are a friendly, flirty, and supportive {ai_persona} AI dating companion "
-        f"chatting with a {target_user} university student at Masinde Muliro University of Science and Technology (MMUST). "
-        "Keep your responses short, clean, and encouraging. Occasionally use Kenyan campus slang."
-    )
+    if system_prompt_override:
+        system_prompt = system_prompt_override
+    else:
+        system_prompt = (
+            f"You are a friendly, flirty, and supportive {ai_persona} AI dating companion "
+            f"chatting with a {target_user} university student at Masinde Muliro University of Science and Technology (MMUST). "
+            "Keep your responses short, clean, and encouraging. Occasionally use Kenyan campus slang. "
+        )
+        
+    system_prompt += "\nIMPORTANT: Output ONLY the final response. DO NOT output 'Here's a thinking process', 'Analysis:', or any internal reasoning traces. Do not wrap your response in quotes."
     
     messages = [
         {"role": "system", "content": system_prompt},
@@ -111,25 +122,81 @@ def get_ai_companion_response(user_text, user_gender="unknown"):
             top_p=0.9
         )
         
+        import re
         reply = chat_completion.choices[0].message.content.strip()
+        reply = re.sub(r'<think>.*?</think>', '', reply, flags=re.DOTALL).strip()
         return reply if reply else "I'm listening, tell me more!"
         
     except Exception as e:
         print(f"⚠️ Groq API Error: {e}")
         return "The campus Wi-Fi is acting up! Try sending that again?"
+
+def get_wingman_response(system_prompt, user_text):
+    """Dedicated AI handler for Wingman tasks (Icebreaker, Roaster). Forces JSON to strip reasoning traces."""
+    if not client:
+        return "⚠️ GROQ_API_KEY is missing."
+
+    model_id = "llama3-8b-8192"
+    
+    # Force JSON output to reliably bypass "Here's a thinking process:" text
+    strict_system_prompt = system_prompt + "\n\nYou MUST respond with ONLY a valid JSON object in this exact format: {\"result\": \"<your roast or icebreakers here>\"}. Do NOT output any thinking process before or after the JSON."
+    
+    messages = [
+        {"role": "system", "content": strict_system_prompt},
+        {"role": "user", "content": user_text}
+    ]
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=messages,
+            model=model_id,
+            max_tokens=350,
+            temperature=0.7
+        )
+        
+        reply = chat_completion.choices[0].message.content.strip()
+        
+        import re
+        # Strip <think> tags just in case
+        reply = re.sub(r'<think>.*?</think>', '', reply, flags=re.DOTALL).strip()
+        
+        # Extract the JSON block
+        json_match = re.search(r'\{.*\}', reply, flags=re.DOTALL)
+        if json_match:
+            import json
+            try:
+                data = json.loads(json_match.group(0))
+                return data.get("result", reply)
+            except json.JSONDecodeError:
+                return reply
+        
+        return reply
+        
+    except Exception as e:
+        print(f"⚠️ Groq API Error (Wingman): {e}")
+        return "The AI Wingman is currently unavailable."
 # ==========================================
 # 4. INITIALIZE FLASK APP & WEBSOCKETS
 # ==========================================
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "delstarford_works_secret_2026")
+app.config['FIREBASE_DB_URL'] = os.getenv("FIREBASE_DB_URL", "https://mmust-dating-site-default-rtdb.firebaseio.com/")
+# Keep sessions alive for 24 hours so checkout_id survives until Safaricom callback arrives
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(seconds=int(os.getenv('PERMANENT_SESSION_LIFETIME', 86400)))
+
+@app.context_processor
+def inject_firebase_config():
+    return dict(firebase_api_key=os.getenv('FIREBASE_API_KEY', ''))
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'   # needed for redirect flows
+app.config['SESSION_COOKIE_SECURE'] = True        # HTTPS only (your domain is HTTPS)
 
 # --- NEW: FIREWALL & RATE LIMITER ---
-# This tracks user IPs and blocks them if they spam requests
+# Rate limiting is disabled by default in this production WSGI environment to prevent
+# Python 3.13 thread-creation crashes under Phusion Passenger.
 limiter = Limiter(
     get_remote_address,
     app=app,
-    default_limits=["500 per day", "100 per hour"],
-    storage_uri="memory://" # Stores tracking data in server memory
+    enabled=False
 )
 # Initialize CSRF Protection
 csrf = CSRFProtect(app)
@@ -195,13 +262,14 @@ def is_safaricom_ip(ip_str):
 # VAPID Keys for Push Notifications
 # Using os.getenv so your personal email isn't hardcoded if you share the code
 mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
-app.config['VAPID_PRIVATE_KEY'] = "private_key.pem" 
+app.config['VAPID_PRIVATE_KEY'] = os.path.abspath(os.path.join(os.path.dirname(__file__), '../private_key.pem'))
 app.config['VAPID_CLAIMS'] = {"sub": f"mailto:{mail_username}"}
 import os
 
 # Secure in production, False in development
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+
 
 # ==========================================
 # 📊 SYSTEM STATISTICS CALCULATOR
@@ -322,19 +390,73 @@ def security_and_tracking_hook():
 # Register Blueprints
 from app.routes.auth import auth_bp
 from app.routes.v2.auth import auth_v2_bp
+from app.routes.v3.auth import auth_v3_bp      # v3: no reg number
 from app.routes.profiles import profiles_bp
 from app.routes.matches import matches_bp
 from app.routes.v3.matching import v3_matching_bp
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
+app.register_blueprint(auth_v3_bp)
 app.register_blueprint(profiles_bp)
 app.register_blueprint(matches_bp)
 app.register_blueprint(v3_matching_bp)
 
-
 # ==========================================
 # 5. SECURITY DECORATORS & HELPERS
 # ==========================================
+
+_PLACEHOLDER_IMAGES = {
+    "https://via.placeholder.com/400",
+    "https://placehold.co/400",
+    "",
+}
+
+def is_profile_complete(user_data: dict) -> bool:
+    """Returns True only when the user has both a real photo and a phone number."""
+    img   = user_data.get('img', '')
+    phone = user_data.get('phone', '')
+    img_ok   = bool(img) and img not in _PLACEHOLDER_IMAGES
+    phone_ok = bool(phone) and len(str(phone)) >= 9
+    return img_ok and phone_ok
+
+
+def profile_complete_required(f):
+    """
+    Decorator: After login_required, also checks that the user has a profile
+    photo and phone number. Redirects to /complete-profile if not.
+    Re-checks every 6 hours via a session timestamp to avoid a DB call on
+    every single page load.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash("Please log in or sign up to access this page.", "warning")
+            return redirect(url_for('auth.login'))
+
+        # Skip re-check if we already confirmed completeness recently
+        last_check = session.get('profile_checked_at')
+        if last_check:
+            try:
+                last_dt = datetime.fromisoformat(last_check)
+                if datetime.now(EAT) - last_dt < timedelta(hours=6):
+                    return f(*args, **kwargs)
+            except Exception:
+                pass
+
+        user_id = session.get('user_id')
+        try:
+            user_data = db.reference(f'profiles/{user_id}').get() or {}
+            if not is_profile_complete(user_data):
+                return redirect(url_for('complete_profile'))
+            # Cache the check result in session
+            session['profile_checked_at'] = datetime.now(EAT).isoformat()
+        except Exception as e:
+            logger.warning(f"Profile completion check failed: {e}")
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def login_required(f):
     """Decorator: Ensures a user is logged in before accessing a route."""
     @wraps(f)
@@ -344,6 +466,119 @@ def login_required(f):
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.route('/complete-profile')
+def complete_profile():
+    """Renders the profile completion wizard for users missing image or phone."""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    user_id   = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    img   = user_data.get('img', '')
+    phone = user_data.get('phone', '')
+    img_ok   = bool(img) and img not in _PLACEHOLDER_IMAGES
+    phone_ok = bool(phone) and len(str(phone)) >= 9
+    # If already complete, just go to dashboard
+    if img_ok and phone_ok:
+        session['profile_checked_at'] = datetime.now(EAT).isoformat()
+        return redirect(url_for('swipe'))
+    return render_template('complete_profile.html',
+                           user=user_data,
+                           has_image=img_ok,
+                           has_phone=phone_ok)
+
+
+@app.route('/api/profile/update-photo', methods=['POST'])
+def api_update_profile_photo():
+    """
+    Wizard Step 1: Accepts a multipart photo upload and saves it to Firebase Storage.
+    Used by the profile completion wizard (complete_profile.html).
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Not authenticated."}), 401
+
+    photo = request.files.get('photo')
+    if not photo or not photo.filename:
+        return jsonify({"status": "error", "message": "No photo file received."}), 400
+
+    # Validate file type
+    allowed = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+    ext = os.path.splitext(photo.filename)[1].lower()
+    if ext not in allowed:
+        return jsonify({"status": "error", "message": "Only JPG, PNG, WEBP or GIF images are allowed."}), 400
+
+    try:
+        bucket   = storage.bucket()
+        filename = f"profile_{int(time.time())}{ext}"
+        blob     = bucket.blob(f"profiles/{user_id}/{filename}")
+        blob.upload_from_file(photo, content_type=photo.content_type)
+        blob.make_public()
+        image_url = blob.public_url
+
+        db.reference(f'profiles/{user_id}').update({
+            'img':              image_url,
+            'profile_complete': False,   # Will be re-evaluated after phone step
+        })
+
+        # Bust the profile-check session cache so the guard re-evaluates
+        session.pop('profile_checked_at', None)
+        session['user_img'] = image_url
+
+        return jsonify({
+            "status":    "success",
+            "message":   "Profile photo updated successfully!",
+            "image_url": image_url,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Wizard photo upload error for {user_id}: {e}")
+        return jsonify({"status": "error", "message": "Upload failed. Please try again."}), 500
+
+
+@app.route('/api/profile/update-phone', methods=['POST'])
+def api_update_profile_phone():
+    """
+    Wizard Step 2: Saves the user's phone number and marks the profile as complete
+    if a photo is also present. Used by the profile completion wizard.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Not authenticated."}), 401
+
+    data  = request.get_json(silent=True) or {}
+    phone = str(data.get('phone', '')).strip().replace('+', '').replace(' ', '')
+
+    # Normalise: 07XXXXXXXX → 2547XXXXXXXX
+    if phone.startswith('0') and len(phone) == 10:
+        phone = '254' + phone[1:]
+
+    if not phone.isdigit() or len(phone) < 9:
+        return jsonify({"status": "error", "message": "Please enter a valid phone number."}), 400
+
+    try:
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
+        img       = user_data.get('img', '')
+        img_ok    = bool(img) and img not in _PLACEHOLDER_IMAGES
+
+        db.reference(f'profiles/{user_id}').update({
+            'phone':            phone,
+            'profile_complete': img_ok,   # True only if photo is already set
+        })
+
+        # Bust the profile-check session cache
+        session.pop('profile_checked_at', None)
+
+        return jsonify({
+            "status":  "success",
+            "message": "Phone number saved successfully!",
+            "profile_complete": img_ok,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Wizard phone update error for {user_id}: {e}")
+        return jsonify({"status": "error", "message": "Could not save phone number. Please try again."}), 500
 
 def requires_subscription(f):
     """Decorator: Checks if a logged-in student has paid AND their subscription hasn't expired."""
@@ -414,15 +649,17 @@ def requires_diamond_subscription(f):
             flash("Your subscription has expired. Please renew to continue.", "warning")
             return render_template('paywall.html') 
 
-        if package != 'diamond':
-            flash("💎 Upgrade to the Diamond Package (99 KSH/month) to access this premium feature!", "info")
-            return render_template('paywall.html')
+        # Diamond lockout removed: All Premium users have access.
             
         return f(*args, **kwargs)
     return decorated_function
 
 def trigger_match_notification(target_user_id, current_user_name):
     """Sends a Web Push Notification to the target user when a match occurs."""
+    if webpush is None:
+        print(f" Push notifications are disabled (pywebpush not installed/blocked). Skipping for {target_user_id}.")
+        return
+
     sub_ref = db.reference(f'push_subscriptions/{target_user_id}').get()
     
     if not sub_ref:
@@ -449,29 +686,6 @@ def trigger_match_notification(target_user_id, current_user_name):
             db.reference(f'push_subscriptions/{target_user_id}').delete()
             print(f"🧹 Cleaned up expired push token for {target_user_id}")
 
-# ==========================================
-# 6. WEBSOCKET EVENTS (CHAT & AI MODERATION)
-# ==========================================
-from datetime import datetime
-
-@socketio.on('connect')
-def handle_connect():
-    """Security Step: Automatically join a private room based on user_id."""
-    user_id = session.get('user_id')
-    if user_id:
-        join_room(user_id)
-
-@socketio.on('typing')
-def handle_typing(data):
-    """Routes the typing indicator securely."""
-    receiver_id = data.get('receiver_id')
-    sender_id = session.get('user_id')
-    
-    if receiver_id and sender_id:
-        # Force the sender ID so clients cannot spoof who is typing
-        data['sender'] = sender_id
-        emit('user_typing', data, to=receiver_id)
-
 # Note: Your Flask routes (@app.route) would continue below this if they are in main.py          
 def get_current_party_theme():
     """Returns the themed night based on the day of the week."""
@@ -494,17 +708,6 @@ def get_current_party_theme():
 @requires_subscription
 def party():
     """Renders the Virtual Club Room."""
-    # Fetch force_party flag from Firebase
-    system_settings = db.reference('system_settings').get() or {}
-    force_party = system_settings.get('force_party', False)
-
-    # Enforce time constraint unless forced
-    now = datetime.now(EAT)
-    if not force_party:
-        if now.weekday() == 4 or now.hour < 22: # 4 is Friday in Python (Mon=0)
-            flash("The Virtual Club is open every night except Friday starting at 10:00 PM!", "warning")
-            return redirect(url_for('home'))
-
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     
@@ -526,58 +729,6 @@ def party():
                            theme=theme)
 
 # ==========================================
-# 7. PARTY SOCKET EVENTS
-# ==========================================
-
-@socketio.on('join_party')
-def on_join_party(data):
-    user_id = session.get('user_id')
-    if user_id:
-        join_room('wednesday_party')
-        user_data = db.reference(f'profiles/{user_id}').get() or {}
-        # Notify others that a new user joined
-        emit('party_update', {
-            'type': 'join',
-            'user_id': user_id,
-            'name': user_data.get('name', 'Student').split(' ')[0],
-            'img': user_data.get('img', '/static/img/placeholder.png')
-        }, to='wednesday_party', include_self=False)
-
-@socketio.on('send_party_msg')
-def on_send_party_msg(data):
-    sender_id = session.get('user_id')
-    if not sender_id: return
-    
-    text = data.get('text', '').strip()
-    target_id = data.get('target_id') # If target_id exists, it's a whisper
-    
-    sender_name = session.get('user_name', 'Student').split(' ')[0]
-    timestamp = datetime.now(EAT).strftime("%H:%M")
-
-    payload = {
-        'sender_id': sender_id,
-        'sender_name': sender_name,
-        'text': text,
-        'timestamp': timestamp,
-        'is_whisper': bool(target_id)
-    }
-
-    if target_id:
-        # Private Whisper
-        emit('receive_party_msg', payload, to=target_id)
-        emit('receive_party_msg', payload, to=sender_id) # Echo to sender
-    else:
-        # Public Group Chat
-        emit('receive_party_msg', payload, to='wednesday_party')
-
-@socketio.on('leave_party')
-def on_leave_party(data):
-    user_id = session.get('user_id')
-    if user_id:
-        db.reference(f'party_participants/{user_id}').delete()
-        emit('party_update', {'type': 'leave', 'user_id': user_id}, to='wednesday_party')
-
-# ==========================================
 # CORE B2C PAGES (STUDENTS)
 # ==========================================
 
@@ -593,6 +744,10 @@ def manifest():
 @app.route('/sw.js')
 def service_worker():
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+
+@app.route('/firebase-messaging-sw.js')
+def firebase_service_worker():
+    return send_from_directory('static', 'firebase-messaging-sw.js', mimetype='application/javascript')
 
 @app.route('/safety')
 def safety():
@@ -879,8 +1034,9 @@ def swipe():
         'mbti': user_profile.get('mbti', '')
     }
 
-    # 4. Build the Discovery Deck
+    # 4. Build the Discovery Deck and the Teaser Deck (for empty state)
     potential_matches = []
+    top_teasers = []
     all_profiles = get_all_profiles() # Fetch everyone
     
     for p in all_profiles:
@@ -942,13 +1098,43 @@ def swipe():
             'is_perfect_match': final_score >= 80  # Flag for the frontend badge
         })
 
+    # 4.5 Build the Teaser Deck for Empty State (Top Opposite Gender)
+    for p in all_profiles:
+        p_id = p.get('id')
+        if p_id == user_id or not p.get('is_visible', True):
+            continue
+            
+        p_gender = p.get('gender', '').strip().lower()
+        if current_user_gender and p_gender and current_user_gender == p_gender:
+            continue # Strict opposite-gender rule
+            
+        if gender_pref != 'Everyone' and p_gender != gender_pref.lower():
+            continue
+            
+        ai_score = p.get('ai_score', random.randint(65, 80))
+        if ai_score >= 80:
+            top_teasers.append({
+                'id': p_id,
+                'name': p.get('name', 'Student').split(' ')[0],
+                'bio': p.get('bio', 'Looking for a compatibility match.'),
+                'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                'compatibility': ai_score,
+                'is_perfect_match': True
+            })
+            
+    # Sort teasers by score and grab top 10
+    top_teasers.sort(key=lambda x: x['compatibility'], reverse=True)
+    top_teasers = top_teasers[:10]
+
     # 5. Sort the deck: Show the Highest Compatibility matches first!
     potential_matches.sort(key=lambda x: x['compatibility'], reverse=True)
 
     return render_template(
         'swipe.html', 
         current_user=current_user,
-        potential_matches=potential_matches
+        potential_matches=potential_matches,
+        top_teasers=top_teasers,
+        profile_complete=is_profile_complete(user_profile)
     )
 
 @app.route('/notifications')
@@ -1014,12 +1200,13 @@ def dashboard():
                 # Fetch or simulate compatibility score
                 ai_score = p.get('ai_score', random.randint(65, 95))
                 
-                # --- NEW LOGIC: Everyone is visible, but only opposite genders can be a "Perfect Match" ---
+                # --- NEW LOGIC: Only opposite genders can be matched ---
                 is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
                 
-                is_perfect_match = False
-                if is_opposite_gender and ai_score >= 80:
-                    is_perfect_match = True
+                if not is_opposite_gender:
+                    continue
+                
+                is_perfect_match = (ai_score >= 80)
                 
                 my_matches.append({
                     'id': p_id,
@@ -1099,11 +1286,13 @@ def dashboard():
         unread_count=unread_count,
         daily_prompt=prompt_data,
         my_answer=my_answer_data,
-        badges=badges
+        badges=badges,
+        profile_complete=is_profile_complete(user_data)
     )
     
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
+@csrf.exempt
 def unmatch_user():
     data = request.json
     user_id = session.get('user_id')
@@ -1216,23 +1405,8 @@ def add_crush():
             db.reference(f'swipes/{raw_crush_id}/{user_id}').set({'action': 'like', 'timestamp': timestamp})
 
             # Trigger real-time push notifications if they are online
-            def emit_crush_notifications():
-                try:
-                    socketio.emit('receive_message', {
-                        'sender': 'SYSTEM_AI',
-                        'text': '💘 OMG! Your Secret Crush just matched with you!',
-                        'timestamp': timestamp
-                    }, to=user_id)
-                    
-                    socketio.emit('receive_message', {
-                        'sender': 'SYSTEM_AI',
-                        'text': '💘 OMG! Your Secret Crush just matched with you!',
-                        'timestamp': timestamp
-                    }, to=raw_crush_id)
-                except Exception as sock_err:
-                    logger.warning(f"Crush socket emit failed: {sock_err}")
-
-            socketio.start_background_task(emit_crush_notifications)
+            # (WebSockets removed: Handled via Firebase Realtime Database)
+            pass
 
             return jsonify({
                 "status": "success", 
@@ -1339,8 +1513,9 @@ def matches(partner_id=None):
                 # Calculate unread count for this match
                 unread_count = 0
                 if is_mutual:
-                    m_id = f"match_{min(user_id, p_id)}_{max(user_id, p_id)}"
-                    chat_data = db.reference(f'matches/{m_id}/messages').get() or {}
+                    users_sorted = sorted([str(user_id), str(p_id)])
+                    m_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
+                    chat_data = all_matches.get(m_id, {}).get('messages', {})
                     if isinstance(chat_data, dict):
                         for msg in chat_data.values():
                             if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
@@ -1388,7 +1563,8 @@ def matches(partner_id=None):
     # Load the chat history AS A DICTIONARY
     history = {}
     if active_partner and partner_id != 'AI_COMPANION':
-        match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
+        users_sorted = sorted([str(user_id), str(partner_id)])
+        match_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
         history_ref = db.reference(f'matches/{match_id}/messages')
         history = history_ref.get() or {}
         
@@ -1413,6 +1589,14 @@ def matches(partner_id=None):
                 history_ref.update(updates)
             except Exception as e:
                 logger.error(f"Failed to update message read statuses: {e}")
+                
+        # Force history to dict for Jinja to parse correctly
+        if isinstance(history, list):
+            history_dict = {}
+            for i, item in enumerate(history):
+                if item is not None:
+                    history_dict[str(i)] = item
+            history = history_dict
     
     # ==========================================
     # 🧮 THE "BLURRED LINES" (BLIND DATE) MATH
@@ -1665,6 +1849,7 @@ def calculate_profile_badges(user_data):
             
     return badges
 
+@app.route('/view_profile/<target_id>')
 @app.route('/student/<target_id>')
 @requires_subscription
 def view_student(target_id):
@@ -2400,7 +2585,13 @@ def super_admin():
         # B. From Profiles (Fallback for active 'is_paid' users without logs)
         if isinstance(all_profiles, dict):
             for u_id, p in all_profiles.items():
-                if isinstance(p, dict) and p.get('is_paid') and u_id not in accounted_uids:
+                # We only consider 'is_paid' users as revenue if they didn't get free promos.
+                # "SYSTEM_PROMO" is set for referrals. "gold" was set by the 2-day free script.
+                receipt = p.get('last_payment_receipt', '')
+                package = p.get('subscription_package', '')
+                is_free_promo = ('PROMO' in receipt or 'INVITE' in receipt or package == 'gold')
+
+                if isinstance(p, dict) and p.get('is_paid') and not is_free_promo and u_id not in accounted_uids:
                     ts = p.get('created_at')
                     m_idx = 3 # April Default
                     if ts:
@@ -2429,27 +2620,29 @@ def super_admin():
         for i in range(12):
             monthly_b2b[i] = max(monthly_b2b[i], temp_ledger_b2b[i])
 
-        student_revenue = sum(monthly_student_rev)
-        b2b_revenue = sum(monthly_b2b)
-        total_revenue = student_revenue + b2b_revenue
+        # -------------------------------------------------------
+        # HEADLINE CARD: current month totals only
+        # The monthly breakdown list still shows full history.
+        # -------------------------------------------------------
+        current_month_idx = now.month - 1  # 0-based index
+        student_revenue = monthly_student_rev[current_month_idx]
+        b2b_revenue     = monthly_b2b[current_month_idx]
+        total_revenue   = student_revenue + b2b_revenue
 
         # ------------------------------------------
-        # 1.2 ACCOUNT BALANCE SYNC & OVERRIDES
+        # 1.2 MANUAL OVERRIDES (current month only)
         # ------------------------------------------
-        REPORTED_BALANCE = 1520
         diff = 0
-        
+
         # Check for Manual Overrides in Firebase
         manual_overrides = db.reference('system_settings/manual_revenue_overrides').get() or {}
-        
+
         if isinstance(manual_overrides, dict) and manual_overrides.get('active'):
-            # Use Offsets instead of static replacements so they grow with new transactions
-            total_revenue += int(manual_overrides.get('revenue_offset', 0))
+            # Offsets are applied to the current-month totals
+            total_revenue   += int(manual_overrides.get('revenue_offset', 0))
             student_revenue += int(manual_overrides.get('student_revenue_offset', 0))
-            # B2B revenue is usually the difference, or we can add its own offset if needed
-            # For now, b2b_revenue is just calculated from ledger, which is fine
-            
-            # Map monthly overrides (these stay static as they are usually for past months)
+
+            # Map monthly overrides into the arrays for the chart & breakdown
             monthly_overrides = manual_overrides.get('monthly', {})
             if isinstance(monthly_overrides, dict):
                 for m_idx_str, data in monthly_overrides.items():
@@ -2459,14 +2652,6 @@ def super_admin():
                             monthly_student_rev[idx] = int(data.get('student', 0))
                             monthly_b2b[idx] = int(data.get('b2b', 0))
                     except: pass
-        else:
-            # Fallback to reported balance if no manual override
-            if total_revenue < REPORTED_BALANCE:
-                diff = REPORTED_BALANCE - total_revenue
-                student_revenue += diff 
-                total_revenue = REPORTED_BALANCE
-                # Add to current month (May) for the chart
-                monthly_student_rev[4] += diff
 
         # Prepare Monthly Data for UI & Chart
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -2742,10 +2927,6 @@ def admin_action():
             new_status = not profile.get('is_banned', False)
             profile_ref.update({'is_banned': new_status})
             
-            # Instantly terminate WebSocket if banning
-            if new_status:
-                socketio.emit('kick', {'reason': 'Account suspended'}, room=target_id)
-            
             # Send notification if banning
             if new_status and profile.get('email'):
                 try:
@@ -2843,11 +3024,11 @@ def admin_action():
 
         elif action == 'kick_virtual_club':
             db.reference(f'party_queue/{target_id}').delete()
-            socketio.emit('kick', {'reason': 'Disconnected by Admin'}, room=target_id)
+            # WebSockets removed: Client polling checks kicks
             return jsonify({'success': True})
 
         elif action == 'broadcast_message':
-            socketio.emit('global_broadcast', {
+            db.reference('system_settings/broadcast').set({
                 'message': data.get('message'),
                 'priority': 'high',
                 'timestamp': datetime.now(EAT).strftime("%H:%M")
@@ -3036,13 +3217,18 @@ def admin_broadcast():
                     try:
                         send_broadcast_email(email, name, subj, msg, attachments=atts)
                         success_count += 1
+                        
+                        # Apply a delay between each individual email to prevent rapid-fire sending
+                        time.sleep(2)
+                            
                     except Exception as email_err:
-                        logger.warning(f"Failed sending to {email}: {email_err}")
+                        # Log the specific email that failed
+                        logger.error(f"Failed sending to {email}: {email_err}")
             
             logger.info(f"GOD_MODE: Broadcast '{subj}' sent to {success_count} users in group '{target}'.")
 
         # Process in background so the UI doesn't freeze
-        socketio.start_background_task(dispatch_emails, all_profiles, target_group, specific_email, target_class, subject, message, attachments)
+        threading.Thread(target=dispatch_emails, args=(all_profiles, target_group, specific_email, target_class, subject, message, attachments), daemon=True).start()
         
         return jsonify({'success': True, 'message': 'Broadcast queued for dispatch.'})
         
@@ -3406,12 +3592,7 @@ def ai_wingman_match_intro(user_id, partner_profile):
         save_chat_message('AI_COMPANION', user_id, wingman_msg, msg_type='text')
         
         # Emit it live so it pops up in their UI if they are looking at matches
-        socketio.emit('receive_message', {
-            'sender': 'AI_COMPANION',
-            'text': wingman_msg,
-            'type': 'text',
-            'timestamp': datetime.now(EAT).isoformat()
-        }, to=user_id)
+        # WebSockets removed: Messages are synced via Firebase automatically
         
     except Exception as e:
         logger.error(f"Wingman Match Intro Error: {e}")
@@ -3454,8 +3635,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Ensure East Africa Time is explicitly defined so your 30-day expiry is perfectly accurate
-EAT = pytz.timezone('Africa/Nairobi')
+# Use UTC+3 offset (NOT pytz) so datetime.now(EAT) works correctly everywhere
+# pytz requires localize() which breaks in many places - fixed here
+EAT = timezone(timedelta(hours=3))  # same as Africa/Nairobi offset
 
 @app.route('/api/pay_student_fee', methods=['POST'])
 @limiter.limit("3 per minute") # 🚨 STOPS STK PUSH SPAM
@@ -3468,21 +3650,24 @@ def pay_student_fee():
     selected_package = data.get('package', 'gold').strip().lower()
     user_id = session.get('user_id')
 
-    if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
-        return jsonify({'success': False, 'message': 'Phone format must be 2547XXXXXXXX'}), 400
+    if not phone_number:
+        return jsonify({'success': False, 'message': 'Please provide a phone number.'}), 400
 
-    # Determine amount and description based on selected package
-    if selected_package == 'diamond':
-        amount = 99
-        package_name = 'diamond'
-        desc = "Diamond Match"
-    else:
-        amount = 50
-        package_name = 'gold'
-        desc = "Gold Match"
+    # Auto-convert 07/01 format to 254 format before validating
+    phone_number = format_phone_number(phone_number)
+    if not phone_number.startswith("254") or len(phone_number) != 12:
+        return jsonify({'success': False, 'message': 'Invalid number. Use 07XXXXXXXX or 01XXXXXXXX format.'}), 400
 
-    # 🚨 ULTIMATE FIX: Hardcode your exact custom domain so Safaricom never gets confused
-    callback_url = "https://www.findyourmatch.co.ke/api/mpesa/student_callback"
+    # Determine amount and description (Consolidated Premium Package)
+    amount = 50
+    package_name = 'premium'
+    desc = "Premium Match"
+
+    # Read callback URL from .env so it's easy to change without touching code
+    callback_url = os.getenv(
+        "MPESA_CALLBACK_URL",
+        "https://www.findyourmatch.co.ke/api/mpesa/student_callback"
+    )
     
     try:
         response = initiate_stk_push(phone_number, amount, user_id, callback_url, transaction_desc=desc)
@@ -3492,6 +3677,14 @@ def pay_student_fee():
 
         if 'CheckoutRequestID' in response:
             checkout_id = response['CheckoutRequestID']
+
+            # Clear any stale old checkout from the session first
+            # so the old 'failed' status doesn't show up when polling starts
+            old_checkout_id = session.get('checkout_id')
+            if old_checkout_id and old_checkout_id != checkout_id:
+                # Don't delete it — just leave it, but don't let it block this new attempt
+                session.pop('checkout_id', None)
+
             db.reference(f'pending_payments/{checkout_id}').set({
                 'user_id': user_id,
                 'status': 'pending',
@@ -3499,7 +3692,15 @@ def pay_student_fee():
                 'amount': amount,
                 'created_at': datetime.now(EAT).isoformat()
             })
+            # Store checkout_id in session AND in Firebase profile so it
+            # survives across requests (session can be lost between STK push & callback)
             session['checkout_id'] = checkout_id
+            session.permanent = True  # keep session alive longer
+            session.modified = True
+            db.reference(f'profiles/{user_id}').update({
+                'active_checkout_id': checkout_id
+            })
+
             
             return jsonify({
                 'success': True, 
@@ -3555,10 +3756,11 @@ def mpesa_student_callback():
                     'is_paid': True,
                     'subscription_package': package_name,
                     'subscription_expiry': expiry_date,
-                    'last_payment_receipt': mpesa_receipt
+                    'last_payment_receipt': mpesa_receipt,
+                    'active_checkout_id': None  # clear so future payments work cleanly
                 })
                 pending_ref.update({'status': 'success', 'receipt': mpesa_receipt})
-                logger.info(f"✅ STUDENT ACTIVATED: {user_id} paid via {mpesa_receipt}")
+                logger.info(f"✅ STUDENT ACTIVATED via callback: {user_id} receipt={mpesa_receipt}")
             else:
                 logger.warning(f"⚠️ Payment received for {checkout_id} but no user_id found!")
         else:
@@ -3594,8 +3796,13 @@ def pay_subscription():
     payment_type = data.get('payment_type', 'gold') # 'gold', 'diamond', or 'boost'
     restaurant_id = session.get('user_id')
 
-    if not phone_number or not phone_number.startswith("254") or len(phone_number) != 12:
-        return jsonify({'error': 'Format must be 2547XXXXXXXX'}), 400
+    if not phone_number:
+        return jsonify({'error': 'Please provide a phone number.'}), 400
+
+    # Auto-convert 07/01 format to 254 format before validating
+    phone_number = format_phone_number(phone_number)
+    if not phone_number.startswith("254") or len(phone_number) != 12:
+        return jsonify({'error': 'Invalid number. Use 07XXXXXXXX or 01XXXXXXXX format.'}), 400
 
     # Determine amount based on payment type
     if payment_type == 'boost':
@@ -3732,321 +3939,206 @@ def mpesa_b2b_callback():
 
 
 # ==========================================
-# WEBSOCKETS (CHAT, AI COMPANION & SAFETY)
+# ==========================================
+# FIREBASE REST API ENDPOINTS (REPLACED WEBSOCKETS)
 # ==========================================
 import logging
+import threading
 from datetime import datetime
-from flask import session, request
-from flask_socketio import emit, join_room
-
-# Ensure your database tools are imported
-# from your_database_file import db, save_chat_message, get_ai_companion_response, analyze_safety, contains_phone_number
+from flask import session, request, jsonify
 
 logger = logging.getLogger(__name__)
 
-# Real-time state trackers
-online_users = set()
-active_chats = {}
-
-# ==========================================
-# CONNECTION & STATUS TRACKING
-# ==========================================
-@socketio.on('connect')
-def handle_connect():
-    """Security Step: Join a private room and set status to ONLINE."""
-    user_id = session.get('user_id')
-    if user_id:
-        join_room(user_id)
-        online_users.add(user_id)
-        try:
-            # Broadcast to everyone that this user is online
-            db.reference(f'profiles/{user_id}').update({'is_online': True})
-            emit('status_change', {'user_id': user_id, 'is_online': True}, broadcast=True)
-            logger.info(f"User {user_id} connected to WebSockets Presence.")
-        except Exception as e:
-            logger.error(f"Presence update failed on connect: {e}")
-
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Handle user disconnect and set status to OFFLINE."""
-    user_id = session.get('user_id')
-    if user_id:
-        online_users.discard(user_id)
-        active_chats.pop(user_id, None)
-        try:
-            db.reference(f'profiles/{user_id}').update({'is_online': False})
-            emit('status_change', {'user_id': user_id, 'is_online': False}, broadcast=True)
-            logger.info(f"User {user_id} disconnected from WebSockets.")
-        except Exception as e:
-            logger.error(f"Presence update failed on disconnect: {e}")
-
 # ==========================================
 # ACTIVE CHAT STATUS RECEIPTS
-# ==========================================
-@socketio.on('enter_chat')
-def handle_enter_chat(data):
-    """User enters a chat window with a partner: tracks active window and marks messages read."""
+@app.route('/api/chat/enter', methods=['POST'])
+@csrf.exempt
+def api_enter_chat():
     user_id = session.get('user_id')
-    partner_id = data.get('partner_id')
+    partner_id = request.json.get('partner_id') if request.json else None
+    
     if user_id and partner_id:
-        active_chats[user_id] = partner_id
-        logger.info(f"User {user_id} entered chat with {partner_id}.")
-        
-        # Mark all messages sent by this partner to the current user as 'read' in Firebase
         match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
         messages_ref = db.reference(f'matches/{match_id}/messages')
         history = messages_ref.get() or {}
-        
-        updated = False
         updates = {}
         if isinstance(history, dict):
             for msg_key, msg in history.items():
                 if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
                     updates[f'{msg_key}/status'] = 'read'
-                    updated = True
         elif isinstance(history, list):
             for index, msg in enumerate(history):
                 if isinstance(msg, dict) and msg.get('sender_id') == partner_id and msg.get('status') != 'read':
                     updates[f'{index}/status'] = 'read'
-                    updated = True
-                    
-        if updated:
-            try:
-                messages_ref.update(updates)
-                # Emit a SocketIO notification to the partner so they turn their grey ticks to blue in real-time
-                emit('messages_read', {'reader_id': user_id}, to=partner_id)
-            except Exception as e:
-                logger.error(f"Failed to update read status on chat entry: {e}")
+        if updates:
+            messages_ref.update(updates)
+            
+    return jsonify({"success": True})
 
-@socketio.on('leave_chat')
-def handle_leave_chat():
-    """User exits their current active chat window."""
+@app.route('/api/chat/typing', methods=['POST'])
+@csrf.exempt
+def api_typing():
     user_id = session.get('user_id')
-    if user_id:
-        active_chats.pop(user_id, None)
-        logger.info(f"User {user_id} left chat room.")
+    receiver_id = request.json.get('receiver_id') if request.json else None
+    is_typing = request.json.get('is_typing', False) if request.json else False
+    
+    if user_id and receiver_id:
+        users_sorted = sorted([str(user_id), str(receiver_id)])
+        room_id = f"{users_sorted[0]}_{users_sorted[1]}"
+        db.reference(f'chats/{room_id}/typing/{user_id}').set(is_typing)
+    
+    return jsonify({"success": True})
 
-# ==========================================
-# TYPING INDICATOR
-# ==========================================
-@socketio.on('typing')
-def handle_typing(data):
-    """Routes the typing indicator instantly."""
-    receiver_id = data.get('receiver_id')
-    if receiver_id:
-        # Route directly to the receiver's private room
-        emit('user_typing', data, to=receiver_id)
-
-# ==========================================
-# MESSAGE ROUTING
-# ==========================================
-# ==========================================
-# MESSAGE ROUTING & DB SAVING
-# ==========================================
-@socketio.on('send_message')
-def handle_message(data):
-    # 1. SECURITY: Get the sender's ID
+@app.route('/api/chat/send', methods=['POST'])
+@csrf.exempt
+def api_send_message():
     sender_id = session.get('user_id')
-    if not sender_id:
-        logger.warning("Unauthorized message attempt (no session).")
-        return
-
-    # 1.2 SHADOWBAN INTERCEPT
-    try:
-        sender_profile = db.reference(f'profiles/{sender_id}').get()
-        if sender_profile and sender_profile.get('is_shadowbanned'):
-            # Silently drop the message but emit back to sender so they don't suspect anything
-            temp_id = data.get('temp_id')
-            data['sender'] = sender_id
-            data['timestamp'] = datetime.now(EAT).isoformat()
-            emit('receive_message', data, to=sender_id)
-            if temp_id:
-                emit('message_delivered', {'temp_id': temp_id}, to=sender_id)
-            logger.info(f"Shadowbanned user {sender_id} tried to send a message. Intercepted.")
-            return
-    except Exception as e:
-        logger.error(f"Shadowban check failed: {e}")
-
-    # 2. VALIDATION: Prevent empty ghost messages
+    if not sender_id: return jsonify({"success": False, "message": "Unauthorized"}), 401
+    
+    data = request.json or {}
     receiver_id = data.get('receiver_id')
     msg_text = data.get('text', '').strip()
     msg_type = data.get('type', 'text')
-    temp_id = data.get('temp_id') # Crucial for the ✓✓ frontend confirmation
-    file_data = data.get('file_data') # For image, audio, video
-
-    if not receiver_id or (not msg_text and not file_data):
-        return
-
-    now_eat = datetime.now(EAT).isoformat()
-    data['sender'] = sender_id
-    data['timestamp'] = now_eat
-
-    # ------------------------------------------
-    # ROUTE A: AI COMPANION LOGIC
-    # ------------------------------------------
-    if receiver_id == 'AI_COMPANION':
-        # AI Companion currently only handles text
-        if msg_type != 'text':
-            return
-            
-        # Emit to sender's room so all their open tabs stay in sync
-        emit('receive_message', data, to=sender_id)
-        emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': True}, to=sender_id)
-        
-        current_user_gender = "unknown"
-        try:
-            user_profile = db.reference(f'profiles/{sender_id}').get()
-            if user_profile and 'gender' in user_profile:
-                current_user_gender = user_profile['gender']
-        except Exception:
-            pass
-        
-        def ai_worker(query, user_room, gender):
-            try:
-                ai_reply = get_ai_companion_response(query, user_gender=gender)
-                socketio.emit('user_typing', {'sender': 'AI_COMPANION', 'is_typing': False}, to=user_room)
-                socketio.emit('receive_message', {
-                    'sender': 'AI_COMPANION',
-                    'type': 'text',
-                    'text': ai_reply,
-                    'timestamp': datetime.now(EAT).isoformat()
-                }, to=user_room)
-            except Exception as e:
-                logger.error(f"AI Worker Error: {e}")
-
-        socketio.start_background_task(ai_worker, msg_text, sender_id, current_user_gender)
-        return
-
-    # ------------------------------------------
-    # ROUTE B: HUMAN-TO-HUMAN SAFETY MODERATION
-    # ------------------------------------------
-    if msg_type == 'text':
-        try:
-            safety_check = analyze_safety(msg_text)
-            
-            if not safety_check.get('is_safe', True):
-                if safety_check.get('flag') in ['self_harm', 'violence']:
-                    def save_alert(s_id, r_id, txt, flag):
-                        try:
-                            db.reference('admin_alerts').push({
-                                'sender': s_id,
-                                'receiver': r_id,
-                                'message': txt,
-                                'flag': flag,
-                                'timestamp': datetime.now(EAT).isoformat()
-                            })
-                        except Exception as e:
-                            logger.error(f"Alert save error: {e}")
-                    
-                    socketio.start_background_task(save_alert, sender_id, receiver_id, msg_text, safety_check['flag'])
-                
-                warning_msg = {'sender': 'SYSTEM_AI', 'type': 'text', 'text': safety_check.get('system_reply', 'Message flagged.')}
-                emit('receive_message', warning_msg, to=sender_id) 
-                return
-
-            if contains_phone_number(msg_text):
-                warning_msg = {
-                    'sender': 'SYSTEM_AI',
-                    'type': 'text',
-                    'text': "SYSTEM ALERT: Sharing phone numbers is restricted for your safety."
-                }
-                emit('receive_message', warning_msg, to=sender_id) 
-                return
-                
-        except Exception as e:
-            logger.error(f"Safety Check Error: {e}")
-
-    # ------------------------------------------
-    # ROUTE C: DATABASE SAVING & DELIVERY
-    # ------------------------------------------
-    match_id = f"match_{min(sender_id, receiver_id)}_{max(sender_id, receiver_id)}"
+    temp_id = data.get('temp_id')
+    file_data = data.get('file_data')
     
-    # Handle File Uploads (Save to a separate node to keep match history clean and manageable)
-    file_url = None
-    if msg_type in ['image', 'video', 'audio'] and file_data:
-        try:
-            # For simplicity and "short time" storage, we'll store it as a dedicated entry
-            # In a real production app, you'd use Firebase Storage or S3
-            media_ref = db.reference('chat_media').push({
-                'sender_id': sender_id,
-                'match_id': match_id,
-                'type': msg_type,
-                'data': file_data,
-                'timestamp': now_eat
-            })
-            # We use the Base64 data directly for now as "url" to avoid complex hosting logic
-            file_url = file_data 
-        except Exception as e:
-            logger.error(f"Media save error: {e}")
-            return
-
-    # Calculate initial message status:
-    # 1. 'read': If the receiver is actively viewing our chat.
-    # 2. 'delivered': If the receiver is online (connected to presence or has is_online == True).
-    # 3. 'sent': If they are offline.
-    initial_status = 'sent'
-    if active_chats.get(receiver_id) == sender_id:
-        initial_status = 'read'
-    else:
-        is_online = receiver_id in online_users
-        if not is_online:
+    if not receiver_id or (not msg_text and not file_data):
+        return jsonify({"success": False}), 400
+        
+    now_eat = datetime.now(EAT).isoformat()
+    
+    # 1. Shadowban Check
+    try:
+        sender_profile = db.reference(f'profiles/{sender_id}').get() or {}
+        if sender_profile.get('is_shadowbanned'):
+            return jsonify({"success": True, "shadowbanned": True, "temp_id": temp_id})
+    except: pass
+    
+    # 2. AI Companion
+    if receiver_id == 'AI_COMPANION':
+        if msg_type != 'text': return jsonify({"success": False})
+        
+        match_id = f"match_{min(sender_id, 'AI_COMPANION')}_{max(sender_id, 'AI_COMPANION')}"
+        
+        new_msg_ref = db.reference(f'matches/{match_id}/messages').push({
+            'sender_id': sender_id, 'text': msg_text, 'timestamp': now_eat, 'type': 'text', 'status': 'read'
+        })
+        db.reference(f'chats/{match_id}/typing/AI_COMPANION').set(True)
+        
+        current_user_gender = sender_profile.get('gender', 'unknown')
+        def ai_worker():
             try:
-                is_online = db.reference(f'profiles/{receiver_id}/is_online').get() == True
-            except: pass
-        if is_online:
-            initial_status = 'delivered'
-
+                ai_reply = get_ai_companion_response(msg_text, user_gender=current_user_gender)
+                db.reference(f'chats/{match_id}/typing/AI_COMPANION').set(False)
+                db.reference(f'matches/{match_id}/messages').push({
+                    'sender_id': 'AI_COMPANION', 'text': ai_reply, 'timestamp': datetime.now(EAT).isoformat(), 'type': 'text', 'status': 'read'
+                })
+            except Exception as e: logger.error(f"AI Worker Error: {e}")
+            
+        threading.Thread(target=ai_worker).start()
+        return jsonify({"success": True, "temp_id": temp_id, "msg_id": new_msg_ref.key, "status": "sent"})
+        
+    # 3. Moderation
+    if msg_type == 'text':
+        safety_check = analyze_safety(msg_text)
+        if not safety_check.get('is_safe', True):
+            if safety_check.get('flag') in ['self_harm', 'violence']:
+                db.reference('admin_alerts').push({
+                    'sender': sender_id, 'receiver': receiver_id, 'message': msg_text, 'flag': safety_check['flag'], 'timestamp': now_eat
+                })
+            return jsonify({"success": False, "system_reply": safety_check.get('system_reply')}), 400
+            
+        if contains_phone_number(msg_text):
+            return jsonify({"success": False, "system_reply": "SYSTEM ALERT: Sharing phone numbers is restricted."}), 400
+            
+    users_sorted = sorted([str(sender_id), str(receiver_id)])
+    match_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
+    file_url = None
+    
+    if msg_type in ['image', 'video', 'audio'] and file_data:
+        media_ref = db.reference('chat_media').push({
+            'sender_id': sender_id, 'match_id': match_id, 'type': msg_type, 'data': file_data, 'timestamp': now_eat
+        })
+        file_url = file_data
+        
     message_payload = {
         'sender_id': sender_id,
         'text': msg_text if msg_type == 'text' else f"Sent a {msg_type}",
         'timestamp': now_eat,
         'type': msg_type,
-        'status': initial_status
+        'status': 'sent'
     }
+    if file_url: message_payload['file_url'] = file_url
     
-    if file_url:
-        message_payload['file_url'] = file_url
-
     try:
-        # 1. Save to Firebase permanently
         new_msg_ref = db.reference(f'matches/{match_id}/messages').push(message_payload)
-        
-        # 2. Update the parent match node for the inbox sidebar sorting
         db.reference(f'matches/{match_id}').update({
             'last_message': message_payload['text'],
             'last_message_time': now_eat,
             f'users/{sender_id}': True,
             f'users/{receiver_id}': True
         })
-
-        # 3. Deliver to Receiver's screen
-        receive_payload = {
-            'sender': sender_id,
-            'text': message_payload['text'],
-            'timestamp': now_eat,
-            'temp_id': temp_id,
-            'msg_id': new_msg_ref.key,
-            'type': msg_type
-        }
-        if file_url:
-            receive_payload['file_url'] = file_url
-            
-        emit('receive_message', receive_payload, to=receiver_id)
-
-        # 4. Deliver CONFIRMATION back to Sender's screen (Turns 🕒 to ✓ or ✓✓ based on status)
-        emit('receive_message', {
-            'sender': sender_id,
-            'temp_id': temp_id,
-            'msg_id': new_msg_ref.key,
-            'status': initial_status,
-            'type': msg_type,
-            'file_url': file_url
-        }, to=sender_id)
-
-    except Exception as e:
-        logger.error(f"Failed to route and save message: {e}")
-        # Optionally emit an error to the sender so they know it failed
         
+        # PUSH GLOBAL NOTIFICATION TO RECEIVER
+        try:
+            sender_name = sender_profile.get('name', 'Someone')
+            sender_img = sender_profile.get('profile_img', '/static/img/placeholder.png')
+            db.reference(f'chat_notifications/{receiver_id}').push({
+                'sender_id': sender_id,
+                'sender_name': sender_name,
+                'sender_img': sender_img,
+                'message': message_payload['text'],
+                'timestamp': now_eat,
+                'match_id': match_id
+            })
+        except Exception as e:
+            logger.error(f"Failed to push chat notification: {e}")
+        
+        return jsonify({
+            "success": True, 
+            "temp_id": temp_id, 
+            "msg_id": new_msg_ref.key, 
+            "status": "sent",
+            "message_payload": message_payload
+        })
+    except Exception as e:
+        logger.error(f"Save message error: {e}")
+        return jsonify({"success": False}), 500
+
+@app.route('/api/delete_message', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_delete_message():
+    user_id = session.get('user_id')
+    data = request.json or {}
+    partner_id = data.get('partner_id')
+    msg_id = data.get('msg_id')
+    delete_type = data.get('type') # 'me' or 'everyone'
+    
+    if not partner_id or not msg_id:
+        return jsonify({"success": False}), 400
+        
+    try:
+        match_id = f"match_{min(user_id, partner_id)}_{max(user_id, partner_id)}"
+        if delete_type == 'me':
+            deleted_for_ref = db.reference(f'matches/{match_id}/messages/{msg_id}/deleted_for')
+            deleted_for = deleted_for_ref.get() or []
+            if user_id not in deleted_for:
+                deleted_for.append(user_id)
+                deleted_for_ref.set(deleted_for)
+        elif delete_type == 'everyone':
+            # Check if this user is actually the sender
+            msg_ref = db.reference(f'matches/{match_id}/messages/{msg_id}')
+            msg_data = msg_ref.get() or {}
+            if msg_data.get('sender_id') == user_id:
+                msg_ref.update({'is_deleted': True, 'text': '🚫 This message was deleted.'})
+                db.reference(f'matches/{match_id}/deleted_messages/{msg_id}').set(True)
+                
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Delete message error: {e}")
+        return jsonify({"success": False}), 500
+
 # ==========================================
 # STUDENT VENUE DISCOVERY & BOOKING
 # ==========================================
@@ -4182,16 +4274,7 @@ def propose_date():
         }
         
         def emit_date_notifications():
-            try:
-                # Push to the partner's screen so they see it instantly
-                socketio.emit('receive_message', socket_payload, to=partner_id)
-                # Push to the sender's OTHER devices (e.g., laptop) so they stay in sync
-                socketio.emit('receive_message', socket_payload, to=sender_id)
-            except Exception as sock_err:
-                logger.warning(f"Socket emit failed (partner might be offline): {sock_err}")
-
-        # Start the background task immediately
-        socketio.start_background_task(emit_date_notifications)
+            pass # WebSockets removed: Handled by Firebase listeners
 
         # 4. NOTIFY MERCHANT VIA EMAIL
         try:
@@ -4372,13 +4455,12 @@ def wingman_execute():
         gender = user_profile.get('gender', 'unknown')
 
         if action == 'roast':
-            prompt = (
-                f"Act as a brutally honest but funny college dating coach. "
+            system_prompt = "Act as a brutally honest but funny college dating coach. Use Kenyan campus slang (comrade, rizz, character development). Finish with 2 actionable tips for improvement. Keep it sharp and witty."
+            user_text = (
                 f"Roast this MMUST student's profile: \n"
                 f"Bio: {bio}\nInterests: {interests}\nCourse: {course}\n"
-                f"Use Kenyan campus slang (comrade, rizz, character development). "
-                f"Finish with 2 actionable tips for improvement. Keep it sharp and witty."
             )
+            response = get_wingman_response(system_prompt, user_text)
         elif action == 'icebreaker':
             partner_id = data.get('partner_id')
             if not partner_id:
@@ -4389,20 +4471,22 @@ def wingman_execute():
             p_bio = partner_profile.get('bio', 'No bio.')
             p_interests = partner_profile.get('interests', 'No interests listed.')
             
-            prompt = (
-                f"You are a smooth AI wingman. Generate 3 creative and funny icebreakers for {p_name} "
-                f"based on their profile: \nBio: {p_bio}\nInterests: {p_interests}\n"
-                f"Avoid generic 'Hey'. Use the details to be specific and engaging."
+            system_prompt = "You are a smooth AI wingman. Generate exactly 3 highly creative, witty, and unique icebreakers the user can send to their match. Format them clearly with numbers. Avoid generic 'Hey'."
+            user_text = (
+                f"Generate 3 icebreakers for {p_name} based on their profile: \n"
+                f"Bio: {p_bio}\nInterests: {p_interests}\n"
             )
+            response = get_wingman_response(system_prompt, user_text)
         else:
             return jsonify({'success': False, 'message': 'Invalid action.'}), 400
 
-        response = get_ai_companion_response(prompt, user_gender=gender)
         return jsonify({'success': True, 'response': response})
 
     except Exception as e:
         logger.error(f"Wingman Execute Error: {e}")
         return jsonify({'success': False, 'message': 'The AI Wingman is taking a break. Try again later.'}), 500
+
+
 
 import hashlib
 
@@ -4513,11 +4597,11 @@ def check_access():
         return jsonify({'granted': False, 'error': 'Unauthorized'}), 401
 
     user_id = session['user_id']
-    role = session.get('role', 'student') # Default to student
+    role = session.get('role', 'student')
     checkout_id = session.get('checkout_id')
 
     try:
-        # 1. First, check the profile/restaurant - this is the "source of truth"
+        # 1. First, check the profile - this is the source of truth
         if role == 'business':
             user_ref = db.reference(f'restaurants/{user_id}')
             user_data = user_ref.get() or {}
@@ -4526,8 +4610,19 @@ def check_access():
             user_ref = db.reference(f'profiles/{user_id}')
             user_data = user_ref.get() or {}
             is_paid = user_data.get('is_paid', False)
+
+            # CRITICAL FIX: If session lost checkout_id, recover it from Firebase
+            if not checkout_id:
+                checkout_id = user_data.get('active_checkout_id')
+                if checkout_id:
+                    session['checkout_id'] = checkout_id
+                    session.modified = True
+                    logger.info(f"Recovered checkout_id from Firebase for {user_id}: {checkout_id}")
         
         if is_paid is True:
+            # Sync session so paywall guard doesn't re-block this request
+            session['is_paid'] = True
+            session.modified = True
             return jsonify({
                 'granted': True, 
                 'status': 'success',
@@ -4553,16 +4648,33 @@ def check_access():
                 elif status == 'success':
                     return jsonify({'granted': True, 'status': 'success'})
                 
-                # 3. ⚡ SUPER-REALTIME FIX: Actively ask Safaricom!
-                logger.info(f"🔄 Actively querying Safaricom for {role} CheckoutID: {checkout_id}")
+                # 3. Query Safaricom — but ONLY after a grace window
+                # The PIN prompt takes ~5-15s to appear. Querying too early
+                # returns ambiguous codes that look like failures.
+                created_at_str = payment_status.get('created_at') if isinstance(payment_status, dict) else None
+                seconds_since_creation = 999  # default: assume old enough
+                if created_at_str:
+                    try:
+                        created_dt = datetime.fromisoformat(str(created_at_str).replace('Z', '+00:00'))
+                        if created_dt.tzinfo is None:
+                            created_dt = created_dt.replace(tzinfo=EAT)
+                        seconds_since_creation = (datetime.now(EAT) - created_dt).total_seconds()
+                    except Exception:
+                        pass
+
+                # Wait at least 30 seconds before querying Safaricom
+                # This gives the user time to see the PIN prompt and respond
+                if seconds_since_creation < 30:
+                    logger.info(f"Grace period: {seconds_since_creation:.0f}s since STK push — not querying Safaricom yet")
+                    return jsonify({'granted': False, 'status': 'pending'})
+
+                logger.info(f"Querying Safaricom for {role} CheckoutID: {checkout_id} ({seconds_since_creation:.0f}s old)")
                 safaricom_check = check_payment_status(checkout_id)
-                
+
                 if safaricom_check.get('status') == 'PAID':
-                    mpesa_receipt = "QUERY_SUCCESS" 
-                    
+                    mpesa_receipt = "QUERY_SUCCESS"
+
                     if role == 'business':
-                        # Business subscription is 1 year? Let's check b2b_callback
-                        # In b2b_callback it adds 365 days
                         expiry_date = (datetime.now(EAT) + timedelta(days=365)).isoformat()
                         user_ref.update({
                             'subscription_active': True,
@@ -4581,16 +4693,27 @@ def check_access():
                             'subscription_expiry': expiry_date,
                             'last_payment_receipt': mpesa_receipt
                         })
-                        
+
                     pending_ref.update({'status': 'success', 'receipt': mpesa_receipt})
                     logger.info(f"✅ ACTIVE ACTIVATION: {user_id} ({role}) confirmed paid.")
+                    session['is_paid'] = True
+                    session.modified = True
+                    db.reference(f'profiles/{user_id}').update({'active_checkout_id': None})
                     return jsonify({'granted': True, 'status': 'success'})
-                
-                elif safaricom_check.get('status') in ['CANCELED', 'FAILED']:
-                    fail_reason = "Transaction failed or was cancelled."
+
+                elif safaricom_check.get('status') == 'CANCELED':
+                    # User explicitly pressed Cancel on their phone
+                    fail_reason = "You cancelled the M-Pesa request. Tap Pay to try again."
                     pending_ref.update({'status': 'failed', 'reason': fail_reason})
                     return jsonify({'granted': False, 'status': 'failed', 'message': fail_reason})
 
+                elif safaricom_check.get('status') == 'FAILED':
+                    # Definitive failure (e.g. insufficient balance)
+                    fail_reason = safaricom_check.get('reason', 'Payment failed. Check your M-Pesa balance.')
+                    pending_ref.update({'status': 'failed', 'reason': fail_reason})
+                    return jsonify({'granted': False, 'status': 'failed', 'message': fail_reason})
+
+                # PENDING or anything else — keep waiting
                 return jsonify({'granted': False, 'status': 'pending'})
 
     except Exception as e:
@@ -4646,11 +4769,7 @@ def bestie_vote():
         save_chat_message('SYSTEM_AI', target_id, msg_text, msg_type='text')
         
         # Attempt real-time socket delivery if they are online
-        socketio.emit('receive_message', {
-            'sender': 'SYSTEM_AI',
-            'text': msg_text,
-            'timestamp': datetime.now(EAT).isoformat()
-        }, to=target_id)
+        # WebSockets removed: Messages are synced via Firebase automatically
         
         return jsonify({'success': True})
     except Exception as e:
@@ -5251,18 +5370,51 @@ def submit_crush():
         return jsonify({'success': False, 'message': 'Session expired. Please log in.'}), 401
 
     data = request.json
-    target_reg_raw = data.get('target_reg', '').strip().upper()
-    target_id = target_reg_raw.replace('/', '_') # Standardize ID format
+    target_reg_raw = data.get('target_reg', '').strip()
+    # Attempt 1: Direct ID search (Registration Number)
+    target_id_direct = target_reg_raw.upper().replace('/', '_')
+    
+    if sender_id == target_id_direct:
+        return jsonify({'success': False, 'message': "You can't crush on yourself! 😂"})
 
+    target_profile = db.reference(f'profiles/{target_id_direct}').get()
+    target_id = target_id_direct
+    
+    # Attempt 2: Search by Phone or Email
+    if not target_profile:
+        all_profiles = db.reference('profiles').get() or {}
+        search_query = target_reg_raw.lower()
+        
+        for uid, p in all_profiles.items():
+            if not isinstance(p, dict):
+                continue
+                
+            email = str(p.get('email', '')).strip().lower()
+            phone = str(p.get('phone', '')).strip()
+            
+            # Check Email match
+            if email and email == search_query:
+                target_id = uid
+                target_profile = p
+                break
+                
+            # Check Phone match (allow matching 07XX, 2547XX, or 7XX)
+            if phone:
+                # Remove prefixes to get the last 9 digits which is typically the core phone number
+                clean_phone = ''.join(filter(str.isdigit, phone))[-9:]
+                clean_query = ''.join(filter(str.isdigit, search_query))[-9:]
+                if clean_query and clean_phone and clean_phone == clean_query:
+                    target_id = uid
+                    target_profile = p
+                    break
+                    
     if sender_id == target_id:
         return jsonify({'success': False, 'message': "You can't crush on yourself! 😂"})
 
-    # Fetch both profiles to check gender and existence
-    sender_profile = db.reference(f'profiles/{sender_id}').get() or {}
-    target_profile = db.reference(f'profiles/{target_id}').get()
-
     if not target_profile:
-        return jsonify({'success': False, 'message': "We couldn't find a student with that Registration Number on the app."})
+        return jsonify({'success': False, 'message': "We couldn't find a student with that Registration Number, Phone, or Email on the app."})
+
+    sender_profile = db.reference(f'profiles/{sender_id}').get() or {}
 
     # --- STRICT OPPOSITE-GENDER RULE ---
     sender_gender = sender_profile.get('gender', '').strip().lower()
@@ -5324,7 +5476,7 @@ import random
 import logging
 from flask import request, jsonify, render_template, session, url_for
 from twilio.rest import Client
-from flask_socketio import emit, join_room, leave_room
+# flask_socketio imports removed as WebSockets are replaced by REST API polling
 
 logger = logging.getLogger(__name__)
 
@@ -5357,101 +5509,69 @@ def call_page(partner_id):
 
 
 # ─────────────────────────────────────────────────────────────
-#  2. TWILIO TURN CREDENTIALS (E2EE Firewall Bypass)
+#  2. METERED.CA TURN CREDENTIALS (E2EE Firewall Bypass)
 # ─────────────────────────────────────────────────────────────
 @app.route('/api/turn-credentials')
 @requires_subscription
 def get_turn_credentials():
-    """Generates temporary, secure tokens to punch through strict university firewalls."""
-    account_sid = os.getenv('TWILIO_ACCOUNT_SID')
-    auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+    """Generates temporary, secure tokens to punch through strict university firewalls via Metered.ca."""
+    domain = os.getenv('METERED_DOMAIN')
+    api_key = os.getenv('METERED_SECRET_KEY')
     
-    if not account_sid or not auth_token:
-        logger.error("Missing Twilio credentials in environment.")
+    if not domain or not api_key:
+        logger.error("Missing Metered.ca credentials in environment.")
         return jsonify({'error': 'Server config error'}), 500
 
     try:
-        client = Client(account_sid, auth_token)
-        token = client.tokens.create()
-        return jsonify({'iceServers': token.ice_servers})
+        response = requests.get(f"https://{domain}/api/v1/turn/credentials?apiKey={api_key}")
+        if response.status_code == 200:
+            turn_servers = response.json()
+            return jsonify({'iceServers': turn_servers})
+        else:
+            logger.error(f"Metered API Error: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to fetch turn credentials'}), 500
     except Exception as e:
-        logger.error(f"Twilio Token Generation Error: {e}")
+        logger.error(f"Metered Token Generation Error: {e}")
         return jsonify({'error': 'Failed to generate network routing'}), 500
 
 
 # ─────────────────────────────────────────────────────────────
-#  3. WEBRTC SIGNALING & E2EE HANDSHAKE (Socket.IO)
+#  3. WEBRTC SIGNALING & E2EE HANDSHAKE (REST API REPLACEMENT)
 # ─────────────────────────────────────────────────────────────
-@socketio.on('join_call_room')
-def on_join_call_room(data):
-    """Users join a private room matching their ID to receive direct signals."""
-    user_id = data.get('user_id')
-    if user_id:
-        join_room(user_id)
-
-# Step A: Caller invites Receiver (Rings their phone globally)
-@socketio.on('call_invite')
-def handle_call_invite(data):
+@app.route('/api/call/signal', methods=['POST'])
+def api_call_signal():
+    """Handles WebRTC signaling via Firebase Realtime Database instead of Socket.IO"""
+    data = request.json or {}
     target_id = data.get('target_id')
-    if target_id:
-        emit('incoming_call', data, room=target_id)
-
-# Step B: Receiver accepts, loads the page, and tells Caller they are ready
-@socketio.on('receiver_ready')
-def handle_receiver_ready(data):
     caller_id = data.get('caller_id')
-    if caller_id:
-        emit('receiver_ready', data, room=caller_id)
+    
+    # Route the signal to the correct user's signal queue
+    room_id = target_id if target_id else caller_id
+    if room_id:
+        db.reference(f'signals/{room_id}').push(data)
+        
+    return jsonify({"success": True})
 
-# Step C: Caller generates WebRTC Offer and sends it securely
-@socketio.on('webrtc_offer')
-def handle_offer(data):
-    target_id = data.get('target_id')
-    if target_id:
-        emit('webrtc_offer', data, room=target_id)
-
-# Step D: Receiver generates WebRTC Answer and sends it back
-@socketio.on('webrtc_answer')
-def handle_answer(data):
-    caller_id = data.get('caller_id')
-    if caller_id:
-        emit('call_answered', data, room=caller_id)
-
-# Step E: Connect the audio/video streams (ICE Candidates)
-@socketio.on('webrtc_ice_candidate')
-def handle_ice_candidate(data):
-    target_id = data.get('target_id')
-    if target_id:
-        emit('new_ice_candidate', data, room=target_id)
-
-# Step F: End Call
-@socketio.on('end_call')
-def handle_end_call(data):
-    target_id = data.get('target_id')
-    if target_id:
-        emit('call_ended', room=target_id)
-
-# 🚨 EMERGENCY SOS BROADCAST 🚨
-@socketio.on('emergency_sos')
-def handle_emergency_sos(data):
-    """Broadcasts an emergency alert to ALL online users and notifies admin instantly."""
-    sender_id = data.get('sender_id')
+# 🚨 EMERGENCY SOS BROADCAST (REST API REPLACEMENT) 🚨
+@app.route('/api/sos/trigger', methods=['POST'])
+def api_emergency_sos():
+    """Trigger SOS via REST. Saves to emergency_alerts node for client Firebase SDKs to pick up."""
+    data = request.json or {}
+    sender_id = session.get('user_id') or data.get('sender_id')
     if not sender_id:
-        return
+        return jsonify({"success": False}), 401
 
     try:
         from app.email_service import send_sos_admin_alert
         
-        # Fetch sender info for the alert
         user_ref = db.reference(f'profiles/{sender_id}')
         user = user_ref.get() or {}
         
         sender_name = user.get('name', 'A Student')
         sender_img = user.get('img', '/static/img/placeholder.png')
         sender_phone = user.get('phone', 'No Phone Registered')
-        latest_date = user.get('latest_verified_date') # Recorded during QR scan
+        latest_date = user.get('latest_verified_date')
         
-        # Save to a persistent alert node for standalone page access
         alert_ref = db.reference('emergency_alerts').push({
             'sender_id': sender_id,
             'sender_name': sender_name,
@@ -5464,59 +5584,44 @@ def handle_emergency_sos(data):
             'timestamp': datetime.now(EAT).isoformat()
         })
         alert_id = alert_ref.key
-
-        payload = {
-            'alert_id': alert_id,
-            'sender_id': sender_id,
-            'sender_name': sender_name,
-            'sender_img': sender_img,
-            'sender_phone': sender_phone,
-            'latitude': data.get('latitude'),
-            'longitude': data.get('longitude'),
-            'location_name': "Active Campus Alert", # Default fallback
-            'timestamp': datetime.now(EAT).isoformat(),
-            'alarm_duration_ms': 3600000 # 1 Hour in milliseconds
-        }
         
-        # 1. Emit to EVERYONE connected
-        emit('receive_sos', payload, broadcast=True)
-        logger.warning(f"🚨 SOS TRIGGERED by {sender_name} ({sender_id})")
-        
-        # 2. DISPATCH INSTANT ADMIN EMAIL
+        # Admin Email
         threading.Thread(target=send_sos_admin_alert, args=(
             sender_name, sender_id, sender_phone, 
             data.get('latitude'), data.get('longitude'),
             latest_date, alert_id
         )).start()
 
-        # 3. Log to admin audit for safety
+        # Audit Log
         db.reference('admin_audit_logs').push({
             'action': 'SOS_TRIGGERED',
             'user_id': sender_id,
             'user_name': sender_name,
-            'details': f"Alert ID: {alert_id} | Location: {data.get('latitude')}, {data.get('longitude')}",
+            'details': f"Alert ID: {alert_id}",
             'timestamp': datetime.now(EAT).isoformat()
         })
         
+        return jsonify({"success": True, "alert_id": alert_id})
     except Exception as e:
-        logger.error(f"Error handling SOS broadcast: {e}")
+        logger.error(f"Error handling SOS API: {e}")
+        return jsonify({"success": False}), 500
 
-@socketio.on('stop_emergency_sos')
-def handle_stop_emergency_sos(data):
-    """Broadcasts a signal to stop the emergency alert for everyone."""
-    sender_id = data.get('sender_id')
+@app.route('/api/sos/stop', methods=['POST'])
+def api_stop_emergency_sos():
+    """Stop SOS via REST API"""
+    data = request.json or {}
+    sender_id = session.get('user_id') or data.get('sender_id')
     if not sender_id:
-        return
+        return jsonify({"success": False}), 401
     
-    # Update active alerts in DB
     alerts_ref = db.reference('emergency_alerts')
     active_alerts = alerts_ref.order_by_child('sender_id').equal_to(sender_id).get() or {}
     for aid, adata in active_alerts.items():
         if adata.get('status') == 'active':
             alerts_ref.child(aid).update({'status': 'resolved', 'resolved_at': datetime.now(EAT).isoformat()})
 
-    emit('receive_sos_stop', {'sender_id': sender_id}, broadcast=True)
     logger.info(f"✅ SOS STOPPED by sender {sender_id}")
+    return jsonify({"success": True})
 
 @app.route('/emergency/<alert_id>')
 def view_emergency_page(alert_id):
@@ -5539,9 +5644,11 @@ def talk_directory():
     
     try:
         all_profiles = db.reference('profiles').get() or {}
+        all_matches = db.reference('matches').get() or {}
     except Exception as e:
         logger.error('talk_directory: Firebase read failed: %s', e)
         all_profiles = {}
+        all_matches = {}
 
     # 1. Fetch the current user's gender to compare against others
     current_user_profile = all_profiles.get(user_id, {})
@@ -5575,12 +5682,18 @@ def talk_directory():
 
         # 4. Determine unread messages from this specific partner
         unread_count = 0
-        match_id = f"match_{min(user_id, p_id)}_{max(user_id, p_id)}"
-        chat_data = db.reference(f'matches/{match_id}/messages').get() or {}
+        users_sorted = sorted([str(user_id), str(p_id)])
+        match_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
+        chat_data = all_matches.get(match_id, {}).get('messages', {})
         
-        for msg_id, msg in chat_data.items():
-            if msg.get('sender_id') == p_id and msg.get('status') != 'read':
-                unread_count += 1
+        if isinstance(chat_data, dict):
+            for msg in chat_data.values():
+                if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
+                    unread_count += 1
+        elif isinstance(chat_data, list):
+            for msg in chat_data:
+                if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
+                    unread_count += 1
 
         online_users.append({
             'id': p_id,
@@ -5666,11 +5779,15 @@ def submit_review():
      
 
 # Relay in-call emoji reactions
-@socketio.on('call_reaction')
-def handle_call_reaction(data):
+@app.route('/api/call/reaction', methods=['POST'])
+def api_call_reaction():
+    """Handles WebRTC call reactions via Firebase"""
+    data = request.json or {}
     target_id = data.get('target_id')
-    if target_id:
-        emit('receive_reaction', {'emoji': data.get('emoji')}, room=target_id)
+    emoji = data.get('emoji')
+    if target_id and emoji:
+        db.reference(f'signals/{target_id}').push({'type': 'reaction', 'emoji': emoji})
+    return jsonify({"success": True})
 
 
 @app.route('/api/online_count')
@@ -5802,7 +5919,7 @@ def full_directory():
 
     return render_template('directory.html', directory_users=directory_users, search_query=search_query)   
 import uuid
-from flask_socketio import join_room, leave_room, emit
+# flask_socketio imports removed as WebSockets are replaced by REST API polling
 from datetime import datetime
 import pytz
 
@@ -5829,67 +5946,21 @@ def lights_out():
         
     return render_template('lights_out.html')
 
-@socketio.on('join_lights_out_queue')
+@app.route('/api/lights-out/join', methods=['POST'])
 def handle_join_lights_out():
-    user_id = session.get('user_id')
-    if not user_id:
-        return
+    """Placeholder for Lights Out matching while migrating to Firebase"""
+    return jsonify({
+        "success": False, 
+        "message": "Lights Out blind dating is currently being upgraded to support thousands of concurrent students. Check back soon!"
+    }), 503
 
-    # 1. Get user gender to enforce opposite-gender matching
-    profile = db.reference(f'profiles/{user_id}').get() or {}
-    gender = profile.get('gender', '').strip().lower()
-    
-    if gender not in ['male', 'female']:
-        emit('queue_error', {'message': 'Gender must be specified in profile to join.'})
-        return
+@app.route('/api/lights-out/message', methods=['POST'])
+def handle_lights_out_message():
+    return jsonify({"success": False}), 503
 
-    target_queue = 'female' if gender == 'male' else 'male'
-    my_queue = 'male' if gender == 'male' else 'female'
-
-    # 2. Check if there is someone in the opposite queue
-    if len(lights_out_queue[target_queue]) > 0:
-        # Match found!
-        partner = lights_out_queue[target_queue].pop(0)
-        room_id = f"lights_out_{uuid.uuid4().hex[:8]}"
-        
-        # Add current user to room
-        join_room(room_id)
-        
-        # Tell both clients they matched and give them the room ID
-        emit('lights_out_match_found', {'room': room_id}, room=room_id)
-        emit('lights_out_match_found', {'room': room_id}, to=partner['sid'])
-        
-        # Add the partner to the SocketIO room as well
-        # (In Flask-SocketIO, you can't easily force another SID into a room from here 
-        # without client action, so we tell the partner's client to join via an event)
-        emit('force_join_room', {'room': room_id}, to=partner['sid'])
-    else:
-        # No match yet, add to my queue
-        # Ensure not already in queue
-        lights_out_queue[my_queue] = [u for u in lights_out_queue[my_queue] if u['user_id'] != user_id]
-        lights_out_queue[my_queue].append({'user_id': user_id, 'sid': request.sid})
-        emit('waiting_in_queue')
-
-@socketio.on('lights_out_client_join_room')
-def client_join_room(data):
-    """Partner client responds to force_join_room"""
-    room_id = data.get('room')
-    if room_id:
-        join_room(room_id)
-
-@socketio.on('send_lights_out_message')
-def handle_lights_out_message(data):
-    room = data.get('room')
-    message = data.get('message')
-    # Emit to everyone in the room EXCEPT the sender
-    emit('receive_lights_out_message', {'message': message}, room=room, include_self=False)
-
-@socketio.on('lights_out_reveal_vote')
-def handle_reveal_vote(data):
-    room = data.get('room')
-    user_id = session.get('user_id')
-    # Emit to the room that a user voted yes. The frontend will count if both voted.
-    emit('partner_voted_reveal', {'user_id': user_id}, room=room, include_self=False) 
+@app.route('/api/lights-out/reveal', methods=['POST'])
+def handle_reveal_vote():
+    return jsonify({"success": False}), 503 
 from datetime import datetime
 
 # ==========================================
@@ -6006,53 +6077,7 @@ from flask import request, jsonify, session
 groq_client = Groq(api_key=os.getenv('GROQ_API_KEY'))
 
 
-@app.route('/api/wingman/execute', methods=['POST'])
-@requires_diamond_subscription
-def api_wingman_execute():
-    if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Log in required.'}), 401
-        
-    data = request.json
-    action = data.get('action')
-    
-    if action not in ['roast', 'icebreaker']:
-        return jsonify({'success': False, 'message': 'Invalid action.'}), 400
 
-    try:
-        # 1. Fetch user's profile data
-        user_id = session['user_id']
-        user_data = db.reference(f'profiles/{user_id}').get() or {}
-        
-        bio = user_data.get('bio', 'No bio provided.')
-        interests = ", ".join(user_data.get('interests', ['Nothing specific']))
-        course = user_data.get('course', 'Unknown Course')
-        
-        # 2. Construct the AI Prompt
-        if action == 'roast':
-            system_prompt = "You are a savage, funny, but ultimately helpful dating coach. Your goal is to roast the user's dating profile and tell them how to fix it. Keep it under 150 words."
-            user_prompt = f"Roast my dating profile: I am a university student studying {course}. My bio is: '{bio}'. My interests are: {interests}."
-        elif action == 'icebreaker':
-            system_prompt = "You are a master at flirting and smooth conversation starters. Provide exactly 3 highly creative, witty, and unique icebreakers the user can send to their matches. Format them clearly with numbers."
-            user_prompt = f"I need 3 icebreakers. My personality/interests involve: {interests}. I study {course}."
-
-        # 3. Call Groq API (Using LLaMA-3 or Mixtral for speed)
-        chat_completion = groq_client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            model="llama3-8b-8192", # Groq's extremely fast model
-            temperature=0.8,
-            max_tokens=300,
-        )
-        
-        ai_response = chat_completion.choices[0].message.content
-        
-        return jsonify({'success': True, 'response': ai_response})
-        
-    except Exception as e:
-        logger.error(f"Groq Wingman Error: {e}")
-        return jsonify({'success': False, 'message': 'The AI engine is currently overloaded. Try again in a moment.'}), 500    
 
 # ==========================================
 # 🧪 VERSION 3 DEDICATED HIGH-TRAFFIC PAGES
@@ -6378,7 +6403,7 @@ def dispatch_friday_emails():
                         'email': p.get('email', 'student@campus.ac.ke'),
                         'phone': p.get('phone', '254700000000'),
                         'course': p.get('course', p.get('major', 'Student')),
-                        'institution': p.get('institution_name', 'MMUST'),
+                        'institution': p.get('institution', p.get('institution_name', 'MMUST')),
                         'bio': p.get('bio', 'Looking for a compatibility match.'),
                         'compatibility': score,
                         'zodiac': p.get('zodiac', 'Not specified'),
@@ -6403,61 +6428,88 @@ def start_premium_email_schedulers():
     - Monday at 10 AM EAT -> 20 matches sheet.
     - Friday at 10 AM EAT -> 50 perfect matches sheet.
     """
-    def scheduler_loop():
-        last_sent_monday_week = None
-        last_sent_friday_week = None
-        while True:
-            try:
-                now = datetime.now(EAT)
-                current_weekday = now.weekday() # 0 is Monday, 4 is Friday
-                current_hour = now.hour
-                current_week = now.strftime("%Y-%U")
-                
-                # Monday Scheduler
-                if current_weekday == 0 and current_hour == 10:
-                    if last_sent_monday_week != current_week:
-                        logger.info("Monday Match List email scheduler triggered! Beginning dispatch...")
-                        dispatch_monday_emails()
-                        last_sent_monday_week = current_week
-                        try:
-                            db.reference('system_settings/last_monday_email_dispatch').set({
-                                'week': current_week,
-                                'timestamp': now.isoformat()
-                            })
-                        except Exception as dbe:
-                            logger.error(f"Failed to record Monday dispatch in DB: {dbe}")
-                            
-                # Friday Scheduler
-                if current_weekday == 4 and current_hour == 10:
-                    if last_sent_friday_week != current_week:
-                        logger.info("Friday Perfect Match email scheduler triggered! Beginning dispatch...")
-                        dispatch_friday_emails()
-                        last_sent_friday_week = current_week
-                        try:
-                            db.reference('system_settings/last_friday_email_dispatch').set({
-                                'week': current_week,
-                                'timestamp': now.isoformat()
-                            })
-                        except Exception as dbe:
-                            logger.error(f"Failed to record Friday dispatch in DB: {dbe}")
-                            
-            except Exception as se:
-                logger.error(f"Error in Premium Match scheduler loop: {se}")
-                
-            time.sleep(3600)
-            
-    thread = threading.Thread(target=scheduler_loop, daemon=True)
-    thread.start()
-    logger.info("Monday & Friday Premium Match email scheduler daemon thread successfully started.")
+    pass
 
+@app.route('/api/cron/hourly-check', methods=['GET', 'POST'])
+def cron_hourly_check():
+    """
+    Cron endpoint to be called every hour by cPanel or external Cron service.
+    Requires a secret key for security.
+    """
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key')
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    
+    if cron_key != secret:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
 
-# Start Premium Email Schedulers (Monday & Friday)
-start_premium_email_schedulers()
+    try:
+        now = datetime.now(EAT)
+        current_weekday = now.weekday() # 0 is Monday, 4 is Friday
+        current_hour = now.hour
+        current_week = now.strftime("%Y-%U")
+        
+        results = []
+        
+        # Monday Scheduler — fires at 08:00 EAT
+        if current_weekday == 0 and current_hour == 8:
+            last_monday_week = db.reference('system_settings/last_monday_email_dispatch/week').get()
+            if last_monday_week != current_week:
+                logger.info("Monday Match List email scheduler triggered via CRON! Beginning dispatch...")
+                dispatch_monday_emails()
+                db.reference('system_settings/last_monday_email_dispatch').set({
+                    'week': current_week,
+                    'timestamp': now.isoformat()
+                })
+                results.append("Monday emails dispatched.")
+            else:
+                results.append("Monday emails already sent this week.")
+                    
+        # Friday Scheduler — fires at 16:00 EAT
+        if current_weekday == 4 and current_hour == 16:
+            last_friday_week = db.reference('system_settings/last_friday_email_dispatch/week').get()
+            if last_friday_week != current_week:
+                logger.info("Friday Perfect Match email scheduler triggered via CRON! Beginning dispatch...")
+                dispatch_friday_emails()
+                db.reference('system_settings/last_friday_email_dispatch').set({
+                    'week': current_week,
+                    'timestamp': now.isoformat()
+                })
+                results.append("Friday emails dispatched.")
+            else:
+                results.append("Friday emails already sent this week.")
 
+        return jsonify({
+            "success": True, 
+            "message": "Cron check completed.", 
+            "actions": results,
+            "time": now.isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error in CRON scheduler: {e}")
+
+@app.route('/api/save_fcm_token', methods=['POST'])
+def save_fcm_token():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    data = request.get_json()
+    token = data.get('fcm_token')
+    if not token:
+        return jsonify({"success": False, "message": "No token provided"}), 400
+
+    try:
+        db.reference(f'profiles/{user_id}/fcm_token').set(token)
+        return jsonify({"success": True, "message": "Token saved successfully"}), 200
+    except Exception as e:
+        logger.error(f"Failed to save FCM token: {e}")
+        return jsonify({"success": False, "message": "Failed to save token"}), 500
 
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
     # You must listen on '0.0.0.0' for external traffic on a server!
-    socketio.run(app, host='0.0.0.0', port=port, debug=False)
-       
+    app.run(host='0.0.0.0', port=port, debug=False)
+ 
+      

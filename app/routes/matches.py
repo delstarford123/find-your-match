@@ -107,18 +107,13 @@ def record_swipe():
 
                 # 6. TRIGGER PUSH NOTIFICATION & AI INTRO
                 try:
-                    from flask import current_app
-                    socketio = current_app.extensions.get('socketio')
-                    if socketio:
-                        # Normal match buzz
-                        current_name = current_profile.get('name', 'Someone').split(' ')[0]
-                        # We need to import these or move them to a shared service
-                        # For now, we'll try to call them if they are in the app context or just emit directly
-                        socketio.emit('receive_notification', {
-                            'title': 'New Match! ❤️',
-                            'message': f'{current_name} liked you back!',
-                            'type': 'success'
-                        }, room=target_user_id)
+                    current_name = current_profile.get('name', 'Someone').split(' ')[0]
+                    db.reference(f'notifications/{target_user_id}').push({
+                        'title': 'New Match! ❤️',
+                        'message': f'{current_name} liked you back!',
+                        'type': 'success',
+                        'timestamp': datetime.now(timezone.utc).isoformat()
+                    })
                 except Exception as e:
                     print(f"Notification failed: {e}")
 

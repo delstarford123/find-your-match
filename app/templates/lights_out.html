@@ -189,9 +189,15 @@
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script>
-    const socket = io();
+    const firebaseConfig = { databaseURL: "{{ config['FIREBASE_DB_URL'] }}" };
+    if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+    const fdb = firebase.database();
+    
+    const myId = "{{ session.get('user_id') }}";
+    
     let currentRoom = null;
     let timerInterval;
     let secondsLeft = 180; // 3 minutes
@@ -206,27 +212,92 @@
     const revealModal = document.getElementById('reveal-modal');
     const revealStatus = document.getElementById('reveal-status');
 
-    function joinQueue() {
+    let queueRef = null;
+    let roomRef = null;
+
+    // Clean up if the user leaves the page while in queue
+    window.addEventListener('beforeunload', () => {
+        if (queueRef) queueRef.remove();
+    });
+
+    async function joinQueue() {
         btnJoin.style.display = 'none';
         spinner.style.display = 'block';
         statusTxt.style.display = 'block';
-        socket.emit('join_lights_out_queue');
+        statusTxt.innerText = "Searching for a stranger in the dark...";
+
+        // 1. Check if anyone else is waiting
+        const snapshot = await fdb.ref('lights_out_queue').orderByChild('timestamp').limitToFirst(1).once('value');
+        let matched = false;
+        
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnap) => {
+                const partnerId = childSnap.key;
+                const partnerData = childSnap.val();
+                
+                if (partnerId !== myId && !partnerData.room_id) {
+                    matched = true;
+                    currentRoom = `lights_out_${[myId, partnerId].sort().join('_')}`;
+                    
+                    // Assign room to partner so they join too
+                    fdb.ref(`lights_out_queue/${partnerId}`).update({ room_id: currentRoom });
+                    joinRoom(currentRoom);
+                }
+            });
+        }
+        
+        // 2. If no match found, enter queue and wait
+        if (!matched) {
+            statusTxt.innerText = "Waiting in the dark for a match...";
+            queueRef = fdb.ref(`lights_out_queue/${myId}`);
+            await queueRef.set({ timestamp: Date.now(), room_id: null });
+            
+            queueRef.on('value', snap => {
+                const data = snap.val();
+                if (data && data.room_id) {
+                    currentRoom = data.room_id;
+                    queueRef.remove();
+                    queueRef = null;
+                    joinRoom(currentRoom);
+                }
+            });
+        }
     }
 
-    socket.on('waiting_in_queue', () => {
-        statusTxt.innerText = "Waiting in the dark for a match...";
-    });
+    function joinRoom(roomId) {
+        roomRef = fdb.ref(`lights_out_rooms/${roomId}`);
+        
+        // Setup Chat Listeners
+        roomRef.child('messages').on('child_added', snap => {
+            const data = snap.val();
+            if (data.sender !== myId) {
+                chatBox.innerHTML += `<div class="msg-bubble msg-received">${data.message}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        });
 
-    socket.on('force_join_room', (data) => {
-        socket.emit('lights_out_client_join_room', {room: data.room});
-    });
+        // Setup Reveal Listeners
+        roomRef.child('reveal').on('value', snap => {
+            const data = snap.val();
+            if (!data) return;
+            
+            if (data[myId] && !partnerVoted) {
+                 // I voted, wait for partner
+            }
+            
+            // Check if partner voted
+            Object.keys(data).forEach(uid => {
+                if (uid !== myId && data[uid] === true) {
+                    partnerVoted = true;
+                    checkRevealStatus();
+                }
+            });
+        });
 
-    socket.on('lights_out_match_found', (data) => {
-        currentRoom = data.room;
         lobbyState.style.display = 'none';
         chatState.style.display = 'flex';
         startTimer();
-    });
+    }
 
     function startTimer() {
         timerInterval = setInterval(() => {
@@ -247,12 +318,14 @@
         const input = document.getElementById('msg-input');
         const text = input.value.trim();
         if (text && currentRoom) {
-            // Add my message to UI
-            chatBox.innerHTML += `<div class="msg-bubble msg-sent">${text}</div>`;
+            chatBox.innerHTML += `<div class="msg-bubble msg-sent">${escapeHTML(text)}</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
             
-            // Send to server
-            socket.emit('send_lights_out_message', { room: currentRoom, message: text });
+            roomRef.child('messages').push({
+                sender: myId,
+                message: escapeHTML(text),
+                timestamp: Date.now()
+            });
             input.value = '';
         }
     }
@@ -261,10 +334,18 @@
         if (e.key === 'Enter') sendMessage();
     }
 
-    socket.on('receive_lights_out_message', (data) => {
-        chatBox.innerHTML += `<div class="msg-bubble msg-received">${data.message}</div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-    });
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
 
     // === REVEAL LOGIC ===
     let iVoted = false;
@@ -272,14 +353,9 @@
 
     function voteReveal() {
         iVoted = true;
-        socket.emit('lights_out_reveal_vote', { room: currentRoom });
+        roomRef.child('reveal').child(myId).set(true);
         checkRevealStatus();
     }
-
-    socket.on('partner_voted_reveal', () => {
-        partnerVoted = true;
-        checkRevealStatus();
-    });
 
     function checkRevealStatus() {
         if (iVoted && !partnerVoted) {
@@ -287,9 +363,9 @@
         } else if (iVoted && partnerVoted) {
             revealStatus.innerText = "It's a Match! Generating connection...";
             revealStatus.style.color = "#10B981";
-            // In a real app, you would make an AJAX call here to save them to your Firebase matches node
+            
             setTimeout(() => {
-                window.location.href = "/dashboard"; // Redirect back to see the match
+                window.location.href = "/dashboard"; 
             }, 2000);
         }
     }

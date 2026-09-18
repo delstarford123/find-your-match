@@ -196,8 +196,22 @@
 
         <div id="api-error" class="flash-msg" style="display: none;"></div>
 
+        <!-- ── v3 / legacy mode indicator ── -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
+            <div style="font-size:13px; color:#10b981; font-weight:800; display:flex; align-items:center; gap:6px;">
+                ✅ <span>New Account System — No Student ID Required</span>
+            </div>
+            <button type="button" id="legacyToggleBtn"
+                    onclick="toggleLegacyMode()"
+                    style="background:none; border:none; font-size:12px; color:#bbb; font-weight:700; cursor:pointer; padding:4px 8px; border-radius:8px; transition:0.2s;"
+                    onmouseover="this.style.color='#888'" onmouseout="this.style.color='#bbb'">
+                Legacy student?
+            </button>
+        </div>
+
         <form id="signupForm" onsubmit="return handleSignup(event)">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="api_mode" id="api_mode" value="v3">
             
             <div class="flex-row">
                 <div class="input-group">
@@ -234,10 +248,30 @@
                 </div>
             </div>
 
-            <div class="input-group" id="reg_group">
-                <label id="reg_label">Registration Number</label>
-                <input type="text" name="reg_number" id="reg_number" placeholder="SAB/B/01-0XXXX/2023" required oninput="this.value = this.value.toUpperCase();">
-                <small id="reg_hint" style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Institutional Format: e.g. SAB/B/01-0XXXX/2023</small>
+            <div class="input-group">
+                <label>Course / Programme</label>
+                <input type="text" name="course" id="course" placeholder="e.g. Computer Science, Nursing, Civil Engineering" maxlength="80">
+                <small style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Your degree or programme of study (shown to matches)</small>
+            </div>
+
+            <!-- ── Legacy reg-number field (hidden by default for v3) ── -->
+            <div id="reg_group" style="
+                overflow: hidden;
+                max-height: 0;
+                opacity: 0;
+                transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+            ">
+                <div class="input-group">
+                    <label id="reg_label">🎓 Student Reg Number
+                        <span style="background:#fef3c7; color:#92400e; font-size:10px; padding:2px 8px; border-radius:20px; margin-left:6px; font-weight:900;">LEGACY</span>
+                    </label>
+                    <input type="text" name="reg_number" id="reg_number"
+                           placeholder="SAB/B/01-0XXXX/2023"
+                           oninput="this.value = this.value.toUpperCase();">
+                    <small id="reg_hint" style="font-size:11px; color:#888; margin-top:5px; display:block;">
+                        Only required if you were previously registered on the old system.
+                    </small>
+                </div>
             </div>
 
             <div class="input-group">
@@ -464,59 +498,89 @@
         }
     });
 
+    // ── Legacy mode toggle ────────────────────────────────────────────────────
+    let _legacyMode = false;
+    function toggleLegacyMode() {
+        _legacyMode = !_legacyMode;
+        const regGroup  = document.getElementById('reg_group');
+        const apiMode   = document.getElementById('api_mode');
+        const toggleBtn = document.getElementById('legacyToggleBtn');
+
+        if (_legacyMode) {
+            regGroup.style.maxHeight = '140px';
+            regGroup.style.opacity   = '1';
+            apiMode.value = 'v2';
+            toggleBtn.style.color = '#E60026';
+            toggleBtn.textContent = '✕ Cancel legacy mode';
+        } else {
+            regGroup.style.maxHeight = '0';
+            regGroup.style.opacity   = '0';
+            apiMode.value = 'v3';
+            document.getElementById('reg_number').value = '';
+            toggleBtn.style.color = '#bbb';
+            toggleBtn.textContent = 'Legacy student?';
+        }
+    }
+
+    // ── Signup handler ────────────────────────────────────────────────────────
     async function handleSignup(event) {
         event.preventDefault();
-        const form = event.target;
-        const btn = document.getElementById('submitBtn');
+        const form     = event.target;
+        const btn      = document.getElementById('submitBtn');
         const errorDiv = document.getElementById('api-error');
-        
+        const csrf     = document.querySelector('input[name="csrf_token"]').value;
+
         const password = form.password.value;
-        const confirm = form.confirm_password.value;
+        const confirm  = form.confirm_password.value;
 
         if (password !== confirm) {
             errorDiv.style.display = 'block';
-            errorDiv.innerText = "⚠️ Passwords do not match.";
+            errorDiv.innerText = '⚠️ Passwords do not match.';
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
         }
 
-        btn.innerText = "Processing... ⏳";
-        btn.disabled = true;
+        btn.innerText = 'Creating Account... ⏳';
+        btn.disabled  = true;
         btn.classList.add('loading');
         errorDiv.style.display = 'none';
 
         const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
+        const data     = Object.fromEntries(formData.entries());
         data.is_student = document.getElementById('institution_type').value !== 'Other';
 
+        // Choose API version based on mode
+        const isLegacy = _legacyMode && data.reg_number;
+        const endpoint = isLegacy ? '/api/v2/auth/signup' : '/api/v3/auth/signup';
+
         try {
-            const response = await fetch('/api/v2/auth/signup', {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    'X-CSRFToken': csrf
                 },
                 body: JSON.stringify(data)
             });
 
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && (result.status === 'success' || result.status === 'pending_verification')) {
                 window.location.href = "{{ url_for('auth.verify_email') }}";
             } else {
                 errorDiv.style.display = 'block';
-                errorDiv.innerText = "⚠️ " + (result.message || "Signup failed.");
-                btn.innerText = "Create Account";
-                btn.disabled = false;
+                errorDiv.innerText = '⚠️ ' + (result.message || 'Signup failed. Please try again.');
+                btn.innerText = 'Create Account';
+                btn.disabled  = false;
                 btn.classList.remove('loading');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } catch (error) {
             errorDiv.style.display = 'block';
-            errorDiv.innerText = "⚠️ Connection error. Please try again.";
-            btn.innerText = "Create Account";
-            btn.disabled = false;
+            errorDiv.innerText = '⚠️ Connection error. Please check your internet and try again.';
+            btn.innerText = 'Create Account';
+            btn.disabled  = false;
             btn.classList.remove('loading');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }

@@ -3,14 +3,27 @@
 {% block content %}
 <style>
     /* Force hide the global footer from base.html on this page only */
-    footer, .footer-bottom, .bottom-nav {
+    footer,
+    .footer-bottom,
+    .bottom-nav {
         display: none !important;
     }
     
+    /* Seamless Immersion: Make navbar glassmorphic instead of solid red */
+    nav.navbar {
+        background: rgba(0, 0, 0, 0.4) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
     /* Ensure the main container fills the screen without scrollbars */
-    html, body, main {
+    html,
+    body,
+    main {
         overflow: hidden !important;
-        height: 100dvh !important; /* Use dynamic viewport height for mobile browsers */
+        height: 100dvh !important;
+        /* Use dynamic viewport height for mobile browsers */
         margin: 0 !important;
         padding: 0 !important;
         background: #000;
@@ -28,15 +41,11 @@
     /* Background Video Optimization */
     .club-bg-video {
         position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        min-width: 100vw;
-        min-height: 100dvh;
-        width: auto;
-        height: auto;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        filter: brightness(0.3) blur(3px); /* Darker for better text readability */
+        filter: brightness(0.3) blur(3px);
         z-index: 0;
     }
 
@@ -46,7 +55,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at center, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.9) 100%);
+        background: radial-gradient(circle at center, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.9) 100%);
         z-index: 1;
     }
 
@@ -82,7 +91,26 @@
         font-weight: 800;
         letter-spacing: 2px;
         font-size: clamp(0.7rem, 3vw, 1rem);
-        text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 20px #0ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .pulse-dot-green {
+        width: 10px;
+        height: 10px;
+        background-color: #22c55e;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #22c55e;
+        animation: pulseGreen 1.5s infinite;
+    }
+    
+    @keyframes pulseGreen {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
     }
 
     .main-party-layout {
@@ -90,16 +118,17 @@
         display: grid;
         grid-template-columns: 1fr 350px;
         gap: 20px;
-        min-height: 0; /* Critical for flex/grid children overflow to work */
+        min-height: 0;
+        /* Critical for flex/grid children overflow to work */
     }
 
     /* Avatars Arena */
     .avatar-arena {
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 20px;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        border: 1px solid rgba(0,255,255,0.2);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
         align-content: start;
@@ -110,9 +139,15 @@
         scrollbar-width: thin;
         scrollbar-color: #f0f transparent;
     }
-    
-    .avatar-arena::-webkit-scrollbar { width: 6px; }
-    .avatar-arena::-webkit-scrollbar-thumb { background: #f0f; border-radius: 10px; }
+
+    .avatar-arena::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .avatar-arena::-webkit-scrollbar-thumb {
+        background: #f0f;
+        border-radius: 10px;
+    }
 
     .avatar-item {
         display: flex;
@@ -120,30 +155,41 @@
         align-items: center;
         cursor: pointer;
         transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: floatAvatar 3s ease-in-out infinite alternate;
     }
-    
-    .avatar-item:hover, .avatar-item:active {
+
+    .avatar-item:nth-child(even) { animation-delay: 1.2s; animation-duration: 4s; }
+    .avatar-item:nth-child(3n) { animation-delay: 0.5s; animation-duration: 3.5s; }
+
+    @keyframes floatAvatar {
+        from { transform: translateY(0px) rotate(0deg); }
+        to { transform: translateY(-8px) rotate(2deg); }
+    }
+
+    .avatar-item:hover,
+    .avatar-item:active {
+        animation-play-state: paused;
         transform: scale(1.1) rotate(5deg);
     }
-    
+
     .avatar-img-wrap {
         width: 65px;
         height: 65px;
         border: 2px solid #f0f;
-        box-shadow: 0 0 10px rgba(255,0,255,0.4);
+        box-shadow: 0 0 10px rgba(255, 0, 255, 0.4);
         overflow: hidden;
         background: #222;
         display: flex;
         justify-content: center;
         align-items: center;
     }
-    
+
     .avatar-img-wrap img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
-    
+
     .avatar-name {
         margin-top: 8px;
         font-size: 11px;
@@ -158,41 +204,94 @@
     }
 
     /* CSS Shapes */
-    .shape-1 { border-radius: 50%; }
-    .shape-2 { border-radius: 15% 50% 15% 50%; }
-    .shape-3 { border-radius: 50% 15% 50% 15%; }
-    .shape-4 { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
-    .shape-5 { border-radius: 50% 50% 50% 0%; }
-    .shape-6 { border-radius: 0% 50% 50% 50%; }
-    .shape-7 { border-radius: 25%; transform: rotate(45deg); }
-    .shape-7 img { transform: rotate(-45deg); scale: 1.3; } /* Scale prevents white corners */
-    .shape-8 { border-radius: 50% 50% 0 0; }
+    .shape-1 {
+        border-radius: 50%;
+    }
+
+    .shape-2 {
+        border-radius: 15% 50% 15% 50%;
+    }
+
+    .shape-3 {
+        border-radius: 50% 15% 50% 15%;
+    }
+
+    .shape-4 {
+        border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+    }
+
+    .shape-5 {
+        border-radius: 50% 50% 50% 0%;
+    }
+
+    .shape-6 {
+        border-radius: 0% 50% 50% 50%;
+    }
+
+    .shape-7 {
+        border-radius: 25%;
+        transform: rotate(45deg);
+    }
+
+    .shape-7 img {
+        transform: rotate(-45deg);
+        scale: 1.3;
+    }
+
+    /* Scale prevents white corners */
+    .shape-8 {
+        border-radius: 50% 50% 0 0;
+    }
 
     /* Chat Panel */
     .party-chat-panel {
-        background: rgba(0,0,0,0.6);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 20px;
-        border: 1px solid rgba(255,0,255,0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: all 0.3s ease;
     }
     
+    .party-chat-panel.whisper-active {
+        background: rgba(147, 51, 234, 0.15); /* Deep purple glow */
+        border-color: rgba(168, 85, 247, 0.4);
+        box-shadow: 0 0 20px rgba(147, 51, 234, 0.3) inset;
+    }
+
     .chat-header {
         padding: 12px 15px;
-        border-bottom: 1px solid rgba(255,0,255,0.2);
+        border-bottom: 1px solid rgba(255, 0, 255, 0.2);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(0,0,0,0.8);
+        background: rgba(0, 0, 0, 0.8);
         flex-shrink: 0;
     }
-    
-    #chat-mode-label { color: #f0f; font-weight: 800; font-size: 12px; letter-spacing: 1px; }
-    .reset-chat-btn { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.8; transition: 0.2s; }
-    .reset-chat-btn:hover { opacity: 1; transform: scale(1.1); }
+
+    #chat-mode-label {
+        color: #f0f;
+        font-weight: 800;
+        font-size: 12px;
+        letter-spacing: 1px;
+    }
+
+    .reset-chat-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: 0.2s;
+    }
+
+    .reset-chat-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 
     .chat-feed {
         flex: 1;
@@ -201,53 +300,104 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
-        scrollbar-width: none; /* Hide scrollbar for cleaner look */
+        scrollbar-width: none;
+        /* Hide scrollbar for cleaner look */
     }
-    .chat-feed::-webkit-scrollbar { display: none; }
-    
+
+    .chat-feed::-webkit-scrollbar {
+        display: none;
+    }
+
     .p-msg {
-        padding: 10px 14px;
-        border-radius: 16px;
+        padding: 12px 16px;
+        border-radius: 20px;
         font-size: 14px;
         line-height: 1.4;
         max-width: 85%;
         word-wrap: break-word;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(5px);
     }
-    
-    .p-msg.public { background: rgba(30,30,30,0.9); color: #eee; border-left: 3px solid #0ff; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .p-msg.whisper { background: rgba(80,0,30,0.9); color: #ffccd5; border-left: 3px solid #f0f; align-self: flex-start; font-style: italic; border-bottom-left-radius: 4px; }
-    .p-msg.mine { background: #E60026; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-    
-    .msg-info { font-size: 11px; font-weight: 800; margin-bottom: 4px; display: block; opacity: 0.9; color: #aaa; }
-    .msg-time { font-size: 10px; opacity: 0.6; margin-left: 8px; font-weight: 500; }
+
+    .p-msg.public {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+    }
+
+    .p-msg.whisper {
+        background: rgba(147, 51, 234, 0.3);
+        color: #fff;
+        border: 1px solid rgba(168, 85, 247, 0.4);
+        align-self: flex-start;
+        font-style: italic;
+        border-bottom-left-radius: 4px;
+    }
+
+    .p-msg.mine {
+        background: #E60026;
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+
+    .msg-info {
+        font-size: 11px;
+        font-weight: 800;
+        margin-bottom: 4px;
+        display: block;
+        opacity: 0.9;
+        color: #aaa;
+    }
+
+    .msg-time {
+        font-size: 10px;
+        opacity: 0.6;
+        margin-left: 8px;
+        font-weight: 500;
+    }
 
     .chat-controls {
         padding: 15px;
-        background: rgba(0,0,0,0.9);
-        border-top: 1px solid rgba(255,255,255,0.1);
+        background: rgba(0, 0, 0, 0.9);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
         flex-shrink: 0;
     }
-    
-    .whisper-hint { font-size: 11px; color: #f0f; margin-bottom: 8px; font-weight: 700; }
-    
-    .input-wrap { display: flex; gap: 10px; align-items: center; }
-    
+
+    .whisper-hint {
+        font-size: 11px;
+        color: #f0f;
+        margin-bottom: 8px;
+        font-weight: 700;
+    }
+
+    .input-wrap {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
     .input-wrap input {
         flex: 1;
-        background: #222;
-        border: 1px solid #444;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         color: #fff;
-        padding: 12px 16px;
-        border-radius: 25px;
+        padding: 12px 18px;
+        border-radius: 50px;
         outline: none;
         font-size: 15px;
         transition: 0.3s;
     }
-    .input-wrap input:focus { border-color: #f0f; box-shadow: 0 0 10px rgba(255,0,255,0.2); }
-    
+
+    .input-wrap input:focus {
+        border-color: #f0f;
+        box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
+    }
+
     .input-wrap button {
-        background: #f0f;
+        background: linear-gradient(135deg, #f0f, #8b5cf6);
         color: white;
         border: none;
         width: 44px;
@@ -260,81 +410,189 @@
         align-items: center;
         transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .input-wrap button:hover, .input-wrap button:active { transform: scale(1.1); box-shadow: 0 0 15px rgba(255,0,255,0.6); }
+
+    .input-wrap button:hover,
+    .input-wrap button:active {
+        transform: scale(1.1);
+        box-shadow: 0 0 15px rgba(255, 0, 255, 0.6);
+    }
 
     /* Modal */
     .party-modal {
-        display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        display: none;
+        position: fixed;
+        z-index: 10001;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
     }
-    
+
     .modal-content {
         background: linear-gradient(145deg, #111 0%, #222 100%);
         margin: 0;
         position: absolute;
-        top: 50%; left: 50%;
+        top: 50%;
+        left: 50%;
         transform: translate(-50%, -50%);
         padding: 30px 25px;
         border: 1px solid #0ff;
-        width: 90%; max-width: 350px;
+        width: 90%;
+        max-width: 350px;
         border-radius: 25px;
-        box-shadow: 0 10px 40px rgba(0,255,255,0.2);
+        box-shadow: 0 10px 40px rgba(0, 255, 255, 0.2);
         animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    
+
     @keyframes modalPop {
-        from { transform: translate(-50%, -40%); opacity: 0; }
-        to { transform: translate(-50%, -50%); opacity: 1; }
+        from {
+            transform: translate(-50%, -40%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translate(-50%, -50%);
+            opacity: 1;
+        }
     }
-    
-    .close-modal { position: absolute; right: 20px; top: 15px; font-size: 32px; color: #888; cursor: pointer; line-height: 1; }
-    .close-modal:hover { color: #fff; }
-    
-    .modal-body { text-align: center; color: #fff; }
-    .modal-img { width: 110px; height: 110px; border-radius: 50%; border: 3px solid #f0f; margin-bottom: 15px; object-fit: cover; box-shadow: 0 0 20px rgba(255,0,255,0.3); }
-    .modal-name { font-size: 22px; font-weight: 900; margin-bottom: 8px; color: #0ff; letter-spacing: 1px; }
-    .modal-bio { font-size: 13px; color: #aaa; margin-bottom: 25px; line-height: 1.5; padding: 0 10px; }
-    
+
+    .close-modal {
+        position: absolute;
+        right: 20px;
+        top: 15px;
+        font-size: 32px;
+        color: #888;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .close-modal:hover {
+        color: #fff;
+    }
+
+    .modal-body {
+        text-align: center;
+        color: #fff;
+    }
+
+    .modal-img {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        border: 3px solid #f0f;
+        margin-bottom: 15px;
+        object-fit: cover;
+        box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+    }
+
+    .modal-name {
+        font-size: 22px;
+        font-weight: 900;
+        margin-bottom: 8px;
+        color: #0ff;
+        letter-spacing: 1px;
+    }
+
+    .modal-bio {
+        font-size: 13px;
+        color: #aaa;
+        margin-bottom: 25px;
+        line-height: 1.5;
+        padding: 0 10px;
+    }
+
     .modal-btn {
-        width: 100%; padding: 14px; border-radius: 30px; border: none; font-weight: 800; font-size: 14px;
-        cursor: pointer; transition: 0.2s; margin-bottom: 12px; display: flex; justify-content: center; align-items: center; gap: 8px; text-decoration: none; box-sizing: border-box;
+        width: 100%;
+        padding: 14px;
+        border-radius: 30px;
+        border: none;
+        font-weight: 800;
+        font-size: 14px;
+        cursor: pointer;
+        transition: 0.2s;
+        margin-bottom: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        box-sizing: border-box;
     }
-    .btn-whisper { background: #f0f; color: #fff; box-shadow: 0 4px 15px rgba(255,0,255,0.3); }
-    .btn-whisper:active { transform: scale(0.98); }
-    .btn-profile { background: transparent; color: #fff; border: 2px solid #444; }
-    .btn-profile:active { background: #333; }
+
+    .btn-whisper {
+        background: #f0f;
+        color: #fff;
+        box-shadow: 0 4px 15px rgba(255, 0, 255, 0.3);
+    }
+
+    .btn-whisper:active {
+        transform: scale(0.98);
+    }
+
+    .btn-profile {
+        background: transparent;
+        color: #fff;
+        border: 2px solid #444;
+    }
+
+    .btn-profile:active {
+        background: #333;
+    }
 
     /* MOBILE RESPONSIVE LAYOUT */
     @media (max-width: 850px) {
         .main-party-layout {
             grid-template-columns: 1fr;
-            grid-template-rows: 1fr 1.2fr; /* Give slightly more room to chat on mobile */
+            grid-template-rows: 1fr 1.2fr;
+            /* Give slightly more room to chat on mobile */
             gap: 15px;
         }
-        
+
         .avatar-arena {
             grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             padding: 15px;
             border-radius: 15px;
         }
-        
-        .avatar-img-wrap { width: 55px; height: 55px; }
-        
+
+        .avatar-img-wrap {
+            width: 55px;
+            height: 55px;
+        }
+
         .party-chat-panel {
             border-radius: 15px;
             /* Prevents the keyboard from hiding the input */
             margin-bottom: env(safe-area-inset-bottom);
         }
-        
-        .neon-title { font-size: 2rem; }
+
+        .neon-title {
+            font-size: 2rem;
+        }
     }
-    
+
     /* Small mobile tweaks */
     @media (max-width: 400px) {
-        .avatar-arena { grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; padding: 10px; }
-        .avatar-img-wrap { width: 50px; height: 50px; }
-        .neon-title { font-size: 1.5rem; }
-        .party-content { padding: 10px; }
+        .avatar-arena {
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .avatar-img-wrap {
+            width: 50px;
+            height: 50px;
+        }
+
+        .neon-title {
+            font-size: 1.5rem;
+        }
+
+        .party-content {
+            padding: 10px;
+        }
     }
 </style>
 
@@ -350,22 +608,26 @@
                 <div style="font-size: clamp(2rem, 5vw, 3.5rem); text-shadow: 0 0 15px #f0f;">{{ theme.icon }}</div>
                 <div>
                     <h1 class="neon-title" style="margin: 0; line-height: 1;">{{ theme.title }}</h1>
-                    <p style="color: #0ff; font-weight: 800; font-size: 14px; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;">{{ theme.desc }}</p>
+                    <p
+                        style="color: #0ff; font-weight: 800; font-size: 14px; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;">
+                        {{ theme.desc }}</p>
                 </div>
             </div>
             <div class="party-stats">
+                <div class="pulse-dot-green"></div>
                 <span id="online-count">0</span> COMRADES VIBING
             </div>
         </div>
 
         <div class="main-party-layout">
             <div class="avatar-arena" id="avatarArena">
-                </div>
+            </div>
 
             <div class="party-chat-panel">
                 <div class="chat-header">
                     <span id="chat-mode-label">🌐 PUBLIC CHAT</span>
-                    <button class="reset-chat-btn" onclick="setChatMode('public')" title="Back to public chat">🔄</button>
+                    <button class="reset-chat-btn" onclick="setChatMode('public')"
+                        title="Back to public chat">🔄</button>
                 </div>
                 <div id="partyMessages" class="chat-feed">
                     <div style="text-align: center; color: #666; font-size: 12px; margin-top: auto; padding-top: 20px;">
@@ -377,7 +639,8 @@
                         Whispering to <span id="target-name" style="color:white;">...</span>
                     </div>
                     <div class="input-wrap">
-                        <input type="text" id="partyMsgInput" placeholder="Say something..." onkeypress="if(event.key==='Enter') sendMsg()">
+                        <input type="text" id="partyMsgInput" placeholder="Say something..."
+                            onkeypress="if(event.key==='Enter') sendMsg()">
                         <button onclick="sendMsg()" id="sendBtn">🔥</button>
                     </div>
                 </div>
@@ -390,18 +653,14 @@
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal()">&times;</span>
         <div class="modal-body" id="modalBody">
-            </div>
+        </div>
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
-    const socket = io();
     const currentUserId = "{{ user_id }}";
+    const currentUserName = "{{ current_user }}".split(' ')[0] || "Student";
     let whisperTarget = null;
-
-    // Join Room
-    socket.emit('join_party', {});
 
     // Helper function to safely format times
     function getFormattedTime() {
@@ -409,23 +668,25 @@
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    // Example listener (Replace with your actual window.firebaseDb logic)
     if (window.firebaseDb) {
         const partyRef = window.firebaseDb.ref('party_participants');
+        const chatRef = window.firebaseDb.ref('party_chat');
+
+        // Load active participants
         partyRef.on('value', (snapshot) => {
             const users = snapshot.val() || {};
             const arena = document.getElementById('avatarArena');
             arena.innerHTML = '';
-            
+
             let count = 0;
             Object.keys(users).forEach(uid => {
                 const u = users[uid];
                 count++;
-                
+
                 const div = document.createElement('div');
                 div.className = 'avatar-item';
                 div.onclick = () => showUserModal(uid, u);
-                
+
                 div.innerHTML = `
                     <div class="avatar-img-wrap shape-${u.shape_seed || 1}">
                         <img src="${u.img || '/static/img/placeholder.png'}" loading="lazy" alt="${u.name}">
@@ -436,15 +697,40 @@
             });
             document.getElementById('online-count').innerText = count;
         });
+
+        // Listen for chat messages (only recent ones to avoid loading history)
+        const recentChatRef = chatRef.orderByChild('timestamp_ms').startAt(Date.now());
+        recentChatRef.on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // Check if whisper and if we are involved
+            if (data.is_whisper) {
+                if (data.target_id !== currentUserId && data.sender_id !== currentUserId) {
+                    return; // Ignore whispers for others
+                }
+            }
+
+            // If it's our own message, ignore it since we optimistically add it
+            if (data.sender_id === currentUserId) return;
+
+            appendMessage(data);
+        });
+
+        // Cleanup on disconnect
+        partyRef.child(currentUserId).onDisconnect().remove();
     }
 
     function setChatMode(mode, targetId = null, targetName = '') {
         const input = document.getElementById('partyMsgInput');
+        const chatPanel = document.querySelector('.party-chat-panel');
+        
         if (mode === 'public') {
             whisperTarget = null;
             document.getElementById('chat-mode-label').innerText = '🌐 PUBLIC CHAT';
             document.getElementById('whisperHint').style.display = 'none';
             input.placeholder = "Say something to everyone...";
+            chatPanel.classList.remove('whisper-active');
         } else {
             whisperTarget = targetId;
             document.getElementById('chat-mode-label').innerText = '🤫 WHISPERING';
@@ -452,61 +738,61 @@
             document.getElementById('whisperHint').style.display = 'block';
             input.placeholder = `Whisper to ${targetName}...`;
             input.focus();
+            chatPanel.classList.add('whisper-active');
         }
     }
 
     function sendMsg() {
         const input = document.getElementById('partyMsgInput');
         const text = input.value.trim();
-        if (!text) return;
+        if (!text || !window.firebaseDb) return;
 
-        // Optimistically show own message for instant feedback
-        appendMessage({
+        const timestamp_ms = Date.now();
+        const formattedTime = getFormattedTime();
+
+        const payload = {
             sender_id: currentUserId,
-            sender_name: "You",
+            sender_name: currentUserName,
             text: text,
             is_whisper: whisperTarget !== null,
-            timestamp: getFormattedTime()
-        });
+            target_id: whisperTarget || null,
+            timestamp: formattedTime,
+            timestamp_ms: timestamp_ms
+        };
 
-        socket.emit('send_party_msg', {
-            text: text,
-            target_id: whisperTarget
-        });
-        
+        // Optimistically show own message for instant feedback
+        appendMessage(payload);
+
+        // Push to Firebase
+        window.firebaseDb.ref('party_chat').push(payload);
+
         input.value = '';
     }
-
-    socket.on('receive_party_msg', (data) => {
-        // Don't duplicate if it's our own message (we already appended it)
-        if (data.sender_id === currentUserId) return;
-        appendMessage(data);
-    });
 
     function appendMessage(data) {
         const feed = document.getElementById('partyMessages');
         const isMine = data.sender_id === currentUserId;
-        
+
         // Remove the empty placeholder if it exists
         const placeholder = feed.querySelector('div[style*="text-align: center"]');
         if (placeholder) placeholder.remove();
-        
+
         const div = document.createElement('div');
         div.className = `p-msg ${isMine ? 'mine' : (data.is_whisper ? 'whisper' : 'public')}`;
-        
+
         let senderHtml = '';
         if (!isMine) {
             senderHtml = `<span class="msg-info">${data.is_whisper ? '🤫 Whisper from ' : ''}${data.sender_name}</span>`;
         }
-        
+
         div.innerHTML = `
             ${senderHtml}
             ${data.text}
             <span class="msg-time">${data.timestamp || getFormattedTime()}</span>
         `;
-        
+
         feed.appendChild(div);
-        
+
         // Smooth scroll to bottom
         feed.scrollTo({
             top: feed.scrollHeight,
@@ -515,11 +801,8 @@
     }
 
     function showUserModal(uid, data) {
-        if (uid === currentUserId) {
-            // Optional: Show "This is you" or just return
-            return; 
-        }
-        
+        if (uid === currentUserId) return;
+
         const body = document.getElementById('modalBody');
         body.innerHTML = `
             <img src="${data.img || '/static/img/placeholder.png'}" class="modal-img">
@@ -545,17 +828,17 @@
         document.getElementById('profileModal').style.display = 'none';
     }
 
-    // Close modal if clicking outside the content box
-    window.onclick = function(event) {
+    window.onclick = function (event) {
         const modal = document.getElementById('profileModal');
         if (event.target === modal) {
             closeModal();
         }
     }
 
-    // Cleanup on leave
     window.addEventListener('beforeunload', () => {
-        socket.emit('leave_party', {});
+        if (window.firebaseDb && currentUserId) {
+            window.firebaseDb.ref('party_participants').child(currentUserId).remove();
+        }
     });
 </script>
 {% endblock %}

@@ -21,6 +21,9 @@
     }
     .floating-bell:hover { transform: scale(1.1); }
     .floating-bell:active { transform: scale(0.9); }
+    
+    /* Hide global overlays on this page to prevent overlap */
+    .live-floating-btn, .support-trigger-btn { display: none !important; }
 
     .bell-badge {
         position: absolute; top: -6px; right: -6px; background: #E60026;
@@ -71,10 +74,12 @@
     /* === MAIN RESPONSIVE LAYOUT === */
     .inbox-container {
         display: flex; width: 100%; max-width: 1200px;
-        height: calc(100dvh - var(--nav-height, 70px) - 20px); 
+        position: absolute;
+        top: calc(var(--nav-height, 70px) + 10px);
+        bottom: 10px;
+        left: 0; right: 0; margin: 0 auto;
         background: white; border-radius: 24px; box-shadow: 0 15px 35px rgba(114, 0, 0, 0.1);
-        overflow: hidden; margin: 10px auto; border: 1px solid #FFD6DD;
-        position: relative;
+        overflow: hidden; border: 1px solid #FFD6DD;
     }
     
     /* === SIDEBAR (MATCHES LIST) === */
@@ -161,10 +166,10 @@
     .bg-swatch { height: 60px; border-radius: 10px; cursor: pointer; background-size: cover; background-position: center; border: 2px solid #ddd; transition: 0.2s; }
     .bg-swatch:hover { border-color: #E60026; transform: scale(1.05); }
 
-    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scroll-behavior: auto; }
+    .chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; scroll-behavior: auto; }
     
     /* === CHAT BUBBLES WITH AVATARS === */
-    .bubble-wrapper { display: flex; width: 100%; margin-bottom: 6px; position: relative; transition: transform 0.2s ease-out; }
+    .bubble-wrapper { display: flex; width: 100%; margin-bottom: 6px; position: relative; transition: transform 0.2s ease-out; flex: 0 0 auto; }
     .bubble-wrapper.me { justify-content: flex-end; align-items: flex-end; }
     .bubble-wrapper.them { justify-content: flex-start; align-items: flex-end; gap: 8px; }
     .bubble-wrapper.system { justify-content: center; }
@@ -192,7 +197,7 @@
     .status-read { color: #34B7F1; font-weight: bold; opacity: 1; }
 
     /* === BLUE ANIMATED TYPING INDICATORS === */
-    .typing-wrapper { display: none; align-items: flex-end; justify-content: flex-start; gap: 8px; margin-bottom: 10px; margin-top: 5px; }
+    .typing-wrapper { display: none; align-items: flex-end; justify-content: flex-start; gap: 8px; margin-bottom: 10px; margin-top: 5px; flex: 0 0 auto; }
     .typing-bubble { background: white; border-radius: 18px; padding: 12px 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; gap: 5px; align-items: center; border-bottom-left-radius: 4px; width: fit-content; }
     .typing-dot { width: 7px; height: 7px; background: #cbd5e1; border-radius: 50%; animation: typingBounce 1.4s infinite ease-in-out both; }
     .typing-dot:nth-child(1) { animation-delay: -0.32s; }
@@ -253,7 +258,7 @@
     }
 
     /* === CHAT INPUT & MAGIC BUTTON === */
-    .chat-input-area { padding: 15px 20px; background: #f0f0f0; display: flex; gap: 12px; align-items: center; border-top: 1px solid #ddd; }
+    .chat-input-area { padding: 15px 20px; background: #f0f0f0; display: flex; gap: 12px; align-items: center; border-top: 1px solid #ddd; flex-shrink: 0; }
     .chat-input-area input { flex: 1; padding: 15px 20px; border: none; border-radius: 30px; outline: none; font-family: inherit; background: white; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: 0.2s; }
     .chat-input-area input:focus { box-shadow: 0 4px 15px rgba(230,0,38,0.15); }
     
@@ -282,9 +287,15 @@
         .floating-bell { top: 15px; right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .bell-popover { top: 70px; right: 15px; left: 15px; width: auto; }
         
-        .inbox-container { margin: 0; height: calc(100dvh - var(--nav-height, 70px)); border-radius: 0; border: none; }
+        .inbox-container { 
+            top: var(--nav-height, 70px); 
+            bottom: calc(70px + var(--safe-bottom)); 
+            border-radius: 0; border: none; 
+            max-width: 100%; width: 100%; margin: 0;
+            height: auto;
+        }
         .matches-sidebar { width: 100%; display: flex; }
-        .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; height: 100%; z-index: 20; background-color: var(--chat-bg); }
+        .chat-area { display: none; width: 100%; position: absolute; top: 0; left: 0; bottom: 0; z-index: 20; background-color: var(--chat-bg); height: auto; }
         
         .inbox-container.chat-active .matches-sidebar { display: none; }
         .inbox-container.chat-active .chat-area { display: flex; }
@@ -380,7 +391,7 @@
             <div style="display: flex; align-items: center; flex: 1; min-width: 0; margin-left: 15px;">
                 <button class="btn-back" onclick="window.location.href='/matches'">←</button>
                 
-                <div class="partner-avatar-wrapper">
+                <div class="partner-avatar-wrapper" style="cursor: pointer;" onclick="window.location.href='/view_profile/{{ active_partner.id }}'">
                     <img src="{{ active_partner.img }}" id="partner-img" class="partner-avatar partner-blur-img" 
                          style="filter: blur({{ current_blur | default(0) }}px);">
                 </div>
@@ -456,7 +467,7 @@
                         {% set sender_safe = msg.get('sender_id', msg.get('sender')) %}
                         {% set is_me = (sender_safe == session.get('user_id')) %}
 
-                        {% if msg.get('type') == 'text' %}
+                        {% if msg.get('type') in ['text', 'image', 'video', 'audio'] %}
                             {% if sender_safe == 'SYSTEM_AI' %}
                                 <div class="bubble-wrapper system" id="msg-wrap-{{ msg_id }}">
                                     <div class="chat-bubble bubble-system">{{ msg.get('text', '') }}</div>
@@ -476,7 +487,15 @@
                                         </div>
                                         {% endif %}
 
-                                        <div class="msg-text-content">{{ msg.get('text', '') }}</div>
+                                        {% if msg.get('type') == 'image' %}
+                                            <div class="media-content"><img src="{{ msg.get('file_url', '#') }}"></div>
+                                        {% elif msg.get('type') == 'video' %}
+                                            <div class="media-content"><video controls src="{{ msg.get('file_url', '#') }}"></video></div>
+                                        {% elif msg.get('type') == 'audio' %}
+                                            <div class="media-content"><audio controls src="{{ msg.get('file_url', '#') }}"></audio></div>
+                                        {% else %}
+                                            <div class="msg-text-content">{{ msg.get('text', '') }}</div>
+                                        {% endif %}
                                         
                                         {% if not msg.get('is_deleted') %}
                                             <button class="msg-dropdown-btn" onclick="toggleMsgMenu('{{ msg_id }}', event)">⌄</button>
@@ -546,7 +565,7 @@
             
             <div style="position: relative;">
                 <button class="btn-magic" style="background: #6c757d;" onclick="toggleAttachmentMenu(event)" title="Attach media">📎</button>
-                <div id="attachment-menu" class="theme-modal" style="width: 150px; bottom: 60px; right: 0; top: auto; padding: 10px;">
+                <div id="attachment-menu" class="theme-modal" style="width: 150px; bottom: 60px; left: 50%; transform: translateX(-50%); top: auto; padding: 10px;">
                     <button onclick="document.getElementById('attach-image').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🖼️ Image</button>
                     <button onclick="document.getElementById('attach-audio').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🎵 Audio</button>
                     <button onclick="document.getElementById('attach-video').click()" style="width: 100%; text-align: left; padding: 10px; background: none; border: none; cursor: pointer; font-size: 14px;">🎬 Video</button>
@@ -631,9 +650,7 @@
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.js"></script>
 <script>
-    // ==========================================
     // XSS SANITIZATION
     // ==========================================
     function escapeHTML(str) {
@@ -790,7 +807,15 @@
             temp_id: tempId
         };
         
-        socket.emit('send_message', payload);
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        fetch('/api/chat/send', {
+            method: 'POST', 
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+            },
+            body: JSON.stringify(payload)
+        }).catch(e => console.error('Date suggestion send error:', e));
         closeSuggestDateModal();
         
         // Optional: Show a toast
@@ -865,10 +890,12 @@
     // ==========================================
     const myId = "{{ session.get('user_id') }}";
     const activePartnerId = "{% if active_partner %}{{ active_partner.id }}{% else %}none{% endif %}";
+    window.activeChatId = activePartnerId;
     const partnerName = "{{ active_partner.name if active_partner else '' }}";
 
     let unreadMap = JSON.parse(localStorage.getItem('fym_unread_counts')) || {};
     let offlineQueue = JSON.parse(localStorage.getItem('fym_offline_queue')) || {};
+    let replyToId = null;
 
     // Sync localStorage unread map with the official Firebase-rendered badges from the server
     document.querySelectorAll('.match-item').forEach(item => {
@@ -1024,7 +1051,6 @@
     // ==========================================
     // MESSAGE DELETION & SWIPE TO REPLY LOGIC
     // ==========================================
-    let replyToId = null;
     let touchStartX = 0;
     let currentSwipeElement = null;
 
@@ -1130,7 +1156,15 @@
                 filename: file.name,
                 temp_id: tempId
             };
-            socket.emit('send_message', payload);
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            fetch('/api/chat/send', {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+                },
+                body: JSON.stringify(payload)
+            }).catch(e => console.error('File upload send error:', e));
             document.getElementById('attachment-menu').classList.remove('active');
             input.value = ''; // Reset input
         };
@@ -1140,26 +1174,33 @@
     // ==========================================
     // REAL-TIME CHAT WEBSOCKETS & ICEBREAKER
     // ==========================================
-    const socket = io();
-
-    // Auto-enter chat room on connection for dynamic read receipts
-    socket.on('connect', () => {
-        if (activePartnerId !== 'none') {
-            socket.emit('enter_chat', { partner_id: activePartnerId });
-        }
-    });
+    // ==========================================
+    // REAL-TIME CHAT FIREBASE LOGIC
+    // ==========================================
+    
+    // Auto-enter chat room on load for dynamic read receipts
+    if (activePartnerId !== 'none') {
+        fetch('/api/chat/enter', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ partner_id: activePartnerId })
+        });
+    }
 
     // Real-time listener for partner reading our messages (turns ticks blue)
-    socket.on('messages_read', (data) => {
-        if (String(data.reader_id) === String(activePartnerId)) {
-            document.querySelectorAll('.msg-status').forEach(el => {
-                if (el.classList.contains('status-sent') || el.classList.contains('status-delivered')) {
-                    el.innerText = '✓✓';
-                    el.className = 'msg-status status-read';
-                }
-            });
-        }
-    });
+    if (activePartnerId !== 'none') {
+        const matchId = `match_${[myId, activePartnerId].sort().join('_')}`;
+        fdb.ref(`matches/${matchId}/messages`).on('child_changed', (snapshot) => {
+            const data = snapshot.val();
+            if (data.sender_id === myId && data.status === 'read') {
+                document.querySelectorAll('.msg-status').forEach(el => {
+                    if (el.classList.contains('status-sent') || el.classList.contains('status-delivered')) {
+                        el.innerText = '✓✓';
+                        el.className = 'msg-status status-read';
+                    }
+                });
+            }
+        });
+    }
 
     const chatHistory = document.getElementById('chat-history');
     const chatInput = document.getElementById('chat-input');
@@ -1172,14 +1213,6 @@
         return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
-    socket.on('message_deleted_everyone', function(data) {
-        const bubble = document.getElementById(`bubble-${data.msg_id}`);
-        if (bubble) {
-            bubble.classList.add('deleted-bubble');
-            bubble.innerHTML = '🚫 This message was deleted.';
-        }
-    });
-
     function generateIcebreakerInChat() {
         if (activePartnerId === 'none' || activePartnerId === 'AI_COMPANION') return;
         
@@ -1189,10 +1222,10 @@
         chatInput.placeholder = "AI is writing an opener...";
         chatInput.value = "";
         
-        fetch('/api/wingman_action', {
+        fetch('/api/wingman/execute', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ action: 'generate_icebreaker', partner_id: activePartnerId })
+            body: JSON.stringify({ action: 'icebreaker', partner_id: activePartnerId })
         })
         .then(res => res.json())
         .then(data => {
@@ -1215,15 +1248,18 @@
         });
     }
 
-    socket.on('status_change', function(data) {
-        document.querySelectorAll(`.match-item[data-uid="${data.user_id}"] .online-dot`)
-            .forEach(dot => dot.classList.toggle('active', data.is_online));
-
-        if (String(data.user_id) === String(activePartnerId)) {
-            const statusEl = document.querySelector('.chat-header .status-text');
-            if (statusEl) statusEl.textContent = data.is_online ? 'Online' : 'Offline';
-        }
-        updateBellUI();
+    // Online Status Listener
+    Object.keys(unreadMap).forEach(uid => {
+        fdb.ref(`users/${uid}/is_online`).on('value', (snap) => {
+            const is_online = snap.val() === true;
+            document.querySelectorAll(`.match-item[data-uid="${uid}"] .online-dot`)
+                .forEach(dot => dot.classList.toggle('active', is_online));
+                
+            if (String(uid) === String(activePartnerId)) {
+                const statusEl = document.querySelector('.chat-header .status-text');
+                if (statusEl) statusEl.textContent = is_online ? 'Online' : 'Offline';
+            }
+        });
     });
 
     if (activePartnerId !== 'none') {
@@ -1291,155 +1327,197 @@
             cancelReply();
             updateBlurUI(); 
             
-            socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
+            const csrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+            
+            fetch('/api/chat/typing', {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ receiver_id: activePartnerId, is_typing: false })
+            }).catch(() => {});
+            
             if(typingIndicator) typingIndicator.style.display = 'none';
             chatInput.focus();
 
-            socket.emit('send_message', payload);
+            fetch('/api/chat/send', {
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(r => {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    const statusElement = document.getElementById(`status-${data.temp_id}`);
+                    if (statusElement) {
+                        statusElement.id = `status-${data.msg_id}`;
+                        statusElement.innerText = '✓';
+                        statusElement.className = 'msg-status status-sent';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Send error:', err);
+                const statusElement = document.getElementById(`status-${tempId}`);
+                if (statusElement) {
+                    statusElement.innerText = '⚠';
+                    statusElement.title = 'Send failed - check connection';
+                }
+            });
         }
 
         if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
         if (btnSend) btnSend.onclick = sendMessage;
 
         if (chatInput) chatInput.addEventListener('input', () => {
-            socket.emit('typing', { receiver_id: activePartnerId, is_typing: true });
+            const _csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+            fetch('/api/chat/typing', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': _csrf},
+                body: JSON.stringify({ receiver_id: activePartnerId, is_typing: true })
+            }).catch(() => {});
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => {
-                socket.emit('typing', { receiver_id: activePartnerId, is_typing: false });
+                fetch('/api/chat/typing', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': _csrf},
+                    body: JSON.stringify({ receiver_id: activePartnerId, is_typing: false })
+                }).catch(() => {});
             }, 1500);
         });
-    }
-
-    socket.on('user_typing', function(data) {
-        if (String(data.sender) !== String(activePartnerId)) return;
-        if (typingIndicator) {
-            if (data.is_typing) {
-                typingIndicator.style.display = 'flex';
-                chatHistory.appendChild(typingIndicator);
-                forceScrollToBottom();
-            } else {
-                typingIndicator.style.display = 'none';
-            }
-        }
-    });
-
-    socket.on('receive_message', function(data) {
-        if (data.sender === myId || data.sender_id === myId) {
-            const statusElement = document.getElementById(`status-${data.temp_id}`);
-            if (statusElement) {
-                statusElement.id = `status-${data.msg_id}`;
-                if (data.status === 'read') {
-                    statusElement.innerText = '✓✓';
-                    statusElement.className = 'msg-status status-read';
-                } else if (data.status === 'delivered') {
-                    statusElement.innerText = '✓✓';
-                    statusElement.className = 'msg-status status-delivered';
+        
+        // Listen to Typing indicator
+        const roomId = `${[myId, activePartnerId].sort().join('_')}`;
+        fdb.ref(`chats/${roomId}/typing/${activePartnerId}`).on('value', (snap) => {
+            if (typingIndicator) {
+                if (snap.val() === true) {
+                    typingIndicator.style.display = 'flex';
+                    chatHistory.appendChild(typingIndicator);
+                    forceScrollToBottom();
                 } else {
-                    statusElement.innerText = '✓';
-                    statusElement.className = 'msg-status status-sent';
-                }
-                
-                // If it was a media file, update the source
-                if (data.file_url) {
-                    const mediaEl = document.getElementById(`media-${data.temp_id}`);
-                    if (mediaEl) mediaEl.src = data.file_url;
+                    typingIndicator.style.display = 'none';
                 }
             }
-            return;
-        }
-
-        if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
-            let currentCount = 0;
-            if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
-                 currentCount = unreadMap[data.sender].count || 0;
-            } else if (typeof unreadMap[data.sender] === 'number') {
-                 currentCount = unreadMap[data.sender];
-            }
-
-            const previewText = data.type === 'text' ? data.text : `Sent a ${data.type}`;
-            unreadMap[data.sender] = { count: currentCount + 1, text: previewText };
-            localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
+        });
+        
+        // Listen to new messages
+        const matchId = `match_${[myId, activePartnerId].sort().join('_')}`;
+        const connectionTime = new Date().toISOString(); 
+        
+        fdb.ref(`matches/${matchId}/messages`).orderByChild('timestamp').startAt(connectionTime).on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            data.msg_id = snapshot.key;
+            data.sender = data.sender_id;
             
-            if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
-            offlineQueue[data.sender].push({
-                text: previewText,
-                timestamp: data.timestamp || new Date().toISOString()
-            });
-            localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
+            // Skip our own messages since we render them instantly in sendMessage
+            if (String(data.sender) === String(myId)) return;
 
-            updateBellUI();
-
-            const sidebarItem = document.querySelector(`.match-item[data-uid="${data.sender}"]`);
-            if (sidebarItem) {
-                sidebarItem.style.background = '#FEF2F4';
-                const sidebarMsg = sidebarItem.querySelector('.sidebar-last-msg');
-                if (sidebarMsg) {
-                    sidebarMsg.innerText = previewText;
-                    sidebarMsg.style.color = '#E60026';
-                    sidebarMsg.style.fontWeight = 'bold';
+            if (String(data.sender) !== String(activePartnerId) && data.sender !== 'SYSTEM_AI') {
+                let currentCount = 0;
+                if (unreadMap[data.sender] && typeof unreadMap[data.sender] === 'object') {
+                     currentCount = unreadMap[data.sender].count || 0;
+                } else if (typeof unreadMap[data.sender] === 'number') {
+                     currentCount = unreadMap[data.sender];
                 }
+
+                const previewText = data.type === 'text' ? data.text : `Sent a ${data.type}`;
+                unreadMap[data.sender] = { count: currentCount + 1, text: previewText };
+                localStorage.setItem('fym_unread_counts', JSON.stringify(unreadMap));
                 
-                // Real-time unread count badge update
-                let badge = sidebarItem.querySelector('.unread-badge');
-                if (!badge) {
-                    badge = document.createElement('span');
-                    badge.className = 'unread-badge';
-                    badge.style.cssText = "background: #E60026; color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(230,0,38,0.35); flex-shrink: 0;";
-                    const container = sidebarItem.querySelector('.sidebar-last-msg').parentElement;
-                    if (container) container.appendChild(badge);
+                if (!offlineQueue[data.sender]) offlineQueue[data.sender] = [];
+                offlineQueue[data.sender].push({
+                    text: previewText,
+                    timestamp: data.timestamp || new Date().toISOString()
+                });
+                localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
+
+                updateBellUI();
+
+                const sidebarItem = document.querySelector(`.match-item[data-uid="${data.sender}"]`);
+                if (sidebarItem) {
+                    sidebarItem.style.background = '#FEF2F4';
+                    const sidebarMsg = sidebarItem.querySelector('.sidebar-last-msg');
+                    if (sidebarMsg) {
+                        sidebarMsg.innerText = previewText;
+                        sidebarMsg.style.color = '#E60026';
+                        sidebarMsg.style.fontWeight = 'bold';
+                    }
+                    
+                    let badge = sidebarItem.querySelector('.unread-badge');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'unread-badge';
+                        badge.style.cssText = "background: #E60026; color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 900; box-shadow: 0 2px 8px rgba(230,0,38,0.35); flex-shrink: 0;";
+                        const container = sidebarItem.querySelector('.sidebar-last-msg').parentElement;
+                        if (container) container.appendChild(badge);
+                    }
+                    badge.innerText = currentCount + 1;
                 }
-                badge.innerText = currentCount + 1;
+                return;
             }
-            return;
-        }
-        
-        if(typingIndicator) typingIndicator.style.display = 'none';
-        
-        updateBlurUI(); 
-        
-        let html = '';
-        const cleanText = escapeHTML(data.text || '');
-        
-        if (data.sender === 'SYSTEM_AI') {
-            html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${cleanText}</div></div>`;
-        } else {
-            const timeString = getCurrentTime();
-            let replyHtml = '';
-            if(data.reply_to) {
-                replyHtml = `<div class="reply-context">Replying to message...</div>`;
-            }
+            
+            if(typingIndicator) typingIndicator.style.display = 'none';
+            updateBlurUI(); 
+            
+            let html = '';
+            const cleanText = escapeHTML(data.text || '');
+            
+            if (data.sender === 'SYSTEM_AI') {
+                html = `<div class="bubble-wrapper system bubble-enter"><div class="chat-bubble bubble-system">${cleanText}</div></div>`;
+            } else {
+                const timeString = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                let replyHtml = '';
+                if(data.reply_to) replyHtml = `<div class="reply-context">Replying to message...</div>`;
 
-            let contentHtml = `<div class="msg-text-content">${cleanText}</div>`;
-            if (data.type === 'image') {
-                contentHtml = `<div class="media-content"><img src="${data.file_url}"></div>`;
-            } else if (data.type === 'video') {
-                contentHtml = `<div class="media-content"><video controls src="${data.file_url}"></video></div>`;
-            } else if (data.type === 'audio') {
-                contentHtml = `<div class="media-content"><audio controls src="${data.file_url}"></audio></div>`;
-            }
+                let contentHtml = `<div class="msg-text-content">${cleanText}</div>`;
+                if (data.type === 'image') contentHtml = `<div class="media-content"><img src="${data.file_url}"></div>`;
+                else if (data.type === 'video') contentHtml = `<div class="media-content"><video controls src="${data.file_url}"></video></div>`;
+                else if (data.type === 'audio') contentHtml = `<div class="media-content"><audio controls src="${data.file_url}"></audio></div>`;
 
-            html = `
-            <div class="bubble-wrapper them bubble-enter" id="msg-wrap-${data.msg_id || data.temp_id}" data-msg-id="${data.msg_id || data.temp_id}" data-sender-name="${partnerName}" data-text="${cleanText}" ontouchstart="handleTouchStart(event, '${data.msg_id || data.temp_id}')" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd()">
-                <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur(${currentBlurPx}px);">
-                <div class="chat-bubble bubble-them" id="bubble-${data.msg_id || data.temp_id}">
-                    ${replyHtml}
-                    ${contentHtml}
-                    <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${data.msg_id || data.temp_id}', event)">⌄</button>
-                    <div class="msg-menu" id="menu-${data.msg_id || data.temp_id}">
-                        <button class="msg-menu-btn" onclick="prepareReply('${data.msg_id || data.temp_id}')">↩ Reply</button>
-                        <button class="msg-menu-btn" onclick="deleteMessage('${data.msg_id || data.temp_id}', 'me')">🗑 Delete for me</button>
+                html = `
+                <div class="bubble-wrapper them bubble-enter" id="msg-wrap-${data.msg_id || data.temp_id}" data-msg-id="${data.msg_id || data.temp_id}" data-sender-name="${partnerName}" data-text="${cleanText}" ontouchstart="handleTouchStart(event, '${data.msg_id || data.temp_id}')" ontouchmove="handleTouchMove(event)" ontouchend="handleTouchEnd()">
+                    <img src="{{ active_partner.img }}" class="msg-avatar partner-blur-img" style="filter: blur(${currentBlurPx}px);">
+                    <div class="chat-bubble bubble-them" id="bubble-${data.msg_id || data.temp_id}">
+                        ${replyHtml}
+                        ${contentHtml}
+                        <button class="msg-dropdown-btn" onclick="toggleMsgMenu('${data.msg_id || data.temp_id}', event)">⌄</button>
+                        <div class="msg-menu" id="menu-${data.msg_id || data.temp_id}">
+                            <button class="msg-menu-btn" onclick="prepareReply('${data.msg_id || data.temp_id}')">↩ Reply</button>
+                            <button class="msg-menu-btn" onclick="deleteMessage('${data.msg_id || data.temp_id}', 'me')">🗑 Delete for me</button>
+                        </div>
+                        <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
+                            <span class="msg-time">${timeString}</span>
+                        </div>
                     </div>
-                    <div class="msg-meta" style="right: auto; left: 10px; justify-content: flex-start;">
-                        <span class="msg-time">${timeString}</span>
-                    </div>
-                </div>
-            </div>`;
-        }
+                </div>`;
+            }
+            
+            if(chatHistory) {
+                chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
+                forceScrollToBottom();
+            }
+            
+            if (data.status !== 'read') {
+                 fdb.ref(`matches/${matchId}/messages/${data.msg_id}`).update({ status: 'read' });
+            }
+        });
         
-        if(chatHistory) {
-            chatHistory.insertBefore(document.createRange().createContextualFragment(html), typingIndicator);
-            forceScrollToBottom();
-        }
-    });
+        // Listen for deleted messages
+        fdb.ref(`matches/${matchId}/deleted_messages`).on('child_added', (snapshot) => {
+            const msgId = snapshot.key;
+            const bubble = document.getElementById(`bubble-${msgId}`);
+            if (bubble) {
+                bubble.classList.add('deleted-bubble');
+                bubble.innerHTML = '🚫 This message was deleted.';
+            }
+        });
+    }
 </script>
 {% endblock %}

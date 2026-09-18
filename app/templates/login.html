@@ -1,284 +1,422 @@
 {% extends "base.html" %}
 
+{% block title %}Log In — Find Your Match{% endblock %}
+
 {% block content %}
 <style>
-    /* === ANIMATIONS === */
     @keyframes slideUpFade {
         from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* === LAYOUT === */
     .auth-wrapper {
         display: flex;
         justify-content: center;
         align-items: center;
-        /* Using dvh for perfect mobile centering, preventing browser UI jump */
-        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px); 
+        min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px);
         padding: clamp(20px, 5vw, 40px) 15px;
     }
-    
+
     .auth-card {
         background: white;
-        /* Fluid padding: smaller on phones, larger on desktop */
         padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
         border-radius: 28px;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1); 
+        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1);
         border: 1px solid #FFD6DD;
         width: 100%;
-        max-width: 420px;
+        max-width: 440px;
         animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         box-sizing: border-box;
     }
-    
-    /* === TYPOGRAPHY === */
-    .auth-header { 
-        text-align: center; 
-        margin-bottom: clamp(25px, 6vw, 35px); 
+
+    .auth-header { text-align: center; margin-bottom: clamp(25px, 6vw, 32px); }
+    .auth-logo-icon {
+        background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%);
+        width: 70px; height: 70px; border-radius: 20px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.15);
+        font-size: 32px; margin: 0 auto 18px; border: 2px solid white;
     }
-    .auth-title { 
-        color: #720000; 
-        font-size: clamp(26px, 6vw, 32px); 
-        font-weight: 900; 
-        margin-bottom: 8px; 
-        letter-spacing: -0.5px; 
-        line-height: 1.2;
+    .auth-title { color: #720000; font-size: clamp(24px, 6vw, 30px); font-weight: 900; margin-bottom: 6px; letter-spacing: -0.5px; }
+    .auth-subtitle { color: #666; font-size: 15px; margin: 0; font-weight: 500; line-height: 1.5; }
+
+    /* ── Version tabs ── */
+    .login-tabs {
+        display: flex;
+        background: #f5f5f5;
+        border-radius: 14px;
+        padding: 4px;
+        margin-bottom: 24px;
+        gap: 4px;
     }
-    .auth-subtitle { 
-        color: #666; 
-        font-size: 15px; 
-        font-weight: 500;
-        margin: 0;
+    .login-tab {
+        flex: 1; padding: 11px 8px; border: none; background: transparent;
+        border-radius: 10px; font-size: 13px; font-weight: 800; cursor: pointer;
+        color: #999; transition: all 0.25s ease; letter-spacing: 0.2px;
+    }
+    .login-tab.active {
+        background: white; color: #720000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
-    /* === FORM INPUTS === */
-    .input-group { 
-        margin-bottom: 20px; 
-        width: 100%;
+    /* ── Legacy upgrade banner ── */
+    .upgrade-banner {
+        background: linear-gradient(135deg, #fffbeb, #fef9c3);
+        border: 1px solid #fef08a;
+        border-left: 4px solid #f59e0b;
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+        display: none;
+        animation: slideUpFade 0.4s ease;
     }
+    .upgrade-banner-title {
+        font-size: 13px; font-weight: 900; color: #92400e; margin: 0 0 4px;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .upgrade-banner-text { font-size: 12px; color: #78350f; line-height: 1.5; margin: 0 0 10px; }
+    .upgrade-banner-btn {
+        background: #f59e0b; color: white; border: none;
+        padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 800;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .upgrade-banner-btn:hover { background: #d97706; transform: translateY(-1px); }
+
+    /* ── Form inputs ── */
+    .input-group { margin-bottom: 18px; width: 100%; }
     .input-group label {
-        display: block; 
-        font-size: 11px; 
-        font-weight: 900; 
-        color: #E60026;
-        margin-bottom: 8px; 
-        text-transform: uppercase; 
-        letter-spacing: 1px;
+        display: block; font-size: 11px; font-weight: 900; color: #E60026;
+        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;
     }
     .input-group input {
-        width: 100%; 
-        padding: 16px; 
-        border: 2px solid #f0f0f0; 
-        border-radius: 14px;
-        /* 16px is REQUIRED to stop iOS Safari from auto-zooming into the page */
-        font-size: 16px; 
-        background: #fafafa; 
-        transition: all 0.3s ease;
-        font-family: inherit; 
-        outline: none;
-        color: #111;
-        font-weight: 600;
-        box-sizing: border-box;
-        -webkit-appearance: none; /* Removes default iOS styling */
+        width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px;
+        font-size: 16px; background: #fafafa; transition: all 0.3s ease;
+        font-family: inherit; outline: none; color: #111; font-weight: 600;
+        box-sizing: border-box; -webkit-appearance: none;
     }
     .input-group input:focus {
-        border-color: #E60026; 
-        background: white; 
+        border-color: #E60026; background: white;
         box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
     }
-    .input-group input::placeholder {
-        color: #bbb;
-        font-weight: 400;
-    }
+    .input-group input::placeholder { color: #bbb; font-weight: 400; }
 
-    /* === SECURE PASSWORD FIELD === */
+    /* ── Password field ── */
     .password-container { position: relative; width: 100%; }
-    .password-container input { padding-right: 50px !important; } 
+    .password-container input { padding-right: 50px !important; }
     .toggle-password {
         position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-        background: none; border: none; cursor: pointer; font-size: 18px; color: #888; 
-        padding: 10px; outline: none; display: flex; align-items: center; justify-content: center;
-        border-radius: 50%; transition: 0.2s;
+        background: none; border: none; cursor: pointer; font-size: 18px;
+        color: #888; padding: 10px; outline: none; border-radius: 50%;
+        transition: 0.2s; display: flex; align-items: center;
     }
     .toggle-password:hover { background: #f0f0f0; }
-    
+
     .forgot-link {
-        display: block;
-        text-align: right;
-        margin-top: -12px;
-        margin-bottom: 25px;
-        font-size: 13px;
-        color: #E60026;
-        font-weight: 800;
-        text-decoration: none;
-        transition: 0.2s;
+        display: block; text-align: right; margin-top: -10px; margin-bottom: 22px;
+        font-size: 13px; color: #E60026; font-weight: 800; text-decoration: none;
     }
     .forgot-link:hover { color: #720000; text-decoration: underline; }
 
-    /* === BUTTONS & LINKS === */
+    /* ── Reg-number fade transition ── */
+    .reg-field-wrapper {
+        overflow: hidden;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        max-height: 0;
+        opacity: 0;
+    }
+    .reg-field-wrapper.visible { max-height: 120px; opacity: 1; }
+
+    /* ── Submit btn ── */
     .btn-submit {
-        width: 100%; 
-        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; 
-        border: none; 
-        padding: 18px; 
-        border-radius: 14px;
-        font-size: 16px; 
-        font-weight: 900; 
-        cursor: pointer; 
+        width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white; border: none; padding: 18px; border-radius: 14px;
+        font-size: 16px; font-weight: 900; cursor: pointer;
         transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
+        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25); letter-spacing: 0.2px;
     }
-    .btn-submit:active {
-        transform: scale(0.97);
-    }
-    .btn-submit.loading {
-        background: #888; cursor: not-allowed; box-shadow: none; transform: none;
-    }
-    
+    .btn-submit:active { transform: scale(0.97); }
+    .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; transform: none; }
     @media (hover: hover) {
-        .btn-submit:not(.loading):hover { 
-            transform: translateY(-2px); 
-            box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); 
-        }
+        .btn-submit:not(.loading):hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3); }
     }
-    
-    .auth-footer { 
-        text-align: center; 
-        margin-top: 30px; 
-        font-size: 14px; 
-        color: #666; 
-        border-top: 1px solid #f0f0f0;
-        padding-top: 25px;
-        line-height: 1.6;
+
+    .auth-footer {
+        text-align: center; margin-top: 28px; font-size: 14px; color: #666;
+        border-top: 1px solid #f0f0f0; padding-top: 22px; line-height: 1.6;
     }
-    .auth-footer a { 
-        color: #E60026; 
-        font-weight: 900; 
-        text-decoration: none; 
-        transition: color 0.2s;
+    .auth-footer a { color: #E60026; font-weight: 900; text-decoration: none; }
+    .auth-footer a:hover { color: #720000; text-decoration: underline; }
+
+    .flash-msg {
+        padding: 14px 16px; border-radius: 10px; margin-bottom: 20px;
+        font-size: 14px; font-weight: 700;
+        background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;
     }
-    .auth-footer a:hover { 
-        color: #720000; 
-        text-decoration: underline; 
-    }
+    #api-error { display: none; }
 </style>
 
 <div class="auth-wrapper">
     <div class="auth-card">
+
         <div class="auth-header">
-            <div style="margin-bottom: 20px; display: flex; justify-content: center;">
-                <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 70px; height: 70px; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 32px; border: 2px solid white;">
-                    🔒
-                </div>
-            </div>
+            <div class="auth-logo-icon">🔒</div>
             <h1 class="auth-title">Welcome Back</h1>
-            <p class="auth-subtitle">Log in to your cross-institution account.</p>
+            <p class="auth-subtitle">Log in to your Find Your Match account.</p>
         </div>
 
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="flash-msg">
-                   ⚠️ {{ message }}
-              </div>
+              <div class="flash-msg">⚠️ {{ message }}</div>
             {% endfor %}
           {% endif %}
         {% endwith %}
 
-        <div id="api-error" class="flash-msg" style="display: none;"></div>
+        <div class="flash-msg" id="api-error"></div>
 
-        <form id="loginForm" onsubmit="return handleLogin(event)">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            
+        <!-- ── Login mode tabs ── -->
+        <div class="login-tabs" role="tablist">
+            <button class="login-tab active" id="tabNew" onclick="switchMode('new')" role="tab" aria-selected="true">
+                🆕 New Login
+            </button>
+            <button class="login-tab" id="tabLegacy" onclick="switchMode('legacy')" role="tab" aria-selected="false">
+                🎓 Student ID Login
+            </button>
+        </div>
+
+        <!-- ── Legacy user upgrade banner (shown after legacy login) ── -->
+        <div class="upgrade-banner" id="upgradeBanner">
+            <p class="upgrade-banner-title">🔄 System Upgrade Available</p>
+            <p class="upgrade-banner-text">
+                Your account is on our legacy system. Within <strong>1 hour</strong> of logging in,
+                you can upgrade to our new system and log in with just your <strong>email + password</strong>
+                — no Student ID needed ever again!
+            </p>
+            <button class="upgrade-banner-btn" onclick="upgradeAccount()">✨ Upgrade My Account Now</button>
+        </div>
+
+        <form id="loginForm" onsubmit="return handleLogin(event)" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <div class="input-group">
-                <label for="email">Account Email</label>
-                <input type="email" id="email" name="email" required placeholder="e.g. name@example.com" autocomplete="email">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required
+                       placeholder="e.g. name@example.com" autocomplete="email">
             </div>
 
-            <div class="input-group">
-                <label for="reg_number">Student ID / Reg Number</label>
-                <input type="text" id="reg_number" name="reg_number" required placeholder="SAB/B/01-0000/2023" autocomplete="username" autocapitalize="characters" oninput="this.value = this.value.toUpperCase();">
+            <!-- Legacy reg number field (hidden by default) -->
+            <div class="reg-field-wrapper" id="regFieldWrapper">
+                <div class="input-group">
+                    <label for="reg_number">Student ID / Reg Number</label>
+                    <input type="text" id="reg_number" name="reg_number"
+                           placeholder="SAB/B/01-0000/2023" autocomplete="username"
+                           autocapitalize="characters"
+                           oninput="this.value = this.value.toUpperCase();">
+                </div>
             </div>
 
             <div class="input-group">
                 <label for="password">Password</label>
                 <div class="password-container">
-                    <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
+                    <input type="password" id="password" name="password" required
+                           placeholder="Enter your password" autocomplete="current-password">
                     <button type="button" class="toggle-password" onclick="togglePass('password')">👁️</button>
                 </div>
             </div>
-            
+
             <a href="{{ url_for('auth.forgot_password') }}" class="forgot-link">Forgot Password?</a>
 
             <button type="submit" class="btn-submit" id="submitBtn">Secure Log In</button>
         </form>
-        
+
         <div class="auth-footer">
-            New here? <a href="{{ url_for('auth.signup') }}">Create an account</a>.
+            New here? <a href="{{ url_for('auth.signup') }}">Create a free account</a>.<br>
+            <small style="color:#bbb; font-size:11px;">No Student ID required for new accounts.</small>
         </div>
     </div>
 </div>
 
 <script>
+    // ── Mode State ────────────────────────────────────────────────────────────
+    let loginMode = 'new'; // 'new' | 'legacy'
+
+    function switchMode(mode) {
+        loginMode = mode;
+        const regWrapper = document.getElementById('regFieldWrapper');
+        const regInput   = document.getElementById('reg_number');
+        const tabNew     = document.getElementById('tabNew');
+        const tabLegacy  = document.getElementById('tabLegacy');
+
+        if (mode === 'legacy') {
+            regWrapper.classList.add('visible');
+            regInput.required = true;
+            tabNew.classList.remove('active');
+            tabLegacy.classList.add('active');
+        } else {
+            regWrapper.classList.remove('visible');
+            regInput.required = false;
+            regInput.value    = '';
+            tabNew.classList.add('active');
+            tabLegacy.classList.remove('active');
+        }
+        hideError();
+    }
+
     function togglePass(id) {
         const input = document.getElementById(id);
         input.type = input.type === 'password' ? 'text' : 'password';
     }
 
+    function hideError() {
+        const el = document.getElementById('api-error');
+        el.style.display = 'none';
+        el.innerText = '';
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('api-error');
+        el.innerText = '⚠️ ' + msg;
+        el.style.display = 'block';
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ── Login Handler ─────────────────────────────────────────────────────────
     async function handleLogin(event) {
         event.preventDefault();
-        const form = event.target;
         const btn = document.getElementById('submitBtn');
-        const errorDiv = document.getElementById('api-error');
+        hideError();
 
-        btn.innerText = "Authenticating... ⏳";
-        btn.disabled = true;
+        btn.innerText  = 'Authenticating... ⏳';
+        btn.disabled   = true;
         btn.classList.add('loading');
-        errorDiv.style.display = 'none';
 
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
+        const email    = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const regNum   = document.getElementById('reg_number').value.trim();
+        const csrf     = document.querySelector('input[name="csrf_token"]').value;
 
+        // ── Try v3 login first (email + password only) ──────────────────────
         try {
-            const response = await fetch('/api/v2/auth/login', {
+            const res = await fetch('/api/v3/auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                    'X-CSRFToken': csrf
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify({ email, password })
             });
+            const result = await res.json();
 
-            const result = await response.json();
+            if (res.ok && result.status === 'success') {
+                // ── Show upgrade banner for legacy users ───────────────────
+                if (result.is_legacy_user) {
+                    document.getElementById('upgradeBanner').style.display = 'block';
+                    // Store upgrade availability time in sessionStorage
+                    sessionStorage.setItem('upgrade_available_until',
+                        Date.now() + 60 * 60 * 1000);
+                }
 
-            if (response.ok) {
-                if (result.status === 'pending_verification') {
-                    window.location.href = "{{ url_for('auth.verify_email') }}";
+                // ── Redirect based on profile completeness ─────────────────
+                if (!result.profile_complete) {
+                    window.location.href = '/complete-profile';
                 } else {
                     window.location.href = "{{ url_for('swipe') }}";
                 }
-            } else {
-                errorDiv.style.display = 'block';
-                errorDiv.innerText = "⚠️ " + (result.message || "Login failed.");
-                btn.innerText = "Secure Log In";
-                btn.disabled = false;
-                btn.classList.remove('loading');
+                return false;
             }
-        } catch (error) {
-            errorDiv.style.display = 'block';
-            errorDiv.innerText = "⚠️ Connection error. Please try again.";
-            btn.innerText = "Secure Log In";
-            btn.disabled = false;
-            btn.classList.remove('loading');
+
+            if (result.status === 'pending_verification') {
+                window.location.href = "{{ url_for('auth.verify_email') }}";
+                return false;
+            }
+
+            // ── v3 failed — try legacy v2 login if in legacy mode ──────────
+            if (loginMode === 'legacy' && regNum) {
+                const resLegacy = await fetch('/api/v2/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRFToken': csrf
+                    },
+                    body: JSON.stringify({ email, reg_number: regNum, password })
+                });
+                const legacyResult = await resLegacy.json();
+
+                if (resLegacy.ok && legacyResult.status === 'success') {
+                    // Show upgrade banner — they logged in with reg number
+                    document.getElementById('upgradeBanner').style.display = 'block';
+                    sessionStorage.setItem('upgrade_available_until',
+                        Date.now() + 60 * 60 * 1000);
+                    // Check profile then redirect
+                    const checkRes = await fetch('/api/v3/auth/profile/check');
+                    const checkData = await checkRes.json().catch(() => ({ complete: true }));
+                    window.location.href = (!checkData.complete)
+                        ? '/complete-profile'
+                        : "{{ url_for('swipe') }}";
+                    return false;
+                }
+
+                if (legacyResult.status === 'pending_verification') {
+                    window.location.href = "{{ url_for('auth.verify_email') }}";
+                    return false;
+                }
+
+                showError(legacyResult.message || 'Invalid credentials.');
+            } else {
+                showError(result.message || 'Invalid email or password.');
+            }
+
+        } catch (e) {
+            showError('Connection error. Please check your internet and try again.');
         }
 
+        btn.innerText = 'Secure Log In';
+        btn.disabled  = false;
+        btn.classList.remove('loading');
         return false;
     }
+
+    // ── Account Upgrade ───────────────────────────────────────────────────────
+    async function upgradeAccount() {
+        const btn = document.querySelector('.upgrade-banner-btn');
+        btn.disabled  = true;
+        btn.textContent = 'Upgrading... ⏳';
+
+        try {
+            const res = await fetch('/api/v3/auth/upgrade', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                }
+            });
+            const data = await res.json();
+
+            if (res.ok && data.status === 'success') {
+                document.getElementById('upgradeBanner').innerHTML = `
+                    <p class="upgrade-banner-title">✅ Account Upgraded!</p>
+                    <p class="upgrade-banner-text">
+                        You're now on the new login system. Next time, just use your
+                        <strong>email + password</strong> — no Student ID needed!
+                    </p>
+                `;
+            } else {
+                btn.disabled = false;
+                btn.textContent = '✨ Upgrade My Account Now';
+            }
+        } catch (e) {
+            btn.disabled = false;
+            btn.textContent = '✨ Upgrade My Account Now';
+        }
+    }
+
+    // ── On load: restore mode from URL param if any ───────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('mode') === 'legacy') switchMode('legacy');
+    });
 </script>
-<style>
-    /* Flash messages for error handling */
-    .flash-msg { padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;}
-</style>
 {% endblock %}

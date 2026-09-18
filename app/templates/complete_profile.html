@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Your Profile — Find Your Match{% endblock %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    :root {
+        --red: #E60026;
+        --dark-red: #720000;
+        --pink-light: #FEF2F4;
+        --pink-border: #FFD6DD;
+    }
+
+    /* Hide footer on this specific page for a cleaner wizard experience */
+    footer {
+        display: none !important;
+    }
+
+    .wizard-overlay {
+        position: relative;
+        min-height: 100vh; /* Revert to full viewport height since footer is gone */
+        background: linear-gradient(135deg, #720000 0%, #1a0000 100%);
+        display: flex;
+        flex-direction: column;
+        padding: 40px 20px;
+    }
+
+    .wizard-card {
+        margin: auto; /* Vertically and horizontally centers without clipping */
+        background: white;
+        border-radius: 28px;
+        width: 100%;
+        max-width: 480px;
+        overflow: hidden;
+        box-shadow: 0 40px 80px rgba(0,0,0,0.4);
+        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes popIn {
+        from { opacity: 0; transform: scale(0.9) translateY(20px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Progress Bar */
+    .wizard-progress {
+        height: 5px;
+        background: #f0f0f0;
+        position: relative;
+    }
+    .wizard-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--dark-red), var(--red));
+        border-radius: 5px;
+        transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Steps header */
+    .wizard-header {
+        padding: 32px 32px 0;
+        text-align: center;
+    }
+    .wizard-step-icon {
+        width: 72px; height: 72px;
+        background: var(--pink-light);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 36px;
+        margin: 0 auto 18px;
+        border: 3px solid var(--pink-border);
+        transition: all 0.4s ease;
+    }
+    .wizard-title {
+        font-size: 24px;
+        font-weight: 900;
+        color: var(--dark-red);
+        margin: 0 0 8px;
+        letter-spacing: -0.5px;
+    }
+    .wizard-subtitle {
+        font-size: 15px;
+        color: #666;
+        font-weight: 500;
+        line-height: 1.5;
+        margin: 0;
+    }
+    .wizard-step-badges {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 18px;
+    }
+    .step-badge {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        background: #eee;
+        transition: all 0.3s ease;
+        cursor: default;
+    }
+    .step-badge.active { background: var(--red); transform: scale(1.3); }
+    .step-badge.done   { background: #10b981; }
+
+    /* Step content */
+    .wizard-body { padding: 28px 32px 32px; }
+
+    /* Step 1: Photo Upload */
+    .photo-upload-zone {
+        border: 3px dashed var(--pink-border);
+        border-radius: 20px;
+        padding: 32px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        background: var(--pink-light);
+        overflow: hidden;
+    }
+    .photo-upload-zone:hover, .photo-upload-zone.drag-over {
+        border-color: var(--red);
+        background: #fff5f6;
+        transform: scale(1.01);
+    }
+    .photo-upload-zone input[type="file"] {
+        position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .photo-preview {
+        width: 110px; height: 110px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 4px solid white;
+        box-shadow: 0 8px 24px rgba(114,0,0,0.15);
+        margin: 0 auto 14px;
+        display: block;
+        transition: all 0.3s ease;
+    }
+    .photo-upload-placeholder {
+        font-size: 48px;
+        margin-bottom: 12px;
+        display: block;
+    }
+    .photo-upload-hint {
+        font-size: 14px;
+        color: #888;
+        font-weight: 500;
+        margin: 8px 0 0;
+    }
+    .photo-upload-label {
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--red);
+        display: block;
+    }
+
+    /* Step 2: Phone */
+    .phone-input-group { position: relative; }
+    .phone-flag {
+        position: absolute;
+        left: 16px; top: 50%; transform: translateY(-50%);
+        font-size: 22px; pointer-events: none;
+    }
+    .phone-prefix {
+        position: absolute;
+        left: 52px; top: 50%; transform: translateY(-50%);
+        font-size: 16px; font-weight: 700; color: #555;
+        pointer-events: none;
+    }
+    .phone-input {
+        width: 100%;
+        padding: 17px 17px 17px 100px;
+        border: 2px solid #f0f0f0;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+        background: #fafafa;
+        color: #111;
+        transition: all 0.3s;
+        box-sizing: border-box;
+        outline: none;
+        -webkit-appearance: none;
+    }
+    .phone-input:focus {
+        border-color: var(--red);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(230,0,38,0.1);
+    }
+    .phone-hint {
+        font-size: 12px;
+        color: #999;
+        margin-top: 8px;
+        font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn-wizard {
+        width: 100%;
+        padding: 18px;
+        border: none;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        margin-top: 20px;
+        letter-spacing: 0.2px;
+    }
+    .btn-wizard-primary {
+        background: linear-gradient(135deg, var(--dark-red) 0%, var(--red) 100%);
+        color: white;
+        box-shadow: 0 10px 25px rgba(230,0,38,0.25);
+    }
+    .btn-wizard-primary:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230,0,38,0.3); }
+    .btn-wizard-primary:active { transform: scale(0.97); }
+    .btn-wizard-primary.loading { background: #aaa; box-shadow: none; cursor: not-allowed; transform: none; }
+
+    .btn-wizard-skip {
+        background: transparent;
+        color: #bbb;
+        font-size: 13px;
+        font-weight: 700;
+        margin-top: 12px;
+        padding: 10px;
+    }
+    .btn-wizard-skip:hover { color: #888; }
+
+    /* Step 3: Success */
+    .success-animation {
+        text-align: center;
+        padding: 10px 0;
+    }
+    .success-circle {
+        width: 100px; height: 100px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 50px;
+        margin: 0 auto 20px;
+        animation: successPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.2s both;
+        box-shadow: 0 10px 30px rgba(16,185,129,0.35);
+    }
+    @keyframes successPop {
+        from { transform: scale(0); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
+    }
+    .success-title {
+        font-size: 26px; font-weight: 900; color: #059669;
+        margin: 0 0 10px; letter-spacing: -0.5px;
+    }
+    .success-subtitle {
+        font-size: 15px; color: #555; font-weight: 500; line-height: 1.6;
+    }
+    .confetti-emoji {
+        font-size: 32px;
+        animation: float 2s ease-in-out infinite alternate;
+        display: inline-block;
+        margin: 15px 5px 0;
+    }
+    @keyframes float {
+        from { transform: translateY(0); }
+        to   { transform: translateY(-8px); }
+    }
+
+    /* Alert / feedback */
+    .wizard-alert {
+        padding: 12px 16px;
+        border-radius: 12px;
+        margin-top: 16px;
+        font-size: 14px;
+        font-weight: 700;
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+    .wizard-alert.error   { background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026; }
+    .wizard-alert.success { background: #f0fdf4; color: #059669; border-left: 4px solid #10b981; }
+
+    /* Already done badges */
+    .already-done-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: #f0fdf4; color: #059669; border: 1px solid #bbf7d0;
+        border-radius: 50px; padding: 6px 14px; font-size: 13px; font-weight: 800;
+        margin-bottom: 16px;
+    }
+
+    /* Slide transition */
+    .wizard-step-panel {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .wizard-step-panel.hiding {
+        opacity: 0;
+        transform: translateX(-20px);
+        pointer-events: none;
+    }
+</style>
+
+<div class="wizard-overlay">
+    <div class="wizard-card" id="wizardCard">
+
+        <!-- Progress bar -->
+        <div class="wizard-progress">
+            <div class="wizard-progress-fill" id="progressFill" style="width: 33%"></div>
+        </div>
+
+        <!-- Header -->
+        <div class="wizard-header">
+            <div class="wizard-step-icon" id="stepIcon">📸</div>
+            <h1 class="wizard-title" id="wizardTitle">Complete Your Profile</h1>
+            <p class="wizard-subtitle" id="wizardSubtitle">Just two quick steps to unlock the full FYM experience.</p>
+            <div class="wizard-step-badges">
+                <div class="step-badge active" id="badge0"></div>
+                <div class="step-badge" id="badge1"></div>
+                <div class="step-badge" id="badge2"></div>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="wizard-body">
+
+            <!-- ── STEP 1: Profile Photo ─────────────────────────────── -->
+            <div id="step1" class="wizard-step-panel">
+
+                {% if has_image %}
+                <div style="text-align:center; margin-bottom: 16px;">
+                    <span class="already-done-badge">✅ Profile photo already uploaded</span>
+                </div>
+                {% endif %}
+
+                <div class="photo-upload-zone" id="uploadZone"
+                     ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="handleDrop(event)">
+                    <input type="file" id="photoInput" accept="image/*" onchange="handleFileSelect(event)">
+
+                    <div id="uploadPlaceholder">
+                        <span class="photo-upload-placeholder">📸</span>
+                        <span class="photo-upload-label">Tap to upload a photo</span>
+                        <p class="photo-upload-hint">JPG, PNG or WEBP · Max 5MB<br>Drag & drop works too!</p>
+                    </div>
+
+                    <div id="uploadPreviewWrapper" style="display:none;">
+                        <img id="photoPreview" class="photo-preview" src="" alt="Preview">
+                        <span class="photo-upload-label">✅ Looking great! Tap to change</span>
+                    </div>
+                </div>
+
+                <div class="wizard-alert error" id="step1Error"></div>
+
+                <button class="btn-wizard btn-wizard-primary" id="step1Btn" onclick="submitPhoto()">
+                    Save Photo & Continue →
+                </button>
+                {% if has_image %}
+                <button class="btn-wizard btn-wizard-skip" onclick="goToStep(2)">
+                    Keep existing photo, skip this step →
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- ── STEP 2: Phone Number ─────────────────────────────── -->
+            <div id="step2" class="wizard-step-panel" style="display:none;">
+
+                {% if has_phone %}
+                <div style="text-align:center; margin-bottom: 16px;">
+                    <span class="already-done-badge">✅ Phone number already saved</span>
+                </div>
+                {% endif %}
+
+                <div class="phone-input-group">
+                    <span class="phone-flag">🇰🇪</span>
+                    <span class="phone-prefix">+254</span>
+                    <input type="tel" class="phone-input" id="phoneInput"
+                           placeholder="712 345 678"
+                           maxlength="9"
+                           inputmode="numeric"
+                           pattern="[0-9]{9}"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>
+                <p class="phone-hint">Enter your 9-digit number after +254. Example: 712 345 678</p>
+
+                <div class="wizard-alert error" id="step2Error"></div>
+                <div class="wizard-alert success" id="step2Success"></div>
+
+                <button class="btn-wizard btn-wizard-primary" id="step2Btn" onclick="submitPhone()">
+                    Save Phone & Finish ✨
+                </button>
+                {% if has_phone %}
+                <button class="btn-wizard btn-wizard-skip" onclick="goToStep(3)">
+                    Keep existing number, skip this step →
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- ── STEP 3: All Done! ─────────────────────────────────── -->
+            <div id="step3" class="wizard-step-panel" style="display:none;">
+                <div class="success-animation">
+                    <div class="success-circle">✓</div>
+                    <h2 class="success-title">Profile Complete! 🎉</h2>
+                    <p class="success-subtitle">
+                        Your profile is now ready. You're all set to start swiping, matching,
+                        and connecting with amazing people on Find Your Match!
+                    </p>
+                    <div>
+                        <span class="confetti-emoji">🔥</span>
+                        <span class="confetti-emoji" style="animation-delay:.2s">💌</span>
+                        <span class="confetti-emoji" style="animation-delay:.4s">✨</span>
+                        <span class="confetti-emoji" style="animation-delay:.6s">❤️</span>
+                    </div>
+                </div>
+
+                <button class="btn-wizard btn-wizard-primary" id="step3Btn"
+                        onclick="window.location.href='/swipe'" style="margin-top:28px;">
+                    Start Swiping 🔥
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentStep = {{ 2 if has_image else 1 }};
+    let selectedFile = null;
+
+    const STEPS = {
+        1: {
+            icon: '📸',
+            title: 'Add a Profile Photo',
+            subtitle: 'A great photo helps you get 3× more matches. Show your best self!',
+            progress: 33,
+        },
+        2: {
+            icon: '📱',
+            title: 'Add Your Phone Number',
+            subtitle: 'Your matches can reach you directly. Your number stays private.',
+            progress: 66,
+        },
+        3: {
+            icon: '🎉',
+            title: "You're All Set!",
+            subtitle: 'Profile complete. Time to find your match!',
+            progress: 100,
+        }
+    };
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        goToStep(currentStep);
+    });
+
+    function goToStep(step) {
+        currentStep = step;
+        const s = STEPS[step];
+
+        // Update header
+        document.getElementById('stepIcon').textContent = s.icon;
+        document.getElementById('wizardTitle').textContent = s.title;
+        document.getElementById('wizardSubtitle').textContent = s.subtitle;
+        document.getElementById('progressFill').style.width = s.progress + '%';
+
+        // Update badges
+        for (let i = 0; i < 3; i++) {
+            const badge = document.getElementById('badge' + i);
+            badge.className = 'step-badge';
+            if (i + 1 < step) badge.classList.add('done');
+            else if (i + 1 === step) badge.classList.add('active');
+        }
+
+        // Show correct panel
+        ['step1','step2','step3'].forEach((id, idx) => {
+            const el = document.getElementById(id);
+            el.style.display = (idx + 1 === step) ? 'block' : 'none';
+        });
+    }
+
+    // ── Step 1: Photo Upload ──────────────────────────────────────────────────
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) previewFile(file);
+    }
+
+    function handleDrop(event) {
+        event.preventDefault();
+        document.getElementById('uploadZone').classList.remove('drag-over');
+        const file = event.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) previewFile(file);
+    }
+
+    function previewFile(file) {
+        if (file.size > 5 * 1024 * 1024) {
+            showAlert('step1Error', 'Photo must be smaller than 5MB.');
+            return;
+        }
+        selectedFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('photoPreview').src = e.target.result;
+            document.getElementById('uploadPlaceholder').style.display = 'none';
+            document.getElementById('uploadPreviewWrapper').style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function submitPhoto() {
+        if (!selectedFile) {
+            showAlert('step1Error', 'Please select a photo first.');
+            return;
+        }
+        const btn = document.getElementById('step1Btn');
+        setLoading(btn, true, 'Uploading... ⏳');
+
+        const formData = new FormData();
+        formData.append('photo', selectedFile);
+
+        try {
+            const res = await fetch('/api/profile/update-photo', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token() }}' },
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok && data.status === 'success') {
+                setLoading(btn, false, 'Save Photo & Continue →');
+                goToStep(2);
+            } else {
+                showAlert('step1Error', data.message || 'Upload failed. Please try again.');
+                setLoading(btn, false, 'Save Photo & Continue →');
+            }
+        } catch (e) {
+            showAlert('step1Error', 'Connection error. Please try again.');
+            setLoading(btn, false, 'Save Photo & Continue →');
+        }
+    }
+
+    // ── Step 2: Phone ─────────────────────────────────────────────────────────
+    async function submitPhone() {
+        const rawPhone = document.getElementById('phoneInput').value.trim();
+
+        if (!rawPhone || rawPhone.length !== 9 || !/^\d{9}$/.test(rawPhone)) {
+            showAlert('step2Error', 'Please enter a valid 9-digit Kenyan number (e.g. 712 345 678).');
+            return;
+        }
+
+        const fullPhone = '254' + rawPhone;
+        const btn = document.getElementById('step2Btn');
+        setLoading(btn, true, 'Saving... ⏳');
+
+        try {
+            const res = await fetch('/api/profile/update-phone', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ phone: fullPhone })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.status === 'success') {
+                showSuccess('step2Success', '✅ Phone number saved!');
+                setTimeout(() => goToStep(3), 800);
+            } else {
+                showAlert('step2Error', data.message || 'Could not save phone. Try again.');
+                setLoading(btn, false, 'Save Phone & Finish ✨');
+            }
+        } catch (e) {
+            showAlert('step2Error', 'Connection error. Please try again.');
+            setLoading(btn, false, 'Save Phone & Finish ✨');
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function setLoading(btn, loading, label) {
+        btn.disabled = loading;
+        btn.textContent = label;
+        btn.classList.toggle('loading', loading);
+    }
+
+    function showAlert(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = '⚠️ ' + msg;
+        el.style.display = 'block';
+    }
+
+    function showSuccess(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'wizard-alert success';
+        el.style.display = 'block';
+    }
+</script>
+{% endblock %}
