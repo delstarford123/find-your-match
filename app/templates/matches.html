@@ -558,30 +558,38 @@
             <p style="color: #666; font-size: 13px; margin-top: 5px;">Pick a vetted, secure location for your first meeting.</p>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 5px;">
-            <!-- Spot 1 -->
-            <div class="venue-card" onclick="sendDateSuggestion('MCU Cafeteria', 'Central campus, well-lit and secure.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
-                <div style="font-weight: 800; color: #720000; font-size: 16px;">🏢 MCU Cafeteria</div>
-                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Quick lunch or coffee between classes.</div>
-            </div>
+        <div id="date-step-1" style="display: flex; flex-direction: column; gap: 12px; max-height: 350px; overflow-y: auto; padding-right: 5px;">
+            {% if venues %}
+                {% for venue in venues %}
+                <div class="venue-card" onclick="selectVenueForDate('{{ venue.id }}', '{{ venue.business_name | escape }}')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
+                    <div style="font-weight: 800; color: #720000; font-size: 16px;">📍 {{ venue.business_name }}</div>
+                    <div style="font-size: 12px; color: #666; margin-top: 4px;">Location: {{ venue.location | default('Not specified') }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; color: #666; padding: 20px;">
+                    No verified partner venues available right now. Suggest your own spot!
+                </div>
+            {% endif %}
+        </div>
 
-            <!-- Spot 2 -->
-            <div class="venue-card" onclick="sendDateSuggestion('Lurambi Lounge', 'Popular, active, and student-friendly.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
-                <div style="font-weight: 800; color: #720000; font-size: 16px;">🍔 Lurambi Lounge</div>
-                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Relaxed evening vibes and snacks.</div>
+        <div id="date-step-2" style="display: none; flex-direction: column; gap: 15px;">
+            <p id="selected-venue-display" style="color:#720000; font-weight: 800; font-size:16px; margin:0; text-align:center; padding: 10px; background: #FEF2F4; border-radius: 10px;"></p>
+            <input type="hidden" id="selected-venue-id">
+            <input type="hidden" id="selected-venue-name">
+            
+            <div style="text-align: left;">
+                <label style="font-weight:bold; color:#333; font-size: 13px;">When?</label>
+                <input type="text" id="date-day-input" placeholder="e.g., Tomorrow, Friday evening" style="padding:12px; border-radius:10px; border:1px solid #ddd; width:100%; box-sizing:border-box; margin-top: 5px;">
             </div>
-
-            <!-- Spot 3 -->
-            <div class="venue-card" onclick="sendDateSuggestion('The Library Courtyard', 'Quiet, academic, and safe during the day.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
-                <div style="font-weight: 800; color: #720000; font-size: 16px;">📚 Library Courtyard</div>
-                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Study dates and meaningful talks.</div>
+            
+            <div style="text-align: left;">
+                <label style="font-weight:bold; color:#333; font-size: 13px;">Time</label>
+                <input type="time" id="date-time-input" style="padding:12px; border-radius:10px; border:1px solid #ddd; width:100%; box-sizing:border-box; margin-top: 5px;">
             </div>
-
-            <!-- Spot 4 -->
-            <div class="venue-card" onclick="sendDateSuggestion('Campus Gate Coffee', 'Vibrant, open, and easy to find.')" style="background: #f8f9fa; border: 1px solid #eee; padding: 15px; border-radius: 16px; cursor: pointer; transition: 0.2s;">
-                <div style="font-weight: 800; color: #720000; font-size: 16px;">☕ Campus Gate Coffee</div>
-                <div style="font-size: 12px; color: #666; margin-top: 4px;">Best for: Meeting for the first time.</div>
-            </div>
+            
+            <button onclick="submitDateProposal()" style="width: 100%; padding: 15px; border-radius: 30px; background: #E60026; color: white; border: none; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 5px; transition: 0.2s;">Send Invite 💌</button>
+            <button onclick="backToDateStep1()" style="width: 100%; padding: 10px; background: none; color: #666; border: none; cursor: pointer; font-weight: bold;">Back</button>
         </div>
 
         <button onclick="closeSuggestDateModal()" style="width: 100%; padding: 15px; border-radius: 30px; background: #f0f0f0; color: #333; border: none; font-weight: bold; font-size: 15px; cursor: pointer;">Close</button>
@@ -751,35 +759,64 @@
         document.getElementById('suggest-date-modal').style.display = 'none';
     }
 
-    function sendDateSuggestion(venueName, venueDesc) {
+    function selectVenueForDate(venueId, venueName) {
+        document.getElementById('date-step-1').style.display = 'none';
+        document.getElementById('date-step-2').style.display = 'flex';
+        document.getElementById('selected-venue-id').value = venueId;
+        document.getElementById('selected-venue-name').value = venueName;
+        document.getElementById('selected-venue-display').innerText = `📍 ${venueName}`;
+    }
+
+    function backToDateStep1() {
+        document.getElementById('date-step-2').style.display = 'none';
+        document.getElementById('date-step-1').style.display = 'flex';
+    }
+
+    function submitDateProposal() {
         if (activePartnerId === 'none') return;
 
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const text = `Hey! I'd love to meet up at ${venueName}. It's ${venueDesc} \n\nAre you free for a coffee date? ☕`;
-        
-        const tempId = Math.random().toString(36).substr(2, 9);
-        renderMyMessageInstantly(text, tempId, null);
-        
-        const payload = { 
-            type: 'text', 
-            receiver_id: activePartnerId,
-            text: text,
-            temp_id: tempId
+        const venueId = document.getElementById('selected-venue-id').value;
+        const venueName = document.getElementById('selected-venue-name').value;
+        const dayInput = document.getElementById('date-day-input').value.trim();
+        const timeInput = document.getElementById('date-time-input').value;
+
+        if (!dayInput || !timeInput) {
+            alert("Please specify both a day and a time for the date.");
+            return;
+        }
+
+        const payload = {
+            venue_id: venueId,
+            venue_name: venueName,
+            partner_id: activePartnerId,
+            day: dayInput,
+            time: timeInput
         };
-        
+
         const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-        fetch('/api/chat/send', {
-            method: 'POST', 
+        fetch('/api/propose_date', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
             },
             body: JSON.stringify(payload)
-        }).catch(e => console.error('Date suggestion send error:', e));
-        closeSuggestDateModal();
-        
-        // Optional: Show a toast
-        alert(`Sent a date suggestion for ${venueName}!`);
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Instantly render a placeholder or the actual message text on success
+                const text = `💌 **DATE INVITATION** 💌\n\nI'd love to take you to **${venueName}**!\n📅 **When:** ${dayInput} at ${timeInput}\nLet me know if you're down!`;
+                renderMyMessageInstantly(text, `invite_${Date.now()}`, null);
+                closeSuggestDateModal();
+            } else {
+                alert(data.message || 'Failed to send date suggestion.');
+            }
+        })
+        .catch(e => {
+            console.error('Date suggestion send error:', e);
+            alert('Something went wrong sending the suggestion.');
+        });
     }
 
     // ==========================================

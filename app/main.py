@@ -1754,6 +1754,14 @@ def matches(partner_id=None):
                     current_blur = MAX_BLUR_PX - (MAX_BLUR_PX * (message_count / MESSAGES_TO_REVEAL))
                     messages_left = MESSAGES_TO_REVEAL - message_count
 
+    # Fetch real active venues from merchants
+    all_restaurants = get_all_restaurants()
+    active_venues = []
+    if all_restaurants:
+        for rid, rdata in all_restaurants.items():
+            if rdata.get('subscription_active') or rdata.get('merchant_fee', 0) == 0:
+                active_venues.append({'id': rid, **rdata})
+
     return render_template('matches.html', 
                            current_user=session.get('user_name'),
                            my_matches=my_matches,
@@ -1761,7 +1769,8 @@ def matches(partner_id=None):
                            chat_history=history, # Now correctly passes a dictionary
                            is_blind_date=is_blind_date,           # Pass flag to UI
                            current_blur=round(current_blur, 1),   # Pass pixel blur to UI
-                           messages_left=messages_left)           # Pass progress to UI    
+                           messages_left=messages_left,           # Pass progress to UI
+                           venues=active_venues)                  # Pass real venues to UI    
         
         
 @app.context_processor
