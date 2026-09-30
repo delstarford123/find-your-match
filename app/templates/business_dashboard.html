@@ -176,7 +176,7 @@
             <p>Your subscription has expired or your profile is hidden. To view live student bookings and analytics, please activate your account.</p>
             
             <div style="background: rgba(15,23,42,0.6); padding: 25px; border-radius: 20px; margin-bottom: 25px; border: 1px solid var(--b2b-border); text-align: left;">
-                <label style="display: block; font-size: 10px; font-weight: 900; color: var(--b2b-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">M-Pesa Activation (2,000 KSH / Year)</label>
+                <label style="display: block; font-size: 10px; font-weight: 900; color: var(--b2b-muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;">M-Pesa Activation ({{ '{:,.0f}'.format(merchant_fee|int if merchant_fee is defined else 2000) }} KSH / Year)</label>
                 <div style="display: flex; gap: 8px; flex-direction: column;">
                     <input type="tel" id="mpesa-phone-lock" value="254" placeholder="2547XXXXXXXX" class="input-mpesa-phone">
                     <button onclick="triggerMpesaPortal('gold', 'mpesa-phone-lock', 'btn-pay-lock', 'mpesa-status-lock')" id="btn-pay-lock" class="btn-mpesa-checkout" style="padding: 15px; font-size: 16px;">ACTIVATE PORTAL</button>

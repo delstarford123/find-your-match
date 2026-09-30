@@ -2241,6 +2241,25 @@ def business_dashboard():
     restaurant.setdefault('subscription_package', 'gold')
     restaurant.setdefault('average_spend', 1500)
 
+    # ---------------------------------------------------------
+    # ⚡ NEW: DYNAMIC FEE CHECK & AUTO-UNLOCK
+    # ---------------------------------------------------------
+    sys_settings = db.reference('system_settings').get() or {}
+    merchant_fee = sys_settings.get('merchant_fee', 0)
+    is_free = int(merchant_fee) == 0
+
+    if is_free and not restaurant.get('subscription_active'):
+        # Auto-unlock legacy accounts if the fee is 0
+        from datetime import datetime, timedelta
+        expiry = (datetime.now(EAT) + timedelta(days=365)).isoformat()
+        db.reference(f'restaurants/{restaurant_id}').update({
+            'subscription_active': True,
+            'subscription_package': 'gold',
+            'subscription_expiry': expiry
+        })
+        restaurant['subscription_active'] = True
+        restaurant['subscription_expiry'] = expiry
+
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')
     approved_count = sum(1 for b in bookings if b.get('status') == 'Approved')
 
@@ -2371,6 +2390,7 @@ def business_dashboard():
                            analytics=analytics,
                            flash_perks=flash_perks,
                            faculty_stats=faculty_stats,
+                           merchant_fee=merchant_fee,
                            gender_stats=gender_stats)
                            
 @app.route('/business/booking/<booking_id>/<action>', methods=['POST'])
