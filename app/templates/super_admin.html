@@ -2519,6 +2519,23 @@ function toggleAmbassador(id) {
             });
         }
 
+        function setMerchantFee() {
+            const newFee = document.getElementById('merchant-fee-input').value;
+            if (newFee === '') return;
+            
+            fetch('/api/admin/action', {
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'set_merchant_fee', fee: newFee })
+            }).then(res => res.json()).then(data => {
+                if(data.success) { 
+                    showToast(data.message); 
+                } else {
+                    showToast("Failed to update merchant fee.", "error");
+                }
+            });
+        }
+
         function manualActivateSub() {
             const uid = document.getElementById('manual-sub-uid').value;
             const receipt = document.getElementById('manual-sub-receipt').value;

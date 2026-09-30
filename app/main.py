@@ -2636,6 +2636,7 @@ def super_admin():
         promo_active = system_settings.get('new_user_promo', False)
         force_party = system_settings.get('force_party', False)
         maintenance_mode = system_settings.get('maintenance_mode', False)
+        merchant_fee = system_settings.get('merchant_fee', 0)
 
         # ------------------------------------------
         # 0. REPORTS QUEUE
@@ -3065,6 +3066,7 @@ def super_admin():
                                recent_transactions=recent_transactions,
                                manual_overrides=manual_overrides,
                                maintenance_mode=maintenance_mode,
+                               merchant_fee=merchant_fee,
                                leaderboard=global_leaderboard,
                                max_paid=max_paid,
                                min_paid=min_paid,
