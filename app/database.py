@@ -20,11 +20,19 @@ def initialize_firebase():
     """Initializes the Firebase Admin SDK safely (Singleton pattern)."""
     if not firebase_admin._apps:
         try:
-            if not os.path.exists(CREDENTIALS_PATH):
-                logger.error(f"Missing Firebase Key file at: {CREDENTIALS_PATH}")
+            import json
+            cred_json = os.getenv("FIREBASE_CREDENTIALS")
+            if cred_json:
+                # Load from environment variable (Vercel)
+                cred_dict = json.loads(cred_json)
+                cred = credentials.Certificate(cred_dict)
+            elif os.path.exists(CREDENTIALS_PATH):
+                # Load from local file
+                cred = credentials.Certificate(CREDENTIALS_PATH)
+            else:
+                logger.error(f"Missing Firebase credentials. Neither FIREBASE_CREDENTIALS env var nor {CREDENTIALS_PATH} found.")
                 return
                 
-            cred = credentials.Certificate(CREDENTIALS_PATH)
             firebase_admin.initialize_app(cred, {
                 'databaseURL': DATABASE_URL,
                 'storageBucket': os.getenv("FIREBASE_STORAGE_BUCKET", "mmust-dating-site.firebasestorage.app")
