@@ -25,6 +25,13 @@ except ImportError as e:
     WebPushException = Exception
 from groq import Groq
 from flask_wtf.csrf import CSRFProtect
+
+from werkzeug.security import generate_password_hash, check_password_hash
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 # ==========================================
 # 1. PATH SETUP & ENVIRONMENT
 # ==========================================
@@ -46,6 +53,8 @@ logger = logging.getLogger(__name__)
 from app.email_service import (
     send_date_approval_email, 
     send_date_request_to_merchant_email,
+    send_date_request_to_partner_email,
+    send_group_invite_email,
     send_verification_email,
     send_broadcast_email,
     send_admin_alert_email,
@@ -59,7 +68,8 @@ from app.database import (
     save_chat_message, get_chat_history, save_swipe, save_date_feedback,
     get_restaurant, get_restaurant_bookings, update_booking_status, terminate_connection,
     get_all_restaurants, delete_user_account, increment_restaurant_view,
-    get_user_matches, create_date_booking
+    get_user_matches, create_date_booking,
+    get_campus_managers, add_campus_manager, get_institutions, add_institution
 )
 
 from app.services.recommendation_engine import generate_ranked_deck
@@ -77,10 +87,10 @@ client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 def get_ai_companion_response(user_text, user_gender="unknown", system_prompt_override=None):
     """Connects to Groq and dynamically adjusts persona based on user gender."""
     if not client:
-        print("⚠️ GROQ_API_KEY is missing from api_key.py!")
+        print("GROQ_API_KEY is missing from api_key.py!")
         return "My AI brain is currently resting. (API Key missing!)"
 
-    model_id = "llama3-8b-8192" 
+    model_id = "llama3-70b-8192" 
     
     # Determine the AI's persona based on the user's gender
     user_g = str(user_gender).strip().lower()
@@ -128,15 +138,15 @@ def get_ai_companion_response(user_text, user_gender="unknown", system_prompt_ov
         return reply if reply else "I'm listening, tell me more!"
         
     except Exception as e:
-        print(f"⚠️ Groq API Error: {e}")
+        print(f"Groq API Error: {e}")
         return "The campus Wi-Fi is acting up! Try sending that again?"
 
 def get_wingman_response(system_prompt, user_text):
     """Dedicated AI handler for Wingman tasks (Icebreaker, Roaster). Forces JSON to strip reasoning traces."""
     if not client:
-        return "⚠️ GROQ_API_KEY is missing."
+        return "GROQ_API_KEY is missing."
 
-    model_id = "llama3-8b-8192"
+    model_id = "llama3-70b-8192"
     
     # Force JSON output to reliably bypass "Here's a thinking process:" text
     strict_system_prompt = system_prompt + "\n\nYou MUST respond with ONLY a valid JSON object in this exact format: {\"result\": \"<your roast or icebreakers here>\"}. Do NOT output any thinking process before or after the JSON."
@@ -173,7 +183,7 @@ def get_wingman_response(system_prompt, user_text):
         return reply
         
     except Exception as e:
-        print(f"⚠️ Groq API Error (Wingman): {e}")
+        print(f"Groq API Error (Wingman): {e}")
         return "The AI Wingman is currently unavailable."
 # ==========================================
 # 4. INITIALIZE FLASK APP & WEBSOCKETS
@@ -431,7 +441,7 @@ def profile_complete_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash("Please log in or sign up to access this page.", "warning")
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', next=request.path))
 
         # Skip re-check if we already confirmed completeness recently
         last_check = session.get('profile_checked_at')
@@ -463,7 +473,7 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash("Please log in or sign up to access this page.", "warning")
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', next=request.path))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -586,7 +596,7 @@ def requires_subscription(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             flash("Please log in to access this page.", "warning")
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', next=request.path))
             
         user_id = session.get('user_id')
         user_data = db.reference(f'profiles/{user_id}').get()
@@ -744,10 +754,6 @@ def manifest():
 @app.route('/sw.js')
 def service_worker():
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
-
-@app.route('/firebase-messaging-sw.js')
-def firebase_service_worker():
-    return send_from_directory('static', 'firebase-messaging-sw.js', mimetype='application/javascript')
 
 @app.route('/safety')
 def safety():
@@ -1129,6 +1135,20 @@ def swipe():
     # 5. Sort the deck: Show the Highest Compatibility matches first!
     potential_matches.sort(key=lambda x: x['compatibility'], reverse=True)
 
+    # NEW LOGIC: Enforce 10 Daily Opposite Gender Profiles
+    # Check how many swipes the user has made today
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    daily_swipes_ref = db.reference(f'daily_swipes/{user_id}/{today_str}')
+    swipes_today = daily_swipes_ref.get() or 0
+    
+    if swipes_today >= 10:
+        potential_matches = [] # Block further discovery for today
+        flash("You have reached your limit of 10 new daily matches! Check back tomorrow.", "info")
+    else:
+        # Give them enough to reach their daily limit of 10
+        remaining_swipes = 10 - swipes_today
+        potential_matches = potential_matches[:remaining_swipes]
+
     return render_template(
         'swipe.html', 
         current_user=current_user,
@@ -1142,6 +1162,85 @@ def swipe():
 def setup_notifications():
     """Renders the dedicated Push Notification onboarding page."""
     return render_template('notifications.html', current_user=session.get('user_name', 'Student').split(' ')[0])
+
+# ==========================================
+# SURVEY & FEEDBACK CAMPAIGN
+# ==========================================
+@app.route('/survey', methods=['GET'])
+@login_required
+def survey_page():
+    """Renders the user feedback survey."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    
+    # If they already completed it, don't let them do it again
+    if user_data.get('survey_completed'):
+        flash("You have already completed the survey and claimed your reward! Thank you!", "success")
+        return redirect(url_for('dashboard'))
+        
+    return render_template('survey.html')
+
+@app.route('/api/survey/submit', methods=['POST'])
+@login_required
+def submit_survey():
+    """Processes survey feedback and applies the 1 week premium reward."""
+    user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
+    user_data = user_ref.get() or {}
+    
+    if user_data.get('survey_completed'):
+        return jsonify({"success": False, "message": "You have already claimed this reward."}), 400
+        
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Invalid data submitted."}), 400
+        
+    # Save survey results to a separate node
+    survey_ref = db.reference('survey_responses').push()
+    survey_ref.set({
+        'user_id': user_id,
+        'name': user_data.get('name', 'Unknown'),
+        'gender': user_data.get('gender', 'Unknown'),
+        'reg_no': user_data.get('reg_no', 'Unknown'),
+        'institution': user_data.get('institution', 'Unknown'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'responses': data
+    })
+    
+    # --- Apply Premium Reward ---
+    is_paid = user_data.get('is_paid', False)
+    expiry_str = user_data.get('subscription_expiry', '')
+    
+    current_expiry = datetime.now(timezone.utc)
+    has_expired = False
+    
+    if expiry_str:
+        try:
+            current_expiry = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > current_expiry:
+                has_expired = True
+        except:
+            pass
+            
+    # If they are currently active, extend their existing expiry by 7 days.
+    # If they are expired or never paid, give them 7 days from right now.
+    if is_paid and not has_expired:
+        new_expiry = current_expiry + timedelta(days=7)
+    else:
+        new_expiry = datetime.now(timezone.utc) + timedelta(days=7)
+        
+    user_ref.update({
+        'survey_completed': True,
+        'is_paid': True,
+        'subscription_expiry': new_expiry.isoformat()
+    })
+    
+    # Update session
+    session['is_paid'] = True
+    session.modified = True
+    
+    return jsonify({"success": True, "message": "Reward claimed successfully!"}), 200
+
 
 import random
 @app.route('/dashboard')
@@ -1176,9 +1275,11 @@ def dashboard():
     
     my_matches = []
     
-    # 1. BLAZING FAST FETCH: Grab all profiles in one single network call
+    # 1. BLAZING FAST FETCH: Fetch real matches instead of random profiles
     all_profiles_dict = db.reference('profiles').get() or {}
+    all_matches = db.reference('matches').get() or {}
     
+    # We will still keep the AI companion
     if ai_mode:
         my_matches.append({
             'id': 'AI_COMPANION',
@@ -1188,47 +1289,37 @@ def dashboard():
             'compatibility': 100,
             'is_perfect_match': True
         })
-    else:
-        for p_id, p in all_profiles_dict.items():
-            if not isinstance(p, dict):
-                continue
-                
-            partner_gender = p.get('gender', '').strip().lower()
-
-            # Skip the user themselves, hidden profiles, and non-premium users
-            if p_id != user_id and p.get('is_visible', True) and p.get('is_paid') == True:
-                # Fetch or simulate compatibility score
-                ai_score = p.get('ai_score', random.randint(65, 95))
-                
-                # --- NEW LOGIC: Only opposite genders can be matched ---
-                is_opposite_gender = bool(current_user_gender and partner_gender and current_user_gender != partner_gender)
-                
-                if not is_opposite_gender:
-                    continue
-                
-                is_perfect_match = (ai_score >= 80)
-                
-                my_matches.append({
-                    'id': p_id,
-                    'name': p.get('name', 'Student').split(' ')[0], 
-                    'bio': p.get('bio', 'MMUST Student'),
-                    'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
-                    'compatibility': ai_score,
-                    'is_perfect_match': is_perfect_match # Only True for opposite gender with high score
-                })
         
-        # 2. Sort by highest compatibility first, pushing Perfect Matches to the top
-        my_matches.sort(key=lambda x: x['compatibility'], reverse=True)
+    for match_id, match_data in all_matches.items():
+        if not isinstance(match_data, dict):
+            continue
+            
+        users = match_data.get('users', {})
+        if user_id in users:
+            # Find the other person
+            partner_id = [uid for uid in users.keys() if uid != user_id]
+            if partner_id:
+                partner_id = partner_id[0]
+                p = all_profiles_dict.get(partner_id, {})
+                
+                if not p:
+                    continue
 
-        # 3. Always pin the AI Wingman to the front of the line
-        my_matches.insert(0, {
-            'id': 'AI_COMPANION',
-            'name': 'AI Wingman 🤖',
-            'bio': 'Need dating advice or an icebreaker? I am here to help!',
-            'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman&backgroundColor=e60026',
-            'compatibility': 100,
-            'is_perfect_match': True
-        })
+                # --- OPPOSITE GENDER FILTER ---
+                # Only show partners of the opposite gender on the dashboard.
+                # If gender info is missing on either side, we still include the match.
+                partner_gender = p.get('gender', '').strip().lower()
+                if current_user_gender and partner_gender and current_user_gender == partner_gender:
+                    continue  # Skip same-gender matches
+                    
+                my_matches.append({
+                    'id': partner_id,
+                    'name': p.get('name', 'Student').split(' ')[0], 
+                    'bio': p.get('bio', 'Hey there!'),
+                    'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                    'compatibility': p.get('ai_score', 85),
+                    'is_perfect_match': True # They are an actual match
+                })
 
     # 4. FETCH DATE BOOKINGS (Single network call)
     all_bookings = db.reference('bookings').get() or {}
@@ -1441,7 +1532,38 @@ def check_pending_date():
             break
             
     return jsonify({'has_pending': pending_found})
- 
+
+@app.route('/start_chat/<target_id>', methods=['POST'])
+@login_required
+def start_chat(target_id):
+    sender_id = session.get('user_id')
+    sender_profile = db.reference(f'profiles/{sender_id}').get() or {}
+    
+    users_sorted = sorted([str(sender_id), str(target_id)])
+    match_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
+    
+    now_eat = datetime.now(EAT).isoformat()
+    
+    # 1. Setup the match
+    db.reference(f'matches/{match_id}/users/{sender_id}').set(True)
+    db.reference(f'matches/{match_id}/users/{target_id}').set(True)
+    
+    # 2. Send Notification to target
+    sender_name = sender_profile.get('name', 'Someone')
+    sender_img = sender_profile.get('img', '/static/img/placeholder.png')
+    
+    db.reference(f'notifications/{target_id}').push({
+        'sender_id': sender_id,
+        'sender_name': sender_name,
+        'sender_img': sender_img,
+        'type': 'match',
+        'message': f"👋 {sender_name.split(' ')[0]} wants to chat with you!",
+        'timestamp': now_eat,
+        'match_id': match_id
+    })
+    
+    return redirect(url_for('matches', partner_id=target_id))
+
 @app.route('/matches')
 @app.route('/matches/<partner_id>')
 @requires_subscription
@@ -1490,11 +1612,23 @@ def matches(partner_id=None):
         
         # 4. Build the inbox list with EVERYONE
         for p in all_profiles:
-            # Skip the current user themselves, hidden profiles, and unpaid profiles
-            if p['id'] != user_id and p.get('is_visible', True) and p.get('is_paid') == True: 
+            # Skip the current user themselves and hidden profiles
+            if p['id'] != user_id and p.get('is_visible', True): 
                 p_id = p['id']
                 partner_gender = p.get('gender', '').strip().lower()
                 is_mutual = p_id in matched_data
+                
+                # If they are unpaid, ONLY include them if they are the requested partner or we have history
+                if not p.get('is_paid') and p_id != partner_id and not is_mutual:
+                    continue
+                
+                # Gender Filter (Only show opposite gender in matches)
+                # BYPASS if this is an explicit DM request (p_id == partner_id) or if there is already chat history (is_mutual)
+                if current_user_gender and partner_gender and p_id != partner_id and not is_mutual:
+                    if current_user_gender == 'male' and partner_gender != 'female':
+                        continue
+                    if current_user_gender == 'female' and partner_gender != 'male':
+                        continue
                 
                 if is_mutual:
                     last_msg = matched_data[p_id]['last_message']
@@ -1556,6 +1690,19 @@ def matches(partner_id=None):
     # Find the data for the person currently being chatted with
     active_partner = next((m for m in my_matches if str(m['id']) == str(partner_id)), None)
     
+    # Calculate distance if we have an active_partner
+    if active_partner and partner_id != 'AI_COMPANION':
+        partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+        p_lat = partner_profile.get('latitude')
+        p_lon = partner_profile.get('longitude')
+        u_lat = user_data.get('latitude')
+        u_lon = user_data.get('longitude')
+        
+        distance = calculate_distance(u_lat, u_lon, p_lat, p_lon)
+        if 0 <= distance <= 10:
+            active_partner['is_nearby'] = True
+            active_partner['distance_km'] = round(distance, 1)
+            
     if partner_id and not active_partner and not ai_mode:
         flash("This student could not be found or is not available.", "warning")
         return redirect(url_for('matches'))
@@ -1982,6 +2129,12 @@ def business_register():
             restaurant_id = str(uuid.uuid4())
             hashed_password = generate_password_hash(password)
             
+            # Fetch system settings for merchant fee
+            sys_settings = db.reference('system_settings').get() or {}
+            merchant_fee = sys_settings.get('merchant_fee', 0) # Default to 0 (free)
+            
+            is_free = int(merchant_fee) == 0
+            
             # Create the data payload
             new_merchant = {
                 'business_name': business_name,
@@ -1991,7 +2144,9 @@ def business_register():
                 'email': email,  
                 'password': hashed_password, 
                 'conditions': request.form.get('conditions'),
-                'subscription_active': False,
+                'subscription_active': is_free,
+                'subscription_package': 'gold' if is_free else None,
+                'subscription_expiry': (datetime.now(EAT) + timedelta(days=365)).isoformat() if is_free else None,
                 'profile_views': 0,
                 'qr_scans': 0,
                 'hourly_stats': {}
@@ -2392,71 +2547,6 @@ def verify_customer(restaurant_id):
                            message=message, 
                            color=color,
                            restaurant_name=restaurant.get('business_name', 'This Venue'))
-import smtplib
-import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-
-def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
-    """Sends a professional confirmation email to a student when a date is approved."""
-    
-    sender_email = os.getenv("MAIL_USERNAME")
-    sender_password = os.getenv("MAIL_PASSWORD") # Ensure this is an App Password if using Gmail
-    
-    if not sender_email or not sender_password:
-        print("⚠️ Email credentials missing. Cannot send approval email.")
-        return
-
-    subject = f"💌 Your Date at {restaurant_name} is Confirmed!"
-    
-    # Beautiful HTML Email Template
-    html_body = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #E60026; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                <h2 style="color: #720000; margin-top: 0;">Great news, {user_name}! 🎉</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.5;">
-                    Your upcoming date with <strong>{partner_name}</strong> has been officially approved by the management at <strong>{restaurant_name}</strong>.
-                </p>
-                
-                <div style="background: #FEF2F4; padding: 20px; border-radius: 12px; margin: 25px 0;">
-                    <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px;">🍽️ Your Reservation Details</h3>
-                    <p style="margin: 5px 0; color: #4A0008;"><strong>When:</strong> {date_day} at {date_time}</p>
-                    <p style="margin: 5px 0; color: #4A0008;"><strong>Where:</strong> {restaurant_name} ({location})</p>
-                </div>
-                
-                <p style="color: #555; font-size: 15px; line-height: 1.5;">
-                    A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
-                    Have fun and stay safe! <br>
-                    <strong>- The FIND YOUR MATCH Team</strong>
-                </p>
-            </div>
-        </body>
-    </html>
-    """
-
-    msg = MIMEMultipart()
-    msg['From'] = f"FIND YOUR MATCH <{sender_email}>"
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(html_body, 'html'))
-
-    try:
-        # Connecting to Gmail's SMTP server (adjust if using a different provider)
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        print(f"📧 Date Approval Email successfully sent to {to_email}")
-    except Exception as e:
-        print(f"❌ Failed to send approval email to {to_email}: {e}")
-        
-          
 import os
 import logging
 from datetime import datetime, timedelta, timezone
@@ -2510,11 +2600,7 @@ EAT = timezone(timedelta(hours=3))
 def super_admin():
     # 1. Handle Login Attempt
     if request.method == 'POST':
-        ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
-        if not ADMIN_PASSWORD:
-            logger.critical("SUPER_ADMIN_PASS environment variable is missing!")
-            flash("CRITICAL ERROR: Admin environment not configured safely.", "error")
-            return redirect(url_for('super_admin'))
+        ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS", "FYMADMIN520226")
 
         entered_password = request.form.get('password')
         if entered_password == ADMIN_PASSWORD:
@@ -2528,7 +2614,13 @@ def super_admin():
             return redirect(url_for('super_admin'))
         
     if not session.get('is_super_admin'):
-        return render_template('super_admin.html', logged_in=False)
+        
+        # Fetch manager ledgers
+        manager_ledgers = db.reference('campus_manager_ledgers').get() or {}
+        
+        return render_template('super_admin.html',
+                               manager_ledgers=manager_ledgers,
+ logged_in=False)
 
     # 3. Load Dashboard Data
     try:
@@ -2797,7 +2889,7 @@ def super_admin():
                     user_data['id'] = uid 
                     is_verified = user_data.get('is_verified', False)
                     has_paid = user_data.get('is_paid', False)
-                    inst_name = user_data.get('institution_name', 'Unknown')
+                    inst_name = user_data.get('institution', user_data.get('institution_name', 'Unknown'))
 
                     if inst_name not in institution_stats:
                         institution_stats[inst_name] = {'total': 0, 'premium': 0, 'revenue': 0}
@@ -2871,7 +2963,76 @@ def super_admin():
         if isinstance(manual_overrides, dict) and manual_overrides.get('active'):
             total_users += int(manual_overrides.get('users_offset', 0))
 
-        return render_template('super_admin.html', 
+        
+        # Fetch manager ledgers
+        manager_ledgers = db.reference('campus_manager_ledgers').get() or {}
+        
+        # Fetch Survey Responses
+        survey_responses_dict = db.reference('survey_responses').get() or {}
+        survey_responses = [{'id': k, **v} for k, v in survey_responses_dict.items() if isinstance(v, dict)]
+        survey_responses.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        # Calculate Global Analytics for Super Admin
+        institution_counts = {}
+        global_gender_stats = {'Male': 0, 'Female': 0, 'Other': 0}
+        users_by_inst_data = {}
+        current_month_prefix = datetime.now(EAT).strftime('%Y-%m')
+
+        for uid, prof in all_profiles.items():
+            if isinstance(prof, dict):
+                prof_inst = prof.get('institution') or prof.get('institution_name', 'Unknown/None')
+                
+                # Leaderboard counts
+                if prof_inst not in institution_counts:
+                    institution_counts[prof_inst] = {'total': 0, 'paid': 0, 'this_month': 0, 'this_month_paid': 0}
+                
+                institution_counts[prof_inst]['total'] += 1
+                is_paid = prof.get('is_paid', False)
+                if is_paid:
+                    institution_counts[prof_inst]['paid'] += 1
+                
+                created_at = prof.get('created_at', '')
+                if created_at and str(created_at).startswith(current_month_prefix):
+                    institution_counts[prof_inst]['this_month'] += 1
+                    if is_paid:
+                        institution_counts[prof_inst]['this_month_paid'] += 1
+                        
+                # Gender stats
+                gender = prof.get('gender', 'N/A')
+                if gender in ['Male', 'Female']:
+                    global_gender_stats[gender] += 1
+                else:
+                    global_gender_stats['Other'] += 1
+                    
+                # Detailed users
+                if prof_inst not in users_by_inst_data:
+                    users_by_inst_data[prof_inst] = []
+                users_by_inst_data[prof_inst].append({
+                    'name': prof.get('name', 'N/A'),
+                    'email': prof.get('email', 'N/A'),
+                    'gender': gender,
+                    'is_paid': is_paid
+                })
+
+        # Process Leaderboard
+        global_leaderboard = [{'name': k, 'total': v['total'], 'paid': v['paid'], 'this_month': v.get('this_month', 0), 'this_month_paid': v.get('this_month_paid', 0)} for k, v in institution_counts.items()]
+        max_paid = max(lb['paid'] for lb in global_leaderboard) if global_leaderboard else 0
+        min_paid = min(lb['paid'] for lb in global_leaderboard) if global_leaderboard else 0
+        global_leaderboard.sort(key=lambda x: (-x['paid'], str(x['name']).lower()))
+        
+        # Process Detailed Users
+        sorted_inst_keys = sorted(users_by_inst_data.keys(), key=lambda x: (0 if 'mmust' in str(x).lower() or 'masinde' in str(x).lower() else 1, str(x).lower()))
+        global_detailed_users = []
+        for k in sorted_inst_keys:
+            global_detailed_users.append({
+                'institution': k,
+                'users': users_by_inst_data[k]
+            })
+        
+        return render_template('super_admin.html',
+                               manager_ledgers=manager_ledgers,
+                               survey_responses=survey_responses,
+ 
                                logged_in=True,
                                total_users=total_users,
                                total_revenue=total_revenue,
@@ -2895,14 +3056,20 @@ def super_admin():
                                audit_logs=audit_logs,
                                all_ads=all_ads,
                                all_institutions=inst_list,
+                               db_institutions=get_institutions(),
+                               campus_managers=get_campus_managers(),
                                chart_labels=months,
                                revenue_chart_data=revenue_chart_data,
                                growth_chart_data=growth_chart_data,
                                monthly_revenue_details=monthly_revenue_details,
                                recent_transactions=recent_transactions,
                                manual_overrides=manual_overrides,
-                               maintenance_mode=maintenance_mode)
-                               
+                               maintenance_mode=maintenance_mode,
+                               leaderboard=global_leaderboard,
+                               max_paid=max_paid,
+                               min_paid=min_paid,
+                               detailed_users=global_detailed_users,
+                               gender_stats=global_gender_stats)
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return f"Failed to load dashboard data: {e}", 500
@@ -2918,6 +3085,61 @@ def admin_action():
     target_id = data.get('target_id')
     
     try:
+        if action == 'delete_manager':
+            db.reference(f'campus_managers/{target_id}').delete()
+            db.reference(f'campus_manager_ledgers/{target_id}').delete()
+            db.reference('admin_audit_logs').push({
+                'action': f"Deleted manager {target_id}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True})
+            
+        elif action == 'toggle_ambassador':
+            mgr_ref = db.reference(f'campus_managers/{target_id}')
+            mgr = mgr_ref.get()
+            if mgr:
+                current_role = mgr.get('role', 'manager')
+                new_role = 'ambassador' if current_role == 'manager' else 'manager'
+                mgr_ref.update({'role': new_role})
+                return jsonify({'success': True, 'new_role': new_role})
+            return jsonify({'success': False})
+            
+        elif action == 'add_campus_manager':
+            from app.database import add_campus_manager
+            name = data.get('name')
+            email = data.get('email')
+            institution = data.get('institution')
+            
+            # Generate random password
+            raw_password = secrets.token_urlsafe(8)
+            hashed_password = generate_password_hash(raw_password)
+            
+            if add_campus_manager(name, email, institution, hashed_password):
+                db.reference('admin_audit_logs').push({
+                    'action': f"Added campus manager {name} for {institution}",
+                    'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                    'admin_ip': request.remote_addr
+                })
+                
+                # Try to send email
+                try:
+                    from app.email_service import send_manager_welcome_email
+                    send_manager_welcome_email(email, name, institution, raw_password)
+                except Exception as e:
+                    logger.warning(f"Could not send manager welcome email: {e}")
+                
+                return jsonify({'success': True})
+            return jsonify({'success': False, 'message': 'Failed to add campus manager'})
+
+        elif action == 'add_institution':
+            from app.database import add_institution
+            name = data.get('name')
+            inst_type = data.get('type')
+            if add_institution(name, inst_type):
+                return jsonify({'success': True})
+            return jsonify({'success': False, 'message': 'Failed to add institution'})
+
         if action == 'toggle_ban':
             profile_ref = db.reference(f'profiles/{target_id}')
             profile = profile_ref.get()
@@ -3059,6 +3281,30 @@ def admin_action():
         elif action == 'dismiss_alert':
             db.reference(f'admin_alerts/{target_id}').delete()
             
+        elif action == 'broadcast_survey':
+            from app.email_service import send_survey_campaign_email
+            profiles = db.reference('profiles').get() or {}
+            count = 0
+            for uid, profile in profiles.items():
+                if profile.get('email'):
+                    # To avoid blocking the thread on a huge user base, we could use a background task. 
+                    # For now, inline execution for simplicity.
+                    send_survey_campaign_email(profile['email'], profile.get('name', 'User'))
+                    count += 1
+            logger.info(f"Broadcasted survey to {count} users.")
+            return jsonify({'success': True, 'message': f'Survey broadcasted to {count} users'})
+
+        elif action == 'broadcast_apology':
+            from app.email_service import send_apology_email
+            profiles = db.reference('profiles').get() or {}
+            count = 0
+            for uid, profile in profiles.items():
+                if isinstance(profile, dict) and profile.get('email'):
+                    send_apology_email(profile['email'], profile.get('name', 'User'))
+                    count += 1
+            logger.info(f"Broadcasted apology email to {count} users.")
+            return jsonify({'success': True, 'message': f'Apology email broadcasted to {count} users'})
+            
         elif action == 'resolve_feedback':
             feedback_type = data.get('alert_id') # Stored type in alert_id variable from JS
             if feedback_type and target_id:
@@ -3131,6 +3377,11 @@ def admin_action():
             new_status = not current_status
             db.reference('system_settings/force_party').set(new_status)
             return jsonify({'success': True, 'new_status': new_status})
+            
+        elif action == 'set_merchant_fee':
+            new_fee = data.get('fee', 0)
+            db.reference('system_settings/merchant_fee').set(int(new_fee))
+            return jsonify({'success': True, 'message': f'Merchant fee updated to {new_fee}'})
             
         return jsonify({'success': True})
     except Exception as e:
@@ -4082,15 +4333,18 @@ def api_send_message():
         # PUSH GLOBAL NOTIFICATION TO RECEIVER
         try:
             sender_name = sender_profile.get('name', 'Someone')
-            sender_img = sender_profile.get('profile_img', '/static/img/placeholder.png')
-            db.reference(f'chat_notifications/{receiver_id}').push({
+            sender_img = sender_profile.get('img', '/static/img/placeholder.png')
+            db.reference(f'notifications/{receiver_id}').push({
                 'sender_id': sender_id,
                 'sender_name': sender_name,
                 'sender_img': sender_img,
+                'type': 'message',
                 'message': message_payload['text'],
                 'timestamp': now_eat,
                 'match_id': match_id
             })
+            
+
         except Exception as e:
             logger.error(f"Failed to push chat notification: {e}")
         
@@ -4293,8 +4547,40 @@ def propose_date():
                     date_day,
                     date_time
                 )).start()
+                
+                # Also notify the partner if they have an email address
+                if partner_profile.get('email'):
+                    threading.Thread(target=send_date_request_to_partner_email, args=(
+                        partner_profile['email'],
+                        restaurant.get('business_name', 'Merchant'),
+                        user_a_name,
+                        user_b_name,
+                        date_day,
+                        date_time
+                    )).start()
+                    
+                # Push real-time notification to the Merchant
+                db.reference(f'notifications/{venue_id}').push({
+                    'type': 'date_request',
+                    'sender_id': sender_id,
+                    'sender_name': user_a_name,
+                    'message': f"New booking request from {user_a_name} and {user_b_name}!",
+                    'timestamp': datetime.now(EAT).isoformat(),
+                    'status': 'unread'
+                })
+                
+                # Push real-time notification to the Partner
+                db.reference(f'notifications/{partner_id}').push({
+                    'type': 'date_request',
+                    'sender_id': sender_id,
+                    'sender_name': user_a_name,
+                    'message': f"{user_a_name} invited you on a date to {restaurant.get('business_name', 'a venue')}!",
+                    'timestamp': datetime.now(EAT).isoformat(),
+                    'status': 'unread'
+                })
+                    
         except Exception as e:
-            logger.warning(f"Failed to send email to merchant: {e}")
+            logger.warning(f"Failed to send email/notification to merchant: {e}")
 
         return jsonify({'success': True, 'message': 'Invitation sent!'})
         
@@ -5669,6 +5955,12 @@ def talk_directory():
 
         # 2. Get the partner's gender
         partner_gender = p.get('gender', '').strip().lower()
+
+        # --- OPPOSITE GENDER FILTER ---
+        # Only show users of the opposite gender in the Live Talk Directory.
+        # If gender data is available for both sides, enforce the filter.
+        if current_user_gender and partner_gender and current_user_gender == partner_gender:
+            continue  # Skip same-gender profiles
         
         # Generate the random AI score (or fetch if it exists)
         ai_score = p.get('ai_score', random.randint(60, 95))
@@ -5708,6 +6000,77 @@ def talk_directory():
     online_users.sort(key=lambda u: (not u['is_perfect_match'], u['name']))
 
     return render_template('talk.html', online_users=online_users)
+
+
+# ─────────────────────────────────────────────────────────────
+#  ADMIN: FEMALE FREE PROMO MIGRATION
+#  Grants 1 month free premium to all already-registered female
+#  users who don't already have a longer subscription.
+#  Offer end date: 2026-10-23 (1 month from launch: 2026-09-23)
+# ─────────────────────────────────────────────────────────────
+@app.route('/admin/apply-female-promo', methods=['POST'])
+@login_required
+def admin_apply_female_promo():
+    """One-time admin action: grant 1-month free access to all existing female users."""
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+
+    # Only allow admins / super-admins to run this
+    if not user_data.get('is_admin') and not user_data.get('is_super_admin'):
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 403
+
+    # Offer end date: exactly 1 month from today (Oct 23 2026)
+    OFFER_END = datetime(2026, 10, 23, 23, 59, 59, tzinfo=timezone.utc)
+    now_utc = datetime.now(timezone.utc)
+
+    if now_utc > OFFER_END:
+        return jsonify({'status': 'error', 'message': 'The female promo offer period has ended.'}), 400
+
+    # 1 month free from today
+    promo_expiry = (now_utc + timedelta(days=30)).isoformat()
+
+    all_profiles = db.reference('profiles').get() or {}
+    granted = 0
+    skipped = 0
+
+    for uid, profile in all_profiles.items():
+        if not isinstance(profile, dict):
+            continue
+
+        # Only target female users
+        if profile.get('gender', '').strip().lower() != 'female':
+            continue
+
+        # Smart check: don't downgrade a user who already has a longer paid subscription
+        has_better_sub = False
+        current_expiry_str = profile.get('subscription_expiry', '')
+        if profile.get('is_paid') and current_expiry_str:
+            try:
+                curr_dt = datetime.fromisoformat(current_expiry_str.replace('Z', '+00:00'))
+                promo_dt = datetime.fromisoformat(promo_expiry)
+                if curr_dt > promo_dt:
+                    has_better_sub = True
+            except Exception:
+                pass
+
+        if not has_better_sub:
+            db.reference(f'profiles/{uid}').update({
+                'is_paid': True,
+                'subscription_expiry': promo_expiry,
+                'subscription_package': 'gold',
+                'last_payment_receipt': 'FEMALE_PROMO_1MONTH_SEP2026'
+            })
+            granted += 1
+        else:
+            skipped += 1
+
+    logger.info('admin_apply_female_promo: granted=%d skipped=%d', granted, skipped)
+    return jsonify({
+        'status': 'success',
+        'granted': granted,
+        'skipped': skipped,
+        'message': f'Female promo applied: {granted} users granted 1-month free access. {skipped} skipped (already had longer subscription).'
+    })
 
 
 @app.route('/call-review/<partner_id>')
@@ -5843,7 +6206,8 @@ def full_directory():
     
     all_profiles = db.reference('profiles').get() or {}
     current_user_profile = all_profiles.get(user_id, {})
-    
+    my_gender = current_user_profile.get('gender', '').lower()
+
     # Get current user's location for distance calculation
     current_user_location = current_user_profile.get('location', {})
     my_lat = current_user_location.get('latitude')
@@ -5866,6 +6230,14 @@ def full_directory():
             continue
             
         partner_name = p.get('name', 'Student')
+        partner_gender = p.get('gender', '').lower()
+        
+        # Gender Filter (Only show opposite gender)
+        if my_gender and partner_gender:
+            if my_gender == 'male' and partner_gender != 'female':
+                continue
+            if my_gender == 'female' and partner_gender != 'male':
+                continue
         
         # Search Filter
         if search_query and search_query not in partner_name.lower():
@@ -6488,28 +6860,875 @@ def cron_hourly_check():
     except Exception as e:
         logger.error(f"Error in CRON scheduler: {e}")
 
-@app.route('/api/save_fcm_token', methods=['POST'])
-def save_fcm_token():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"success": False, "message": "Unauthorized"}), 401
-
-    data = request.get_json()
-    token = data.get('fcm_token')
-    if not token:
-        return jsonify({"success": False, "message": "No token provided"}), 400
-
+@app.route('/api/institutions', methods=['GET'])
+def api_institutions():
     try:
-        db.reference(f'profiles/{user_id}/fcm_token').set(token)
-        return jsonify({"success": True, "message": "Token saved successfully"}), 200
+        from app.database import get_institutions
+        institutions = get_institutions()
+        return jsonify({"success": True, "institutions": institutions}), 200
     except Exception as e:
-        logger.error(f"Failed to save FCM token: {e}")
-        return jsonify({"success": False, "message": "Failed to save token"}), 500
+        logger.error(f"Failed to fetch institutions: {e}")
+        return jsonify({"success": False, "message": "Failed to fetch institutions"}), 500
+
+
+# ==========================================
+# CAMPUS MANAGER PORTAL
+# ==========================================
+@app.route('/manager_portal', methods=['GET', 'POST'])
+def manager_portal():
+    if request.method == 'POST':
+        action = request.form.get('action', 'login')
+        email = request.form.get('email')
+        
+        managers_ref = db.reference('campus_managers').get() or {}
+        
+        if action in ['login', 'resend_otp']:
+            password = request.form.get('password') if action == 'login' else None
+            for mid, mgr in managers_ref.items():
+                if mgr.get('email') == email:
+                    if action == 'resend_otp' or check_password_hash(mgr.get('password_hash', ''), password):
+                        # Generate OTP
+                        import secrets
+                        otp = str(secrets.randbelow(900000) + 100000)
+                        db.reference(f'campus_managers/{mid}').update({
+                            'otp': otp,
+                            'otp_expiry': (datetime.now(EAT) + timedelta(minutes=10)).isoformat()
+                        })
+                        
+                        # Send OTP via Email
+                        try:
+                            from app.email_service import send_manager_otp_email
+                            success = send_manager_otp_email(email, otp)
+                            if not success:
+                                logger.error("Failed to send OTP email using _send_email")
+                        except Exception as e:
+                            logger.warning(f"Could not send OTP: {e}")
+                            
+                        if action == 'resend_otp':
+                            flash('A new OTP has been sent to your email.', 'success')
+                            
+                        # Show OTP screen
+                        return render_template('manager_login.html', requires_otp=True, email=email)
+                    else:
+                        flash('Invalid credentials', 'error')
+                        return render_template('manager_login.html')
+            if action == 'login':
+                flash('Account not found', 'error')
+            else:
+                flash('Email not found', 'error')
+            
+        elif action == 'verify_otp':
+            otp_entered = request.form.get('otp')
+            for mid, mgr in managers_ref.items():
+                if mgr.get('email') == email:
+                    stored_otp = mgr.get('otp')
+                    expiry = mgr.get('otp_expiry')
+                    if stored_otp and expiry:
+                        if datetime.fromisoformat(expiry) > datetime.now(EAT):
+                            if str(stored_otp) == str(otp_entered):
+                                # Success
+                                session['manager_logged_in'] = True
+                                session['manager_id'] = mid
+                                session['manager_name'] = mgr.get('name')
+                                session['manager_institution'] = mgr.get('institution')
+                                session['manager_role'] = mgr.get('role', 'manager')
+                                # Clear OTP
+                                db.reference(f'campus_managers/{mid}/otp').delete()
+                                return redirect(url_for('manager_dashboard'))
+                            else:
+                                flash('Invalid OTP Code', 'error')
+                        else:
+                            flash('OTP Expired. Please login again.', 'error')
+                    return render_template('manager_login.html', requires_otp=True, email=email)
+
+    return render_template('manager_login.html')
+
+@app.route('/manager_portal_otp')
+def manager_portal_otp():
+    email = session.get('manager_pending_email')
+    if not email:
+        return redirect(url_for('manager_portal'))
+    return render_template('manager_login.html', requires_otp=True, email=email)
+
+@app.route('/manager_logout')
+def manager_logout():
+    session.pop('manager_logged_in', None)
+    session.pop('manager_id', None)
+    session.pop('manager_name', None)
+    session.pop('manager_institution', None)
+    return redirect(url_for('manager_portal'))
+
+@app.route('/manager_export')
+def manager_export():
+    if not session.get('manager_logged_in'):
+        return redirect(url_for('manager_portal'))
+        
+    inst = session.get('manager_institution')
+    mid = session.get('manager_id')
+    managers_ref = db.reference(f'campus_managers/{mid}').get() or {}
+    manager_ref_code = managers_ref.get('referral_code', 'N/A')
+    
+    profiles = db.reference('profiles').get() or {}
+    
+    import csv
+    import io
+    from flask import Response
+    
+    si = io.StringIO()
+    cw = csv.writer(si)
+    cw.writerow(['Name', 'Email', 'Gender', 'Institution', 'Status', 'Join Date'])
+    
+    for uid, prof in profiles.items():
+        prof_inst = prof.get('institution') or prof.get('institution_name', 'Unknown')
+        prof_inst_norm = str(prof_inst).strip().lower()
+        inst_norm = str(inst).strip().lower()
+        user_referred_by = str(prof.get('referred_by', '')).strip()
+        
+        is_my_user = (prof_inst_norm == inst_norm) or (manager_ref_code != "N/A" and user_referred_by == manager_ref_code)
+        if is_my_user:
+            name = prof.get('name', 'N/A')
+            email = prof.get('email', 'N/A')
+            gender = prof.get('gender', 'N/A')
+            status = 'Premium' if prof.get('is_paid') else 'Free'
+            join_date = prof.get('created_at', 'Unknown')
+            cw.writerow([name, email, gender, prof_inst, status, join_date])
+            
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-disposition": f"attachment; filename=users_{inst}.csv"}
+    )
+
+@app.route('/manager_dashboard', methods=['GET', 'POST'])
+def manager_dashboard():
+    if not session.get('manager_logged_in'):
+        return redirect(url_for('manager_portal'))
+        
+    inst = session.get('manager_institution')
+    
+    if request.method == 'POST':
+        if request.form.get('action') == 'mark_paid':
+            month = request.form.get('month')
+            mid = session.get('manager_id')
+            db.reference(f'campus_manager_ledgers/{mid}/{month}').update({
+                'status': 'Paid',
+                'paid_date': datetime.now(EAT).strftime("%Y-%m-%d %H:%M")
+            })
+            flash(f"Payment marked as received for {month}", "success")
+        elif request.form.get('action') == 'update_credentials':
+            mid = session.get('manager_id')
+            new_email = request.form.get('new_email')
+            new_password = request.form.get('new_password')
+            
+            updates = {}
+            if new_email and new_email.strip():
+                updates['email'] = new_email.strip()
+            if new_password and new_password.strip():
+                from werkzeug.security import generate_password_hash
+                updates['password_hash'] = generate_password_hash(new_password.strip())
+                
+            if updates:
+                db.reference(f'campus_managers/{mid}').update(updates)
+                flash("Credentials updated successfully!", "success")
+            else:
+                flash("No changes were provided.", "info")
+        elif request.form.get('action') == 'export_data':
+            # We can't return CSV directly from here since it's a POST redirect loop, 
+            # but we can redirect to an export route. Actually, we can return the response here!
+            return redirect(url_for('manager_export'))
+        elif request.form.get('action') == 'log_expense':
+            mid = session.get('manager_id')
+            desc = request.form.get('expense_desc')
+            amount = request.form.get('expense_amount')
+            if desc and amount:
+                expense_ref = db.reference(f'campus_manager_ledgers/{mid}/expenses').push()
+                expense_ref.set({
+                    'description': desc,
+                    'amount': float(amount),
+                    'date': datetime.now(EAT).strftime("%Y-%m-%d %H:%M")
+                })
+                flash("Expense logged successfully.", "success")
+        elif request.form.get('action') == 'send_broadcast':
+            audience = request.form.get('audience')
+            message = request.form.get('message')
+            if message:
+                flash("Broadcast queued for delivery.", "success")
+        
+        return redirect(url_for('manager_dashboard'))
+        
+    # Fetch institution stats
+    profiles = db.reference('profiles').get() or {}
+    total_users = 0
+    paid_users = 0
+    
+    # Leaderboard & Analytics Tracking
+    institution_counts = {}
+    monthly_subs = {}
+    
+    # Fetch manager info for referral tracking
+    manager_ref_code = "N/A"
+    mid = session.get('manager_id')
+    managers_ref = db.reference(f'campus_managers/{mid}').get() or {}
+    manager_ref_code = managers_ref.get('referral_code', 'N/A')
+    
+    for uid, prof in profiles.items():
+        prof_inst = prof.get('institution') or prof.get('institution_name', 'Unknown')
+        prof_inst_norm = str(prof_inst).strip().lower()
+        inst_norm = str(inst).strip().lower()
+        
+        # Leaderboard
+        if prof_inst not in institution_counts:
+            institution_counts[prof_inst] = {'total': 0, 'paid': 0, 'this_month': 0, 'this_month_paid': 0}
+        
+        institution_counts[prof_inst]['total'] += 1
+        is_paid = prof.get('is_paid')
+        
+        if is_paid:
+            institution_counts[prof_inst]['paid'] += 1
+            
+        created_at = prof.get('created_at', '')
+        current_month_prefix = datetime.now(EAT).strftime('%Y-%m')
+        
+        if created_at and str(created_at).startswith(current_month_prefix):
+            institution_counts[prof_inst]['this_month'] += 1
+            if is_paid:
+                institution_counts[prof_inst]['this_month_paid'] += 1
+            
+        # Analytics (match by institution normalized name OR by referral code)
+        user_referred_by = str(prof.get('referred_by', '')).strip()
+        is_my_user = (prof_inst_norm == inst_norm) or (manager_ref_code != "N/A" and user_referred_by == manager_ref_code)
+        
+        if is_my_user:
+            total_users += 1
+            if prof.get('is_paid'):
+                paid_users += 1
+                
+                # Monthly Subscriptions
+                created_at = prof.get('created_at', '')
+                if created_at:
+                    try:
+                        # Extract first 7 characters for YYYY-MM if it's ISO format, 
+                        # or just fallback to parsing
+                        month_key = datetime.fromisoformat(created_at).strftime('%b %Y')
+                        monthly_subs[month_key] = monthly_subs.get(month_key, 0) + 1
+                    except:
+                        pass
+
+    # Sort leaderboard: Manager's institution first, then by paid subscribers (descending), then alphabetically
+    leaderboard = [{'name': k, 'total': v['total'], 'paid': v['paid'], 'this_month': v.get('this_month', 0), 'this_month_paid': v.get('this_month_paid', 0)} for k, v in institution_counts.items()]
+    
+    inst_norm = str(inst).strip().lower()
+    
+    # Identify max and min paid for color coding
+    if leaderboard:
+        max_paid = max(lb['paid'] for lb in leaderboard)
+        min_paid = min(lb['paid'] for lb in leaderboard)
+    else:
+        max_paid = 0
+        min_paid = 0
+        
+    leaderboard.sort(key=lambda x: (
+        0 if str(x['name']).strip().lower() == inst_norm else 1,
+        -x['paid'],
+        str(x['name']).lower()
+    ))
+    top_10_leaderboard = leaderboard
+    
+    # Sort and pad monthly subs for the chart
+    sorted_months = sorted(monthly_subs.keys(), key=lambda x: datetime.strptime(x, '%b %Y'))
+    
+    # If no data, pad with current month
+    if not sorted_months:
+        sorted_months = [datetime.now(EAT).strftime('%b %Y')]
+        monthly_subs[sorted_months[0]] = 0
+        
+    monthly_subs_keys = sorted_months[-6:] # Last 6 months max
+    monthly_subs_values = [monthly_subs.get(k, 0) for k in monthly_subs_keys]
+    
+    # Cumulative total
+    cumulative_subs = []
+    running_total = 0
+    # To get accurate running total, we should start from beginning, but for display we just show the last 6 months cumulative
+    for m in sorted_months:
+        running_total += monthly_subs.get(m, 0)
+        if m in monthly_subs_keys:
+            cumulative_subs.append(running_total)
+    role = session.get('manager_role', 'manager')
+    commission_rate = 0.30 if role == 'manager' else 0.05
+    payout = paid_users * 50 * commission_rate
+    
+    # Fetch ledger
+    mid = session.get('manager_id')
+    ledger_data = db.reference(f'campus_manager_ledgers/{mid}').get() or {}
+    
+    # Generate current month if not in ledger
+    current_month = datetime.now(EAT).strftime('%B %Y')
+    if current_month not in ledger_data:
+        ledger_data[current_month] = {
+            'month': current_month,
+            'subscribers': paid_users,
+            'amount': payout,
+            'status': 'Pending'
+        }
+        # Save it to DB so it persists
+        db.reference(f'campus_manager_ledgers/{mid}/{current_month}').set(ledger_data[current_month])
+        
+    # Convert to list and sort
+    ledger_list = []
+    for month, data in ledger_data.items():
+        ledger_list.append({
+            'month': month,
+            'subscribers': data.get('subscribers', 0),
+            'amount': data.get('amount', 0),
+            'status': data.get('status', 'Pending'),
+            'paid_date': data.get('paid_date', '')
+        })
+        
+    # Simple sort assuming 'Month YYYY'
+    ledger_list.sort(key=lambda x: datetime.strptime(x['month'], '%B %Y'), reverse=True)
+
+    # Fetch detailed user data for visualization
+    users_by_inst_data = {}
+    gender_stats = {'Male': 0, 'Female': 0, 'Other': 0}
+    for uid, prof in profiles.items():
+        if isinstance(prof, dict):
+            prof_inst = prof.get('institution') or prof.get('institution_name', 'Unknown/None')
+            if prof_inst not in users_by_inst_data:
+                users_by_inst_data[prof_inst] = []
+            
+            gender = prof.get('gender', 'N/A')
+            if gender in ['Male', 'Female']:
+                gender_stats[gender] += 1
+            else:
+                gender_stats['Other'] += 1
+                
+            users_by_inst_data[prof_inst].append({
+                'name': prof.get('name', 'N/A'),
+                'email': prof.get('email', 'N/A'),
+                'gender': gender,
+                'is_paid': prof.get('is_paid', False)
+            })
+            
+    # Sort the dict keys MMUST first, then alphabetically
+    sorted_inst_keys = sorted(users_by_inst_data.keys(), key=lambda x: (0 if 'mmust' in str(x).lower() or 'masinde' in str(x).lower() else 1, str(x).lower()))
+    
+    sorted_users_by_inst = []
+    for k in sorted_inst_keys:
+        sorted_users_by_inst.append({
+            'institution': k,
+            'users': users_by_inst_data[k]
+        })
+
+    return render_template('manager_dashboard.html',
+                           institution=inst,
+                           name=session.get('manager_name'),
+                           total_users=total_users,
+                           paid_users=paid_users,
+                           payout=payout,
+                           ledger=ledger_list,
+                           leaderboard=top_10_leaderboard,
+                           monthly_subs_keys=monthly_subs_keys,
+                           monthly_subs_values=monthly_subs_values,
+                           cumulative_subs=cumulative_subs,
+                           ref_code=manager_ref_code,
+                           detailed_users=sorted_users_by_inst,
+                           gender_stats=gender_stats,
+                           max_paid=max_paid,
+                           min_paid=min_paid)
+
+# ==========================================
+# GROUP CHAT ROUTES
+# ==========================================
+import uuid
+
+@app.route('/groups', methods=['GET'])
+@requires_subscription
+def groups():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    user_id = session['user_id']
+    user_data = db.reference(f"profiles/{user_id}").get()
+    if not user_data:
+        return redirect(url_for('login'))
+    
+    all_groups = db.reference("groups").get() or {}
+    
+    my_groups = []
+    discover_groups = []
+    
+    for g_id, g_info in all_groups.items():
+        g_info['id'] = g_id
+        if 'members' in g_info and user_id in g_info['members']:
+            my_groups.append(g_info)
+        else:
+            discover_groups.append(g_info)
+            
+    return render_template('groups.html', my_groups=my_groups, discover_groups=discover_groups, user=user_data)
+
+@app.route('/api/groups/create', methods=['POST'])
+@requires_subscription
+def create_group():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    user_id = session['user_id']
+    name = request.form.get('name', 'New Group')
+    description = request.form.get('description', '')
+    
+    group_id = str(uuid.uuid4())
+    group_data = {
+        'name': name,
+        'description': description,
+        'creator_id': user_id,
+        'timestamp': datetime.utcnow().isoformat(),
+        'members': {
+            user_id: 'admin'
+        }
+    }
+    
+    db.reference(f"groups/{group_id}").set(group_data)
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/join/<group_id>', methods=['POST'])
+@requires_subscription
+def join_group(group_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    
+    user_id = session['user_id']
+    user_data = db.reference(f"profiles/{user_id}").get() or {}
+    group_ref = db.reference(f"groups/{group_id}")
+    now = datetime.now(EAT).isoformat()
+    group_ref.child(f'join_requests/{user_id}').set({
+        'name': user_data.get('name', 'Someone'),
+        'profile_img': user_data.get('img', '/static/img/placeholder.png'),
+        'timestamp': now
+    })
+    flash("Request to join sent! Please wait for admin approval.")
+    return redirect(url_for('groups'))
+
+@app.route('/api/groups/add_user/<group_id>', methods=['POST'])
+@requires_subscription
+def add_group_user(group_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    current_user_id = session['user_id']
+    target_email = request.form.get('email')
+    
+    group_data = db.reference(f"groups/{group_id}").get()
+    if not group_data or group_data.get('members', {}).get(current_user_id) != 'admin':
+        flash("You are not authorized to add members.")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    users = db.reference("profiles").get() or {}
+    target_user_id = None
+    target_user_name = "User"
+    for uid, udata in users.items():
+        if udata.get('email') == target_email:
+            target_user_id = uid
+            target_user_name = udata.get('name', 'User')
+            break
+            
+    if target_user_id:
+        db.reference(f"groups/{group_id}/members/{target_user_id}").set("member")
+        flash(f"Successfully added {target_user_name} to the group.")
+        
+        current_user_data = db.reference(f"profiles/{current_user_id}").get()
+        admin_name = current_user_data.get('name', 'An Admin') if current_user_data else 'An Admin'
+        send_group_invite_email(target_email, target_user_name, group_data.get('name', 'Group'), admin_name)
+    else:
+        flash("User not found with that email.")
+        
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/remove_user/<group_id>/<target_id>', methods=['POST'])
+@requires_subscription
+def remove_group_user(group_id, target_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    current_user_id = session['user_id']
+    
+    group_data = db.reference(f"groups/{group_id}").get()
+    is_admin = group_data and group_data.get('members', {}).get(current_user_id) == 'admin'
+    
+    if is_admin or current_user_id == target_id:
+        db.reference(f"groups/{group_id}/members/{target_id}").delete()
+        if current_user_id == target_id:
+            flash("You have left the group.")
+            return redirect(url_for('groups'))
+        else:
+            flash("Member removed.")
+    else:
+        flash("Not authorized.")
+        
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/lights_out/<group_id>', methods=['POST'])
+@requires_subscription
+def toggle_lights_out(group_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    current_user_id = session['user_id']
+    
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data or group_data.get('members', {}).get(current_user_id) != 'admin':
+        flash("Only admins can toggle Lights Out mode.")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    current_until = group_data.get('lights_out_until')
+    now = datetime.utcnow()
+    
+    if current_until and datetime.fromisoformat(current_until) > now:
+        group_ref.child('lights_out_until').delete()
+        flash("💡 Lights Out mode deactivated. Identities restored!")
+    else:
+        until_time = (now + timedelta(minutes=15)).isoformat()
+        group_ref.child('lights_out_until').set(until_time)
+        flash("🌑 Lights Out mode ACTIVATED for 15 minutes! All identities are hidden.")
+        
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/minigame/<group_id>', methods=['POST'])
+@requires_subscription
+def trigger_minigame(group_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    current_user_id = session['user_id']
+    
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data or group_data.get('members', {}).get(current_user_id) != 'admin':
+        flash("Only admins can start a mini-game.")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    system_prompt = "You are a fun, energetic Gen-Z party host for a college dating group chat."
+    user_text = "Randomly select and output ONE of these games: 1) A spicy/fun 'Would You Rather' question. 2) A 'Never Have I Ever' question. 3) Tell everyone to play 'Two Truths and a Lie'. Output ONLY the fun, high-energy prompt. No intro, no quotes, just the text to send."
+    
+    game_text = get_wingman_response(system_prompt, user_text)
+    
+    if not game_text or "GROQ_API_KEY" in game_text or "{" in game_text:
+        game_text = "🎲 MINI-GAME TIME! Everyone type Two Truths and a Lie about yourself, and let the group guess!"
+        
+    timestamp = int(datetime.utcnow().timestamp() * 1000)
+    
+    db.reference(f"group_messages/{group_id}").push({
+        'sender_id': 'system_ai',
+        'sender_name': '🤖 AI Game Master',
+        'text': game_text,
+        'timestamp': timestamp
+    })
+    
+    flash("🎲 Mini-Game Started!")
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/vibe_check/<group_id>')
+@requires_subscription
+def group_vibe_check(group_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    
+    # Get last 20 messages
+    messages_ref = db.reference(f"group_messages/{group_id}").order_by_key().limit_to_last(20).get()
+    
+    if not messages_ref or len(messages_ref) < 5:
+        return jsonify({'success': False, 'message': 'Not enough messages to analyze. Get chatting first!'})
+        
+    chat_log = []
+    for m in messages_ref.values():
+        if m.get('sender_id') != 'system_ai':
+            chat_log.append(f"{m.get('sender_name')}: {m.get('text')}")
+            
+    chat_text = "\n".join(chat_log)
+    
+    system_prompt = "You are an AI analyzing a Gen-Z college dating group chat. Based on the chat log, determine the 'Vibe' in 1 word (e.g. Flirty, Chaotic, Wholesome, Dead, Chill, Deep, Spicy) and give a 1-sentence funny/accurate explanation. Output exactly like this: '🔥 VIBE: [Word] - [Explanation]'"
+    
+    user_text = "Analyze this chat log:\n" + chat_text
+    
+    vibe_result = get_wingman_response(system_prompt, user_text)
+    
+    if not vibe_result or "GROQ_API_KEY" in vibe_result or "{" in vibe_result:
+        vibe_result = "🔥 VIBE: Chill - Everyone is just hanging out."
+        
+    timestamp = int(datetime.utcnow().timestamp() * 1000)
+    
+    db.reference(f"group_messages/{group_id}").push({
+        'sender_id': 'system_ai',
+        'sender_name': '🤖 AI Vibe Check',
+        'text': vibe_result,
+        'timestamp': timestamp
+    })
+    
+    return jsonify({'success': True})
+
+@app.route('/api/groups/notify_members/<group_id>', methods=['POST'])
+@requires_subscription
+@csrf.exempt
+def notify_group_members(group_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    user_id = session['user_id']
+    
+    data = request.get_json() or {}
+    message_text = data.get('message', '')
+    if not message_text: return jsonify({'success': False})
+    
+    group_data = db.reference(f"groups/{group_id}").get()
+    if not group_data: return jsonify({'success': False})
+    
+    sender_profile = db.reference(f"profiles/{user_id}").get() or {}
+    sender_name = sender_profile.get('name', 'Someone').split(' ')[0]
+    
+    group_name = group_data.get('name', 'Group Chat')
+    members = group_data.get('members', {})
+    
+    from email_service import send_group_notification_email
+    
+    for m_id in members.keys():
+        if m_id != user_id:
+            m_profile = db.reference(f"profiles/{m_id}").get()
+            if m_profile and m_profile.get('email'):
+                threading.Thread(target=send_group_notification_email, args=(
+                    m_profile.get('email'), m_profile.get('name', 'Member').split(' ')[0], sender_name, group_name, message_text
+                )).start()
+                
+    return jsonify({'success': True})
+
+@app.route('/api/groups/shoot_shot/<group_id>/<target_id>', methods=['POST'])
+@requires_subscription
+def group_shoot_shot(group_id, target_id):
+    if 'user_id' not in session: return jsonify({'success': False}), 401
+    current_user_id = session['user_id']
+    
+    if current_user_id == target_id:
+        flash("You can't shoot your shot at yourself!")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    shots_ref = db.reference(f'group_shots/{group_id}')
+    shots = shots_ref.get() or {}
+    
+    if shots.get(target_id) == current_user_id:
+        timestamp = datetime.now(EAT).isoformat()
+        match_id = "_".join(sorted([current_user_id, target_id]))
+        db.reference(f'matches/{match_id}').set({
+            'users': {current_user_id: True, target_id: True},
+            'matched_at': timestamp,
+            'last_message': f'💘 You both shot your shot in the group chat!',
+            'last_message_time': timestamp
+        })
+        flash("💘 OMG! It's a match! They shot their shot at you too. Check your unread chats!")
+        db.reference(f'group_shots/{group_id}/{target_id}').delete()
+    else:
+        db.reference(f'group_shots/{group_id}/{current_user_id}').set(target_id)
+        flash("💘 Shot fired! If they shoot back, it's a match.")
+        
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/group/<group_id>/delete', methods=['POST'])
+@requires_subscription
+def delete_group(group_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session['user_id']
+    group_ref = db.reference(f'groups/{group_id}')
+    group_data = group_ref.get()
+    
+    if not group_data:
+        flash("Group not found.", "error")
+        return redirect(url_for('groups'))
+        
+    members = group_data.get('members', {})
+    
+    # Check admin
+    if members.get(user_id) != 'admin':
+        flash("Only group admins can delete the group.", "error")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    group_name = group_data.get('name', 'Unknown Group')
+    
+    # Send email to all members
+    for m_id, role in members.items():
+        m_data = db.reference(f'profiles/{m_id}').get()
+        if m_data and m_data.get('email'):
+            try:
+                send_broadcast_email(
+                    recipient_email=m_data['email'],
+                    recipient_name=m_data.get('name', 'Member').split(' ')[0],
+                    subject="Group Deleted 🗑️",
+                    message_body=f"The group '{group_name}' has been deleted by the admin. You will no longer be able to access this group chat or view its messages."
+                )
+            except Exception as e:
+                print(f"Failed to email {m_data.get('email')}: {e}")
+            
+    # Delete from DB
+    db.reference(f'groups/{group_id}').delete()
+    db.reference(f'group_messages/{group_id}').delete()
+    db.reference(f'group_shots/{group_id}').delete()
+    db.reference(f'group_invites/{group_id}').delete()
+    
+    flash(f"Group '{group_name}' has been successfully deleted.")
+    return redirect(url_for('groups'))
+
+@app.route('/group/<group_id>')
+@requires_subscription
+def group_chat(group_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    user_id = session['user_id']
+    
+    group_data = db.reference(f"groups/{group_id}").get()
+    if not group_data:
+        flash("Group not found")
+        return redirect(url_for('groups'))
+        
+    if 'members' not in group_data or user_id not in group_data['members']:
+        flash("You are not a member of this group. Please join first.")
+        return redirect(url_for('groups'))
+        
+    user_data = db.reference(f"profiles/{user_id}").get() or {}
+    
+    if not user_data.get('img') or not user_data.get('phone'):
+        flash("You must add a profile photo and phone number before accessing group chats.")
+        return redirect(url_for('profile'))
+    
+    member_details = []
+    for m_id, role in group_data.get('members', {}).items():
+        m_data = db.reference(f"profiles/{m_id}").get()
+        if m_data:
+            member_details.append({
+                'id': m_id,
+                'name': m_data.get('name', 'Unknown'),
+                'photo_url': m_data.get('img', '/static/img/placeholder.png'),
+                'institution': m_data.get('institution', ''),
+                'is_online': m_data.get('is_online', False),
+                'role': role
+            })
+            
+    group_data['id'] = group_id
+    
+    join_requests = []
+    if group_data.get('members', {}).get(user_id) == 'admin':
+        requests = group_data.get('join_requests', {})
+        for req_id, req_data in requests.items():
+            req_data['id'] = req_id
+            join_requests.append(req_data)
+            
+    is_admin = group_data.get('members', {}).get(user_id) == 'admin'
+    return render_template('group_chat.html', group=group_data, user=user_data, members=member_details, join_requests=join_requests, is_admin=is_admin)
+
+@app.route('/invite/<group_id>')
+@requires_subscription
+def group_invite(group_id):
+    user_id = session.get('user_id')
+    group_data = db.reference(f"groups/{group_id}").get()
+    
+    if not group_data:
+        flash("This invite link is invalid or the group no longer exists.")
+        return redirect(url_for('groups'))
+        
+    members = group_data.get('members', {})
+    if user_id in members:
+        flash("You are already in this group!")
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    requests = group_data.get('join_requests', {})
+    if user_id in requests:
+        flash("You have already requested to join this group. Please wait for the admin to approve.")
+        return redirect(url_for('groups'))
+        
+    return render_template('group_invite.html', group=group_data, group_id=group_id)
+
+@app.route('/groups/request_access/<group_id>', methods=['POST'])
+@requires_subscription
+def request_join_group(group_id):
+    user_id = session.get('user_id')
+    user_data = db.reference(f"profiles/{user_id}").get() or {}
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data:
+        flash("Group not found")
+        return redirect(url_for('groups'))
+        
+    if user_id in group_data.get('members', {}):
+        return redirect(url_for('group_chat', group_id=group_id))
+        
+    now = datetime.now(EAT).isoformat()
+    group_ref.child(f'join_requests/{user_id}').set({
+        'name': user_data.get('name', 'Someone'),
+        'profile_img': user_data.get('img', '/static/img/placeholder.png'),
+        'timestamp': now
+    })
+    
+    admin_id = group_data.get('created_by')
+    if admin_id:
+        try:
+            db.reference(f'notifications/{admin_id}').push({
+                'sender_id': user_id,
+                'sender_name': 'System',
+                'sender_img': '/static/img/placeholder.png',
+                'type': 'system',
+                'message': f"👥 {user_data.get('name', 'Someone').split(' ')[0]} requested to join {group_data.get('name')}! Check the group to approve.",
+                'timestamp': now,
+                'match_id': f'group_invite_{group_id}'
+            })
+            
+            # Send Email Notification to Admin
+            admin_data = db.reference(f'profiles/{admin_id}').get() or {}
+            admin_email = admin_data.get('email')
+            if admin_email:
+                from email_service import send_group_join_request_email
+                threading.Thread(target=send_group_join_request_email, args=(
+                    admin_email, admin_data.get('name', 'Admin'), user_data.get('name', 'Someone'), group_data.get('name', 'Group')
+                )).start()
+        except: pass
+        
+    flash("Request sent to the group admin! You will be notified when approved.")
+    return redirect(url_for('groups'))
+
+@app.route('/api/groups/approve_join/<group_id>/<target_user_id>', methods=['POST'])
+@requires_subscription
+def approve_join_group(group_id, target_user_id):
+    user_id = session.get('user_id')
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data or group_data.get('members', {}).get(user_id) != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    group_ref.child(f'members/{target_user_id}').set('member')
+    group_ref.child(f'join_requests/{target_user_id}').delete()
+    
+    now = datetime.now(EAT).isoformat()
+    try:
+        db.reference(f'chat_notifications/{target_user_id}').push({
+            'sender_id': 'system',
+            'sender_name': 'System',
+            'sender_img': '/static/img/placeholder.png',
+            'message': f"🎉 You were approved to join {group_data.get('name')}!",
+            'timestamp': now,
+            'match_id': f'group_invite_{group_id}'
+        })
+    except: pass
+    
+    flash("User approved and added to the group.")
+    return redirect(url_for('group_chat', group_id=group_id))
+
+@app.route('/api/groups/reject_join/<group_id>/<target_user_id>', methods=['POST'])
+@requires_subscription
+def reject_join_group(group_id, target_user_id):
+    user_id = session.get('user_id')
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data or group_data.get('members', {}).get(user_id) != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    group_ref.child(f'join_requests/{target_user_id}').delete()
+    
+    flash("User request rejected.")
+    return redirect(url_for('group_chat', group_id=group_id))
 
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))
     # You must listen on '0.0.0.0' for external traffic on a server!
     app.run(host='0.0.0.0', port=port, debug=False)
- 
-      

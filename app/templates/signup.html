@@ -1,11 +1,99 @@
 {% extends "base.html" %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Custom Select2 Styling - Glassmorphism & Modern */
+    .select2-container--default .select2-selection--single {
+        height: 56px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        padding-left: 10px;
+        font-size: 16px;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+        outline: none;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    }
+    .select2-container--default .select2-selection--single:focus,
+    .select2-container--default.select2-container--focus .select2-selection--single,
+    .select2-container--default.select2-container--open .select2-selection--single {
+        border-color: #E60026; 
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.15);
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 54px;
+        right: 18px;
+    }
+    
+    /* Dropdown styling */
+    .select2-dropdown {
+        border: 1px solid rgba(230, 0, 38, 0.2);
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+        background: #ffffff;
+        animation: dropFade 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    @keyframes dropFade {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .select2-search--dropdown .select2-search__field {
+        border-radius: 10px;
+        border: 2px solid #f0f0f0;
+        padding: 12px;
+        font-family: 'Inter', sans-serif;
+        font-size: 15px;
+        transition: 0.3s;
+    }
+    .select2-search--dropdown .select2-search__field:focus {
+        border-color: #E60026;
+        outline: none;
+    }
+    
+    .select2-container--default .select2-results__group {
+        background-color: #FEF2F4;
+        color: #720000;
+        font-weight: 900;
+        padding: 10px 18px;
+        font-size: 13px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .select2-results__option {
+        padding: 12px 18px;
+        font-size: 15px;
+        font-weight: 500;
+        color: #333;
+        transition: 0.2s;
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: #E60026;
+        color: white;
+    }
+</style>
+
 <style>
     /* === ANIMATIONS === */
     @keyframes slideUpFade {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(40px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    @keyframes slowPan {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
     }
 
     /* === LAYOUT === */
@@ -13,175 +101,193 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        /* Using dvh for perfect mobile centering, preventing browser UI jump */
         min-height: calc(100dvh - var(--nav-height, 70px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 80px); 
         padding: clamp(20px, 5vw, 40px) 15px;
+        position: relative;
+    }
+    
+    /* Elegant glowing orbs */
+    .auth-wrapper::before, .auth-wrapper::after {
+        content: '';
+        position: absolute;
+        width: clamp(200px, 40vw, 400px);
+        height: clamp(200px, 40vw, 400px);
+        border-radius: 50%;
+        filter: blur(100px);
+        z-index: 0;
+        animation: floatOrb 10s infinite alternate ease-in-out;
+    }
+    .auth-wrapper::before {
+        background: rgba(230, 0, 38, 0.2);
+        top: 0%;
+        left: 10%;
+    }
+    .auth-wrapper::after {
+        background: rgba(255, 214, 221, 0.15);
+        bottom: 0%;
+        right: 10%;
+        animation-delay: -5s;
+    }
+    
+    @keyframes floatOrb {
+        from { transform: translate(0, 0) scale(1); }
+        to { transform: translate(50px, 50px) scale(1.1); }
     }
     
     .auth-card {
-        background: white;
-        /* Fluid padding: smaller on phones, larger on desktop */
-        padding: clamp(30px, 8vw, 50px) clamp(20px, 6vw, 40px);
-        border-radius: 28px;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.1); 
-        border: 1px solid #FFD6DD;
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        padding: clamp(30px, 6vw, 50px);
+        border-radius: 32px;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.7);
         width: 100%;
-        max-width: 550px;
-        animation: slideUpFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        max-width: 580px;
+        animation: slideUpFade 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         box-sizing: border-box;
+        position: relative;
+        z-index: 10;
+        overflow: hidden;
     }
 
     /* === TYPOGRAPHY === */
     .auth-header { 
         text-align: center; 
-        margin-bottom: clamp(25px, 6vw, 35px); 
+        margin-bottom: clamp(30px, 6vw, 40px); 
     }
     .auth-title { 
-        color: #720000; 
-        font-size: clamp(24px, 6vw, 32px); 
+        color: #111; 
+        font-size: clamp(26px, 6vw, 34px); 
         font-weight: 900; 
-        margin-bottom: 8px; 
+        margin-bottom: 10px; 
         letter-spacing: -0.5px; 
         line-height: 1.2;
     }
     .auth-subtitle { 
-        color: #666; 
-        font-size: 15px; 
+        color: #555; 
+        font-size: 16px; 
         margin: 0; font-weight: 500;
         line-height: 1.5;
     }
 
     /* === FORM INPUTS === */
-    .input-group { margin-bottom: 20px; width: 100%; }
+    .input-group { margin-bottom: 22px; width: 100%; }
     .input-group label {
         display: block; 
-        font-size: 11px; 
-        font-weight: 900; 
+        font-size: 12px; 
+        font-weight: 800; 
         color: #E60026;
-        margin-bottom: 8px; 
+        margin-bottom: 10px; 
         text-transform: uppercase; 
-        letter-spacing: 0.8px;
+        letter-spacing: 1px;
     }
     .input-group input[type="text"], 
     .input-group input[type="email"], 
     .input-group input[type="number"], 
     .input-group input[type="password"],
+    .input-group input[type="tel"],
     .input-group select {
         width: 100%; 
-        padding: 16px; 
-        border: 2px solid #f0f0f0; 
-        border-radius: 14px;
-        font-size: 16px; /* REQUIRED: prevents iOS auto-zoom */
-        background: #fafafa; 
-        transition: all 0.3s ease;
+        padding: 16px 18px; 
+        border: 2px solid rgba(255,255,255,0.4); 
+        border-radius: 16px;
+        font-size: 16px; 
+        background: rgba(255,255,255,0.7);
+        backdrop-filter: blur(12px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         font-family: inherit; font-weight: 600;
         outline: none;
         color: #111;
         -webkit-appearance: none; box-sizing: border-box;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
-    .input-group input::placeholder { color: #bbb; font-weight: 400;}
+    .input-group input::placeholder { color: #999; font-weight: 500;}
     
-    /* Custom drop arrow for selects */
     .input-group select {
         background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23720000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
         background-repeat: no-repeat;
-        background-position: right 15px top 50%;
-        background-size: 12px auto;
-        padding-right: 40px;
+        background-position: right 18px top 50%;
+        background-size: 14px auto;
+        padding-right: 45px;
     }
 
     .input-group input:focus, .input-group select:focus {
-        border-color: #E60026; background: white; 
-        box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.1);
+        border-color: #E60026; 
+        background: rgba(255,255,255,1); 
+        box-shadow: 0 0 0 4px rgba(230, 0, 38, 0.15);
+        transform: translateY(-2px);
     }
 
     /* === SECURE PASSWORD FIELD === */
     .password-container { position: relative; width: 100%; }
-    .password-container input { padding-right: 50px !important; } 
+    .password-container input { padding-right: 55px !important; } 
     .toggle-password {
-        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-        background: none; border: none; cursor: pointer; font-size: 18px; color: #888; 
+        position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; font-size: 20px; color: #888; 
         padding: 10px; outline: none; display: flex; align-items: center; justify-content: center;
         border-radius: 50%; transition: 0.2s;
     }
-    .toggle-password:hover { background: #f0f0f0; }
+    .toggle-password:hover { background: rgba(0,0,0,0.05); color: #111; }
 
-    .flex-row { display: flex; gap: 15px; }
+    .flex-row { display: flex; gap: 20px; }
     
-    /* Responsive stacking for rows */
     @media (max-width: 600px) {
         .flex-row { flex-direction: column; gap: 0; }
         .flex-row .input-group { margin-bottom: 20px; }
-        .flex-row.kinship-inputs .input-group { margin-bottom: 15px; }
-        .flex-row.kinship-inputs .input-group:last-child { margin-bottom: 0; }
-    }
-
-    /* === KINSHIP FILTER === */
-    .kinship-box {
-        background: linear-gradient(135deg, #FEF2F4 0%, #ffffff 100%);
-        padding: 20px 25px; border-radius: 18px; 
-        border: 1px dashed #FFD6DD; margin-bottom: 25px;
-    }
-    .kinship-header {
-        font-size: 14px; color: #720000; font-weight: 900;
-        margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    }
-    .kinship-badge {
-        font-size: 10px; background: #E60026; color: white; 
-        padding: 4px 10px; border-radius: 12px; font-weight: 900; 
-        margin-left: 5px; letter-spacing: 0.5px;
-    }
-    .kinship-desc { 
-        font-size: 13px; color: #555; margin-bottom: 18px; 
-        line-height: 1.5; font-weight: 500;
     }
 
     /* === CHECKBOXES === */
     .checkbox-group {
-        display: flex; align-items: center; gap: 12px; margin-bottom: 25px;
-        background: #fafafa; padding: 15px; border-radius: 14px; 
-        border: 1px solid #f0f0f0; cursor: pointer; transition: 0.2s;
+        display: flex; align-items: center; gap: 15px; margin-bottom: 30px;
+        background: rgba(255,255,255,0.7); padding: 18px; border-radius: 16px; 
+        border: 1px solid rgba(255,255,255,0.6); cursor: pointer; transition: 0.3s;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     }
-    .checkbox-group:hover { background: #FEF2F4; border-color: #FFD6DD; }
-    .checkbox-group input { width: 22px; height: 22px; accent-color: #E60026; cursor: pointer; flex-shrink: 0;}
-    .checkbox-group label { font-size: 14px; color: #111; cursor: pointer; margin: 0; font-weight: 700; width: 100%;}
+    .checkbox-group:hover { 
+        background: rgba(254, 242, 244, 0.9); 
+        border-color: #FFD6DD; 
+        transform: translateY(-2px);
+    }
+    .checkbox-group input { width: 24px; height: 24px; accent-color: #E60026; cursor: pointer; flex-shrink: 0;}
+    .checkbox-group label { font-size: 15px; color: #111; cursor: pointer; margin: 0; font-weight: 700; width: 100%;}
 
     /* === BUTTONS & LINKS === */
     .btn-submit {
         width: 100%; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; border: none; padding: 18px; border-radius: 14px;
-        font-size: 16px; font-weight: 900; cursor: pointer; 
-        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
-        box-shadow: 0 10px 20px rgba(230, 0, 38, 0.25);
+        color: white; border: none; padding: 20px; border-radius: 16px;
+        font-size: 18px; font-weight: 900; cursor: pointer; 
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 15px 30px rgba(230, 0, 38, 0.3);
+        background-size: 200% 200%;
+        animation: slowPan 5s ease infinite;
     }
-    .btn-submit:active { transform: scale(0.97); }
-    .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; transform: none; }
+    .btn-submit:active { transform: scale(0.96); }
+    .btn-submit.loading { background: #888; cursor: not-allowed; box-shadow: none; animation: none; }
     
     @media (hover: hover) {
         .btn-submit:not(.loading):hover { 
-            transform: translateY(-2px); box-shadow: 0 15px 30px rgba(230, 0, 38, 0.35); 
+            transform: translateY(-3px); box-shadow: 0 20px 40px rgba(230, 0, 38, 0.4); 
         }
     }
     
-    .auth-footer { text-align: center; margin-top: 30px; font-size: 14px; color: #666; border-top: 1px solid #f0f0f0; padding-top: 25px; }
-    .auth-footer a { color: #E60026; font-weight: 900; text-decoration: none; transition: color 0.2s; }
+    .auth-footer { text-align: center; margin-top: 35px; font-size: 15px; color: #555; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 25px; font-weight: 500;}
+    .auth-footer a { color: #E60026; font-weight: 900; text-decoration: none; transition: 0.2s; }
     .auth-footer a:hover { color: #720000; text-decoration: underline; }
     
-    /* Flash messages for error handling */
-    .flash-msg { padding: 14px 16px; border-radius: 10px; margin-bottom: 20px; font-size: 14px; font-weight: 700; background: #FEF2F4; color: #E60026; border-left: 4px solid #E60026;}
+    .flash-msg { padding: 16px 20px; border-radius: 14px; margin-bottom: 25px; font-size: 15px; font-weight: 700; background: rgba(254, 242, 244, 0.95); color: #E60026; border-left: 5px solid #E60026; backdrop-filter: blur(10px); box-shadow: 0 10px 20px rgba(230,0,38,0.1);}
 </style>
 
 <div class="auth-wrapper">
     <div class="auth-card">
         
         <div class="auth-header">
-            <div style="margin-bottom: 20px; display: flex; justify-content: center;">
-                <div style="background: linear-gradient(135deg, #FEF2F4 0%, #FFD6DD 100%); width: 75px; height: 75px; border-radius: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(230,0,38,0.15); font-size: 35px; border: 2px solid white; transform: rotate(-5deg);">
+            <div style="margin-bottom: 25px; display: flex; justify-content: center;">
+                <div style="background: linear-gradient(135deg, rgba(230,0,38,0.1) 0%, rgba(230,0,38,0.05) 100%); width: 85px; height: 85px; border-radius: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 15px 35px rgba(230,0,38,0.15); font-size: 40px; border: 1px solid rgba(230,0,38,0.2); transform: rotate(-8deg); animation: pulseGlow 3s infinite;">
                     ✨
                 </div>
             </div>
-            <h1 class="auth-title">Join the Network</h1>
-            <p class="auth-subtitle">Connect with students across all institutions.</p>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Join the most exclusive student network.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -197,15 +303,15 @@
         <div id="api-error" class="flash-msg" style="display: none;"></div>
 
         <!-- ── v3 / legacy mode indicator ── -->
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
-            <div style="font-size:13px; color:#10b981; font-weight:800; display:flex; align-items:center; gap:6px;">
-                ✅ <span>New Account System — No Student ID Required</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 30px; background: rgba(16, 185, 129, 0.08); padding: 14px 20px; border-radius: 14px; border: 1px solid rgba(16, 185, 129, 0.15);">
+            <div style="font-size:14px; color:#10b981; font-weight:800; display:flex; align-items:center; gap:8px;">
+                ✅ <span>New System — No Reg Number Needed!</span>
             </div>
             <button type="button" id="legacyToggleBtn"
                     onclick="toggleLegacyMode()"
-                    style="background:none; border:none; font-size:12px; color:#bbb; font-weight:700; cursor:pointer; padding:4px 8px; border-radius:8px; transition:0.2s;"
-                    onmouseover="this.style.color='#888'" onmouseout="this.style.color='#bbb'">
-                Legacy student?
+                    style="background:none; border:none; font-size:13px; color:#777; font-weight:800; cursor:pointer; padding:6px 12px; border-radius:10px; transition:0.3s;"
+                    onmouseover="this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.background='none'">
+                Legacy Student?
             </button>
         </div>
 
@@ -216,42 +322,34 @@
             <div class="flex-row">
                 <div class="input-group">
                     <label>Full Name</label>
-                    <input type="text" name="name" placeholder="Kevin" required autocomplete="name">
+                    <input type="text" name="name" placeholder="E.g. Kevin" required autocomplete="name">
                 </div>
                 <div class="input-group">
                     <label>Email Address</label>
-                    <input type="email" name="email" placeholder="kevin@gmail.com" required autocomplete="email">
+                    <input type="email" name="email" placeholder="student@example.com" required autocomplete="email">
                 </div>
             </div>
 
-            <div class="flex-row">
-                <div class="input-group">
-                    <label>Institution Type</label>
-                    <select name="institution_type" id="institution_type" required onchange="updateInstitutionOptions()">
-                        <option value="University">University</option>
-                        <option value="College">College</option>
-                        <option value="TVET">TVET</option>
-                        <option value="Polytechnic">Polytechnic</option>
-                        <option value="Other">Other / Professional</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Institution Name</label>
-                    <select name="institution_name" id="institution_name" required>
-                        <option value="MMUST">Masinde Muliro (MMUST)</option>
-                        <option value="UoN">University of Nairobi</option>
-                        <option value="KU">Kenyatta University</option>
-                        <option value="JKUAT">JKUAT</option>
-                        <option value="MUK">Makerere University</option>
-                        <option value="Other">Other Institution</option>
-                    </select>
-                </div>
+            <div class="input-group" style="width: 100%;">
+                <label>Institution</label>
+                <!-- Critical: class added for easier targeting -->
+                <select name="institution_name" id="institution_name" class="inst-search" required>
+                    <option value=""></option>
+                    {% for type, insts in all_institutions|groupby('type') %}
+                        <optgroup label="{{ type }}">
+                            {% for inst in insts|sort(attribute='name') %}
+                                <option value="{{ inst.name }}">{{ inst.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                    <option value="Other">Other / Not Listed</option>
+                </select>
             </div>
 
             <div class="input-group">
                 <label>Course / Programme</label>
-                <input type="text" name="course" id="course" placeholder="e.g. Computer Science, Nursing, Civil Engineering" maxlength="80">
-                <small style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Your degree or programme of study (shown to matches)</small>
+                <input type="text" name="course" id="course" placeholder="e.g. Computer Science, Nursing" maxlength="80">
+                <small style="font-size: 12px; color: #777; margin-top: 6px; display: block; font-weight: 500;">Your degree or programme of study (shown to matches)</small>
             </div>
 
             <!-- ── Legacy reg-number field (hidden by default for v3) ── -->
@@ -259,25 +357,25 @@
                 overflow: hidden;
                 max-height: 0;
                 opacity: 0;
-                transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease;
+                transition: max-height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
             ">
-                <div class="input-group">
+                <div class="input-group" style="padding-top: 5px;">
                     <label id="reg_label">🎓 Student Reg Number
-                        <span style="background:#fef3c7; color:#92400e; font-size:10px; padding:2px 8px; border-radius:20px; margin-left:6px; font-weight:900;">LEGACY</span>
+                        <span style="background:#fef3c7; color:#92400e; font-size:10px; padding:3px 10px; border-radius:20px; margin-left:8px; font-weight:900;">LEGACY</span>
                     </label>
                     <input type="text" name="reg_number" id="reg_number"
                            placeholder="SAB/B/01-0XXXX/2023"
                            oninput="this.value = this.value.toUpperCase();">
-                    <small id="reg_hint" style="font-size:11px; color:#888; margin-top:5px; display:block;">
+                    <small id="reg_hint" style="font-size:12px; color:#777; margin-top:6px; display:block; font-weight: 500;">
                         Only required if you were previously registered on the old system.
                     </small>
                 </div>
             </div>
 
             <div class="input-group">
-                <label>M-Pesa / Phone Number</label>
+                <label>Phone Number (M-Pesa)</label>
                 <input type="tel" name="phone" id="phone_signup" placeholder="07XXXXXXXX or 2547XXXXXXXX" required oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value.startsWith('0')) { this.value = '254' + this.value.substring(1); }">
-                <small style="font-size: 11px; color: #888; margin-top: 5px; display: block;">Format: 2547XXXXXXXX (Starts with 254)</small>
+                <small style="font-size: 12px; color: #777; margin-top: 6px; display: block; font-weight: 500;">Format: 2547XXXXXXXX (Starts with 254)</small>
             </div>
 
             <div class="flex-row">
@@ -323,10 +421,20 @@
 
             <div class="checkbox-group">
                 <input type="checkbox" name="skip_pic" id="skip_pic">
-                <label for="skip_pic" style="margin:0; font-weight: 700;">Skip profile picture for now</label>
+                <label for="skip_pic">Skip profile picture for now</label>
+            </div>
+            
+            <div class="checkbox-group" style="margin-top: 15px; margin-bottom: 20px; align-items: flex-start;">
+                <input type="checkbox" name="agree_terms" id="agree_terms" required style="margin-top: 4px;">
+                <label for="agree_terms" style="line-height: 1.4; font-size: 13px;">
+                    I have read and agree to the 
+                    <a href="javascript:void(0)" onclick="document.getElementById('terms-modal').style.display='flex'" style="color: #E60026; text-decoration: underline; font-weight: bold;">Terms & Conditions</a> 
+                    and 
+                    <a href="javascript:void(0)" onclick="document.getElementById('privacy-modal').style.display='flex'" style="color: #E60026; text-decoration: underline; font-weight: bold;">Privacy Policy</a>.
+                </label>
             </div>
 
-            <button type="submit" class="btn-submit" id="submitBtn">Create Account</button>
+            <button type="submit" class="btn-submit" id="submitBtn">Create Account ✨</button>
         </form>
 
         <div class="auth-footer">
@@ -335,168 +443,72 @@
     </div>
 </div>
 
+<!-- Modals for Terms and Privacy -->
+<div id="terms-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: white; width: 100%; max-width: 500px; border-radius: 20px; padding: 30px; max-height: 80vh; overflow-y: auto; position: relative;">
+        <button onclick="document.getElementById('terms-modal').style.display='none'" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #888;">&times;</button>
+        <h2 style="color: #111; margin-bottom: 15px; font-weight: 900;">Terms & Conditions</h2>
+        <div style="font-size: 14px; color: #555; line-height: 1.6;">
+            <p><strong>1. Acceptance of Terms:</strong> By accessing and using this application, you agree to comply with these terms. You must be at least 18 years old to use our services.</p>
+            <p><strong>2. User Conduct:</strong> You agree to treat all members with respect. Harassment, hate speech, explicit unsolicited content, and bullying are strictly prohibited and will result in an immediate permanent ban.</p>
+            <p><strong>3. Account Security:</strong> You are responsible for maintaining the confidentiality of your login credentials. We are not liable for unauthorized access resulting from your failure to secure your account.</p>
+            <p><strong>4. Payments & Subscriptions:</strong> All payments made for premium features and subscriptions are non-refundable unless explicitly stated otherwise.</p>
+            <p><strong>5. Termination:</strong> We reserve the right to suspend or terminate your account at any time, with or without notice, for any violation of these Terms & Conditions.</p>
+        </div>
+        <div style="margin-top: 15px; text-align: center;">
+            <a href="{{ url_for('terms') }}" target="_blank" style="color: #0A2540; font-size: 13px; text-decoration: underline; font-weight: 600;">View Full Terms of Service</a>
+        </div>
+        <button onclick="document.getElementById('terms-modal').style.display='none'" style="width: 100%; margin-top: 15px; padding: 12px; background: #0A2540; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">I Understand</button>
+    </div>
+</div>
+
+<div id="privacy-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: white; width: 100%; max-width: 500px; border-radius: 20px; padding: 30px; max-height: 80vh; overflow-y: auto; position: relative;">
+        <button onclick="document.getElementById('privacy-modal').style.display='none'" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #888;">&times;</button>
+        <h2 style="color: #111; margin-bottom: 15px; font-weight: 900;">Privacy Policy</h2>
+        <div style="font-size: 14px; color: #555; line-height: 1.6;">
+            <p><strong>1. Data Collection & Public Display:</strong> We collect personal information including your name, email address, phone number, gender, age, course of study, profile picture, and location data. <strong>By using this service, you acknowledge and agree that this data is used specifically to curate matches, and your profile details (including your name, profile picture, course, age, and phone number upon mutual matching) will be displayed publicly on your profile to other active users on the platform.</strong></p>
+            <p><strong>2. Location Data & Radar Features:</strong> If enabled, we use your precise or approximate location (via browser/GPS) to power proximity-based matching features like the "Location Radar" (e.g., determining if you are within a 10KM radius of a match). This data is strictly used for matchmaking and is not shared with third-party advertisers.</p>
+            <p><strong>3. Use of Information:</strong> We use your data to provide, improve, and personalize our matchmaking services, process payments safely, send important notifications, and organize potential dates with verified merchants.</p>
+            <p><strong>4. Data Sharing & Third Parties:</strong> We do not sell your personal data to data brokers. We may share necessary details (e.g., your name and contact info) with our verified Merchant Partners strictly for the purpose of fulfilling "Date Bookings" that you initiate.</p>
+            <p><strong>5. Data Security & Your Rights:</strong> We implement industry-standard security measures to protect your chat logs and personal data from unauthorized access. You retain the right to access, modify, or permanently delete your account and personal data at any time via your account settings.</p>
+        </div>
+        <div style="margin-top: 15px; text-align: center;">
+            <a href="{{ url_for('privacy') }}" target="_blank" style="color: #0A2540; font-size: 13px; text-decoration: underline; font-weight: 600;">View Full Privacy Policy</a>
+        </div>
+        <button onclick="document.getElementById('privacy-modal').style.display='none'" style="width: 100%; margin-top: 15px; padding: 12px; background: #0A2540; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">I Understand & Agree</button>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
+    // ── INIT SELECT2 ─────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initialize Select2 directly since options are already rendered in HTML
+        if (window.jQuery && $.fn.select2) {
+            $('#institution_name').select2({
+                placeholder: "🔍 Search for your institution...",
+                allowClear: true,
+                width: '100%'
+            });
+            
+            // Add listener for name change to toggle MMUST hint if applicable
+            $('#institution_name').on('change', function() {
+                const regHint = document.getElementById('reg_hint');
+                if (this.value === 'Masinde Muliro University of Science and Technology (MMUST)') {
+                    if (regHint) regHint.style.display = 'block';
+                } else {
+                    if (regHint) regHint.style.display = 'none';
+                }
+            });
+        }
+    });
+
     function togglePass(id) {
         const input = document.getElementById(id);
         input.type = input.type === 'password' ? 'text' : 'password';
     }
-
-    function updateInstitutionOptions() {
-        const type = document.getElementById('institution_type').value;
-        const nameSelect = document.getElementById('institution_name');
-        const regGroup = document.getElementById('reg_group');
-        const regInput = document.getElementById('reg_number');
-        const regLabel = document.getElementById('reg_label');
-        const regHint = document.getElementById('reg_hint');
-
-        nameSelect.innerHTML = '';
-
-        const universities = [
-            {val: 'MMUST', label: 'Masinde Muliro University (MMUST)'},
-            {val: 'UoN', label: 'University of Nairobi (UoN)'},
-            {val: 'KU', label: 'Kenyatta University (KU)'},
-            {val: 'JKUAT', label: 'Jomo Kenyatta University (JKUAT)'},
-            {val: 'MU', label: 'Moi University'},
-            {val: 'EU', label: 'Egerton University'},
-            {val: 'MSU', label: 'Maseno University'},
-            {val: 'DeKUT', label: 'Dedan Kimathi University (DeKUT)'},
-            {val: 'CU', label: 'Chuka University'},
-            {val: 'Karatina', label: 'Karatina University'},
-            {val: 'Kisii', label: 'Kisii University'},
-            {val: 'MUST', label: 'Meru University (MUST)'},
-            {val: 'MMU', label: 'Multi-Media University (MMU)'},
-            {val: 'PU', label: 'Pwani University'},
-            {val: 'SEKU', label: 'South Eastern Kenya University (SEKU)'},
-            {val: 'TUK', label: 'Technical University of Kenya (TU-K)'},
-            {val: 'TUM', label: 'Technical University of Mombasa (TUM)'},
-            {val: 'UoE', label: 'University of Eldoret'},
-            {val: 'UoK', label: 'University of Kabianga'},
-            {val: 'Laikipia', label: 'Laikipia University'},
-            {val: 'MaasaiMara', label: 'Maasai Mara University'},
-            {val: 'Machakos', label: 'Machakos University'},
-            {val: 'Muranga', label: 'Murang\'a University of Technology'},
-            {val: 'TTU', label: 'Taita Taveta University'},
-            {val: 'Rongo', label: 'Rongo University'},
-            {val: 'Kibabii', label: 'Kibabii University'},
-            {val: 'Strathmore', label: 'Strathmore University'},
-            {val: 'Daystar', label: 'Daystar University'},
-            {val: 'MKU', label: 'Mount Kenya University (MKU)'},
-            {val: 'USIU', label: 'USIU-Africa'},
-            {val: 'CUEA', label: 'Catholic University (CUEA)'},
-            {val: 'Zetech', label: 'Zetech University'},
-            {val: 'KCA', label: 'KCA University'},
-            {val: 'KeMU', label: 'Kenya Methodist University (KeMU)'},
-            {val: 'Kabarak', label: 'Kabarak University'},
-            {val: 'ANUA', label: 'Africa Nazarene University'},
-            {val: 'PACU', label: 'Pan Africa Christian University'},
-            {val: 'SUEU', label: 'Scott Christian University'},
-            {val: 'KPU', label: 'Kiriri Womens University'},
-            {val: 'GLUK', label: 'Great Lakes University of Kisumu'},
-            {val: 'Gretsa', label: 'Gretsa University'},
-            {val: 'Riara', label: 'Riara University'},
-            {val: 'LUK', label: 'Lukenya University'},
-            {val: 'Umma', label: 'Umma University'},
-            {val: 'AOU', label: 'Africa Online University'},
-            {val: 'Garissa', label: 'Garissa University'},
-            {val: 'Alupe', label: 'Alupe University'},
-            {val: 'Tharaka', label: 'Tharaka University'},
-            {val: 'Kaimosi', label: 'Kaimosi Friends University'},
-            {val: 'TomMboya', label: 'Tom Mboya University'},
-            {val: 'Turkana', label: 'Turkana University'},
-            {val: 'Koitalel', label: 'Koitalel Samoei University'},
-            {val: 'Other', label: 'Other University'}
-        ];
-
-        const colleges = [
-            {val: 'KMTC-Nairobi', label: 'KMTC Nairobi'},
-            {val: 'KMTC-Kakamega', label: 'KMTC Kakamega'},
-            {val: 'KMTC-Mombasa', label: 'KMTC Mombasa'},
-            {val: 'KMTC-Kisumu', label: 'KMTC Kisumu'},
-            {val: 'KMTC-Nakuru', label: 'KMTC Nakuru'},
-            {val: 'KMTC-Eldoret', label: 'KMTC Eldoret'},
-            {val: 'KMTC-Machakos', label: 'KMTC Machakos'},
-            {val: 'KMTC-Thika', label: 'KMTC Thika'},
-            {val: 'KMTC-Nyeri', label: 'KMTC Nyeri'},
-            {val: 'KMTC-Embu', label: 'KMTC Embu'},
-            {val: 'KMTC-Garissa', label: 'KMTC Garissa'},
-            {val: 'KMTC-Kilifi', label: 'KMTC Kilifi'},
-            {val: 'KMTC-Bungoma', label: 'KMTC Bungoma'},
-            {val: 'KMTC-Meru', label: 'KMTC Meru'},
-            {val: 'KenyaWater', label: 'Kenya Water Institute (KEWI)'},
-            {val: 'KSL', label: 'Kenya School of Law'},
-            {val: 'KSG', label: 'Kenya School of Government'},
-            {val: 'KIM', label: 'Kenya Institute of Management'},
-            {val: 'Other', label: 'Other College'}
-        ];
-
-        const tvets = [
-            {val: 'NP-Nairobi', label: 'Nairobi National Polytechnic'},
-            {val: 'NP-Kisumu', label: 'Kisumu National Polytechnic'},
-            {val: 'NP-Eldoret', label: 'Eldoret National Polytechnic'},
-            {val: 'NP-Nyeri', label: 'Nyeri National Polytechnic'},
-            {val: 'NP-Kabete', label: 'Kabete National Polytechnic'},
-            {val: 'NP-Coast', label: 'Kenya Coast National Polytechnic'},
-            {val: 'NP-Meru', label: 'Meru National Polytechnic'},
-            {val: 'NP-Kisii', label: 'Kisii National Polytechnic'},
-            {val: 'NP-Kitale', label: 'Kitale National Polytechnic'},
-            {val: 'NP-Sigalagala', label: 'Sigalagala National Polytechnic'},
-            {val: 'RVIST', label: 'Rift Valley Institute (RVIST)'},
-            {val: 'KIST', label: 'Kiambu Institute (KIST)'},
-            {val: 'RIAT', label: 'Ramogi Institute (RIAT)'},
-            {val: 'FriendsKaimosi', label: 'Friends College Kaimosi'},
-            {val: 'ThikaTTI', label: 'Thika Technical Training Institute'},
-            {val: 'RVTTI', label: 'Rift Valley Technical Training Institute'},
-            {val: 'KTTI', label: 'Kabete Technical Training Institute'},
-            {val: 'Other', label: 'Other TVET/Polytechnic'}
-        ];
-
-        if (type === 'Other') {
-            nameSelect.innerHTML = '<option value="None">Not Applicable</option>';
-            regGroup.style.display = 'none';
-            regInput.required = false;
-        } else {
-            regGroup.style.display = 'block';
-            regInput.required = true;
-            
-            let options = [];
-            if (type === 'University') {
-                options = universities;
-                regLabel.textContent = 'Registration Number';
-                regInput.placeholder = 'SAB/B/01-04774/2023';
-            } else if (type === 'College') {
-                options = colleges;
-                regLabel.textContent = 'Student ID / Reg Number';
-                regInput.placeholder = 'ID Number or Reg Number';
-            } else {
-                options = tvets;
-                regLabel.textContent = 'Student ID / Reg Number';
-                regInput.placeholder = 'ID Number or Reg Number';
-            }
-
-            options.forEach(opt => {
-                const el = document.createElement('option');
-                el.value = opt.val;
-                el.textContent = opt.label;
-                nameSelect.appendChild(el);
-            });
-
-            if (nameSelect.value === 'MMUST') {
-                regHint.style.display = 'block';
-            } else {
-                regHint.style.display = 'none';
-            }
-        }
-    }
-
-    // Add listener for name change to toggle MMUST hint
-    document.getElementById('institution_name').addEventListener('change', function() {
-        const regHint = document.getElementById('reg_hint');
-        if (this.value === 'MMUST') {
-            regHint.style.display = 'block';
-        } else {
-            regHint.style.display = 'none';
-        }
-    });
 
     // ── Legacy mode toggle ────────────────────────────────────────────────────
     let _legacyMode = false;
@@ -507,18 +519,20 @@
         const toggleBtn = document.getElementById('legacyToggleBtn');
 
         if (_legacyMode) {
-            regGroup.style.maxHeight = '140px';
+            regGroup.style.maxHeight = '150px';
             regGroup.style.opacity   = '1';
             apiMode.value = 'v2';
             toggleBtn.style.color = '#E60026';
+            toggleBtn.style.background = 'rgba(230,0,38,0.15)';
             toggleBtn.textContent = '✕ Cancel legacy mode';
         } else {
             regGroup.style.maxHeight = '0';
             regGroup.style.opacity   = '0';
             apiMode.value = 'v3';
             document.getElementById('reg_number').value = '';
-            toggleBtn.style.color = '#bbb';
-            toggleBtn.textContent = 'Legacy student?';
+            toggleBtn.style.color = '#777';
+            toggleBtn.style.background = 'none';
+            toggleBtn.textContent = 'Legacy Student?';
         }
     }
 
@@ -547,7 +561,7 @@
 
         const formData = new FormData(form);
         const data     = Object.fromEntries(formData.entries());
-        data.is_student = document.getElementById('institution_type').value !== 'Other';
+        data.is_student = true;
 
         // Choose API version based on mode
         const isLegacy = _legacyMode && data.reg_number;
@@ -571,7 +585,7 @@
             } else {
                 errorDiv.style.display = 'block';
                 errorDiv.innerText = '⚠️ ' + (result.message || 'Signup failed. Please try again.');
-                btn.innerText = 'Create Account';
+                btn.innerText = 'Create Account ✨';
                 btn.disabled  = false;
                 btn.classList.remove('loading');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -579,7 +593,7 @@
         } catch (error) {
             errorDiv.style.display = 'block';
             errorDiv.innerText = '⚠️ Connection error. Please check your internet and try again.';
-            btn.innerText = 'Create Account';
+            btn.innerText = 'Create Account ✨';
             btn.disabled  = false;
             btn.classList.remove('loading');
             window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -108,6 +108,17 @@
         .floating-bell { top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .radar-btn { top: calc(15px + env(safe-area-inset-top, 0px)); left: 15px; padding: 10px 16px; font-size: 13px; }
         .bell-popover { top: calc(70px + env(safe-area-inset-top, 0px)); right: 15px; width: calc(100vw - 30px); max-width: 320px; }
+        
+        .deck-container { 
+            height: calc(100dvh - 180px); 
+            min-height: 400px;
+            width: 100%;
+        }
+        .card-info { padding: 15px; }
+        .card-info h2 { font-size: 22px; }
+        .card-info p { font-size: 14px; }
+        .btn-action { width: 60px; height: 60px; font-size: 24px; }
+        .action-buttons { bottom: 15px; gap: 20px; }
     }
 
     @keyframes popIn {
@@ -346,20 +357,7 @@
     Crush Radar
 </button>
 
-<div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
-    🔔
-    <div class="bell-badge" id="bell-badge">0</div>
-</div>
 
-<div class="bell-popover" id="bell-popover">
-    <div class="popover-header">
-        <span> New Messages</span>
-        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 28px; cursor: pointer; line-height: 1;">&times;</button>
-    </div>
-    <div class="popover-list" id="bell-popover-list">
-        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px; font-weight: 600;">No new messages</div>
-    </div>
-</div>
 
 <div class="deck-wrapper">
     {% if not profile_complete %}

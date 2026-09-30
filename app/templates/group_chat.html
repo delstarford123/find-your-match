@@ -1,0 +1,743 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    .chat-layout { display: flex; height: 80vh; width: 100%; box-sizing: border-box; max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 1px solid #eee; }
+    
+    .mobile-bottom-nav, .support-trigger-btn, footer { display: none !important; }
+    /* Left Sidebar: Members */
+    .sidebar { width: 300px; background: #f8f9fa; border-right: 1px solid #eee; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 20px; background: #720000; color: white; font-weight: 800; font-size: 18px; }
+    .members-list { flex-grow: 1; overflow-y: auto; padding: 10px; }
+    .member-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; text-decoration: none; color: #333; transition: 0.2s; cursor: pointer; }
+    .member-item:hover { background: #FFD6DD; }
+    .member-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #ddd; }
+    .member-info { flex-grow: 1; overflow: hidden; }
+    .member-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-role { font-size: 11px; color: #720000; text-transform: uppercase; font-weight: 900; }
+    
+    /* Main Chat Area */
+    .chat-main { flex-grow: 1; display: flex; flex-direction: column; background: #fff; min-height: 0; min-width: 0; }
+    .chat-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .chat-title { color: #0A2540; font-weight: 900; font-size: 24px; margin: 0; }
+    .chat-desc { color: #888; font-size: 14px; }
+    
+    .chat-messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #fafafa; min-height: 0; }
+    
+    .message { display: flex; flex-direction: column; max-width: 70%; }
+    .message.mine { align-self: flex-end; align-items: flex-end; }
+    .message.theirs { align-self: flex-start; align-items: flex-start; }
+    
+    .msg-sender { font-size: 12px; font-weight: 800; margin-bottom: 4px; }
+    .message.mine .msg-sender { color: #38BDF8; }
+    .message.theirs .msg-sender { color: #720000; }
+    
+    .msg-bubble { padding: 12px 18px; border-radius: 20px; font-size: 15px; line-height: 1.4; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .message.mine .msg-bubble { background: linear-gradient(135deg, #0A2540 0%, #38BDF8 100%); color: white; border-bottom-right-radius: 5px; }
+    .message.theirs .msg-bubble { background: white; color: #333; border: 1px solid #eee; border-bottom-left-radius: 5px; }
+    
+    .msg-time { font-size: 10px; color: #aaa; margin-top: 4px; }
+    
+    /* Input Area */
+    .chat-input-area { padding: 20px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
+    .chat-input { flex-grow: 1; padding: 15px 20px; border: 1px solid #ddd; border-radius: 50px; font-size: 15px; outline: none; font-family: inherit; min-width: 0; }
+    .chat-input:focus { border-color: #38BDF8; }
+    .send-btn { background: #720000; color: white; border: none; padding: 0 25px; border-radius: 50px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+    .send-btn:hover { background: #E60026; }
+    
+    .message.system { align-self: center; align-items: center; max-width: 90%; margin-top: 15px; margin-bottom: 15px; }
+    .message.system .msg-sender { color: #f39c12; font-size: 14px; text-transform: uppercase; }
+    .message.system .msg-bubble { background: linear-gradient(135deg, #f39c12 0%, #e74c3c 100%); color: white; border-radius: 12px; font-weight: bold; text-align: center; border: 2px solid #f1c40f; box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4); font-size: 16px; padding: 15px 20px;}
+    
+    @media (max-width: 768px) {
+        .chat-layout { flex-direction: column; height: calc(100vh - 100px); }
+        .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #eee; height: 120px; flex-shrink: 0; }
+        .members-list { display: flex; overflow-x: auto; padding: 10px; gap: 10px; }
+        .member-item { flex-direction: column; text-align: center; min-width: 70px; padding: 5px; }
+        .member-name { font-size: 11px; }
+        .member-role { display: none; }
+        
+        .chat-input-area { padding: 10px; gap: 5px; }
+        .chat-input { padding: 10px 15px; font-size: 14px; }
+        .send-btn { padding: 0 15px; font-size: 14px; }
+        .chat-header { padding: 10px; }
+        .chat-title { font-size: 18px; }
+    }
+    
+    /* Lights Out Mode Overrides */
+    body.lights-out-mode {
+        background-color: #020810 !important;
+    }
+    body.lights-out-mode .chat-layout {
+        border-color: #38BDF8 !important;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+    }
+    body.lights-out-mode .sidebar {
+        background-color: #03080e !important;
+        border-right: 1px solid #1a2a3a;
+        color: #888;
+    }
+    body.lights-out-mode .chat-main {
+        background-color: #050a10 !important;
+    }
+    body.lights-out-mode .chat-header {
+        background-color: #08121a !important;
+        border-bottom: 1px solid #1a2a3a !important;
+        color: #e2e8f0;
+    }
+    body.lights-out-mode .chat-title, body.lights-out-mode .chat-desc {
+        color: #e2e8f0 !important;
+    }
+    body.lights-out-mode .sidebar-header {
+        background-color: #08121a !important;
+        border-bottom: 1px solid #1a2a3a;
+    }
+    body.lights-out-mode .member-item {
+        background: rgba(255,255,255,0.05) !important;
+    }
+    body.lights-out-mode .member-item:hover {
+        background: rgba(255,255,255,0.1) !important;
+    }
+    body.lights-out-mode .member-photo {
+        filter: brightness(0) blur(2px) !important;
+    }
+    body.lights-out-mode .member-name {
+        color: transparent !important;
+        text-shadow: 0 0 6px rgba(255, 255, 255, 0.7) !important;
+        user-select: none;
+    }
+    body.lights-out-mode .chat-input-area {
+        background: #08121a !important;
+        border-top: 1px solid #1a2a3a;
+    }
+    body.lights-out-mode .chat-input {
+        background: #111a24;
+        color: white;
+        border-color: #1a2a3a;
+    }
+    body.lights-out-mode .msg-bubble {
+        background: #111a24;
+        color: #e2e8f0;
+        border-color: #1a2a3a !important;
+    }
+    body.lights-out-mode .message.theirs .msg-sender {
+        color: #38BDF8 !important;
+    }
+    body.lights-out-mode .mine .msg-bubble {
+        background: linear-gradient(135deg, #1A0B2E 0%, #38BDF8 100%);
+        color: #fff;
+        font-weight: bold;
+    }
+    
+    @keyframes pulseBg {
+        from { opacity: 0.8; }
+        to { opacity: 1; }
+    }
+
+    /* === THEME MODAL UI === */
+    .theme-modal {
+        position: absolute; top: 50px; left: auto; right: 0; background: white; padding: 20px; 
+        border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 9999; 
+        width: 320px; max-width: calc(100vw - 40px); display: none; border: 1px solid #FFD6DD; text-align: left;
+    }
+    .theme-modal.active { display: block; animation: popIn 0.2s ease-out forwards; }
+    @keyframes popIn { 0% { opacity:0; transform: scale(0.9); } 100% { opacity:1; transform: scale(1); } }
+    
+    .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 10px; }
+    .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .color-swatch:hover { transform: scale(1.2); border-color: #333; }
+    
+    .bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+    .bg-swatch { height: 60px; border-radius: 10px; cursor: pointer; background-size: cover; background-position: center; border: 2px solid #ddd; transition: 0.2s; }
+    .bg-swatch:hover { border-color: #E60026; transform: scale(1.05); }
+
+    .chat-messages {
+        background-color: var(--chat-bg, #fff);
+        background-image: var(--chat-bg-image, none);
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }
+
+    /* Target the existing classes dynamically */
+    .message.mine .msg-bubble { background-color: var(--my-bubble-color, #720000) !important; color: var(--my-bubble-text, white) !important; }
+</style>
+
+<div class="chat-layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            Group Members ({{ members|length }})
+        </div>
+        
+
+
+        <div class="members-list">
+            {% for m in members %}
+            <div class="member-item" style="display: flex; justify-content: space-between; padding: 10px; border-radius: 10px; align-items: center; border-bottom: 1px solid #f0f0f0;">
+                <a href="{{ url_for('matches', partner_id=m.id) }}" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #333; flex-grow: 1;">
+                    <div style="position: relative;">
+                        <img src="{{ m.photo_url or url_for('static', filename='images/default_avatar.png') }}" class="member-photo" alt="Photo" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <!-- Online Status Dot -->
+                        <span id="online-dot-{{ m.id }}" style="position: absolute; bottom: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white; background-color: {% if m.is_online %}#25D366{% else %}#ccc{% endif %}; transition: background-color 0.3s;"></span>
+                    </div>
+                    <div class="member-info">
+                        <div class="member-name" style="font-weight: 800; font-size: 15px;">{{ m.name.split(' ')[0] }}</div>
+                        {% if m.role == 'admin' %}
+                        <div class="member-role" style="font-size: 10px; color: white; background: #E60026; padding: 2px 6px; border-radius: 4px; display: inline-block; font-weight: 900; letter-spacing: 0.5px; margin-top: 2px;">ADMIN</div>
+                        {% endif %}
+                    </div>
+                </a>
+                
+                <div style="display: flex; align-items: center;">
+                    {% if is_admin and m.id != session['user_id'] %}
+                    <form action="{{ url_for('remove_group_user', group_id=group.id, target_id=m.id) }}" method="POST" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" style="background:none; border:none; color: #E60026; cursor: pointer; font-size: 16px; font-weight: bold;" title="Remove User">×</button>
+                    </form>
+                    {% elif m.id != session['user_id'] %}
+                    <form action="{{ url_for('group_shoot_shot', group_id=group.id, target_id=m.id) }}" method="POST" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" style="background:none; border:none; font-size: 16px; cursor: pointer; transition: transform 0.2s;" title="Shoot Your Shot" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">💘</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Pending requests logic removed from sidebar to save space on mobile -->
+    </div>
+    
+    <!-- Main Chat -->
+    <div class="chat-main">
+        <div class="chat-header">
+            <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; margin-right: 10px;">
+                <img src="/static/img/placeholder.png" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex-shrink: 0;">
+                <div style="min-width: 0;">
+                    <h2 class="chat-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">{{ group.name }}</h2>
+                    <div class="chat-desc" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; color: #888;">{{ group.description }}</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 15px; align-items: center; position: relative;">
+                
+                <div style="position: relative;">
+                    <button onclick="toggleActionMenu(event)" style="background: none; border: none; color: #333; font-size: 24px; cursor: pointer; font-weight: bold;">⋮</button>
+                    <div id="action-menu" class="theme-modal" style="width: 220px; right: 0; left: auto; top: 40px; padding: 10px; display: none; max-width: calc(100vw - 30px);">
+                        
+                        <!-- Everyone: Theme Settings -->
+                        <button onclick="toggleThemeModal(event);" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #333; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                            🎨 Theme Settings
+                        </button>
+                        
+                        <!-- Everyone: Vibe Check -->
+                        <button onclick="runVibeCheck(); toggleActionMenu(event);" id="vibe-btn" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #f5576c; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                            ✨ Vibe Check
+                        </button>
+
+                        <!-- Everyone: Invite Link -->
+                        <button type="button" onclick="copyInviteLink(); toggleActionMenu(event);" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #0369a1; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                            🔗 Invite Link
+                        </button>
+                        
+                        {% if is_admin %}
+                        <div style="border-top: 1px solid #eee; margin: 10px 0;"></div>
+                        
+                        <!-- Admin: Approve Members -->
+                        {% if join_requests %}
+                        <button onclick="toggleApproveMemberModal(event);" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #E60026; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s; position: relative;" onmouseover="this.style.background='#FEF2F4'" onmouseout="this.style.background='transparent'">
+                            🔔 Approve Members
+                            <span style="background: #E60026; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; position: absolute; right: 10px;">{{ join_requests|length }}</span>
+                        </button>
+                        {% else %}
+                        <button onclick="toggleApproveMemberModal(event);" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #333; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                            👥 Approve Members
+                        </button>
+                        {% endif %}
+
+                        <!-- Admin: Add Member -->
+                        <button onclick="toggleAddMemberModal(event);" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #28a745; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                            👤 Add Member
+                        </button>
+
+                        <!-- Admin: Lights Out -->
+                        <form action="{{ url_for('toggle_lights_out', group_id=group.id) }}" method="POST" style="margin: 0; margin-bottom: 5px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #1A0B2E; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                                🌑 Lights Out
+                            </button>
+                        </form>
+                        
+                        <!-- Admin: Mini-Game -->
+                        <form action="{{ url_for('trigger_minigame', group_id=group.id) }}" method="POST" style="margin: 0; margin-bottom: 5px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #E60026; font-weight: 800; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; transition: 0.2s;" onmouseover="this.style.background='#f8f9fa'" onmouseout="this.style.background='transparent'">
+                                🎲 Mini-Game
+                            </button>
+                        </form>
+                        
+                        <!-- Admin: Delete Group -->
+                        <form action="{{ url_for('delete_group', group_id=group.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this group? All members will be removed and notified.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #dc3545; font-weight: 900; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; transition: 0.2s;" onmouseover="this.style.background='#FEF2F4'" onmouseout="this.style.background='transparent'">
+                                🗑 Delete Group
+                            </button>
+                        </form>
+                        
+                        {% else %}
+                        
+                        <!-- User: Leave Group -->
+                        <div style="border-top: 1px solid #eee; margin: 10px 0;"></div>
+                        <form action="{{ url_for('remove_group_user', group_id=group.id, target_id=session['user_id']) }}" method="POST" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="width: 100%; text-align: left; padding: 12px; background: transparent; border: none; color: #dc3545; font-weight: 900; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; transition: 0.2s;" onclick="return confirm('Are you sure you want to leave this group?');" onmouseover="this.style.background='#FEF2F4'" onmouseout="this.style.background='transparent'">
+                                🚪 Leave Group
+                            </button>
+                        </form>
+                        
+                        {% endif %}
+                    </div>
+                </div>
+
+                <a href="{{ url_for('groups') }}" style="color: #888; text-decoration: none; font-size: 24px; font-weight: bold; margin-left: 10px;" title="Close Chat">✕</a>
+            </div>
+        </div>
+        
+        <!-- Add Member Modal (Hidden by Default) -->
+        <div id="add-member-modal" class="theme-modal" style="width: 250px; right: 20px; left: auto; top: 60px; padding: 20px; display: none; z-index: 1000000; max-width: calc(100vw - 40px);">
+            <h4 style="color: #720000; margin-bottom: 15px; font-size: 14px;">Add Member by Email</h4>
+            <form action="{{ url_for('add_group_user', group_id=group.id) }}" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="email" name="email" placeholder="student@example.com" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: inherit;">
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" style="flex: 1; background: #0A2540; color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">Add</button>
+                    <button type="button" onclick="toggleAddMemberModal(event)" style="flex: 1; background: #eee; color: #333; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Approve Member Modal (Hidden by Default) -->
+        <div id="approve-member-modal" class="theme-modal" style="width: 320px; right: 20px; left: auto; top: 60px; padding: 20px; display: none; z-index: 1000000; max-width: calc(100vw - 40px); max-height: 70vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: #720000; font-size: 14px; margin: 0;">Pending Requests</h4>
+                <button onclick="toggleApproveMemberModal(event)" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #888;">✕</button>
+            </div>
+            
+            {% if join_requests %}
+                {% for req in join_requests %}
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; background: #fffdfd; padding: 10px; border-radius: 8px; border: 1px solid #f8d7da;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="{{ req.profile_img }}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <div style="font-size: 13px; font-weight: bold; color: #333;">{{ req.name.split(' ')[0] }}</div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <form action="{{ url_for('approve_join_group', group_id=group.id, target_user_id=req.id) }}" method="POST" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px; padding:6px 12px; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">Approve</button>
+                        </form>
+                        <form action="{{ url_for('reject_join_group', group_id=group.id, target_user_id=req.id) }}" method="POST" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" style="background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px; padding:6px 12px; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">Reject</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; color: #888; font-size: 13px; padding: 20px 0;">No pending requests.</div>
+            {% endif %}
+        </div>
+        
+        <!-- Theme Settings Modal (Hidden by Default) -->
+        <div id="theme-modal" class="theme-modal" style="width: 250px; right: 20px; left: auto; top: 60px; padding: 20px; display: none; z-index: 1000000; max-width: calc(100vw - 40px);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h4 style="color: #720000; font-size: 14px; margin: 0;">My Chat Bubble Color</h4>
+                <button onclick="toggleThemeModal(event)" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #888;">✕</button>
+            </div>
+            <div id="color-picker" class="color-grid"></div>
+            <h4 style="color: #720000; margin: 20px 0 10px; font-size: 14px;">Chat Background</h4>
+            <div id="bg-picker" class="bg-grid"></div>
+        </div>
+        
+        <div id="lights-out-banner" style="display: none; background: linear-gradient(90deg, #1A0B2E, #720000); color: #fff; text-align: center; padding: 10px; font-weight: bold; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #38BDF8; animation: pulseBg 2s infinite alternate;">
+            🌑 LIGHTS OUT MODE ACTIVE: All identities are hidden. Chat purely on vibes!
+        </div>
+        
+        <div class="chat-messages" id="messages-container">
+            <!-- Messages injected by JS -->
+        </div>
+        
+        <div class="chat-input-area" id="chat-form">
+            <input type="text" id="message-input" class="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button type="button" class="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase Realtime DB Setup -->
+<script>
+    const db = fdb;
+    const groupId = "{{ group.id }}";
+    const currentUserId = "{{ session['user_id'] }}";
+    const currentUserName = "{{ user.name.split(' ')[0] }}";
+    
+    const messagesRef = db.ref('group_messages/' + groupId);
+    const groupMetaRef = db.ref('groups/' + groupId);
+    const messagesContainer = document.getElementById('messages-container');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+    
+    let messagesList = [];
+    let isLightsOut = false;
+    
+    // Listen for lights out mode changes
+    groupMetaRef.child('lights_out_until').on('value', (snap) => {
+        const until = snap.val();
+        if (until && Date.now() < new Date(until).getTime()) {
+            isLightsOut = true;
+            document.body.classList.add('lights-out-mode');
+            document.getElementById('lights-out-banner').style.display = 'block';
+        } else {
+            isLightsOut = false;
+            document.body.classList.remove('lights-out-mode');
+            document.getElementById('lights-out-banner').style.display = 'none';
+        }
+        reRenderAllMessages();
+    });
+    
+    // Listen for new messages
+    messagesRef.on('child_added', (snapshot) => {
+        const msg = snapshot.val();
+        messagesList.push(msg);
+        renderMessage(msg);
+    });
+    
+    function reRenderAllMessages() {
+        messagesContainer.innerHTML = '';
+        messagesList.forEach(msg => renderMessage(msg));
+    }
+    
+    function renderMessage(msg) {
+        const isMine = msg.sender_id === currentUserId;
+        const isSystem = msg.sender_id === 'system_ai';
+        const msgDiv = document.createElement('div');
+        
+        let className = 'message ';
+        if (isSystem) {
+            className += 'system';
+        } else {
+            className += (isMine ? 'mine' : 'theirs');
+        }
+        msgDiv.className = className;
+        
+        const timeString = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        let displayName = msg.sender_name;
+        if (isMine) displayName = 'You';
+        else if (isLightsOut && !isSystem) displayName = '👻 Anonymous';
+        
+        msgDiv.innerHTML = `
+            <div class="msg-sender">${displayName}</div>
+            <div class="msg-bubble">${escapeHtml(msg.text)}</div>
+            <div class="msg-time">${timeString}</div>
+        `;
+        messagesContainer.appendChild(msgDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text) return;
+        
+        messagesRef.push({
+            sender_id: currentUserId,
+            sender_name: currentUserName,
+            text: text,
+            timestamp: Date.now()
+        });
+        
+        messageInput.value = '';
+        
+        // Notify other members via email
+        fetch('/api/groups/notify_members/' + groupId, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: text })
+        }).catch(err => console.error("Notification failed", err));
+    }
+    
+    // Allow sending with Enter key
+    messageInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    
+    // Custom Toast Alert
+    function showCustomAlert(msg) {
+        let toast = document.getElementById('custom-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'custom-toast';
+            toast.style.position = 'fixed';
+            toast.style.top = '20px';
+            toast.style.left = '50%';
+            toast.style.transform = 'translateX(-50%)';
+            toast.style.background = 'whitesmoke';
+            toast.style.color = '#333';
+            toast.style.padding = '12px 24px';
+            toast.style.borderRadius = '30px';
+            toast.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+            toast.style.zIndex = '9999';
+            toast.style.fontWeight = 'bold';
+            toast.style.fontSize = '14px';
+            toast.style.transition = 'opacity 0.3s ease';
+            document.body.appendChild(toast);
+        }
+        toast.innerText = msg;
+        toast.style.opacity = '1';
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
+    }
+    
+    function runVibeCheck() {
+        const btn = document.getElementById('vibe-btn');
+        btn.innerHTML = '⏳ Checking...';
+        btn.disabled = true;
+        
+        fetch(`/api/groups/vibe_check/${groupId}`)
+            .then(res => res.json())
+            .then(data => {
+                btn.innerHTML = '✨ Vibe Check';
+                btn.disabled = false;
+                if(!data.success) {
+                    showCustomAlert(data.message || 'Error running vibe check.');
+                } else {
+                    showCustomAlert('✨ Vibe Check complete! Check the chat.');
+                }
+            })
+            .catch(e => {
+                btn.innerHTML = '✨ Vibe Check';
+                btn.disabled = false;
+                showCustomAlert('Connection error while checking vibe: ' + e.message);
+                console.error(e);
+            });
+    }
+    
+    function escapeHtml(unsafe) {
+        return String(unsafe || '')
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+    
+    function copyInviteLink() {
+        const link = window.location.origin + "{{ url_for('group_invite', group_id=group.id) }}";
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Join {{ group.name }}',
+                text: 'Hey! Join my group on FIND YOUR MATCH!',
+                url: link
+            }).catch((error) => {
+                fallbackCopyTextToClipboard(link);
+            });
+        } else {
+            fallbackCopyTextToClipboard(link);
+        }
+    }
+
+    function fallbackCopyTextToClipboard(link) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(link).then(() => {
+                showCustomAlert('🔗 Invite link copied! Share it anywhere.');
+            }).catch(() => {
+                prompt('Copy this link to invite members:', link);
+            });
+        } else {
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = link;
+                textArea.style.position = "fixed"; 
+                textArea.style.left = "-999999px"; 
+                textArea.style.top = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                const successful = document.execCommand('copy');
+                textArea.remove();
+                if(successful) {
+                    showCustomAlert('🔗 Invite link copied! Share it anywhere.');
+                } else {
+                    prompt('Copy this link to invite members:', link);
+                }
+            } catch (e) {
+                prompt('Copy this link to invite members:', link);
+            }
+        }
+    }
+    function toggleActionMenu(e) {
+        if(e) e.stopPropagation();
+        const m = document.getElementById('action-menu');
+        if (m) {
+            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            document.getElementById('theme-modal').style.display = 'none';
+        }
+    }
+
+    function toggleThemeModal(e) {
+        if(e) e.stopPropagation();
+        const m = document.getElementById('theme-modal');
+        if (m) {
+            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            document.getElementById('action-menu').style.display = 'none';
+        }
+    }
+
+    const chatColors = [
+        '#DCF8C6', '#E60026', '#FFD6DD', '#720000', '#007BFF', '#6610f2', 
+        '#e83e8c', '#fd7e14', '#ffc107', '#28a745', '#20c997', '#17a2b8', 
+        '#322E2F', '#F3E0BE', '#E2D1F9', '#317773', '#E2F0CB', '#FF6F69'
+    ];
+
+    const chatBackgrounds = [
+        { url: 'none', color: '#E5DDD5' }, 
+        { url: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')", color: '#E5DDD5' },
+        { url: "url('https://i.pinimg.com/originals/8f/ba/cb/8fbacbd464e996966eb9d4a6b7a9c21e.jpg')", color: '#000000' },
+        { url: 'none', color: '#111111' }, 
+        { url: 'none', color: '#FEF2F4' }, 
+        { url: 'none', color: '#e6f2ff' }  
+    ];
+
+
+
+    function isColorDark(color) {
+        let r, g, b;
+        if (color.match(/^rgb/)) {
+            let res = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            r = parseInt(res[1]); g = parseInt(res[2]); b = parseInt(res[3]);
+        } else {
+            let c = color.substring(1);      // strip #
+            let rgb = parseInt(c, 16);   // convert rrggbb to decimal
+            r = (rgb >> 16) & 0xff;
+            g = (rgb >>  8) & 0xff;
+            b = (rgb >>  0) & 0xff;
+        }
+        let luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return luma < 128;
+    }
+
+    function initThemePicker() {
+        const colorContainer = document.getElementById('color-picker');
+        const bgContainer = document.getElementById('bg-picker');
+        const root = document.documentElement;
+
+        if (!colorContainer || !bgContainer) return;
+
+        chatColors.forEach(color => {
+            let swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = color;
+            swatch.onclick = (e) => {
+                e.stopPropagation();
+                root.style.setProperty('--my-bubble-color', color);
+                localStorage.setItem('fym_bubble_color', color);
+                
+                const isDark = isColorDark(color);
+                root.style.setProperty('--my-bubble-text', isDark ? '#fff' : '#111');
+            };
+            colorContainer.appendChild(swatch);
+        });
+
+        chatBackgrounds.forEach(bg => {
+            let swatch = document.createElement('div');
+            swatch.className = 'bg-swatch';
+            swatch.style.backgroundColor = bg.color;
+            swatch.style.backgroundImage = bg.url;
+            swatch.onclick = (e) => {
+                e.stopPropagation();
+                root.style.setProperty('--chat-bg-image', bg.url);
+                root.style.setProperty('--chat-bg', bg.color);
+                localStorage.setItem('fym_bg_image', bg.url);
+                localStorage.setItem('fym_bg_color', bg.color);
+            };
+            bgContainer.appendChild(swatch);
+        });
+
+        const savedBubble = localStorage.getItem('fym_bubble_color');
+        const savedBgImg = localStorage.getItem('fym_bg_image');
+        const savedBgColor = localStorage.getItem('fym_bg_color');
+
+        if (savedBubble) {
+            root.style.setProperty('--my-bubble-color', savedBubble);
+            const isDark = isColorDark(savedBubble);
+            root.style.setProperty('--my-bubble-text', isDark ? '#fff' : '#111');
+        }
+        if (savedBgColor) root.style.setProperty('--chat-bg', savedBgColor);
+        if (savedBgImg) root.style.setProperty('--chat-bg-image', savedBgImg);
+    }
+    
+    // Initialize Theme picker
+    initThemePicker();
+    
+    // Real-time Online Status for Group Members
+    const groupMembers = [
+        {% for m in members %}
+        "{{ m.id }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    groupMembers.forEach(uid => {
+        fdb.ref(`profiles/${uid}/is_online`).on('value', (snap) => {
+            const is_online = snap.val() === true;
+            const dot = document.getElementById(`online-dot-${uid}`);
+            if (dot) {
+                dot.style.backgroundColor = is_online ? '#25D366' : '#ccc';
+            }
+        });
+    });
+
+    function toggleAddMemberModal(e) {
+        if(e) e.stopPropagation();
+        const m = document.getElementById('add-member-modal');
+        if (m) {
+            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            document.getElementById('action-menu').style.display = 'none';
+        }
+    }
+
+    function toggleApproveMemberModal(e) {
+        if(e) e.stopPropagation();
+        const m = document.getElementById('approve-member-modal');
+        if (m) {
+            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+            document.getElementById('action-menu').style.display = 'none';
+        }
+    }
+
+    // Close Modals on click outside
+    document.addEventListener('click', function(e) {
+        const themeModal = document.getElementById('theme-modal');
+        const addMemberModal = document.getElementById('add-member-modal');
+        const approveMemberModal = document.getElementById('approve-member-modal');
+        const actionMenu = document.getElementById('action-menu');
+
+        if (themeModal && themeModal.style.display === 'block' && !e.target.closest('#theme-modal') && !e.target.closest('button[onclick*="toggleThemeModal"]')) {
+            themeModal.style.display = 'none';
+        }
+        if (addMemberModal && addMemberModal.style.display === 'block' && !e.target.closest('#add-member-modal') && !e.target.closest('button[onclick*="toggleAddMemberModal"]')) {
+            addMemberModal.style.display = 'none';
+        }
+        if (approveMemberModal && approveMemberModal.style.display === 'block' && !e.target.closest('#approve-member-modal') && !e.target.closest('button[onclick*="toggleApproveMemberModal"]')) {
+            approveMemberModal.style.display = 'none';
+        }
+        if (actionMenu && actionMenu.style.display === 'block' && !e.target.closest('#action-menu') && !e.target.closest('button[onclick*="toggleActionMenu"]')) {
+            actionMenu.style.display = 'none';
+        }
+    });
+
+</script>
+{% endblock %}

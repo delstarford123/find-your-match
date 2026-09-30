@@ -12,7 +12,7 @@ from email.utils import formataddr, formatdate, make_msgid
 logger = logging.getLogger(__name__)
 
 # Define standard sender name for consistency
-SENDER_NAME_DEFAULT = "FIND YOUR MATCH AI"
+SENDER_NAME_DEFAULT = "FIND YOUR MATCH"
 
 import ssl
 
@@ -124,6 +124,10 @@ def send_verification_email(recipient_email, user_name, otp_code, purpose="signu
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border: 1px solid #FFD6DD; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 35px rgba(114,0,0,0.08);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 
                 <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 45px 20px; text-align: center;">
                     <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
@@ -150,10 +154,10 @@ def send_verification_email(recipient_email, user_name, otp_code, purpose="signu
                 
                 <div style="background: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
                     <p style="margin: 0 0 10px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        FIND YOUR MATCH AI Powered Dating
+                        FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
                     </p>
                     <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
                     </p>
                 </div>
             </div>
@@ -162,6 +166,169 @@ def send_verification_email(recipient_email, user_name, otp_code, purpose="signu
     """)
 
     return _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT)
+
+
+def send_manager_otp_email(recipient_email, otp_code):
+    """Sends the 2FA OTP code to managers for secure portal access."""
+    subject = "Manager Portal 2FA Code"
+    body_text = f"Your one-time login code is: {otp_code}\nIt expires in 10 minutes."
+    body_html = f"""
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+            <!-- HEADER -->
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">Security Check</h1>
+            </div>
+            
+            <!-- BODY -->
+            <div style="padding: 40px 30px; text-align: center;">
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Verify your login</h2>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                    Please enter the following One-Time Password (OTP) to securely access the Manager Portal.
+                </p>
+                
+                <div style="background: #f8fafc; border-radius: 12px; padding: 25px; margin: 0 auto 25px; border: 1px solid #e2e8f0; max-width: 250px;">
+                    <div style="letter-spacing: 8px; font-size: 32px; font-weight: 900; color: #0ea5e9; margin: 0;">
+                        {otp_code}
+                    </div>
+                </div>
+                
+                <p style="margin: 0; color: #ef4444; font-size: 13px; font-weight: 600;">
+                    ⏱️ This code expires in 10 minutes.
+                </p>
+            </div>
+            
+            <!-- FOOTER -->
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return _send_email(recipient_email, subject, body_text, body_html, sender_name="FIND YOUR MATCH AI")
+
+def send_group_join_request_email(admin_email, admin_name, user_name, group_name):
+    """Notifies a group admin that a user wants to join their group."""
+    subject = f"🔔 New Join Request for {group_name}"
+    
+    text_content = textwrap.dedent(f"""\
+        Hi {admin_name},
+        
+        {user_name} has requested to join your group "{group_name}".
+        Please log in to your account to review and approve their request.
+        
+        Review Request: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                <h2 style="color: #0A2540;">New Join Request! 🔔</h2>
+                <p style="color: #333; line-height: 1.5;">Hi {admin_name},</p>
+                <p style="color: #333; line-height: 1.5;"><strong>{user_name}</strong> has requested to join your group <strong>{group_name}</strong>.</p>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Review Request</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    return _send_email(admin_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
+
+def send_group_notification_email(member_email, member_name, sender_name, group_name, message):
+    """Notifies group members of a new message or update."""
+    subject = f"💬 New Message in {group_name}"
+    
+    text_content = textwrap.dedent(f"""\
+        Hi {member_name},
+        
+        You have a new notification in {group_name} from {sender_name}:
+        "{message}"
+        
+        Check it out: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                <h2 style="color: #0A2540;">New Group Notification 💬</h2>
+                <p style="color: #333; line-height: 1.5;">Hi {member_name},</p>
+                <p style="color: #333; line-height: 1.5;">You have a new message in <strong>{group_name}</strong> from <strong>{sender_name}</strong>:</p>
+                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0; color: #555; font-style: italic;">"{message}"</div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Group</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    return _send_email(member_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
+
+def send_group_invite_email(to_email, user_name, group_name, admin_name):
+    """Sends a professional welcome email when added to a group."""
+    subject = f"💬 You've been invited to join {group_name}!"
+    
+    text_content = textwrap.dedent(f"""\
+        Welcome, {user_name}!
+        
+        You have been invited to join the group {group_name} by {admin_name}. 
+        We are wishing you the absolute best in finding your perfect match!
+        
+        Group Rules:
+        - Be respectful and kind to everyone.
+        - Shoot your shot, but take 'no' gracefully.
+        - Have fun and keep the vibes immaculate!
+        
+        Enter the Chat: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <h2 style="color: #0A2540; margin-top: 0; font-size: 22px;">Welcome, {user_name}! 🎉</h2>
+                <p style="color: #333; font-size: 16px; line-height: 1.5;">
+                    You have been invited to join the group <strong>{group_name}</strong> by {admin_name}. 
+                    We are wishing you the absolute best in finding your perfect match!
+                </p>
+                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                    <strong style="color: #720000; font-size: 14px; text-transform: uppercase;">📜 Group Rules</strong>
+                    <ul style="color: #555; margin: 10px 0 0 0; font-size: 14px;">
+                        <li>Be respectful and kind to everyone.</li>
+                        <li>Shoot your shot, but take 'no' gracefully.</li>
+                        <li>Have fun and keep the vibes immaculate!</li>
+                    </ul>
+                </div>
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{{ url_for('groups', _external=True) }}" style="background: #38BDF8; color: #0A2540; font-weight: 800; text-decoration: none; padding: 15px 30px; border-radius: 50px; display: inline-block;">Enter the Chat</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    
+    return _send_email(to_email, subject, text_content, html_content)
 
 
 def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
@@ -192,6 +359,10 @@ def send_date_approval_email(to_email, user_name, partner_name, restaurant_name,
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #E60026; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <h2 style="color: #720000; margin-top: 0; font-size: 24px; font-weight: 900;">Great news, {user_name}! 🎉</h2>
                 
                 <p style="color: #333; font-size: 16px; line-height: 1.6;">
@@ -246,6 +417,10 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <h2 style="color: #720000; margin-top: 0; font-size: 22px; font-weight: 900;">New Date Proposal! 🍽️</h2>
                 
                 <p style="color: #333; font-size: 16px; line-height: 1.6;">
@@ -274,6 +449,64 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
     return _send_email(merchant_email, subject, text_content, html_content)
 
 
+def send_date_request_to_partner_email(partner_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
+    """Sends a notification email to the partner when a new date is proposed to them."""
+    subject = f"💌 {user_a_name} invited you on a date!"
+    
+    text_content = textwrap.dedent(f"""\
+        Hello {user_b_name},
+        
+        Exciting news! {user_a_name} has just invited you on a date.
+        
+        Venue: {merchant_name}
+        Proposed Time: {date_day} at {date_time}
+        
+        Please log in to your account and check your messages to accept the date!
+        
+        - FIND YOUR MATCH AI Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #e11d48; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <h2 style="color: #e11d48; margin-top: 0; font-size: 22px; font-weight: 900;">You have a Date Invitation! 💌</h2>
+                
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                    Hello <strong>{user_b_name}</strong>, big news! <strong>{user_a_name}</strong> wants to take you out on a date!
+                </p>
+                
+                <div style="background: #fff1f2; padding: 20px; border-radius: 12px; border: 1px solid #fecdd3; margin: 25px 0;">
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{{ url_for('auth.login', _external=True) }}" style="background: #e11d48; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+                        Open Chats to Reply
+                    </a>
+                </div>
+                
+                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
+                    Don't leave them hanging! Open the app to chat and confirm the date.
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(partner_email, subject, text_content, html_content)
+
+
 def send_broadcast_email(recipient_email, recipient_name, subject, message_body, attachments=None):
     """Sends a generic mass broadcast email to users, generated by the Admin."""
     
@@ -297,6 +530,10 @@ def send_broadcast_email(recipient_email, recipient_name, subject, message_body,
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 
                 <h3 style="color: #0f172a; margin-top: 0; font-size: 20px; font-weight: 900;">Hello {recipient_name},</h3>
                 
@@ -343,6 +580,10 @@ def send_premium_activation_email(recipient_email, recipient_name):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 40px;">💎</span>
@@ -409,6 +650,10 @@ def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, la
         <html>
         <body style="margin: 0; padding: 20px; background-color: #720000; font-family: sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; border: 5px solid #E60026;">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="background: #E60026; padding: 30px; text-align: center; color: white;">
                     <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px;">🚨 SOS ALERT 🚨</h1>
                 </div>
@@ -481,6 +726,10 @@ def send_admin_alert_email(recipient_email, recipient_name, action_type, reason)
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid {header_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 
                 <h3 style="color: {header_color}; margin-top: 0; font-size: 20px; font-weight: 900;">{title}</h3>
                 
@@ -561,6 +810,10 @@ def send_monday_matches_email(recipient_email, recipient_name, perfect_matches):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 45px;">💌</span>
                 </div>
@@ -651,6 +904,10 @@ def send_friday_matches_email(recipient_email, recipient_name, perfect_matches):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 45px;">💖</span>
                 </div>
@@ -704,6 +961,10 @@ def send_spotify_playlist_email(recipient_email, recipient_name, sender_name, pl
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #1DB954; box-shadow: 0 15px 35px rgba(0,0,0,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 45px;">🎵</span>
                 </div>
@@ -760,6 +1021,10 @@ def send_meetup_request_email(recipient_email, recipient_name, sender_name):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 45px;">📍</span>
                 </div>
@@ -851,6 +1116,10 @@ def send_proximity_meetup_email(recipient_email, recipient_name, nearby_matches)
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
                 <div style="text-align: center; margin-bottom: 20px;">
                     <span style="font-size: 45px;">🤝</span>
                 </div>
@@ -928,6 +1197,10 @@ def send_male_campaign_email(recipient_email, recipient_name):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
 
                 <!-- HEADER -->
                 <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
@@ -996,7 +1269,407 @@ def send_male_campaign_email(recipient_email, recipient_name):
                         FIND YOUR MATCH AI — Powered Dating
                     </p>
                     <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_female_promo_campaign_email(recipient_email, recipient_name):
+    """
+    Sep 2026 Female Free Access Promo campaign email.
+    Informs female users of:
+      1. 1 month free access (already-registered) / 2 months free (new)
+      2. New features: opposite-gender filtering on dashboard & talk
+      3. Referral CTA - invite friends to Find Your Match
+    """
+    first_name = (recipient_name or 'there').split(' ')[0].strip()
+    referral_link = f"https://findyourmatch.co.ke/signup"
+    dashboard_link = "https://findyourmatch.co.ke/dashboard"
+
+    subject = f"🎉 {first_name}, You Have FREE Premium Access! + Exciting New Updates!"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {first_name},
+
+        Great news from the Find Your Match community!
+
+        ─────────────────────────────────────────────────
+        🎁 GIFT #1: YOU HAVE FREE PREMIUM ACCESS!
+        ─────────────────────────────────────────────────
+        As a valued female member of our community, we have
+        activated FREE Premium access on your account!
+
+          ✅ Already registered? You get 1 MONTH FREE (until Oct 23, 2026)
+          ✅ Newly joining?     You get 2 MONTHS FREE when you verify your email!
+
+        This offer is only available until October 23, 2026.
+        Log in now and enjoy full premium features for free:
+        {dashboard_link}
+
+        ─────────────────────────────────────────────────
+        ✨ NEW UPDATE #2: SEE ONLY YOUR PERFECT MATCHES!
+        ─────────────────────────────────────────────────
+        We've improved how matches work on our platform:
+
+          👩‍❤️‍👨 Dashboard  - Now shows ONLY male matches for you
+          📞 Live Talk    - Directory now shows ONLY males online
+          📱 Scroll Cards - Fixed to scroll smoothly on mobile
+
+        Your experience just got a major upgrade!
+
+        ─────────────────────────────────────────────────
+        💖 INVITE YOUR FRIENDS & GROW THE COMMUNITY!
+        ─────────────────────────────────────────────────
+        Do you have friends who are still single and looking?
+        Share Find Your Match with them! Any female friend who
+        signs up before October 23, 2026 also gets FREE access!
+
+        Share this link:
+        {referral_link}
+
+        The more, the merrier — let’s build the biggest campus
+        dating community in Kenya together! 🇰🇳
+
+        With love,
+        The Find Your Match Team 💌
+        findyourmatch.co.ke
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>You Have Free Premium Access!</title>
+        </head>
+        <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <div style="max-width:600px;margin:30px auto;background:white;border-radius:24px;overflow:hidden;box-shadow:0 15px 50px rgba(114,0,0,0.12);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+
+                <!-- ===== HEADER ===== -->
+                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 60%,#ff6b9d 100%);padding:50px 30px 40px;text-align:center;">
+                    <div style="font-size:60px;margin-bottom:12px;line-height:1;">&#x1F381;</div>
+                    <h1 style="color:white;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.3;">
+                        You Have FREE Premium Access!
+                    </h1>
+                    <p style="color:rgba(255,255,255,0.9);margin:0;font-size:16px;font-weight:500;">
+                        Plus exciting new updates just for you &#x1F31F;
+                    </p>
+                </div>
+
+                <!-- ===== GREETING ===== -->
+                <div style="padding:35px 35px 0;">
+                    <p style="font-size:17px;color:#333;line-height:1.7;margin:0 0 6px;">
+                        Hello <strong style="color:#720000;">{first_name}</strong>,
+                    </p>
+                    <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 30px;">
+                        We have some amazing news for you from the <strong>Find Your Match</strong> community!
+                        Read everything below &#x2014; there are 3 big updates just for you.
+                    </p>
+                </div>
+
+                <!-- ===== SECTION 1: FREE ACCESS ===== -->
+                <div style="margin:0 25px 25px;background:linear-gradient(135deg,#FEF2F4,#fff);border:2px solid #E60026;border-radius:20px;padding:28px 28px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        <span style="font-size:36px;">&#x1F381;</span>
+                        <h2 style="margin:0;color:#720000;font-size:20px;font-weight:900;">Gift #1: FREE Premium Access!</h2>
+                    </div>
+                    <p style="margin:0 0 18px;color:#444;font-size:15px;line-height:1.7;">
+                        As a valued female member of our community, we've activated
+                        <strong>FREE Premium</strong> on your account as a special thank-you gift!
+                    </p>
+                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #FFD6DD;margin-bottom:20px;">
+                        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
+                            <div>
+                                <strong style="color:#720000;font-size:15px;display:block;">Already Registered?</strong>
+                                <span style="color:#555;font-size:14px;">1 MONTH FREE &#x2014; valid until <strong>October 23, 2026</strong></span>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:flex-start;gap:12px;">
+                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
+                            <div>
+                                <strong style="color:#720000;font-size:15px;display:block;">Friends Joining Now?</strong>
+                                <span style="color:#555;font-size:14px;">2 MONTHS FREE when they verify their email before Oct 23!</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="text-align:center;">
+                        <a href="{dashboard_link}" style="background:linear-gradient(135deg,#E60026 0%,#720000 100%);color:white;padding:15px 36px;text-decoration:none;border-radius:50px;font-weight:900;font-size:16px;display:inline-block;box-shadow:0 8px 25px rgba(230,0,38,0.35);letter-spacing:0.3px;">
+                            &#x1F680; Go to My Dashboard
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== SECTION 2: NEW FEATURES ===== -->
+                <div style="margin:0 25px 25px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:20px;padding:28px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        <span style="font-size:36px;">&#x2728;</span>
+                        <h2 style="margin:0;color:#0369a1;font-size:20px;font-weight:900;">Update #2: New Features!</h2>
+                    </div>
+                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">We've made big improvements to your experience on <strong>findyourmatch.co.ke</strong>:</p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F469;&#x200D;&#x2764;&#xFE0F;&#x200D;&#x1F468;</span>
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Dashboard &#x2014; Opposite Matches Only</strong><span style="color:#555;font-size:13px;">Your home feed now shows only male profiles &#x2014; no more confusion!</span></div>
+                        </div>
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4DE;</span>
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Live Talk &#x2014; Males Only Visible</strong><span style="color:#555;font-size:13px;">The live directory now shows only males who are online right now.</span></div>
+                        </div>
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4F1;</span>
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Smooth Mobile Scrolling</strong><span style="color:#555;font-size:13px;">Profile cards now scroll perfectly on your phone &#x2014; swipe to discover more!</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== SECTION 3: REFERRAL ===== -->
+                <div style="margin:0 25px 30px;background:linear-gradient(135deg,#fdf4ff,#fce7f3);border:2px solid #e879f9;border-radius:20px;padding:28px;">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        <span style="font-size:36px;">&#x1F496;</span>
+                        <h2 style="margin:0;color:#7e22ce;font-size:20px;font-weight:900;">Update #3: Invite Your Friends!</h2>
+                    </div>
+                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
+                        Do you have friends who are single and looking for meaningful connections?
+                        <strong>Share Find Your Match with them</strong> today!
+                    </p>
+                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #f0abfc;margin-bottom:20px;">
+                        <p style="margin:0 0 10px;color:#7e22ce;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">&#x1F4E3; Share This Link</p>
+                        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">
+                            Any female friend who signs up before <strong>October 23, 2026</strong> automatically gets <strong>2 months FREE Premium</strong> &#x2014; no payment needed!
+                        </p>
+                        <div style="background:#fdf4ff;border-radius:10px;padding:12px 16px;margin-top:14px;word-break:break-all;">
+                            <code style="color:#7e22ce;font-size:14px;font-weight:700;">{referral_link}</code>
+                        </div>
+                    </div>
+                    <div style="text-align:center;">
+                        <a href="{referral_link}" style="background:linear-gradient(135deg,#a855f7 0%,#7e22ce 100%);color:white;padding:14px 32px;text-decoration:none;border-radius:50px;font-weight:900;font-size:15px;display:inline-block;box-shadow:0 6px 20px rgba(168,85,247,0.4);">
+                            &#x1F4F2; Share Find Your Match
+                        </a>
+                    </div>
+                </div>
+
+                <!-- ===== OFFER DEADLINE NOTICE ===== -->
+                <div style="margin:0 25px 30px;background:#fffbeb;border:1px solid #fef3c7;border-left:5px solid #f59e0b;border-radius:14px;padding:18px 20px;">
+                    <p style="margin:0;color:#92400e;font-size:14px;line-height:1.6;">
+                        <strong>&#x23F0; Offer Deadline:</strong> The free access promotion ends on
+                        <strong>October 23, 2026</strong>. After that, normal pricing applies.
+                        Log in and use your free access before it expires!
+                    </p>
+                </div>
+
+                <!-- ===== FOOTER ===== -->
+                <div style="background:#fafafa;padding:28px 30px;text-align:center;border-top:1px solid #eee;">
+                    <p style="margin:0 0 8px;font-size:13px;font-weight:900;color:#720000;letter-spacing:0.5px;">&#x1F496; FIND YOUR MATCH</p>
+                    <p style="margin:0 0 6px;font-size:12px;color:#aaa;">findyourmatch.co.ke &mdash; Kenya's Campus Dating Community</p>
+                    <p style="margin:0;font-size:11px;color:#ccc;">&copy; {datetime.now().year} Find Your Match. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name},
+
+        Exciting Updates from the Find Your Match Team! 🌟
+        Please read through carefully — there are 3 important things for you!
+
+        ─────────────────────────────────────────────────
+        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
+        ─────────────────────────────────────────────────
+        We are hosting an exclusive online community campaign — a special virtual event
+        where the entire Find Your Match family will come together to connect, interact,
+        and get to know each other like never before!
+
+        📅 EVENT DETAILS:
+        📆 Date    : Sunday, 7th September 2025
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+        💻 Platform: Google Meet
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+        👉 Please reply to this email to confirm your attendance!
+
+        ─────────────────────────────────────────────────
+        📝 PART 2: UPDATE YOUR PROFILE
+        ─────────────────────────────────────────────────
+        We are raising the bar on profile quality! Kindly go to your Profile Section
+        and make sure the following are updated:
+          ✅ Profile Photo  — Upload a clear, recent photo of yourself
+          ✅ Phone Number   — Ensure your phone number is correctly added
+
+        A complete profile puts you front and centre for the best matches!
+
+        ─────────────────────────────────────────────────
+        💼 PART 3: EXCITING WORK OPPORTUNITY!
+        ─────────────────────────────────────────────────
+        We are looking for confident and enthusiastic ladies in our community who are
+        ready to be part of the Find Your Match team in an exciting upcoming role!
+
+        If you are ready and interested, simply reply to this email with:
+                        READY TO WORK
+        ...and our team will reach out with all the details.
+
+        ─────────────────────────────────────────────────
+
+        Thank you for being a valued part of our community. We can't wait to see you
+        at the event and hear from you! 💪
+
+        With love,
+        The {SENDER_NAME_DEFAULT} Team 💌
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
+                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+                        Important Updates Just For You!
+                    </h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
+                        3 exciting things inside — please read carefully 🌟
+                    </p>
+                </div>
+
+                <!-- BODY -->
+        Big News from the Find Your Match Community! 🎉
+
+        We are excited to announce an exclusive online community campaign — a special virtual
+        event where members of the Find Your Match family will come together to connect,
+        interact, and get to know each other in a whole new way!
+
+        This is your moment to be part of something truly special. Whether you're looking to
+        make new friends, meaningful connections, or find your perfect match — this event was
+        made for you.
+
+        📅 EVENT DETAILS:
+        ─────────────────────────────────
+        📆 Date    : Sunday, 7th September 2025
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+        💻 Platform: Google Meet
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+        ─────────────────────────────────
+
+        👉 ACTION REQUIRED:
+        Please reply to this email to confirm whether you will be attending.
+        Your RSVP helps us prepare adequately and ensures your spot is reserved!
+
+        We look forward to seeing you online. Let's make great connections together! 💪
+
+        Warm regards,
+        The {SENDER_NAME_DEFAULT} Team 💌
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
+                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+                        FYM Online Community Campaign
+                    </h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
+                        You're officially invited! 🎉
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 40px 35px;">
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+                    </p>
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
+                    </p>
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
+                    </p>
+
+                    <!-- EVENT DETAILS BOX -->
+                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
+                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
+                            </tr>
+                        </table>
+                        <!-- JOIN BUTTON -->
+                        <div style="text-align: center; margin-top: 22px;">
+                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
+                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
+                                🔗 Click to Join Google Meet
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- RSVP NOTICE -->
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
+                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
+                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
+                        </p>
+                    </div>
+
+                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
+                        We look forward to seeing you online.<br>Let's make great connections together! 💪
+                    </p>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+                        FIND YOUR MATCH AI — Powered Dating
+                    </p>
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
                     </p>
                 </div>
             </div>
@@ -1073,6 +1746,10 @@ def send_female_campaign_email(recipient_email, recipient_name):
         </head>
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
 
                 <!-- HEADER -->
                 <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
@@ -1094,98 +1771,405 @@ def send_female_campaign_email(recipient_email, recipient_name):
                         We have some amazing news and important requests for you. Please read through all three sections below!
                     </p>
 
-                    <!-- PART 1 — CAMPAIGN -->
-                    <div style="border-left: 5px solid #E60026; padding-left: 18px; margin-bottom: 30px;">
-                        <h2 style="color: #E60026; font-size: 17px; font-weight: 900; margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px;">🎉 Part 1: Online Community Campaign</h2>
-                    </div>
-
-                    <p style="font-size: 15px; color: #555; line-height: 1.7; margin-top: 0;">
-                        We are hosting an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> like never before! Don't miss out!
-                    </p>
-
-                    <!-- EVENT DETAILS BOX -->
-                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 20px 0 30px 0;">
-                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700; width: 110px;">📆 Date</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 14px;">Sunday, 7th September 2025</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700;">🕘 Time</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 14px;">9:00 PM EAT (East Africa Time)</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 14px; font-weight: 700;">💻 Platform</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 14px;">Google Meet</td>
-                            </tr>
-                        </table>
-                        <div style="text-align: center; margin-top: 22px;">
-                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
-                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 13px 30px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 15px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35);">
-                                🔗 Click to Join Google Meet
-                            </a>
-                        </div>
-                    </div>
-
-                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 16px 18px; margin-bottom: 35px;">
-                        <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
-                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm your attendance. Your RSVP helps us prepare!
-                        </p>
-                    </div>
-
-                    <!-- DIVIDER -->
-                    <hr style="border: none; border-top: 2px dashed #FFD6DD; margin: 0 0 30px 0;">
-
-                    <!-- PART 2 — PROFILE UPDATE -->
-                    <div style="border-left: 5px solid #720000; padding-left: 18px; margin-bottom: 15px;">
-                        <h2 style="color: #720000; font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">📝 Part 2: Update Your Profile</h2>
-                    </div>
-                    <p style="font-size: 15px; color: #555; line-height: 1.7;">
-                        We are improving profile quality across the platform. Please head to your <strong>Profile Section</strong> and ensure these are up to date:
-                    </p>
-                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px 22px; margin: 15px 0 30px 0;">
-                        <p style="margin: 6px 0; color: #166534; font-size: 15px;">✅ <strong>Profile Photo</strong> — Upload a clear, recent photo of yourself</p>
-                        <p style="margin: 6px 0; color: #166534; font-size: 15px;">✅ <strong>Phone Number</strong> — Ensure your phone number is correctly added</p>
-                    </div>
-
-                    <!-- DIVIDER -->
-                    <hr style="border: none; border-top: 2px dashed #FFD6DD; margin: 0 0 30px 0;">
-
-                    <!-- PART 3 — WORK OPPORTUNITY -->
-                    <div style="border-left: 5px solid #7c3aed; padding-left: 18px; margin-bottom: 15px;">
-                        <h2 style="color: #7c3aed; font-size: 17px; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">💼 Part 3: Work Opportunity</h2>
-                    </div>
-                    <p style="font-size: 15px; color: #555; line-height: 1.7;">
-                        We are looking for <strong>confident and enthusiastic ladies</strong> within our community who are ready to join the Find Your Match team in an exciting upcoming role!
-                    </p>
-                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 20px 22px; margin: 15px 0 30px 0; text-align: center;">
-                        <p style="margin: 0 0 10px; color: #6b21a8; font-size: 15px; line-height: 1.6;">
-                            If you are <strong>ready and interested</strong>, simply reply to this email with:
-                        </p>
-                        <div style="background: #7c3aed; color: white; font-size: 20px; font-weight: 900; letter-spacing: 3px; padding: 16px 30px; border-radius: 12px; display: inline-block; margin: 5px 0;">
-                            READY TO WORK
-                        </div>
-                        <p style="margin: 12px 0 0; color: #888; font-size: 13px;">Our team will reach out with all the details!</p>
-                    </div>
-
-                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 10px;">
-                        Thank you for being a valued member of our community.<br>We can't wait to see you at the event! 💪
                     </p>
                 </div>
-
+                
                 <!-- FOOTER -->
-                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        FIND YOUR MATCH AI — Powered Dating
-                    </p>
-                    <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Delstarford Works. All rights reserved.
-                    </p>
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+                    <p style="margin: 0; font-size: 11px; color: #cbd5e1;">&copy; {datetime.now().year} Delstarford Works.</p>
                 </div>
+            </div>
+        </body>
+        </html>
+    """)
+    
+    return _send_email(recipient_email, subject, body_html)
+
+
+def send_manager_welcome_email(recipient_email, recipient_name, institution, password):
+    """Sends a welcome email to a newly added Campus Manager."""
+    subject = "Welcome to the FIND YOUR MATCH Campus Manager Team! 🚀"
+    
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name},
+        
+        Welcome to the team! You have been added as a Campus Manager for {institution}.
+        
+        Here are your login credentials:
+        Email: {recipient_email}
+        Temporary Password: {password}
+        
+        Please log in to your Manager Dashboard and change your password immediately.
+        
+        - The {SENDER_NAME_DEFAULT} Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Welcome to the Team, {recipient_name}! 🚀</h2>
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+                    You have been officially added as a Campus Manager for <strong>{institution}</strong>!
+                </p>
+                <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left;">
+                    <p style="margin: 4px 0; font-size: 15px;"><strong>Email:</strong> {recipient_email}</p>
+                    <p style="margin: 4px 0; font-size: 15px;"><strong>Temporary Password:</strong> {password}</p>
+                </div>
+                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
+                    Please log in to your Manager Dashboard and change your password immediately for security.
+                </p>
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{os.getenv('BASE_URL', 'https://match-ai.onrender.com')}/manager_portal" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+                        Login to Dashboard
+                    </a>
+                </div>
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+                </p>
             </div>
         </body>
         </html>
     """)
 
     return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_survey_campaign_email(email, name):
+    """
+    Sends an email inviting users to participate in the feedback survey
+    in exchange for 1 week of free Premium access.
+    """
+    try:
+        first_name = name.split(' ')[0] if name else "there"
+        subject = "Help Us Improve & Get 1 Week of FREE Premium! 🎁"
+        
+        text_content = f"""
+        Hi {first_name},
+
+        We want to make Find Your Match better for you! 
+        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
+
+        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
+
+        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
+
+        Best,
+        The Find Your Match Team
+        """
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">&#x1F381;</div>
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
+                </div>
+                
+                <!-- BODY -->
+                <div style="padding: 40px 30px;">
+                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+                        We are constantly working to make Find Your Match better for our campus community, and we need your help!
+                    </p>
+                    
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
+                    </p>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+                            Take Survey &amp; Claim Reward
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- FOOTER -->
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH</p>
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">findyourmatch.co.ke</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return _send_email(email, subject, text_content, html_content)
+    except Exception as e:
+        logger.error(f"Failed to send survey campaign email to {email}: {e}")
+        return False
+
+        
+        text_content = f"""
+        Hi {first_name},
+
+        We want to make Find Your Match AI better for you! 
+        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
+
+        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
+
+        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
+
+        Best,
+        The Find Your Match AI Team
+        """
+        
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">🎁</div>
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
+                </div>
+                
+                <!-- BODY -->
+                <div style="padding: 40px 30px;">
+                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+                        We are constantly working to make Find Your Match AI better for our campus community, and we need your help!
+                    </p>
+                    
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
+                    </p>
+                    
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+                            Take Survey & Claim Reward
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- FOOTER -->
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return _send_email(email, subject, text_content, html_content)
+    except Exception as e:
+        logger.error(f"Failed to send survey campaign email to {email}: {e}")
+        return False
+
+def send_manager_otp_email(recipient_email, otp_code):
+    """
+    Sends a formatted HTML verification email for manager login.
+    """
+    subject = "Campus Manager Portal - Login OTP"
+    headline = "Manager Portal Verification 🏢"
+    message = "Use the verification code below to access the campus manager portal. This code expires in 10 minutes."
+    
+    text_content = f"{headline}\n\n{message}\n\nYour code is: {otp_code}\n\nPlease do not share this code."
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+        <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0;">
+                <h2 style="color: #333333; margin: 0;">{headline}</h2>
+            </div>
+            <div style="padding: 20px 0; color: #555555; line-height: 1.6; font-size: 16px;">
+                <p>{message}</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <span style="display: inline-block; padding: 15px 30px; font-size: 24px; font-weight: bold; color: #E60026; background-color: #FEF2F4; border-radius: 8px; letter-spacing: 5px;">
+                        {otp_code}
+                    </span>
+                </div>
+                <p style="font-size: 14px; color: #888888; text-align: center;">If you didn't request this code, please ignore this email.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM Manager System")
+
+def send_apology_email(email, user_name=""):
+    """
+    Sends an apology email regarding the recent login system interruption.
+    """
+    subject = "Important Update: We've Fixed the Login Issue (And We Are Sorry!)"
+    
+    first_name = user_name.split()[0] if user_name else "there"
+    
+    text_content = f"""
+    Hi {first_name},
+
+    We are sincerely sorry for the inconvenience caused by the recent system login interruption. 
+    You are the boss, and you deserve a flawless experience. We want to assure you that such an interruption will never happen again.
+    
+    Our engineering team has completely resolved the issue. Please log in to your account and confirm that everything is working perfectly for you.
+    
+    If you ever experience any inconveniences in the future, please don't hesitate to send a support ticket. You are in control, and we are always here to serve you.
+    
+    We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you!
+    
+    Best regards,
+    The Find Your Match AI Team
+    """
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+            <!-- HEADER -->
+            <div style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); padding: 30px; text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🙏</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">We Are Sincerely Sorry</h1>
+            </div>
+            
+            <!-- BODY -->
+            <div style="padding: 40px 30px;">
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+                    We are deeply sorry for the inconvenience caused by the recent system login interruption. As a valued member, <strong>you are the boss</strong>, and you deserve a completely flawless experience. 
+                </p>
+                
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+                    We want to personally assure you that our engineering team has completely resolved this issue, and an interruption like this will <strong>never happen again</strong>.
+                </p>
+                
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                    Please log in at your convenience to confirm that everything is working perfectly. If you ever experience any issues, please don't hesitate to open a support ticket. You are always in control, and we are here to serve you.
+                </p>
+                
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 30px;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+                        Log In Now
+                    </a>
+                </div>
+                
+                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777;">
+                    <p style="margin: 0; color: #9d174d; font-size: 15px; line-height: 1.5; font-weight: 600;">
+                        We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you! ❤️
+                    </p>
+                </div>
+            </div>
+            
+            <!-- FOOTER -->
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        return _send_email(email, subject, text_content, html_content)
+    except Exception as e:
+        logger.error(f"Failed to send apology email to {email}: {e}")
+        return False
+
+def send_system_update_email(email, user_name=""):
+    """
+    Alerts users of the new Group Chat feature and apologizes for web application issues.
+    """
+    subject = "🚀 New Feature: Group Chats + Important System Update!"
+    
+    first_name = user_name.split()[0] if user_name else "there"
+    
+    text_content = f"""
+    Hi {first_name},
+
+    We have some exciting news! We've just added a brand-new Group Chat feature to the platform! 
+    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
+
+    Important Update:
+    We are aware of the recent problems with our web application. Please know that our engineering team is working around the clock to solve it, and the system will be fully up and running soon.
+
+    We sincerely appreciate your patience and promise you an amazing experience once everything is restored.
+
+    Best regards,
+    The Find Your Match AI Team
+    """
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+            <!-- HEADER -->
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 10px;">💬</div>
+                <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">New Group Chats & Updates</h1>
+            </div>
+            
+            <!-- BODY -->
+            <div style="padding: 40px 30px;">
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+                    We have some exciting news! We've just added a brand-new <strong>Group Chat</strong> feature to the platform! 
+                    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
+                </p>
+                
+                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777; margin-bottom: 25px;">
+                    <strong style="color: #9d174d; font-size: 16px;">System Notice</strong>
+                    <p style="margin: 10px 0 0; color: #9d174d; font-size: 14px; line-height: 1.5; font-weight: 500;">
+                        We are fully aware of the recent problems with our web application. Please know that our engineering team is <strong>working around the clock</strong> to solve it, and the system will be fully up and running soon.
+                    </p>
+                </div>
+                
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+                    We sincerely appreciate your patience and promise you an amazing experience once everything is fully restored. You are the boss, and we are here to serve you!
+                </p>
+                
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);">
+                        Check out Group Chats
+                    </a>
+                </div>
+            </div>
+            <!-- FOOTER -->
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    try:
+        return _send_email(email, subject, text_content, html_content)
+    except Exception as e:
+        logger.error(f"Failed to send system update email to {email}: {e}")
+        return False

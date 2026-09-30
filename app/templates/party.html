@@ -2,10 +2,12 @@
 
 {% block content %}
 <style>
-    /* Force hide the global footer from base.html on this page only */
+    /* Force hide the global footer, mobile nav, and support button from base.html on this page only */
     footer,
     .footer-bottom,
-    .bottom-nav {
+    .bottom-nav,
+    .mobile-bottom-nav,
+    .support-trigger-btn {
         display: none !important;
     }
     
@@ -17,25 +19,20 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 
-    /* Ensure the main container fills the screen without scrollbars */
-    html,
-    body,
-    main {
-        overflow: hidden !important;
-        height: 100dvh !important;
-        /* Use dynamic viewport height for mobile browsers */
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #000;
-    }
+    /* We remove the body override so it acts like a normal page, just like group_chat.html */
 
     .club-wrapper {
         position: relative;
-        width: 100vw;
-        height: 100dvh;
+        width: 100%;
+        max-width: 1200px;
+        height: 85vh;
+        margin: 20px auto;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255, 0, 255, 0.3);
     }
 
     /* Background Video Optimization */
@@ -63,10 +60,10 @@
     .party-content {
         position: relative;
         z-index: 2;
-        height: 100dvh;
+        height: 100%;
         display: flex;
         flex-direction: column;
-        padding: max(env(safe-area-inset-top), 15px) 15px max(env(safe-area-inset-bottom), 15px) 15px;
+        padding: 20px;
         box-sizing: border-box;
     }
 
@@ -544,41 +541,21 @@
 
     /* MOBILE RESPONSIVE LAYOUT */
     @media (max-width: 850px) {
+        .club-wrapper {
+            height: 90vh !important;
+            margin: 10px auto;
+            border-radius: 12px;
+        }
         .main-party-layout {
             grid-template-columns: 1fr;
-            grid-template-rows: 1fr 1.2fr;
-            /* Give slightly more room to chat on mobile */
-            gap: 15px;
-        }
-
-        .avatar-arena {
-            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-            padding: 15px;
-            border-radius: 15px;
-        }
-
-        .avatar-img-wrap {
-            width: 55px;
-            height: 55px;
-        }
-
-        .party-chat-panel {
-            border-radius: 15px;
-            /* Prevents the keyboard from hiding the input */
-            margin-bottom: env(safe-area-inset-bottom);
-        }
-
-        .neon-title {
-            font-size: 2rem;
-        }
-    }
-
-    /* Small mobile tweaks */
-    @media (max-width: 400px) {
-        .avatar-arena {
-            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            grid-template-rows: minmax(150px, 1fr) 2fr;
             gap: 10px;
+        }
+
+        .avatar-arena {
+            grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
             padding: 10px;
+            border-radius: 12px;
         }
 
         .avatar-img-wrap {
@@ -586,13 +563,50 @@
             height: 50px;
         }
 
+        .party-chat-panel {
+            border-radius: 12px;
+            margin-bottom: env(safe-area-inset-bottom);
+        }
+
         .neon-title {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
+        }
+    }
+
+    /* Small mobile tweaks */
+    @media (max-width: 400px) {
+        .avatar-arena {
+            grid-template-columns: repeat(auto-fill, minmax(55px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .avatar-img-wrap {
+            width: 45px;
+            height: 45px;
+        }
+
+        .neon-title {
+            font-size: 1.4rem;
         }
 
         .party-content {
-            padding: 10px;
+            padding: 8px;
         }
+    }
+
+    .reaction-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        opacity: 0.9;
+        padding: 5px;
+    }
+    .reaction-btn:hover {
+        transform: scale(1.4);
+        opacity: 1;
     }
 </style>
 
@@ -604,22 +618,42 @@
 
     <div class="party-content">
         <div class="party-header">
-            <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 15px; justify-content: center;">
                 <div style="font-size: clamp(2rem, 5vw, 3.5rem); text-shadow: 0 0 15px #f0f;">{{ theme.icon }}</div>
-                <div>
+                <div style="text-align: left;">
                     <h1 class="neon-title" style="margin: 0; line-height: 1;">{{ theme.title }}</h1>
-                    <p
-                        style="color: #0ff; font-weight: 800; font-size: 14px; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;">
-                        {{ theme.desc }}</p>
+                    <p style="color: #0ff; font-weight: 800; font-size: 14px; margin-top: 5px; text-transform: uppercase; letter-spacing: 2px;">{{ theme.desc }}</p>
                 </div>
             </div>
-            <div class="party-stats">
+            
+            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px; align-items: center; z-index: 10;">
+                <!-- Audio Streamer -->
+                <audio id="clubAudio" controls style="height: 35px; width: 280px; border-radius: 20px; opacity: 0.9; filter: invert(0.9) hue-rotate(180deg) drop-shadow(0px 0px 10px rgba(0,255,255,0.5)); outline: none;">
+                    <source src="https://stream.zeno.fm/f3wvbbqmdg8uv" type="audio/mpeg">
+                </audio>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                    <!-- Room Switcher -->
+                    <select id="roomSwitcher" onchange="switchRoom(this.value)" style="background: rgba(0,0,0,0.6); color: #0ff; border: 1px solid #0ff; padding: 8px 15px; border-radius: 20px; font-weight: bold; outline: none; cursor: pointer; backdrop-filter: blur(5px);">
+                        <option value="main" style="color:black">🌐 Main Lounge</option>
+                        <option value="dj" style="color:black">🎧 DJ Booth</option>
+                        <option value="vip" style="color:black">💎 VIP Room</option>
+                        <option value="chill" style="color:black">☕ Chill Spot</option>
+                        <option value="live_video" style="color:black; font-weight: 900;">📹 Live Cam Room</option>
+                    </select>
+                    
+                    <!-- Vibe Input -->
+                    <input type="text" id="myVibeInput" placeholder="Set Status (e.g. Studying 🎧)" onblur="updateMyVibe(this.value)" style="background: rgba(0,0,0,0.6); color: #f0f; border: 1px solid #f0f; padding: 8px 15px; border-radius: 20px; outline: none; width: 180px; text-align:center; font-weight: bold; backdrop-filter: blur(5px);">
+                </div>
+            </div>
+
+            <div class="party-stats" style="margin-top: 10px;">
                 <div class="pulse-dot-green"></div>
                 <span id="online-count">0</span> COMRADES VIBING
             </div>
         </div>
 
-        <div class="main-party-layout">
+        <div class="main-party-layout" id="mainPartyLayout">
             <div class="avatar-arena" id="avatarArena">
             </div>
 
@@ -635,6 +669,15 @@
                     </div>
                 </div>
                 <div class="chat-controls">
+                    <!-- Reaction Soundboard -->
+                    <div style="display:flex; justify-content:center; gap:15px; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+                        <button onclick="sendReaction('🔥')" class="reaction-btn">🔥</button>
+                        <button onclick="sendReaction('❤️')" class="reaction-btn">❤️</button>
+                        <button onclick="sendReaction('😂')" class="reaction-btn">😂</button>
+                        <button onclick="sendReaction('👏')" class="reaction-btn">👏</button>
+                        <button onclick="sendReaction('🎉')" class="reaction-btn">🎉</button>
+                    </div>
+
                     <div class="whisper-hint" id="whisperHint" style="display:none;">
                         Whispering to <span id="target-name" style="color:white;">...</span>
                     </div>
@@ -661,6 +704,66 @@
     const currentUserId = "{{ user_id }}";
     const currentUserName = "{{ current_user }}".split(' ')[0] || "Student";
     let whisperTarget = null;
+    let currentRoom = "main";
+    let chatListener = null;
+
+    function switchRoom(room) {
+        currentRoom = room;
+        document.getElementById("partyMessages").innerHTML = `<div style="text-align: center; color: #666; font-size: 12px; margin-top: auto; padding-top: 20px;">Welcome to the ${room.toUpperCase()} room. Say hi! 👋</div>`;
+        document.getElementById("chat-mode-label").innerText = `🌐 ${room.toUpperCase()} ROOM`;
+        
+        // Handle Live Video Room UI
+        if (room === 'live_video') {
+            document.getElementById('avatarArena').style.display = 'none';
+            if (!document.getElementById('liveVideoFrame')) {
+                const iframe = document.createElement('iframe');
+                iframe.id = 'liveVideoFrame';
+                // Using meet.jit.si because other instances block iframes (X-Frame-Options)
+                iframe.src = 'https://meet.jit.si/FindYourMatch_LiveRoom#config.startAudioMuted=true&config.prejoinPageEnabled=false';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = '1px solid rgba(255,255,255,0.1)';
+                iframe.style.borderRadius = '20px';
+                iframe.allow = 'camera; microphone; fullscreen; display-capture';
+                document.getElementById('mainPartyLayout').insertBefore(iframe, document.getElementById('avatarArena'));
+            } else {
+                document.getElementById('liveVideoFrame').style.display = 'block';
+            }
+        } else {
+            document.getElementById('avatarArena').style.display = 'grid';
+            if (document.getElementById('liveVideoFrame')) {
+                document.getElementById('liveVideoFrame').style.display = 'none';
+            }
+        }
+
+        if (chatListener && window.firebaseDb) {
+            window.firebaseDb.ref("party_chat_" + chatListener.room).off("child_added", chatListener.fn);
+        }
+        listenToRoom(room);
+        
+        if (window.firebaseDb && currentUserId) {
+            window.firebaseDb.ref("party_participants").child(currentUserId).update({ room: room });
+        }
+    }
+    
+    function updateMyVibe(vibeText) {
+        if (window.firebaseDb && currentUserId) {
+            window.firebaseDb.ref("party_participants").child(currentUserId).update({ vibe: vibeText });
+        }
+    }
+    
+    function sendReaction(emoji) {
+        if (!window.firebaseDb) return;
+        const payload = {
+            sender_id: currentUserId,
+            sender_name: currentUserName,
+            text: `Reacted with ${emoji}`,
+            is_reaction: true,
+            emoji: emoji,
+            timestamp_ms: Date.now()
+        };
+        window.firebaseDb.ref("party_chat_" + currentRoom).push(payload);
+    }
 
     // Helper function to safely format times
     function getFormattedTime() {
@@ -681,41 +784,29 @@
             let count = 0;
             Object.keys(users).forEach(uid => {
                 const u = users[uid];
-                count++;
+                
+                // Only show users in the current room
+                if ((u.room || 'main') === currentRoom) {
+                    count++;
+                    const div = document.createElement('div');
+                    div.className = 'avatar-item';
+                    div.onclick = () => showUserModal(uid, u);
 
-                const div = document.createElement('div');
-                div.className = 'avatar-item';
-                div.onclick = () => showUserModal(uid, u);
-
-                div.innerHTML = `
-                    <div class="avatar-img-wrap shape-${u.shape_seed || 1}">
-                        <img src="${u.img || '/static/img/placeholder.png'}" loading="lazy" alt="${u.name}">
-                    </div>
-                    <span class="avatar-name">${u.name}</span>
-                `;
-                arena.appendChild(div);
+                    div.innerHTML = `
+                        <div class="avatar-img-wrap shape-${u.shape_seed || 1}">
+                            <img src="${u.img || '/static/img/placeholder.png'}" loading="lazy" alt="${u.name}">
+                        </div>
+                        <span class="avatar-name">${u.name}</span>
+                        ${u.vibe ? `<span style="font-size: 9px; color: #0ff; margin-top: 3px; font-style: italic; text-align: center; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${u.vibe}</span>` : ""}
+                    `;
+                    arena.appendChild(div);
+                }
             });
             document.getElementById('online-count').innerText = count;
         });
 
-        // Listen for chat messages (only recent ones to avoid loading history)
-        const recentChatRef = chatRef.orderByChild('timestamp_ms').startAt(Date.now());
-        recentChatRef.on('child_added', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-
-            // Check if whisper and if we are involved
-            if (data.is_whisper) {
-                if (data.target_id !== currentUserId && data.sender_id !== currentUserId) {
-                    return; // Ignore whispers for others
-                }
-            }
-
-            // If it's our own message, ignore it since we optimistically add it
-            if (data.sender_id === currentUserId) return;
-
-            appendMessage(data);
-        });
+        // Initialize main room and its listeners
+        switchRoom('main');
 
         // Cleanup on disconnect
         partyRef.child(currentUserId).onDisconnect().remove();
@@ -727,7 +818,7 @@
         
         if (mode === 'public') {
             whisperTarget = null;
-            document.getElementById('chat-mode-label').innerText = '🌐 PUBLIC CHAT';
+            document.getElementById('chat-mode-label').innerText = `🌐 ${currentRoom.toUpperCase()} ROOM`;
             document.getElementById('whisperHint').style.display = 'none';
             input.placeholder = "Say something to everyone...";
             chatPanel.classList.remove('whisper-active');
@@ -764,13 +855,37 @@
         appendMessage(payload);
 
         // Push to Firebase
-        window.firebaseDb.ref('party_chat').push(payload);
+        window.firebaseDb.ref('party_chat_' + currentRoom).push(payload);
 
         input.value = '';
     }
 
     function appendMessage(data) {
         const feed = document.getElementById('partyMessages');
+        
+        if (data.is_reaction) {
+            // Floating emoji animation on screen
+            const floatingEmoji = document.createElement("div");
+            floatingEmoji.innerText = data.emoji;
+            floatingEmoji.style.position = "fixed";
+            floatingEmoji.style.left = Math.random() * 80 + 10 + "%";
+            floatingEmoji.style.bottom = "-50px";
+            floatingEmoji.style.fontSize = "40px";
+            floatingEmoji.style.pointerEvents = "none";
+            floatingEmoji.style.zIndex = "999999";
+            floatingEmoji.style.transition = "all 2s ease-out";
+            document.body.appendChild(floatingEmoji);
+            
+            setTimeout(() => {
+                floatingEmoji.style.bottom = "100%";
+                floatingEmoji.style.opacity = "0";
+                floatingEmoji.style.transform = `rotate(${Math.random()*360}deg) scale(1.5)`;
+            }, 50);
+            
+            setTimeout(() => floatingEmoji.remove(), 2000);
+            return;
+        }
+
         const isMine = data.sender_id === currentUserId;
 
         // Remove the empty placeholder if it exists
@@ -840,5 +955,22 @@
             window.firebaseDb.ref('party_participants').child(currentUserId).remove();
         }
     });
+    
+    // Override the old chat listener logic to support rooms
+    function listenToRoom(room) {
+        if (!window.firebaseDb) return;
+        const ref = window.firebaseDb.ref("party_chat_" + room).orderByChild("timestamp_ms").startAt(Date.now());
+        
+        const fn = ref.on("child_added", (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            if (data.is_whisper && data.target_id !== currentUserId && data.sender_id !== currentUserId) return;
+            if (data.sender_id === currentUserId && !data.is_reaction) return; 
+            
+            appendMessage(data);
+        });
+        
+        chatListener = { room: room, fn: fn };
+    }
 </script>
 {% endblock %}

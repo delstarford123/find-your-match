@@ -171,29 +171,56 @@
 
     /* === HORIZONTAL SCROLL GRID (MATCHES) === */
     .matches-grid {
-        display: flex; gap: clamp(15px, 3vw, 25px); max-width: 1060px;
-        margin: 0 auto 60px auto; padding: 10px clamp(15px, 5vw, 30px) 40px clamp(15px, 5vw, 30px); 
-        overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: clamp(15px, 5vw, 30px); 
-        scrollbar-width: none; -webkit-overflow-scrolling: touch; 
+        display: flex;
+        gap: 16px;
+        max-width: 100%;
+        margin: 0 0 60px 0;
+        /* Left padding aligns first card; right padding prevents last card clipping */
+        padding: 10px clamp(15px, 5vw, 30px) 40px clamp(15px, 5vw, 30px);
+        padding-right: clamp(15px, 5vw, 30px);
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-padding-left: clamp(15px, 5vw, 30px);
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        /* Prevent cards bleeding off the right edge */
+        box-sizing: border-box;
     }
     .matches-grid::-webkit-scrollbar { display: none; }
-    .matches-grid::after { content: ''; flex: 0 0 1px; width: 1px; }
+    /* Spacer ensures the last card doesn't get clipped behind page edge */
+    .matches-grid::after {
+        content: '';
+        display: block;
+        flex: 0 0 clamp(15px, 5vw, 30px);
+        min-width: clamp(15px, 5vw, 30px);
+    }
 
     .match-card {
-        flex: 0 0 clamp(260px, 80vw, 300px); background: white; border-radius: 20px; overflow: hidden;
-        box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: 1px solid #FFD6DD; display: flex; flex-direction: column; scroll-snap-align: center; 
+        /* Cards take ~80% of viewport width on mobile so the next card peeks */
+        flex: 0 0 calc(min(300px, 80vw));
+        min-width: 0;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 25px rgba(114, 0, 0, 0.08);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        border: 1px solid #FFD6DD;
+        display: flex;
+        flex-direction: column;
+        scroll-snap-align: start;
     }
 
     @media (min-width: 900px) {
-        .matches-grid { 
+        .matches-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            overflow-x: visible; 
-            padding-bottom: 20px; 
+            overflow-x: visible;
+            max-width: 1060px;
+            margin: 0 auto 60px auto;
+            padding-bottom: 20px;
             justify-content: center;
         }
-        .matches-grid::after { display: none; } 
+        .matches-grid::after { display: none; }
         .match-card { flex: none; scroll-snap-align: none; width: 100%; }
     }
     
@@ -667,6 +694,10 @@
     <a href="/matches" class="action-pill">
         Unread Chats
         <div class="badge-count" id="dash-unread-badge" style="background: #ccc;">0</div>
+    </a>
+    <a href="{{ url_for('groups') }}" class="action-pill">
+        Group Chats
+        <div class="badge-count" style="background: #E60026;">New</div>
     </a>
     <a href="/discover" class="action-pill">
         Pending Dates

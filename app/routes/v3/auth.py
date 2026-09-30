@@ -58,7 +58,7 @@ def _lookup_user_by_email(email: str):
     try:
         all_profiles = db.reference('profiles').get() or {}
         for uid, data in all_profiles.items():
-            if data and data.get('email', '').lower() == email.lower():
+            if isinstance(data, dict) and data.get('email', '').lower() == email.lower():
                 return uid, data
     except Exception as e:
         print(f"[v3 auth] email lookup error: {e}")
@@ -119,7 +119,8 @@ def signup():
     # ── Create account ────────────────────────────────────────────────────────
     uid             = _generate_uid()
     hashed_password = generate_password_hash(password)
-    otp_code        = random.randint(100000, 999999)
+    import secrets
+    otp_code        = secrets.randbelow(900000) + 100000
     referral_code   = _generate_referral_code(name)
     wingman_code    = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
     created_at      = datetime.now(EAT).isoformat()
@@ -155,17 +156,26 @@ def signup():
 
     try:
         db.reference(f'profiles/{uid}').set(profile_data)
-        send_verification_email(email, name, otp_code)
+        email_sent = send_verification_email(email, name, otp_code)
 
         session['temp_user_id']    = uid
         session['temp_user_email'] = email
 
-        return jsonify({
-            "status":      "success",
-            "message":     f"Verification code sent to {email}. Please check your inbox!",
-            "api_version": "v3",
-            "user_id":     uid,
-        }), 200
+        if email_sent:
+            return jsonify({
+                "status":      "success",
+                "message":     f"Verification code sent to {email}. Please check your inbox!",
+                "api_version": "v3",
+                "user_id":     uid,
+            }), 200
+        else:
+            print(f"⚠️ SMTP FAILED. OTP for {email} is {otp_code}")
+            return jsonify({
+                "status":      "success",
+                "message":     f"Could not send email, but your verification code is: {otp_code}",
+                "api_version": "v3",
+                "user_id":     uid,
+            }), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": f"Could not create account: {str(e)}"}), 500
@@ -184,6 +194,7 @@ def login():
 
     if not email or not password:
         return jsonify({"status": "error", "message": "Email and password are required."}), 400
+
 
     # Find user by email across all profiles
     uid, user = _lookup_user_by_email(email)

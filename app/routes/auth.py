@@ -1,11 +1,12 @@
 import re
 import hashlib
 import random
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
-from app.database import db, delete_user_account
+from app.database import db, delete_user_account, get_institutions
 
 # Import your email service
 from app.email_service import send_verification_email
@@ -171,7 +172,7 @@ def signup():
 
         # 7. GENERATE OTP & SAVE TO FIREBASE
         try:
-            otp_code = random.randint(100000, 999999)
+            otp_code = str(secrets.randbelow(900000) + 100000)
             
             user_ref = db.reference(f'profiles/{safe_reg_number}')
             user_ref.set({
@@ -207,20 +208,26 @@ def signup():
             })
             
             # Send the Email 
-            send_verification_email(email, name, otp_code)
+            email_sent = send_verification_email(email, name, otp_code)
             
             # Create a TEMPORARY browser session
             session['temp_user_id'] = safe_reg_number
             session['temp_user_email'] = email
             
-            flash(f"Verification code sent to {email}. Please check your inbox!", "success")
+            if email_sent:
+                flash(f"Verification code sent to {email}. Please check your inbox!", "success")
+            else:
+                # Fallback if SMTP is failing
+                flash(f"Could not send email, but your verification code is: {otp_code}", "warning")
+                print(f"⚠️ SMTP FAILED. OTP for {email} is {otp_code}")
+
             return redirect(url_for('auth.verify_email'))
             
         except Exception as e:
             flash(f"Database error: {str(e)}", "error")
             return redirect(url_for('auth.signup'))
 
-    return render_template('signup.html')
+    return render_template('signup.html', all_institutions=get_institutions())
 
 
 @auth_bp.route('/verify', methods=['GET', 'POST'])
@@ -275,50 +282,71 @@ def verify_email():
             referred_by_code = user_data.get('referred_by')
             if referred_by_code:
                 try:
-                    # Find the user who sent the invite link
-                    referrers = db.reference('profiles').order_by_child('referral_code').equal_to(referred_by_code).get()
+                    # Check if the code belongs to a Campus Manager
+                    managers = db.reference('campus_managers').order_by_child('referral_code').equal_to(referred_by_code).get()
                     
-                    if referrers:
-                        referrer_id = list(referrers.keys())[0]
-                        referrer_data = referrers[referrer_id]
-                        
-                        # A. Give the Referrer 1 Week Premium
-                        new_count = referrer_data.get('referrals_count', 0) + 1
-                        new_weeks = referrer_data.get('free_weeks_earned', 0) + 1
-                        
-                        ref_exp_str = referrer_data.get('subscription_expiry')
-                        # If they already have premium, ADD 7 days to their current expiry
-                        if ref_exp_str:
-                            try:
-                                ref_dt = datetime.fromisoformat(ref_exp_str)
-                                # Ensure ref_dt is aware for comparison
-                                if ref_dt.tzinfo is None:
-                                    ref_dt = ref_dt.replace(tzinfo=EAT)
-                                
-                                if ref_dt > now_eat:
-                                    new_ref_exp = (ref_dt + timedelta(days=7)).isoformat()
-                                else:
-                                    new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-                            except ValueError:
-                                new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-                        else:
-                            new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-
-                        db.reference(f'profiles/{referrer_id}').update({
-                            'referrals_count': new_count,
-                            'free_weeks_earned': new_weeks,
-                            'is_paid': True,
-                            'subscription_expiry': new_ref_exp
-                        })
-                        
-                        # B. Add 7 days to the New User's bonus pool
-                        bonus_premium_days += 7
-                        
-                        # Clear the session code
+                    if managers:
+                        # Manager referral: No free premium for user
+                        bonus_premium_days = 0
                         session.pop('referred_by', None)
-                        flash("VIP Invite Confirmed! You both get 1 Free Week of Premium! 🎉", "success")
+                        flash("Campus Manager Invite Confirmed! Welcome aboard.", "success")
+                    else:
+                        # Find the user who sent the invite link
+                        referrers = db.reference('profiles').order_by_child('referral_code').equal_to(referred_by_code).get()
+                        
+                        if referrers:
+                            referrer_id = list(referrers.keys())[0]
+                            referrer_data = referrers[referrer_id]
+                            
+                            # A. Give the Referrer 1 Week Premium
+                            new_count = referrer_data.get('referrals_count', 0) + 1
+                            new_weeks = referrer_data.get('free_weeks_earned', 0) + 1
+                            
+                            ref_exp_str = referrer_data.get('subscription_expiry')
+                            # If they already have premium, ADD 7 days to their current expiry
+                            if ref_exp_str:
+                                try:
+                                    ref_dt = datetime.fromisoformat(ref_exp_str)
+                                    # Ensure ref_dt is aware for comparison
+                                    if ref_dt.tzinfo is None:
+                                        ref_dt = ref_dt.replace(tzinfo=EAT)
+                                    
+                                    if ref_dt > now_eat:
+                                        new_ref_exp = (ref_dt + timedelta(days=7)).isoformat()
+                                    else:
+                                        new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
+                                except ValueError:
+                                    new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
+                            else:
+                                new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
+
+                            db.reference(f'profiles/{referrer_id}').update({
+                                'referrals_count': new_count,
+                                'free_weeks_earned': new_weeks,
+                                'is_paid': True,
+                                'subscription_expiry': new_ref_exp
+                            })
+                            
+                            # B. Add 7 days to the New User's bonus pool
+                            bonus_premium_days += 7
+                            
+                            # Clear the session code
+                            session.pop('referred_by', None)
+                            flash("VIP Invite Confirmed! You both get 1 Free Week of Premium! 🎉", "success")
                 except Exception as e:
                     print(f"Error processing referral reward: {e}")
+
+            # ====================================================
+            # 3.5. FEMALE FREE PROMO (Sep 23 – Oct 23, 2026)
+            # All new female users who register and verify before
+            # Oct 23 2026 get 2 months (60 days) free premium.
+            # ====================================================
+            from datetime import timezone as _tz
+            FEMALE_PROMO_END = datetime(2026, 10, 23, 23, 59, 59, tzinfo=_tz.utc)
+            new_user_gender = user_data.get('gender', '').strip().lower()
+            if new_user_gender == 'female' and datetime.now(_tz.utc) <= FEMALE_PROMO_END:
+                bonus_premium_days = max(bonus_premium_days, 60)  # At least 2 months free
+                user_updates['last_payment_receipt'] = 'FEMALE_PROMO_2MONTHS_SEP2026'
 
             # ====================================================
             # 4. APPLY ACCUMULATED FREE DAYS
@@ -326,7 +354,8 @@ def verify_email():
             if bonus_premium_days > 0:
                 user_updates['is_paid'] = True
                 user_updates['subscription_expiry'] = (now_eat + timedelta(days=bonus_premium_days)).isoformat()
-                user_updates['last_payment_receipt'] = f'SYSTEM_PROMO_{bonus_premium_days}_DAYS'
+                if 'last_payment_receipt' not in user_updates:
+                    user_updates['last_payment_receipt'] = f'SYSTEM_PROMO_{bonus_premium_days}_DAYS'
 
             # 5. Apply updates to the newly verified user
             user_ref.update(user_updates)
@@ -364,10 +393,53 @@ def login():
         }), 299
 
     if request.method == 'POST':
+        login_type = request.form.get('login_type', 'user')
         email = request.form.get('email', '').strip().lower()
-        reg_number = request.form.get('reg_number')
         password = request.form.get('password')
         
+        if login_type == 'staff':
+            if email and password:
+                import os
+                # Check Super Admin
+                ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS", "FYMADMIN520226")
+                if email == 'info@findyourmatch.co.ke' and password == ADMIN_PASSWORD:
+                    session['is_super_admin'] = True
+                    session.permanent = False
+                    flash("Welcome to God Mode, Creator.", "success")
+                    return redirect(url_for('super_admin'))
+                
+                # Check Campus Managers/Ambassadors
+                managers_ref = db.reference('campus_managers').get() or {}
+                for mid, mgr in managers_ref.items():
+                    if mgr.get('email', '').strip().lower() == email:
+                        if check_password_hash(mgr.get('password_hash', ''), password):
+                            import secrets
+                            from datetime import datetime, timedelta, timezone
+                            otp = str(secrets.randbelow(900000) + 100000)
+                            EAT = timezone(timedelta(hours=3))
+                            db.reference(f'campus_managers/{mid}').update({
+                                'otp': otp,
+                                'otp_expiry': (datetime.now(EAT) + timedelta(minutes=10)).isoformat()
+                            })
+                            try:
+                                from app.email_service import send_manager_otp_email
+                                send_manager_otp_email(email, otp)
+                            except Exception as e:
+                                pass
+                            session['manager_pending_email'] = email
+                            return redirect(url_for('manager_portal_otp'))
+                        else:
+                            flash("Incorrect Staff Password.", "error")
+                            return redirect(url_for('auth.login'))
+                            
+                flash("Staff account not found or incorrect credentials.", "error")
+                return redirect(url_for('auth.login'))
+            else:
+                flash("Email and Password are required for Staff login.", "error")
+                return redirect(url_for('auth.login'))
+                
+        # USER LOGIN (Default)
+        reg_number = request.form.get('reg_number')
         if email and reg_number and password:
             safe_reg_number = reg_number.strip().upper().replace('/', '_')
             
@@ -498,14 +570,19 @@ def forgot_password():
             user_id = list(users.keys())[0]
             
             # Generate OTP
-            otp_code = str(random.randint(100000, 999999))
+            otp_code = str(secrets.randbelow(900000) + 100000)
             db.reference(f'profiles/{user_id}').update({'reset_code': otp_code})
             
             # Send Email
-            send_verification_email(email, "Student", otp_code)
+            email_sent = send_verification_email(email, "Student", otp_code)
             
             session['reset_user_id'] = user_id
-            flash("A password reset code has been sent to your email.", "success")
+            if email_sent:
+                flash("A password reset code has been sent to your email.", "success")
+            else:
+                flash(f"Could not send email, but your reset code is: {otp_code}", "warning")
+                print(f"⚠️ SMTP FAILED. Reset code for {email} is {otp_code}")
+                
             return redirect(url_for('auth.reset_password'))
         else:
             flash("No account found with that email address.", "error")
@@ -630,7 +707,7 @@ def resend_otp():
         return redirect(url_for('auth.login'))
 
     # Generate a new 6-digit OTP
-    new_otp = str(random.randint(100000, 999999))
+    new_otp = str(secrets.randbelow(900000) + 100000)
     
     try:
         # BUG FIX: Write the new code directly to the actual user's profile
@@ -638,10 +715,14 @@ def resend_otp():
         
         # Fire your email sending function here!
         # (Pass 'Student' as name fallback since we don't fetch it here)
-        send_verification_email(email, "Student", new_otp, purpose='resend')
+        email_sent = send_verification_email(email, "Student", new_otp, purpose='resend')
         
-        print(f"📧 NEW OTP SENT TO {email}: {new_otp}")
-        flash("A new 6-digit code has been sent to your email.", "success")
+        print(f"NEW OTP FOR {email}: {new_otp}")
+        if email_sent:
+            flash("A new 6-digit code has been sent to your email.", "success")
+        else:
+            flash(f"Could not send email, but your new verification code is: {new_otp}", "warning")
+            print(f"⚠️ SMTP FAILED. OTP for {email} is {new_otp}")
         
     except Exception as e:
         print(f"Error resending OTP: {e}")

@@ -1,23 +1,35 @@
+import os
 import sys
-from app.database import db
+from dotenv import load_dotenv
 
-uids_to_delete = [
-    "SAB_B_01-0000_2023",
-    "SAB_B_01-04770_2023",
-    "SAB_B_01-0888_2023",
-    "SAB_B_01-09967_2023",
-    "uid_79e8d4f2cbf24257b0bfed9d3947b6f8"
+load_dotenv()
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+from app.database import db, delete_user_account
+
+users = db.reference('profiles').get() or {}
+emails_to_find = [
+    'omondidelstarford@gmail.com', 
+    'info@delstarfordwords.co.ke', 
+    'info@delstarfordworks.co.ke', 
+    'info@fardcbo.org'
 ]
 
-profiles_ref = db.reference('profiles')
+count = 0
+for uid, data in users.items():
+    if isinstance(data, dict):
+        name = data.get('name', '').lower()
+        email = data.get('email', '').lower()
+        
+        # Condition to find the users (same as before)
+        if 'delstarford' in name or email in emails_to_find:
+            # Check the exception condition
+            if email != 'delstarfordisaiah@gmail.com':
+                print(f"Deleting user: {data.get('name')} ({email}) - ID: {uid}")
+                success = delete_user_account(uid)
+                if success:
+                    count += 1
+                else:
+                    print(f"Failed to delete {email}")
 
-print("Deleting duplicate/unwanted accounts...")
-for uid in uids_to_delete:
-    profile = profiles_ref.child(uid).get()
-    if profile:
-        profiles_ref.child(uid).delete()
-        print(f"Deleted profile: {uid} ({profile.get('name')})")
-    else:
-        print(f"Profile {uid} already deleted or not found.")
-
-print("\nDone.")
+print(f"Successfully deleted {count} users.")

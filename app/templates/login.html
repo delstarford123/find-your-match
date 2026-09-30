@@ -58,6 +58,9 @@
         background: white; color: #720000;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
+    #tabStaff.active {
+        background: #0F172A; color: white;
+    }
 
     /* ── Legacy upgrade banner ── */
     .upgrade-banner {
@@ -183,6 +186,9 @@
             <button class="login-tab" id="tabLegacy" onclick="switchMode('legacy')" role="tab" aria-selected="false">
                 🎓 Student ID Login
             </button>
+            <button class="login-tab" id="tabStaff" onclick="switchMode('staff')" role="tab" aria-selected="false">
+                🏢 Staff Login
+            </button>
         </div>
 
         <!-- ── Legacy user upgrade banner (shown after legacy login) ── -->
@@ -196,13 +202,14 @@
             <button class="upgrade-banner-btn" onclick="upgradeAccount()">✨ Upgrade My Account Now</button>
         </div>
 
-        <form id="loginForm" onsubmit="return handleLogin(event)" novalidate>
+        <form id="loginForm" method="POST" action="{{ url_for('auth.login') }}" onsubmit="return handleLogin(event)" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="login_type" id="login_type_input" value="user">
 
             <div class="input-group">
                 <label for="email">Email Address</label>
                 <input type="email" id="email" name="email" required
-                       placeholder="e.g. name@example.com" autocomplete="email">
+                       placeholder="e.g. findyourmatch@gmail.com" autocomplete="email">
             </div>
 
             <!-- Legacy reg number field (hidden by default) -->
@@ -247,18 +254,30 @@
         const regInput   = document.getElementById('reg_number');
         const tabNew     = document.getElementById('tabNew');
         const tabLegacy  = document.getElementById('tabLegacy');
+        const tabStaff   = document.getElementById('tabStaff');
+        const loginType  = document.getElementById('login_type_input');
+
+        tabNew.classList.remove('active');
+        tabLegacy.classList.remove('active');
+        if(tabStaff) tabStaff.classList.remove('active');
 
         if (mode === 'legacy') {
             regWrapper.classList.add('visible');
             regInput.required = true;
-            tabNew.classList.remove('active');
             tabLegacy.classList.add('active');
+            if(loginType) loginType.value = 'user';
+        } else if (mode === 'staff') {
+            regWrapper.classList.remove('visible');
+            regInput.required = false;
+            regInput.value    = '';
+            if(tabStaff) tabStaff.classList.add('active');
+            if(loginType) loginType.value = 'staff';
         } else {
             regWrapper.classList.remove('visible');
             regInput.required = false;
             regInput.value    = '';
             tabNew.classList.add('active');
-            tabLegacy.classList.remove('active');
+            if(loginType) loginType.value = 'user';
         }
         hideError();
     }
@@ -283,6 +302,9 @@
 
     // ── Login Handler ─────────────────────────────────────────────────────────
     async function handleLogin(event) {
+        if (loginMode === 'staff') {
+            return true; // Let the form submit naturally to /login
+        }
         event.preventDefault();
         const btn = document.getElementById('submitBtn');
         hideError();
@@ -319,10 +341,21 @@
                 }
 
                 // ── Redirect based on profile completeness ─────────────────
+                if (result.redirect_url) {
+                    window.location.href = result.redirect_url;
+                    return false;
+                }
+                
                 if (!result.profile_complete) {
                     window.location.href = '/complete-profile';
                 } else {
-                    window.location.href = "{{ url_for('swipe') }}";
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const nextUrl = urlParams.get('next');
+                    if (nextUrl) {
+                        window.location.href = nextUrl;
+                    } else {
+                        window.location.href = "{{ url_for('swipe') }}";
+                    }
                 }
                 return false;
             }
@@ -353,9 +386,18 @@
                     // Check profile then redirect
                     const checkRes = await fetch('/api/v3/auth/profile/check');
                     const checkData = await checkRes.json().catch(() => ({ complete: true }));
-                    window.location.href = (!checkData.complete)
-                        ? '/complete-profile'
-                        : "{{ url_for('swipe') }}";
+                    
+                    if (!checkData.complete) {
+                        window.location.href = '/complete-profile';
+                    } else {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const nextUrl = urlParams.get('next');
+                        if (nextUrl) {
+                            window.location.href = nextUrl;
+                        } else {
+                            window.location.href = "{{ url_for('swipe') }}";
+                        }
+                    }
                     return false;
                 }
 

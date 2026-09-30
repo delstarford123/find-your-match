@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Blueprint, request, jsonify, session
-from firebase_admin import messaging
 from app.database import db, get_all_profiles
 
 logger = logging.getLogger(__name__)
@@ -157,17 +156,7 @@ def record_swipe():
                         'timestamp': datetime.now(timezone.utc).isoformat()
                     })
 
-                    # Send FCM Push Notification
-                    fcm_token = target_profile.get('fcm_token')
-                    if fcm_token:
-                        message = messaging.Message(
-                            notification=messaging.Notification(
-                                title=title,
-                                body=body,
-                            ),
-                            token=fcm_token,
-                        )
-                        messaging.send(message)
+
                 except Exception as e:
                     logger.error(f"Failed to emit V3 match Firebase notification: {e}")
 

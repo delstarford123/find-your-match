@@ -215,8 +215,11 @@
         /* === MOBILE MENU STYLES === */
         @media (max-width: 900px) {
             .mobile-menu-btn { display: flex; }
-            .nav-left-group { width: 100%; justify-content: space-between; }
-            .nav-right-actions { display: none; }
+            .nav-left-group { width: auto; justify-content: flex-start; }
+            
+            /* Show nav-right-actions on mobile but hide desktop auth buttons */
+            .nav-right-actions { display: flex !important; margin-left: auto; }
+            .desktop-auth-btn { display: none !important; }
             
             .nav-links {
                 position: fixed; top: calc(var(--nav-height) + var(--safe-top)); left: 0; right: 0;

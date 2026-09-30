@@ -233,6 +233,12 @@
                 <span></span> Delete Account Permanently
             </button>
         </form>
+
+        <div style="margin-top: 30px; text-align: center; display: flex; justify-content: center; gap: 15px;">
+            <a href="{{ url_for('privacy') }}" target="_blank" style="color: #888; font-size: 13px; text-decoration: underline;">Privacy Policy</a>
+            <span style="color: #ddd;">|</span>
+            <a href="{{ url_for('terms') }}" target="_blank" style="color: #888; font-size: 13px; text-decoration: underline;">Terms of Service</a>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -9,44 +9,9 @@
         --my-bubble-color: #DCF8C6; 
         --my-bubble-text: #111;
     }
-
-    /* === GLOBAL NOTIFICATION BELL === */
-    .floating-bell {
-        position: fixed; top: 20px; right: 20px;
-        background: white; border: 2px solid #FFD6DD; color: #720000;
-        width: 50px; height: 50px; border-radius: 50%;
-        display: flex; justify-content: center; align-items: center;
-        font-size: 22px; cursor: pointer; box-shadow: 0 6px 20px rgba(114, 0, 0, 0.15);
-        z-index: 9999; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .floating-bell:hover { transform: scale(1.1); }
-    .floating-bell:active { transform: scale(0.9); }
     
     /* Hide global overlays on this page to prevent overlap */
     .live-floating-btn, .support-trigger-btn { display: none !important; }
-
-    .bell-badge {
-        position: absolute; top: -6px; right: -6px; background: #E60026;
-        color: white; font-size: 11px; font-weight: 900; min-width: 22px;
-        height: 22px; border-radius: 11px; padding: 0 4px; display: none;
-        justify-content: center; align-items: center; border: 2px solid white;
-        box-shadow: 0 2px 8px rgba(230, 0, 38, 0.4); animation: pulseBell 2s infinite;
-    }
-
-    @keyframes pulseBell {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-        100% { transform: scale(1); }
-    }
-
-    /* === NOTIFICATION POPOVER MENU === */
-    .bell-popover {
-        position: fixed; top: 80px; right: 20px; background: white; border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2); width: 320px; z-index: 10000;
-        border: 1px solid #FFD6DD; display: none; flex-direction: column;
-        overflow: hidden; transform-origin: top right; animation: popIn 0.2s ease-out forwards;
-    }
-    .bell-popover.active { display: flex; }
 
     .popover-header {
         padding: 15px; background: linear-gradient(90deg, #720000 0%, #E60026 100%);
@@ -319,20 +284,7 @@
     }
 </style>
 
-<div class="floating-bell" id="global-bell" onclick="toggleBellPopover(event)">
-    🔔
-    <div class="bell-badge" id="bell-badge">0</div>
-</div>
 
-<div class="bell-popover" id="bell-popover">
-    <div class="popover-header">
-        <span>💬 New Messages</span>
-        <button onclick="toggleBellPopover(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; line-height: 1;">×</button>
-    </div>
-    <div class="popover-list" id="bell-popover-list">
-        <div style="padding: 30px; text-align: center; color: #888; font-size: 14px;">No new messages</div>
-    </div>
-</div>
 
 <div class="inbox-container {% if active_partner %}chat-active{% endif %}" id="main-inbox">
     
@@ -538,6 +490,14 @@
                         {% else %}
                              Say hi to {{ active_partner.name }}.
                         {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+            
+            {% if active_partner and active_partner.is_nearby %}
+                <div class="bubble-wrapper system" style="margin-top: 10px;">
+                    <div class="chat-bubble bubble-system" style="background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%); border: 1px solid #FFD6DD; color: #720000; box-shadow: 0 4px 15px rgba(230,0,38,0.2);">
+                        📍 Location Radar: {{ active_partner.name }} is nearby ({{ active_partner.distance_km }} KM away)!
                     </div>
                 </div>
             {% endif %}
@@ -975,78 +935,7 @@
         }
     }
 
-    function toggleBellPopover(e) {
-        e.stopPropagation();
-        const pop = document.getElementById('bell-popover');
-        if (pop) pop.classList.toggle('active');
-    }
 
-    function updateBellUI() {
-        const badge = document.getElementById('bell-badge');
-        const list  = document.getElementById('bell-popover-list');
-        if (!badge || !list) return;
-
-        let totalUnread = 0;
-        let popoverHtml = '';
-
-        for (const [uid, data] of Object.entries(unreadMap)) {
-            if (typeof data !== 'object') {
-                 unreadMap[uid] = { count: data, text: "New Message" };
-            }
-            
-            const count = unreadMap[uid].count;
-            const msgText = escapeHTML(unreadMap[uid].text);
-            totalUnread += count;
-            
-            const sidebarItem = document.querySelector(`.match-item[data-uid="${uid}"]`);
-            let name = "New Match";
-            let img = "/static/img/placeholder.png";
-            let isOnline = false;
-
-            if (sidebarItem) {
-                const nameSpan = sidebarItem.querySelector('.user-name-text');
-                if (nameSpan) name = escapeHTML(nameSpan.textContent.trim());
-                const imgEl = sidebarItem.querySelector('.match-avatar');
-                if (imgEl) img = imgEl.src;
-                const dot = sidebarItem.querySelector('.online-dot');
-                if (dot) isOnline = dot.classList.contains('active');
-            }
-
-            popoverHtml += `
-                <div class="popover-item" onclick="window.location.href='/matches/${uid}'">
-                    <div style="position:relative; flex-shrink:0;">
-                        <img src="${img}" style="width:45px; height:45px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.1);">
-                        <span style="position:absolute; bottom:1px; right:1px; width:12px; height:12px; border-radius:50%; border:2px solid white; background:${isOnline ? '#28a745' : '#bbb'};"></span>
-                    </div>
-                    <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:800; font-size:14px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            ${name}
-                        </div>
-                        <div style="font-size:12px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            ${msgText}
-                        </div>
-                    </div>
-                    <span class="popover-unread-count">${count}</span>
-                </div>
-            `;
-        }
-
-        if (totalUnread > 0) {
-            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-            badge.style.display = 'flex';
-            list.innerHTML = popoverHtml;
-            
-            const bell = document.getElementById('global-bell');
-            bell.style.transform = 'scale(1.15) rotate(10deg)';
-            setTimeout(() => { bell.style.transform = 'scale(1) rotate(0deg)'; }, 300);
-
-        } else {
-            badge.style.display = 'none';
-            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:13px;">No new messages</div>';
-        }
-    }
-
-    updateBellUI();
 
     // ==========================================
     // MESSAGE DELETION & SWIPE TO REPLY LOGIC
@@ -1438,7 +1327,7 @@
                 });
                 localStorage.setItem('fym_offline_queue', JSON.stringify(offlineQueue));
 
-                updateBellUI();
+
 
                 const sidebarItem = document.querySelector(`.match-item[data-uid="${data.sender}"]`);
                 if (sidebarItem) {

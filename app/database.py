@@ -466,3 +466,81 @@ def update_booking_status(booking_id: str, status: str) -> bool:
     except Exception as e:
         logger.error(f"Error updating booking status: {e}")
         return False
+
+# ==========================================
+# INSTITUTIONS AND CAMPUS MANAGERS
+# ==========================================
+
+_institutions_cache = None
+_institutions_cache_expiry = None
+
+def get_institutions() -> list:
+    """Fetches all dynamically added institutions, with a 1-hour memory cache for instant loads."""
+    global _institutions_cache, _institutions_cache_expiry
+    try:
+        now = datetime.now()
+        if _institutions_cache is not None and _institutions_cache_expiry is not None and now < _institutions_cache_expiry:
+            return _institutions_cache
+
+        data = db.reference('institutions').get()
+        if not data:
+            # Seed default institutions
+            defaults = [
+                {'name': 'Masinde Muliro University (MMUST)', 'type': 'University'},
+                {'name': 'University of Nairobi (UoN)', 'type': 'University'},
+                {'name': 'Kenyatta University (KU)', 'type': 'University'},
+                {'name': 'Jomo Kenyatta University (JKUAT)', 'type': 'University'},
+                {'name': 'Moi University', 'type': 'University'},
+                {'name': 'Egerton University', 'type': 'University'},
+                {'name': 'Strathmore University', 'type': 'University'},
+                {'name': 'Kenya Medical Training College (KMTC)', 'type': 'KMTC'},
+                {'name': 'Sigalagala National Polytechnic', 'type': 'TVET'},
+                {'name': 'Rift Valley Institute of Science and Technology', 'type': 'TVET'},
+                {'name': 'General / Other', 'type': 'Other'}
+            ]
+            for inst in defaults:
+                db.reference('institutions').push(inst)
+            _institutions_cache = defaults
+            _institutions_cache_expiry = now + timedelta(hours=1)
+            return defaults
+        
+        result = [{**inst_data, 'id': iid} for iid, inst_data in data.items()]
+        _institutions_cache = result
+        _institutions_cache_expiry = now + timedelta(hours=1)
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching institutions: {e}")
+        return _institutions_cache if _institutions_cache else []
+
+def add_institution(name: str, inst_type: str) -> bool:
+    try:
+        db.reference('institutions').push({'name': name, 'type': inst_type})
+        return True
+    except Exception as e:
+        logger.error(f"Error adding institution: {e}")
+        return False
+
+def get_campus_managers() -> list:
+    """Fetches all campus managers."""
+    try:
+        data = db.reference('campus_managers').get()
+        if not data: return []
+        return [{**mgr_data, 'id': mid} for mid, mgr_data in data.items()]
+    except Exception as e:
+        logger.error(f"Error fetching campus managers: {e}")
+        return []
+
+def add_campus_manager(name: str, email: str, institution: str, password_hash: str) -> bool:
+    try:
+        db.reference('campus_managers').push({
+            'name': name,
+            'email': email,
+            'institution': institution,
+            'password_hash': password_hash,
+            'referral_code': name.replace(" ", "").upper()[:5] + str(int(datetime.now().timestamp()))[-4:],
+            'created_at': datetime.now(EAT).isoformat()
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error adding campus manager: {e}")
+        return False

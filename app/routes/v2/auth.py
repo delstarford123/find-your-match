@@ -114,7 +114,8 @@ def signup():
     hashed_password = generate_password_hash(password)
     expiry_date = calculate_account_expiry(reg_number, institution_name)
     created_at = datetime.now(EAT).isoformat()
-    otp_code = random.randint(100000, 999999)
+    import secrets
+    otp_code = secrets.randbelow(900000) + 100000
     
     referral_code = f"FYM-{name.split(' ')[0].upper()[:5]}-{''.join(random.choices(re.sub(r'[^A-Z0-9]', '', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), k=4))}"
     wingman_code = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=6))
@@ -148,16 +149,24 @@ def signup():
             'api_version': 'v2'
         })
         
-        send_verification_email(email, name, otp_code)
+        email_sent = send_verification_email(email, name, otp_code)
         
         session['temp_user_id'] = safe_id
         session['temp_user_email'] = email
         
-        return jsonify({
-            "status": "success", 
-            "message": f"Verification code sent to {email}.",
-            "api_version": "v2"
-        })
+        if email_sent:
+            return jsonify({
+                "status": "success", 
+                "message": f"Verification code sent to {email}.",
+                "api_version": "v2"
+            })
+        else:
+            print(f"⚠️ SMTP FAILED. OTP for {email} is {otp_code}")
+            return jsonify({
+                "status": "success",
+                "message": f"Could not send email, but your verification code is: {otp_code}",
+                "api_version": "v2"
+            })
         
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -179,7 +188,7 @@ def login():
         user_ref = db.reference(f'profiles/{safe_id}')
         user = user_ref.get()
         
-        if not user or user.get('email') != email:
+        if not isinstance(user, dict) or user.get('email', '').lower() != email:
             return jsonify({"status": "error", "message": "Invalid email, ID, or password."}), 401
 
         if user.get('is_locked'):

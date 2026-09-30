@@ -38,6 +38,12 @@ def record_swipe():
             'timestamp': timestamp
         })
         
+        # Increment daily swipe count
+        today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        daily_ref = db.reference(f'daily_swipes/{current_user_id}/{today_str}')
+        current_swipes = daily_ref.get() or 0
+        daily_ref.set(current_swipes + 1)
+        
         is_match = False
         match_details = {}
 
@@ -55,8 +61,12 @@ def record_swipe():
             target_crush = db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').get()
             target_crushed_on_me = target_crush and target_crush.get('status') == 'pending'
 
-            # If either condition is true, IT IS A MATCH!
-            if target_swiped_right or target_crushed_on_me:
+            # NEW LOGIC: Instant Match on Like!
+            # Bypass mutual checks and force match to True if the current user likes them
+            is_match = True
+            target_swiped_right = True # Simulate mutual match for logic below
+            
+            if True: # Kept the block indented to avoid syntax errors
                 is_match = True
                 match_id = "_".join(sorted([current_user_id, target_user_id]))
                 
@@ -111,9 +121,15 @@ def record_swipe():
                     db.reference(f'notifications/{target_user_id}').push({
                         'title': 'New Match! ❤️',
                         'message': f'{current_name} liked you back!',
-                        'type': 'success',
-                        'timestamp': datetime.now(timezone.utc).isoformat()
+                        'type': 'match',
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'sender_id': current_user_id,
+                        'sender_name': current_name,
+                        'sender_img': current_profile.get('img', '/static/img/placeholder.png'),
+                        'match_id': match_id
                     })
+
+
                 except Exception as e:
                     print(f"Notification failed: {e}")
 

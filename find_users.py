@@ -1,26 +1,28 @@
+import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 from app.database import db
 
-all_profiles = db.reference('profiles').get() or {}
+users = db.reference('profiles').get() or {}
+emails_to_find = [
+    'omondidelstarford@gmail.com', 
+    'info@delstarfordwords.co.ke', 
+    'info@delstarfordworks.co.ke', 
+    'info@fardcbo.org'
+]
 
-matches = []
-for uid, data in all_profiles.items():
+found = []
+for uid, data in users.items():
     if isinstance(data, dict):
         name = data.get('name', '').lower()
-        if 'delstarford' in name or 'installer.py' in name:
-            matches.append({
-                'id': uid,
-                'name': data.get('name', 'N/A'),
-                'email': data.get('email', 'N/A'),
-                'created_at': data.get('created_at', 'N/A')
-            })
+        email = data.get('email', '').lower()
+        if 'delstarford' in name or email in emails_to_find:
+            found.append(data)
 
-print("="*50)
-print(f"Found {len(matches)} matching users:")
-print("="*50)
-for idx, m in enumerate(matches):
-    print(f"[{idx+1}] ID: {m['id']}")
-    print(f"    Name: {m['name']}")
-    print(f"    Email: {m['email']}")
-    print(f"    Created: {m['created_at']}")
-    print("-" * 50)
+print(f"Found {len(found)} users:")
+for user in found:
+    print(f"Name: {user.get('name')}, Email: {user.get('email')}, Reg: {user.get('reg_number')}, Phone: {user.get('phone')}")

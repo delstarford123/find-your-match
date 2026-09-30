@@ -56,4 +56,6 @@ Enhanced vibe-matching capabilities through a decentralized media management sys
 
 ================================================================================
 © 2026 FIND YOUR MATCH AI | CROSS-INSTITUTION NETWORK
-================================================================================
+=============================================================================
+
+Make thestudent directory to only show users of opposite gender eg gents or male sees only female , female only sees male, then in the matches.html, where users caht make it also to show the opposite gender also , male will only see ladies.

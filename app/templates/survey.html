@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Find Your Match AI - User Feedback Survey{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --bg-main: #0f172a;
+        --bg-card: #1e293b;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border-color: #334155;
+        --primary: #0ea5e9;
+        --primary-hover: #0284c7;
+        --accent: #E60026;
+        --success: #10b981;
+    }
+
+    body {
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        font-family: 'Inter', 'Outfit', sans-serif;
+    }
+
+    .survey-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
+
+    .survey-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    .survey-header h1 {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .survey-header p {
+        color: var(--text-muted);
+        font-size: 16px;
+        line-height: 1.6;
+    }
+
+    .reward-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 14px;
+        margin-top: 15px;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .survey-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .form-group {
+        margin-bottom: 30px;
+    }
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 12px;
+        font-size: 15px;
+        color: var(--text-main);
+    }
+    
+    .form-label span.required {
+        color: var(--accent);
+        margin-left: 4px;
+    }
+
+    /* Rating Stars */
+    .star-rating {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    .star-rating input {
+        display: none;
+    }
+    .star-rating label {
+        font-size: 30px;
+        color: var(--border-color);
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input:checked ~ label {
+        color: #f59e0b; /* Golden Yellow */
+    }
+
+    /* NPS 1-10 Scale */
+    .nps-scale {
+        display: flex;
+        gap: 5px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+    .nps-scale label {
+        flex: 1;
+        min-width: 40px;
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        text-align: center;
+        padding: 12px 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+    .nps-scale input {
+        display: none;
+    }
+    .nps-scale input:checked + label {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+    .nps-scale label:hover {
+        border-color: var(--primary);
+    }
+    
+    .nps-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    /* Standard Inputs */
+    select, textarea, input[type="text"] {
+        width: 100%;
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 14px;
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 15px;
+        transition: 0.2s;
+        box-sizing: border-box;
+    }
+    select:focus, textarea:focus, input[type="text"]:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+    }
+    textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    /* Checkboxes/Radios */
+    .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .radio-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        background: var(--bg-main);
+        padding: 12px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        transition: 0.2s;
+    }
+    .radio-label:hover {
+        border-color: var(--primary);
+    }
+    .radio-label input:checked {
+        accent-color: var(--primary);
+    }
+
+    .submit-btn {
+        width: 100%;
+        background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: 0.3s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+    }
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(14, 165, 233, 0.3);
+    }
+    
+    .loading-spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 600px) {
+        .survey-card { padding: 25px; }
+        .nps-scale { gap: 3px; }
+        .nps-scale label { min-width: 30px; padding: 10px 0; font-size: 14px; }
+    }
+    
+    #successState {
+        display: none;
+        text-align: center;
+        padding: 40px 0;
+    }
+</style>
+
+<!-- Confetti Script -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<div class="survey-container">
+    <div class="survey-header">
+        <h1>Help Us Improve</h1>
+        <p>Your feedback is critical to making Find Your Match AI better. Complete this short 2-minute survey to help us build what you want!</p>
+        <div class="reward-badge">
+            🎁 Reward: 1 Week Free Premium Access (or Extension)
+        </div>
+    </div>
+
+    <div class="survey-card" id="surveyFormCard">
+        <form id="surveyForm">
+            <!-- Q1: Overall Rating -->
+            <div class="form-group">
+                <label class="form-label">1. How would you rate your overall experience with Find Your Match AI?<span class="required">*</span></label>
+                <div class="nps-scale">
+                    {% for i in range(1, 11) %}
+                    <input type="radio" name="q1_overall" id="q1_{{i}}" value="{{i}}" required>
+                    <label for="q1_{{i}}">{{i}}</label>
+                    {% endfor %}
+                </div>
+                <div class="nps-labels">
+                    <span>Poor</span>
+                    <span>Excellent</span>
+                </div>
+            </div>
+
+            <!-- Q2: Match Quality -->
+            <div class="form-group">
+                <label class="form-label">2. How satisfied are you with the quality of your matches?<span class="required">*</span></label>
+                <div class="star-rating">
+                    <input type="radio" id="q2_5" name="q2_matches" value="5" required/><label for="q2_5" title="5 stars">★</label>
+                    <input type="radio" id="q2_4" name="q2_matches" value="4"/><label for="q2_4" title="4 stars">★</label>
+                    <input type="radio" id="q2_3" name="q2_matches" value="3"/><label for="q2_3" title="3 stars">★</label>
+                    <input type="radio" id="q2_2" name="q2_matches" value="2"/><label for="q2_2" title="2 stars">★</label>
+                    <input type="radio" id="q2_1" name="q2_matches" value="1"/><label for="q2_1" title="1 star">★</label>
+                </div>
+            </div>
+
+            <!-- Q3: AI Companion -->
+            <div class="form-group">
+                <label class="form-label">3. How helpful is the AI Dating Companion/Coach in your experience?<span class="required">*</span></label>
+                <div class="star-rating">
+                    <input type="radio" id="q3_5" name="q3_ai" value="5" required/><label for="q3_5" title="5 stars">★</label>
+                    <input type="radio" id="q3_4" name="q3_ai" value="4"/><label for="q3_4" title="4 stars">★</label>
+                    <input type="radio" id="q3_3" name="q3_ai" value="3"/><label for="q3_3" title="3 stars">★</label>
+                    <input type="radio" id="q3_2" name="q3_ai" value="2"/><label for="q3_2" title="2 stars">★</label>
+                    <input type="radio" id="q3_1" name="q3_ai" value="1"/><label for="q3_1" title="1 star">★</label>
+                </div>
+            </div>
+
+            <!-- Q4: Favorite Feature -->
+            <div class="form-group">
+                <label class="form-label">4. What is your favorite feature on the platform?<span class="required">*</span></label>
+                <select name="q4_feature" required>
+                    <option value="" disabled selected>Select an option...</option>
+                    <option value="swipe_matching">Swipe & Matching</option>
+                    <option value="ai_companion">AI Coach / Icebreakers</option>
+                    <option value="blind_dates">Blind Dates (Incognito Mode)</option>
+                    <option value="campus_leaderboard">Campus Leaderboards & Events</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <!-- Q5: UI/UX Design -->
+            <div class="form-group">
+                <label class="form-label">5. How would you rate the app's design and ease of use (UI/UX)?<span class="required">*</span></label>
+                <div class="star-rating">
+                    <input type="radio" id="q5_5" name="q5_ui" value="5" required/><label for="q5_5" title="5 stars">★</label>
+                    <input type="radio" id="q5_4" name="q5_ui" value="4"/><label for="q5_4" title="4 stars">★</label>
+                    <input type="radio" id="q5_3" name="q5_ui" value="3"/><label for="q5_3" title="3 stars">★</label>
+                    <input type="radio" id="q5_2" name="q5_ui" value="2"/><label for="q5_2" title="2 stars">★</label>
+                    <input type="radio" id="q5_1" name="q5_ui" value="1"/><label for="q5_1" title="1 star">★</label>
+                </div>
+            </div>
+
+            <!-- Q6: Pricing Fairness -->
+            <div class="form-group">
+                <label class="form-label">6. Do you feel the Premium subscription is priced fairly?<span class="required">*</span></label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="q6_pricing" value="very_fair" required> Very Fair
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="q6_pricing" value="somewhat_fair"> Somewhat Fair
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="q6_pricing" value="too_expensive"> Too Expensive
+                    </label>
+                </div>
+            </div>
+
+            <!-- Q7: Match Status -->
+            <div class="form-group">
+                <label class="form-label">7. Have you found your match on our platform yet?<span class="required">*</span></label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="q7_match_found" value="yes_dating" required> Yes, and we are happily dating! 🥰
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="q7_match_found" value="yes_talking"> Yes, we are currently talking/getting to know each other. 💬
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="q7_match_found" value="yes_friends"> Yes, but we decided to just remain friends. 🤝
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="q7_match_found" value="no_not_yet"> No, not yet. Still looking! 👀
+                    </label>
+                </div>
+            </div>
+
+            <!-- Q8: Feature Requests -->
+            <div class="form-group">
+                <label class="form-label">8. What specific features or improvements would you like to see added in the product for a better experience?</label>
+                <textarea name="q8_improvements" placeholder="E.g., Video calls, group chats, better search filters, more AI icebreakers..."></textarea>
+            </div>
+
+            <!-- Q9: Product Additions -->
+            <div class="form-group">
+                <label class="form-label">9. Is there anything concerning the product's matchmaking algorithm or functionality that you think we should change?</label>
+                <textarea name="q9_algorithm" placeholder="Tell us how we can improve how we match you with others..."></textarea>
+            </div>
+
+            <!-- Q10: Bugs / Issues -->
+            <div class="form-group">
+                <label class="form-label">10. What is the biggest bug or issue you have encountered while using the product?</label>
+                <textarea name="q10_bugs" placeholder="Please describe any glitches or annoyances..."></textarea>
+            </div>
+
+            <!-- Q11: Recommendation (NPS) -->
+            <div class="form-group">
+                <label class="form-label">11. How likely are you to recommend us to a friend on campus?<span class="required">*</span></label>
+                <div class="nps-scale">
+                    {% for i in range(1, 11) %}
+                    <input type="radio" name="q11_recommend" id="q11_{{i}}" value="{{i}}" required>
+                    <label for="q11_{{i}}">{{i}}</label>
+                    {% endfor %}
+                </div>
+                <div class="nps-labels">
+                    <span>Not Likely</span>
+                    <span>Very Likely</span>
+                </div>
+            </div>
+
+            <!-- Q12: Open Feedback -->
+            <div class="form-group">
+                <label class="form-label">12. Any other comments, feedback, or love letters? 💌</label>
+                <textarea name="q12_comments" placeholder="We read every single one!"></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span>Submit Feedback & Claim Reward</span>
+                <div class="loading-spinner" id="spinner"></div>
+            </button>
+        </form>
+    </div>
+
+    <!-- Success State -->
+    <div class="survey-card" id="successState">
+        <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+        <h2 style="font-size: 28px; margin: 0 0 15px; background: linear-gradient(135deg, #10b981 0%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Thank You!</h2>
+        <p style="color: var(--text-muted); font-size: 16px; margin-bottom: 30px;">
+            We've received your feedback. As a token of our appreciation, your account has been credited with <strong>1 Week of Premium Access!</strong>
+        </p>
+        <a href="{{ url_for('dashboard') }}" class="submit-btn" style="text-decoration: none; display: inline-flex; width: auto; padding: 12px 30px;">
+            Return to Dashboard
+        </a>
+    </div>
+</div>
+
+<script>
+document.getElementById('surveyForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('submitBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = btn.querySelector('span');
+    
+    // UI Loading State
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    spinner.style.display = 'block';
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch('/api/survey/submit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Trigger Confetti
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#0ea5e9', '#10b981', '#E60026']
+            });
+            
+            // Show Success State
+            document.getElementById('surveyFormCard').style.display = 'none';
+            document.getElementById('successState').style.display = 'block';
+            window.scrollTo(0, 0);
+        } else {
+            alert(result.message || 'Something went wrong. Please try again.');
+            btn.disabled = false;
+            btnText.style.display = 'block';
+            spinner.style.display = 'none';
+        }
+    } catch (err) {
+        console.error(err);
+        alert('An error occurred. Please try again later.');
+        btn.disabled = false;
+        btnText.style.display = 'block';
+        spinner.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

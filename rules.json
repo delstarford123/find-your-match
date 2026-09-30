@@ -185,6 +185,7 @@
       ".write": "auth != null",
       ".indexOn": ["is_online"]
     },
+    
     "lights_out_queue": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -207,6 +208,29 @@
       ".write": "auth != null"
     },
     "emergency_alerts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
+    },
+    "campus_managers": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": ["email"]
+    },
+    "campus_manager_ledgers": {
+      ".read": false,
+      ".write": false
+    },
+    "groups": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["created_by", "name"]
+    },
+    "group_messages": {
+      ".read": true,
+      ".write": true
+    },
+    "chat_notifications": {
       ".read": "auth != null",
       ".write": "auth != null",
       ".indexOn": ["timestamp"]

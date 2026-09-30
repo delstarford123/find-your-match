@@ -57,6 +57,13 @@
     }
     .ref-code-box:hover { transform: scale(1.05); background: rgba(230, 0, 38, 0.1); }
     .ref-code-box:active { transform: scale(0.95); }
+    
+    .referral-viral-card p, .ref-code-box {
+        word-wrap: break-word;
+        white-space: normal;
+        max-width: 100%;
+        overflow-wrap: break-word;
+    }
 
     /* Feed Controls */
     .feed-controls {
@@ -195,6 +202,52 @@
     .char-count.limit-hit { color: #ef4444; }
 
     @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    /* === MOBILE RESPONSIVENESS === */
+    @media (max-width: 768px) {
+        .gossip-page {
+            padding: 10px 10px 100px;
+        }
+        .referral-viral-card {
+            padding: 15px 10px;
+            margin-bottom: 20px;
+        }
+        .referral-viral-card h3 {
+            font-size: 18px;
+        }
+        .ref-code-box {
+            font-size: 14px;
+            padding: 10px;
+            word-wrap: break-word;
+        }
+        .gossip-card {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .gossip-text {
+            font-size: 15px;
+        }
+        .gossip-meta {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .meta-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+        .fab-btn {
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            bottom: 80px;
+            right: 15px;
+        }
+        .composer-modal .composer-content {
+            padding: 20px 15px;
+            width: 95%;
+        }
+    }
 </style>
 
 <div class="gossip-page">

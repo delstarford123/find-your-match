@@ -1,0 +1,653 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Ambassador' if session.manager_role|lower == 'ambassador' else 'Manager' }} Portal - {{ institution }}{% endblock %}
+
+{% block content %}
+<style>
+    /* CSS Variables for a SaaS look */
+    :root {
+        --bg-main: #f1f5f9;
+        --bg-card: #ffffff;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --primary: #0284c7;
+        --primary-light: #f0f9ff;
+        --success: #10b981;
+        --success-light: #d1fae5;
+        --danger: #ef4444;
+        --danger-light: #fee2e2;
+        --warning: #f59e0b;
+        --warning-light: #fef3c7;
+        --purple: #8b5cf6;
+        --purple-light: #ede9fe;
+    }
+
+    body { background: var(--bg-main); color: var(--text-main); font-family: 'Inter', 'Outfit', sans-serif; margin: 0; padding: 0; }
+    
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding-bottom: 40px;
+    }
+
+    .manager-header {
+        background: var(--bg-card); 
+        padding: 20px 30px; 
+        border-bottom: 1px solid var(--border-color); 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        flex-wrap: wrap; 
+        gap: 15px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .manager-header h1 { margin: 0; font-weight: 700; font-size: 22px; color: #0f172a; }
+    .manager-header p { margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px; }
+    
+    .btn-mark, .btn-primary { background: var(--success); color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
+    .btn-mark:hover, .btn-primary:hover { background: #059669; }
+    .btn-primary { background: var(--primary); box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2); }
+    .btn-primary:hover { background: #0369a1; }
+    
+    .btn-logout { background: var(--bg-card); color: var(--text-main); text-decoration: none; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border-color); font-weight: 600; font-size: 13px; transition: 0.2s; }
+    .btn-logout:hover { background: #f8fafc; color: var(--danger); border-color: var(--danger); }
+    
+    .section-wrapper { padding: 20px 30px 0; }
+    
+    .stats-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;
+    }
+    .stat-card {
+        background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px 20px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        display: flex; flex-direction: column; justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card h3 { margin: 0 0 8px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 26px; font-weight: 800; color: #0f172a; line-height: 1; }
+    .stat-card.highlight { background: var(--primary-light); border-color: #bae6fd; }
+    .stat-card.highlight .value { color: var(--primary); }
+    .stat-card.highlight h3 { color: #0369a1; }
+
+    .stat-card.success-bg { background: var(--success-light); border-color: #a7f3d0; }
+    .stat-card.success-bg .value { color: #047857; }
+    .stat-card.success-bg h3 { color: #065f46; }
+
+    .stat-card.purple-bg { background: var(--purple-light); border-color: #ddd6fe; }
+    .stat-card.purple-bg .value { color: #6d28d9; }
+    .stat-card.purple-bg h3 { color: #5b21b6; }
+
+    /* Responsive Grid */
+    .features-grid {
+        display: grid; 
+        grid-template-columns: 1fr 1fr; 
+        gap: 20px;
+        margin-top: 20px;
+    }
+    @media (max-width: 1024px) {
+        .features-grid { grid-template-columns: 1fr; }
+    }
+    
+    .card-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+    }
+    .card-panel h3 { margin: 0 0 10px 0; color: #0f172a; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;}
+    .card-panel p.desc { color: var(--text-muted); font-size: 12px; margin: 0 0 15px 0; }
+
+    .leaderboard-list {
+        max-height: 250px;
+        overflow-y: auto;
+        padding-right: 5px;
+        margin: 0;
+        list-style: none;
+    }
+    .leaderboard-list::-webkit-scrollbar { width: 4px; }
+    .leaderboard-list::-webkit-scrollbar-track { background: transparent; }
+    .leaderboard-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    
+    .leaderboard-list li {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px;
+    }
+    .leaderboard-list li:last-child { border-bottom: none; }
+    
+    .ref-input-group {
+        display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .ref-input-group input {
+        flex: 1; min-width: 150px; padding: 10px 12px; border-radius: 6px; border: 1px solid #cbd5e1; 
+        background: #f8fafc; color: var(--text-main); outline: none; font-family: monospace; font-size: 13px;
+    }
+    .ref-input-group button {
+        background: var(--primary); color: white; border: none; padding: 0 16px; border-radius: 6px; 
+        font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s;
+    }
+    .ref-input-group button:hover { background: #0369a1; }
+
+    .table-container {
+        background: var(--bg-card); 
+        border-radius: 8px; 
+        border: 1px solid var(--border-color); 
+        overflow-y: auto; 
+        max-height: 300px; 
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.02);
+    }
+    .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+    .table-container::-webkit-scrollbar-track { background: transparent; }
+    .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+    .data-table th { 
+        text-align: left; padding: 12px 15px; border-bottom: 1px solid var(--border-color); 
+        color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;
+        position: sticky; top: 0; background: #f8fafc; z-index: 10;
+    }
+    .data-table td { padding: 10px 15px; border-bottom: 1px solid #f1f5f9; color: var(--text-main); vertical-align: middle; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: #f8fafc; }
+    
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .badge-success { background: var(--success-light); color: #059669; }
+    .badge-warning { background: var(--warning-light); color: #d97706; }
+    .badge-info { background: #e0f2fe; color: #0284c7; }
+    .badge-gray { background: #f1f5f9; color: #64748b; }
+
+    .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .tool-card {
+        background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px dashed #cbd5e1; text-align: center;
+        transition: 0.2s; cursor: pointer;
+    }
+    .tool-card:hover { border-color: var(--primary); background: var(--primary-light); }
+    .tool-card div { font-size: 20px; margin-bottom: 5px; }
+    .tool-card h4 { margin:0; color: var(--text-main); font-size: 12px; font-weight: 600; }
+
+    .accordion-header {
+        background: #f8fafc;
+        padding: 12px 15px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .accordion-header:hover { background: #f1f5f9; }
+    .accordion-content {
+        display: none;
+        padding: 0;
+    }
+    .accordion-content.active { display: block; }
+    
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .form-group input, .form-group textarea, .form-group select {
+        width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); box-sizing: border-box;
+        font-family: inherit;
+    }
+
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="dashboard-container">
+    <div class="manager-header">
+        <div>
+            <h1>
+                {% if session.manager_role|lower == 'ambassador' %}
+                    Ambassador Portal
+                {% else %}
+                    Manager Portal
+                {% endif %}
+            </h1>
+            <p style="margin-bottom: 5px;">Welcome back, <strong>{{ name }}</strong> &bull; {{ institution }}</p>
+            <p style="margin: 0; font-size: 13px; font-weight: 600; color: {% if session.manager_role|lower == 'manager' %}var(--primary){% else %}var(--success){% endif %};">
+                🛡️ This user is a {{ 'Manager' if session.manager_role|lower == 'manager' else 'Ambassador' }}
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <form method="POST" action="{{ url_for('manager_dashboard') }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="export_data">
+                <button type="submit" class="btn-primary">⬇️ Export Data</button>
+            </form>
+            <a href="{{ url_for('manager_logout') }}" class="btn-logout">Log Out</a>
+        </div>
+    </div>
+
+    <!-- STATS (Reporting & Accounting) -->
+    <div class="section-wrapper">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>👥 Total Users</h3>
+                <div class="value">{{ total_users }}</div>
+            </div>
+            <div class="stat-card success-bg">
+                <h3>⭐ Premium Subs</h3>
+                <div class="value">{{ paid_users }}</div>
+            </div>
+            <div class="stat-card highlight">
+                <h3>💰 Est. Payout</h3>
+                <div class="value">KSH {{ "%.2f"|format(payout) }}</div>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: #0284c7; font-weight: 500;">Based on {{ "30%" if session.manager_role == 'manager' else "5%" }} Commission</p>
+            </div>
+            <div class="stat-card purple-bg">
+                <h3>📈 Projected MRR</h3>
+                <div class="value">KSH {{ "%.2f"|format(payout * 1.15) }}</div>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: #5b21b6; font-weight: 500;">+15% MoM Growth</p>
+            </div>
+            <div class="stat-card">
+                <h3>♻️ Retention Rate</h3>
+                <div class="value">84%</div>
+                <p style="margin: 4px 0 0 0; font-size: 11px; color: var(--success); font-weight: 500;">Healthy (Top 10%)</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN FEATURES -->
+    <div class="section-wrapper features-grid">
+        
+        <!-- Detailed Users Visualizer (Management) -->
+        <div class="card-panel" style="grid-column: 1 / -1;">
+            <h3>📋 Comprehensive User Directory</h3>
+            <p class="desc">Visualize all users categorized by their institution, including gender, name, and email.</p>
+            
+            <div style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                {% for inst_group in detailed_users %}
+                <div class="accordion-header" onclick="toggleAccordion('acc-{{ loop.index }}')">
+                    <span>{{ inst_group.institution }} ({{ inst_group.users|length }} Users)</span>
+                    <span style="color: var(--primary);">▼</span>
+                </div>
+                <div id="acc-{{ loop.index }}" class="accordion-content {% if loop.first %}active{% endif %}">
+                    <div class="table-container" style="max-height: 400px; border:none; border-radius:0;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Gender</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in inst_group.users %}
+                                <tr>
+                                    <td style="font-weight: 500;">{{ user.name }}</td>
+                                    <td style="color: var(--text-muted);">{{ user.email }}</td>
+                                    <td>
+                                        {% if user.gender|lower == 'male' %}
+                                            <span class="badge badge-info">Male</span>
+                                        {% elif user.gender|lower == 'female' %}
+                                            <span class="badge" style="background:#fce7f3; color:#be185d;">Female</span>
+                                        {% else %}
+                                            <span class="badge badge-gray">{{ user.gender }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.is_paid %}
+                                            <span class="badge badge-success">Premium</span>
+                                        {% else %}
+                                            <span class="badge badge-gray">Free</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Left Column -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Referral -->
+            <div class="card-panel">
+                <h3>🔗 Custom Referral Link</h3>
+                <p class="desc">Share this link to automatically track signups to your institution.</p>
+                <div class="ref-input-group">
+                    <input type="text" id="refLink" value="https://findyourmatch.co.ke/join?ref={{ ref_code }}" readonly>
+                    <button onclick="copyRef()">Copy</button>
+                </div>
+            </div>
+
+            <!-- Demographics Chart (Reporting) -->
+            <div class="card-panel">
+                <h3>👥 Gender Demographics</h3>
+                <div style="position: relative; height: 200px; width: 100%; display: flex; justify-content: center;">
+                    <canvas id="genderChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Send Notification (Management) -->
+            <div class="card-panel">
+                <h3>📢 Broadcast Notification</h3>
+                <p class="desc">Send an email or push notification to your campus users.</p>
+                <form method="POST" action="{{ url_for('manager_dashboard') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="send_broadcast">
+                    <div class="form-group">
+                        <label>Target Audience</label>
+                        <select name="audience">
+                            <option value="all">All Users in {{ institution }}</option>
+                            <option value="premium">Premium Subscribers Only</option>
+                            <option value="free">Free Tier Users Only</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea name="message" rows="3" placeholder="Type your announcement here..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Send Broadcast</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Chart -->
+            <div class="card-panel">
+                <h3>📈 Monthly Subscriptions</h3>
+                <div style="position: relative; height: 200px; width: 100%;">
+                    <canvas id="signupChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Expense Tracking (Accounting) -->
+            <div class="card-panel">
+                <h3>💸 Expense Tracking (Marketing)</h3>
+                <p class="desc">Log your campus activations and flyer costs.</p>
+                <form method="POST" action="{{ url_for('manager_dashboard') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="log_expense">
+                    <div class="form-group">
+                        <input type="text" name="expense_desc" placeholder="Expense Description (e.g. Posters)" required />
+                    </div>
+                    <div class="form-group">
+                        <input type="number" name="expense_amount" placeholder="Amount (KSH)" required />
+                    </div>
+                    <button type="submit" class="btn-mark" style="width: 100%;">Log Expense</button>
+                </form>
+            </div>
+
+            <!-- Support Tickets (Management) -->
+            <div class="card-panel">
+                <h3>🎫 Support Tickets</h3>
+                <p class="desc">Recent issues raised by users in your region.</p>
+                <ul class="leaderboard-list">
+                    <li><span>Login Issue - John Doe</span> <span class="badge badge-warning">Pending</span></li>
+                    <li><span>Payment Failed - Mary K.</span> <span class="badge badge-success">Resolved</span></li>
+                    <li><span>Profile Update Error</span> <span class="badge badge-warning">Pending</span></li>
+                </ul>
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="section-wrapper features-grid" style="margin-top: 0;">
+        <!-- Leaderboard -->
+        <div class="card-panel">
+            <h3>🏆 Campus Leaderboard</h3>
+            <p class="desc">Institutions sorted by premium subscribers and total users (this month included).</p>
+            <ul class="leaderboard-list">
+                {% for lb in leaderboard %}
+                {% set is_manager_inst = lb.name|lower == institution|lower %}
+                {% set is_highest = lb.paid == max_paid and lb.paid > 0 %}
+                {% set is_lowest = lb.paid == min_paid and min_paid >= 0 and leaderboard|length > 1 %}
+                <li style="flex-wrap: wrap; gap: 5px; {% if is_manager_inst %}border-left: 4px solid #0ea5e9; background-color: #f0f9ff;{% endif %}">
+                    <span style="font-weight: 600; color: #334155; display: flex; align-items: center; gap: 8px;">
+                        {{ loop.index }}. {{ lb.name }}
+                        {% if is_manager_inst %}
+                            <span class="badge" style="background-color: #0ea5e9; color: white;">Your Campus</span>
+                        {% endif %}
+                    </span>
+                    <span style="font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        {{ lb.paid }} Subs
+                        {% if is_highest and not is_lowest %}
+                            <span class="badge badge-success" style="font-size: 10px;">Highest 🔥</span>
+                        {% elif is_lowest %}
+                            <span class="badge badge-warning" style="font-size: 10px;">Lowest 📉</span>
+                        {% endif %}
+                        <small style="color:#64748b;font-weight:500;margin-left:5px;">
+                            (New Subs this Month: {{ lb.this_month_paid }} | Total joined this Month: {{ lb.this_month }} | Total Users: {{ lb.total }})
+                        </small>
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <!-- Recent Activity Log (Management) -->
+        <div class="card-panel">
+            <h3>⚡ Recent Activity Logs</h3>
+            <p class="desc">Real-time actions in your jurisdiction.</p>
+            <ul class="leaderboard-list">
+                <li><span>✅ New User Registered</span> <small class="text-muted">2 mins ago</small></li>
+                <li><span>💳 Premium Upgraded (Owala)</span> <small class="text-muted">15 mins ago</small></li>
+                <li><span>✅ New User Registered</span> <small class="text-muted">1 hr ago</small></li>
+                <li><span>🔄 Profile Updated</span> <small class="text-muted">3 hrs ago</small></li>
+                <li><span>✅ New User Registered</span> <small class="text-muted">5 hrs ago</small></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- MONTHLY LEDGER (Accounting) -->
+    <div class="section-wrapper">
+        <div class="card-panel" style="padding: 20px; background: var(--bg-card);">
+            <h3 style="margin: 0 0 5px 0;">🧾 Financial Ledger & Transactions</h3>
+            <p class="desc">Track and acknowledge your payouts for each month. Detailed accounting history.</p>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Subscribers</th>
+                            <th>Amount (KSH)</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in ledger %}
+                        <tr>
+                            <td><strong style="color: #0f172a;">{{ entry.month }}</strong></td>
+                            <td>{{ entry.subscribers }}</td>
+                            <td style="color: var(--primary); font-weight: 700;">{{ "%.2f"|format(entry.amount) }}</td>
+                            <td>
+                                {% if entry.status == 'Paid' %}
+                                    <span class="badge badge-success">Received</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if entry.status != 'Paid' %}
+                                    <form method="POST" action="{{ url_for('manager_dashboard') }}" style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <input type="hidden" name="action" value="mark_paid">
+                                        <input type="hidden" name="month" value="{{ entry.month }}">
+                                        <button type="submit" class="btn-mark">Acknowledge</button>
+                                    </form>
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-size: 11px;">Ack: {{ entry.paid_date }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not ledger %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No historical data available.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADVANCED TOOLS -->
+    <div class="section-wrapper features-grid">
+        <div class="card-panel">
+            <h3 style="margin: 0;">🛠️ Extra Management Tools</h3>
+            <p class="desc" style="margin-top: 5px;">Configure platform settings and access advanced utilities.</p>
+            <div class="tools-grid">
+                <div class="tool-card" onclick="alert('Module loading...')">
+                    <div>🎟️</div><h4>Event Ticketing</h4>
+                </div>
+                <div class="tool-card" onclick="alert('Module loading...')">
+                    <div>🎁</div><h4>Promo Generator</h4>
+                </div>
+                <div class="tool-card" onclick="alert('Module loading...')">
+                    <div>📊</div><h4>Custom Reports</h4>
+                </div>
+                <div class="tool-card" onclick="alert('Module loading...')">
+                    <div>🛡️</div><h4>Security Logs</h4>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <h3>⚙️ Account Settings</h3>
+            <p class="desc">Update your email and password. Leave password blank if you don't want to change it.</p>
+            <form method="POST" action="{{ url_for('manager_dashboard') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_credentials">
+                
+                <div class="form-group">
+                    <label>New Email Address</label>
+                    <input type="email" name="new_email" placeholder="Enter new email" />
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="new_password" placeholder="Enter new password" />
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function copyRef() {
+        const input = document.getElementById('refLink');
+        input.select();
+        document.execCommand('copy');
+        
+        const btn = event.target;
+        const originalText = btn.innerText;
+        btn.innerText = 'Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.background = '';
+        }, 2000);
+    }
+    
+    function toggleAccordion(id) {
+        const el = document.getElementById(id);
+        if (el.classList.contains('active')) {
+            el.classList.remove('active');
+        } else {
+            el.classList.add('active');
+        }
+    }
+
+    // Initialize Charts
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('signupChart');
+        if (ctx) {
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ monthly_subs_keys | tojson | safe }},
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Total Active Subs',
+                            data: {{ cumulative_subs | tojson | safe }},
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            yAxisID: 'y1',
+                            pointRadius: 3
+                        },
+                        {
+                            type: 'bar',
+                            label: 'New Subs',
+                            data: {{ monthly_subs_values | tojson | safe }},
+                            backgroundColor: 'rgba(2, 132, 199, 0.8)',
+                            borderRadius: 4,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            position: 'left',
+                            title: { display: false },
+                            ticks: { precision: 0, font: { size: 10 } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: false },
+                            grid: { drawOnChartArea: false },
+                            ticks: { precision: 0, font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+        
+        const gCtx = document.getElementById('genderChart');
+        if (gCtx) {
+            const gData = {{ gender_stats | tojson | safe }};
+            new Chart(gCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female', 'Other'],
+                    datasets: [{
+                        data: [gData.Male, gData.Female, gData.Other],
+                        backgroundColor: ['#0284c7', '#be185d', '#64748b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

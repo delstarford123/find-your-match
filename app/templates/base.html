@@ -43,14 +43,18 @@
     <meta property="og:description"
         content="Join the most advanced social network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta property="og:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+    <meta property="og:image:secure_url" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="{{ request.url }}">
-    <meta property="twitter:title" content="Find Your Match - Multi-Institution social site">
-    <meta property="twitter:description"
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{ request.url }}">
+    <meta name="twitter:title" content="Find Your Match - Multi-Institution social site">
+    <meta name="twitter:description"
         content="Join the most advanced social network for students in Kenya. AI-powered matching, schedule syncing, and more!">
-    <meta property="twitter:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
 
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
@@ -58,7 +62,7 @@
     <!-- FIREBASE GLOBAL REALTIME ENGINE (Replaces Socket.IO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
+
     <script>
         const firebaseConfig = {
             apiKey: "{{ firebase_api_key }}",
@@ -75,6 +79,7 @@
         let messaging = null;
         try {
             if (firebase.messaging.isSupported()) {
+                /* FCM TEMPORARILY DISABLED TO PREVENT 403 WAF ERROR
                 messaging = firebase.messaging();
 
                 // Request permission and get token
@@ -86,7 +91,8 @@
                                 fetch('/api/save_fcm_token', {
                                     method: 'POST',
                                     headers: {
-                                        'Content-Type': 'application/json'
+                                        'Content-Type': 'application/json',
+                                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
                                     },
                                     body: JSON.stringify({ fcm_token: currentToken })
                                 }).catch(err => console.error("FCM Token save failed:", err));
@@ -99,30 +105,179 @@
 
                 messaging.onMessage((payload) => {
                     console.log('Message received. ', payload);
-                    // You can show a custom toast here if you like
+                    const notif = payload.notification || payload.data || {};
+                    const title = notif.title || 'New Message';
+                    const body = notif.body || 'You received a new message.';
+                    const icon = notif.icon || '/static/img/icon-192.png';
+                    const url = notif.click_action || '/matches';
+                    
+                    const toast = document.createElement('div');
+                    toast.className = 'toast-notification show';
+                    toast.innerHTML = `
+                        <img src="${icon}">
+                        <div class="toast-content">
+                            <div class="toast-title">${title}</div>
+                            <div class="toast-message">${body}</div>
+                        </div>
+                    `;
+                    toast.onclick = () => window.location.href = url;
+                    
+                    const container = document.getElementById('global-toast-container');
+                    if (container) {
+                        container.appendChild(toast);
+                        setTimeout(() => {
+                            toast.classList.remove('show');
+                            setTimeout(() => toast.remove(), 400);
+                        }, 5000);
+                    }
                 });
+                */
             }
         } catch (e) {
             console.warn("Firebase Messaging not fully configured or supported.", e);
         }
 
         {% if session.get('user_id') %}
-        // === FIREBASE PRESENCE SYSTEM ===
+        // === FIREBASE PRESENCE & NOTIFICATIONS ===
         const myUserIdStr = "{{ session.get('user_id') }}";
         const userStatusRef = fdb.ref('/profiles/' + myUserIdStr + '/is_online');
         const userLastActiveRef = fdb.ref('/profiles/' + myUserIdStr + '/last_active');
+        const notificationsRef = fdb.ref('/notifications/' + myUserIdStr);
 
+        // Presence system
         fdb.ref('.info/connected').on('value', function(snapshot) {
             if (snapshot.val() === false) {
                 return;
             }
-            // When I disconnect, set is_online to false
             userStatusRef.onDisconnect().set(false).then(function() {
-                // When I connect, set is_online to true
                 userStatusRef.set(true);
-                // Also update last_active when I disconnect
                 userLastActiveRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
             });
+        });
+
+        // Real-time Notification Bell Logic
+        let notificationData = {};
+        let initialLoad = true;
+        let bellShakeTimeout = null;
+        const notifSound = new Audio('/static/audio/1.mp3');
+
+        function timeAgo(timestamp) {
+            if (!timestamp) return '';
+            const now = new Date();
+            const then = new Date(timestamp);
+            const diff = Math.floor((now - then) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            return Math.floor(diff / 86400) + 'd ago';
+        }
+
+        function updateGlobalBellUI() {
+            const badge = document.getElementById('bell-badge');
+            const list = document.getElementById('bell-popover-list');
+            const countEl = document.getElementById('bell-count-label');
+            if (!badge || !list) return;
+
+            const notifs = Object.values(notificationData).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const count = notifs.length;
+
+            if (count > 0) {
+                document.title = `(${count}) New Notification! - Find Your Match`;
+                badge.textContent = count > 99 ? '99+' : count;
+                badge.style.display = 'flex';
+                if (countEl) countEl.textContent = count + ' unread';
+
+                const typeConfig = {
+                    match:        { icon: '❤️', color: '#E60026', label: 'New Match!' },
+                    message:      { icon: '💬', color: '#3B82F6', label: 'Message' },
+                    date_request: { icon: '🍷', color: '#9333ea', label: 'Date Request' },
+                    crush:        { icon: '🤫', color: '#ec4899', label: 'Secret Crush' },
+                    system:       { icon: '🔔', color: '#f59e0b', label: 'Update' }
+                };
+
+                let html = '';
+                notifs.forEach((notif) => {
+                    const key = notif._key;
+                    const cfg = typeConfig[notif.type] || typeConfig.message;
+                    const link = notif.match_id ? `/matches/${notif.sender_id}` : (notif.type === 'date_request' ? '/bookings' : '/matches');
+                    const img = notif.sender_img || '/static/img/placeholder.png';
+                    const ago = timeAgo(notif.timestamp);
+
+                    html += `
+                        <div class="bell-notif-item" onclick="window.location.href='${link}'">
+                            <div class="bell-notif-avatar">
+                                <img src="${img}" alt="" onerror="this.src='/static/img/placeholder.png'">
+                                <span class="bell-notif-type-icon" style="background:${cfg.color}">${cfg.icon}</span>
+                            </div>
+                            <div class="bell-notif-body">
+                                <div class="bell-notif-name">${notif.sender_name || 'System'}</div>
+                                <div class="bell-notif-msg">${notif.message || cfg.label}</div>
+                                <div class="bell-notif-time">${ago}</div>
+                            </div>
+                            <button class="bell-notif-dismiss" onclick="event.stopPropagation();clearNotification('${key}')" title="Dismiss">&times;</button>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+            } else {
+                document.title = 'FIND YOUR MATCH';
+                badge.style.display = 'none';
+                if (countEl) countEl.textContent = 'All caught up!';
+                list.innerHTML = `
+                    <div class="bell-empty-state">
+                        <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">🔕</div>
+                        <div style="font-weight:800;color:#374151;margin-bottom:4px;">No new notifications</div>
+                        <div style="font-size:13px;color:#9ca3af;">We'll ping you when something happens</div>
+                    </div>
+                `;
+            }
+        }
+
+        function clearNotification(key) {
+            if (notificationsRef) notificationsRef.child(key).remove();
+        }
+
+        function clearAllNotifications() {
+            if (notificationsRef && Object.keys(notificationData).length > 0) {
+                if (!confirm('Clear all notifications?')) return;
+                notificationsRef.remove();
+            }
+        }
+        
+        // toggleBellPopover is defined below in the main script block
+
+        notificationsRef.once('value', () => { initialLoad = false; });
+
+        // Listen for new notifications
+        notificationsRef.on('child_added', function(snapshot) {
+            const data = snapshot.val();
+            data._key = snapshot.key;
+            notificationData[snapshot.key] = data;
+            updateGlobalBellUI();
+            
+            if (!initialLoad) {
+                // Trigger the new bell ring animation
+                const bell = document.getElementById('global-bell');
+                if (bell) {
+                    bell.classList.remove('has-notifs');
+                    void bell.offsetWidth; // trigger reflow
+                    bell.classList.add('has-notifs');
+                    clearTimeout(bellShakeTimeout);
+                    bellShakeTimeout = setTimeout(() => bell.classList.remove('has-notifs'), 2000);
+                }
+                
+                const now = new Date().getTime();
+                const notifTime = new Date(data.timestamp).getTime();
+                if (now - notifTime < 10000) { 
+                    notifSound.play().catch(e => console.log("Audio play blocked by browser."));
+                }
+            }
+        });
+
+        // Listen for removed notifications (e.g., marked as read)
+        notificationsRef.on('child_removed', function(snapshot) {
+            delete notificationData[snapshot.key];
+            updateGlobalBellUI();
         });
         {% endif %}
     </script>
@@ -138,6 +293,8 @@
     <div id="global-toast-container"
         style="position: fixed; top: 20px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;">
     </div>
+    
+    <!-- GLOBAL BELL UI: handled via navbar bell below -->
 
     <style>
         .toast-notification {
@@ -193,6 +350,290 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* === PREMIUM NOTIFICATION BELL === */
+        @keyframes bellRing {
+            0%,100% { transform: rotate(0deg); }
+            10%      { transform: rotate(18deg); }
+            20%      { transform: rotate(-14deg); }
+            30%      { transform: rotate(10deg); }
+            40%      { transform: rotate(-6deg); }
+            50%      { transform: rotate(4deg); }
+            60%      { transform: rotate(-2deg); }
+        }
+        @keyframes bellPop {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.25) rotate(10deg); }
+            100% { transform: scale(1); }
+        }
+        @keyframes badgePulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(230,0,38,0.5); }
+            50%     { box-shadow: 0 0 0 6px rgba(230,0,38,0); }
+        }
+        @keyframes popoverIn {
+            from { opacity:0; transform: scale(0.92) translateY(-8px); }
+            to   { opacity:1; transform: scale(1) translateY(0); }
+        }
+
+        .bell-btn {
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            transition: background 0.2s, transform 0.2s;
+            flex-shrink: 0;
+        }
+        .bell-btn:hover { background: rgba(255,255,255,0.15); }
+        .bell-btn:active { transform: scale(0.93); }
+        .bell-btn .bell-icon {
+            font-size: 20px;
+            display: block;
+            transform-origin: 50% 0%;
+            transition: transform 0.3s;
+        }
+        .bell-btn.has-notifs .bell-icon {
+            animation: bellRing 1.5s ease 0.3s;
+        }
+        .bell-btn.new-ping .bell-icon {
+            animation: bellPop 0.4s ease forwards;
+        }
+
+        #bell-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #E60026;
+            color: white;
+            font-size: 10px;
+            font-weight: 900;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border-radius: 9px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(10,15,30,0.9);
+            box-sizing: border-box;
+            animation: badgePulse 1.8s infinite;
+            font-family: inherit;
+            line-height: 1;
+        }
+
+        /* Popover panel */
+        .bell-popover {
+            position: fixed;
+            top: calc(var(--nav-height, 65px) + 10px);
+            right: 15px;
+            width: 340px;
+            max-width: calc(100vw - 24px);
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+            z-index: 99998;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.07);
+            transform-origin: top right;
+        }
+        .bell-popover.active {
+            display: flex;
+            animation: popoverIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .bell-popover-header {
+            padding: 16px 18px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f3f4f6;
+            background: #fff;
+        }
+        .bell-popover-title {
+            font-weight: 900;
+            font-size: 16px;
+            color: #111;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .bell-popover-count {
+            font-size: 12px;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+        .bell-clear-all {
+            background: none;
+            border: none;
+            color: #E60026;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background 0.15s;
+            font-family: inherit;
+        }
+        .bell-clear-all:hover { background: #fff1f2; }
+
+        .popover-list {
+            max-height: 380px;
+            overflow-y: auto;
+            background: #fff;
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb transparent;
+        }
+        .popover-list::-webkit-scrollbar { width: 4px; }
+        .popover-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+        /* Individual notification item */
+        .bell-notif-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 13px 16px;
+            border-bottom: 1px solid #f9fafb;
+            cursor: pointer;
+            transition: background 0.15s;
+            position: relative;
+        }
+        .bell-notif-item:last-child { border-bottom: none; }
+        .bell-notif-item:hover { background: #f9fafb; }
+        .bell-notif-avatar {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .bell-notif-avatar img {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .bell-notif-type-icon {
+            position: absolute;
+            bottom: -3px;
+            right: -3px;
+            font-size: 13px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            line-height: 1;
+        }
+        .bell-notif-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .bell-notif-name {
+            font-weight: 800;
+            font-size: 14px;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+        .bell-notif-msg {
+            font-size: 13px;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+        .bell-notif-time {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+        .bell-notif-dismiss {
+            background: none;
+            border: none;
+            color: #d1d5db;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            line-height: 1;
+            flex-shrink: 0;
+            transition: color 0.15s, background 0.15s;
+        }
+        .bell-notif-dismiss:hover { color: #6b7280; background: #f3f4f6; }
+
+        .bell-empty-state {
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .bell-popover-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #f3f4f6;
+            background: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .bell-view-all {
+            color: #E60026;
+            font-weight: 800;
+            font-size: 13px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+        .bell-view-all:hover { background: #fff1f2; }
+
+        @media (max-width: 420px) {
+            .bell-popover { right: 8px; left: 8px; width: auto; }
+        }
+        
+        .popover-header {
+            padding: 15px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 900;
+            color: #111;
+        }
+        
+        .popover-list {
+            max-height: 350px;
+            overflow-y: auto;
+            background: #fff;
+        }
+        
+        .popover-item-wrapper:hover { background: #fafafa; }
+        .popover-item {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #f5f5f5;
+            text-decoration: none;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .popover-item:hover { background: transparent; }
+        /* -------------------------- */
     </style>
 
     <style>
@@ -234,10 +675,55 @@
             will-change: transform, opacity;
             transform: translate3d(0, 0, 0);
         }
+
+        /* === GLOBAL NOTIFICATION BELL POPOVER === */
+        .bell-popover {
+            position: absolute; top: 50px; right: 0; 
+            background: white; border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; max-width: calc(100vw - 30px); z-index: 100000; 
+            border: 1px solid #FFD6DD; display: none; flex-direction: column;
+            overflow: hidden; transform-origin: top right; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            text-align: left;
+        }
+        .bell-popover.active { display: flex; }
+
+        .popover-header {
+            padding: 16px 20px; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+            color: white; font-weight: 900; font-size: 15px; display: flex;
+            justify-content: space-between; align-items: center; letter-spacing: 0.5px;
+        }
+        .popover-list { max-height: 350px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .popover-item {
+            padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer;
+            border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white; text-decoration: none; color: inherit;
+        }
+        @media (hover: hover) { .popover-item:hover { background: #FEF2F4; } }
+        .popover-item:last-child { border-bottom: none; }
+
+        .popover-unread-count {
+            background: #E60026; color: white; border-radius: 12px;
+            padding: 4px 10px; font-size: 11px; font-weight: 900; flex-shrink: 0;
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
     </style>
 
     <style>
         /* === NAVIGATION ENHANCEMENTS === */
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
+            box-sizing: border-box;
+        }
+
+        *, *::before, *::after {
+            box-sizing: inherit;
+        }
+
         .logo-text {
             font-size: 24px;
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
@@ -284,12 +770,10 @@
     <header>
         <nav class="navbar" id="main-navbar">
             <div class="nav-left-group">
-                <a href="{{ url_for('home') }}" class="logo">
-                    <span class="logo-text">✨</span> FIND YOUR MATCH
+                <a href="{{ url_for('home') }}" class="logo" style="display: flex; align-items: center; gap: 8px;">
+                    <img src="{{ url_for('static', filename='img/icon-512.png') }}" alt="Logo" style="width: 28px; height: 28px;"> FIND YOUR MATCH
                 </a>
             </div>
-
-            <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
 
             <div class="nav-links" id="nav-links">
                 <a href="{{ url_for('home') }}">Home</a>
@@ -310,7 +794,7 @@
 
                 {% elif session.get('user_id') %}
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">Social ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Matches ▾</button>
                     <div class="dropdown-content">
                         <a href="{{ url_for('swipe') }}">🔥 Swipe & Match</a>
                         <a href="{{ url_for('labs_dashboard') }}"
@@ -323,12 +807,12 @@
                 </div>
 
                 <div class="dropdown">
-                    <button class="dropbtn" onclick="toggleDropdown(this)">Social ▾</button>
+                    <button class="dropbtn" onclick="toggleDropdown(this)">Campus ▾</button>
                     <div class="dropdown-content">
                         <a href="{{ url_for('campus_feed') }}">📰 Campus News Feed</a>
                         <a href="{{ url_for('campus_gossip') }}">🤫 Secrets & Gossip Board</a>
                         <a href="{{ url_for('secret_admirer') }}">💘 Secret Crush Matching</a>
-                        <a href="{{ url_for('party') }}">🌙 Comrades Club</a>
+                        <a href="{{ url_for('party') }}">🌙 Virtual Club</a>
                         <a href="{{ url_for('leaderboard') }}">👑 Crush Leaderboard</a>
                     </div>
                 </div>
@@ -338,6 +822,10 @@
                     <div class="dropdown-content">
                         <a href="/directory" class="premium-nav-link">
                             💬 <span>Inbox Messages</span>
+                        </a>
+                        <a href="{{ url_for('groups') }}" class="premium-nav-link" style="color: #720000;">
+                            🗣️ <span>Group Chats</span>
+                        </a>
                             <span class="pulse-dot"></span>
                         </a>
                         <a href="{{ url_for('talk_directory') }}" class="premium-nav-link">
@@ -367,14 +855,46 @@
                 {% endif %}
             </div>
 
-            <div class="nav-right-actions">
+            <div class="nav-right-actions" style="display: flex; align-items: center; gap: 15px;">
                 {% if session.get('user_id') or session.get('role') == 'business' or session.get('is_super_admin') %}
-                <a href="{{ url_for('auth.logout') }}" class="btn-nav">Log Out</a>
+                
+                <!-- Notification Bell -->
+                <div style="position: relative;">
+                    <button class="bell-btn" id="global-bell" onclick="toggleBellPopover(event)" aria-label="Notifications" title="Notifications">
+                        <span class="bell-icon">🔔</span>
+                        <div id="bell-badge">0</div>
+                    </button>
+
+                    <div class="bell-popover" id="bell-popover" role="dialog" aria-label="Notifications panel">
+                        <div class="bell-popover-header">
+                            <div class="bell-popover-title">
+                                🔔 Notifications
+                                <span class="bell-popover-count" id="bell-count-label">All caught up!</span>
+                            </div>
+                            <button class="bell-clear-all" onclick="clearAllNotifications()" title="Clear all">Clear all</button>
+                        </div>
+                        <div class="popover-list" id="bell-popover-list">
+                            <div class="bell-empty-state">
+                                <div style="font-size:40px;margin-bottom:12px;opacity:0.3;">🔕</div>
+                                <div style="font-weight:800;color:#374151;margin-bottom:4px;">No new notifications</div>
+                                <div style="font-size:13px;color:#9ca3af;">We'll ping you when something happens</div>
+                            </div>
+                        </div>
+                        <div class="bell-popover-footer">
+                            <a href="/matches" class="bell-view-all">View all matches &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('auth.logout') }}" class="btn-nav desktop-auth-btn">Log Out</a>
                 {% else %}
-                <a href="{{ url_for('auth.login') }}"
+                <a href="{{ url_for('auth.login') }}" class="desktop-auth-btn"
                     style="color: rgba(255,255,255,0.9); text-decoration: none; font-weight: 800;">Log In</a>
-                <a href="{{ url_for('auth.signup') }}" class="btn-nav">Sign Up</a>
+                <a href="{{ url_for('auth.signup') }}" class="btn-nav desktop-auth-btn">Sign Up</a>
                 {% endif %}
+
+                <!-- Mobile Menu Button -->
+                <button class="mobile-menu-btn" onclick="toggleMenu()" id="menu-btn" aria-label="Toggle Menu">☰</button>
             </div>
         </nav>
 
@@ -398,9 +918,8 @@
         <div id="partyInviteModal" class="party-invite-overlay" style="display: none;">
             <div class="party-invite-card">
                 <div class="neon-badge">TONIGHT</div>
-                <h2>COMRADES NIGHT CLUB</h2>
-                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously? (Open every night except
-                    Friday)</p>
+                <h2>VIRTUAL CLUB</h2>
+                <p>The Virtual Club is OPEN! Ready to vibe with other comrades anonymously? (Open 24/7 anytime!)</p>
                 <div class="invite-actions">
                     <button onclick="acceptParty()" class="btn-accept">ENTER CLUB 🔥</button>
                     <button onclick="closePartyInvite()" class="btn-close">Maybe Later</button>
@@ -506,14 +1025,23 @@
         </style>
 
         <script>
+            // ACTIVELY UNREGISTER OLD FCM SERVICE WORKERS
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                        registration.unregister();
+                        console.log("Old Service Worker unregistered successfully.");
+                    }
+                });
+            }
+        </script>
+        <script>
             function checkDailyParty() {
                 const now = new Date();
-                const isFriday = now.getDay() === 5; // 5 = Friday in JS
-                const isAfter10PM = now.getHours() >= 22; // 10 PM
                 const hasJoinedToday = localStorage.getItem('party_joined_' + now.toDateString());
                 const isForceParty = {{ 'true' if force_party else 'false' }};
 
-            if ((isForceParty || (!isFriday && isAfter10PM)) && !hasJoinedToday && window.location.pathname !== '/party') {
+            if (!hasJoinedToday && window.location.pathname !== '/party') {
                 document.getElementById('partyInviteModal').style.display = 'flex';
                 // Try to play audio (will require user interaction first usually)
                 const audio = document.getElementById('partyAudio');
@@ -530,7 +1058,7 @@
             }
 
             // Run on load
-            setTimeout(checkDailyParty, 3000); // Wait 3 seconds to not overwhelm
+            // setTimeout(checkDailyParty, 3000); // Disabled to prevent annoying popups
         </script>
 
         {% block content %}{% endblock %}
@@ -558,6 +1086,9 @@
             <a href="{{ url_for('super_admin') }}" style="color: inherit; text-decoration: none; cursor: default;">
                 FIND YOUR MATCH <span style="color: #E60026; cursor: pointer;" title="Admin Portal">❤️</span>
             </a>
+        </p>
+        <p style="font-size: 14px; margin-top: 8px; font-style: italic; opacity: 0.9; color: #FFD6DD;">
+            Transforming Lives Through Artificial Intelligence
         </p>
 
         <p style="font-size: 12px; margin-top: 8px; opacity: 0.8;">
@@ -593,6 +1124,11 @@
             class="mobile-nav-item {{ 'active' if request.endpoint == 'full_directory' }}">
             <span>💬</span>
             Chats
+        </a>
+        <a href="{{ url_for('groups') }}"
+            class="mobile-nav-item {{ 'active' if request.endpoint == 'groups' }}">
+            <span>🗣️</span>
+            Groups
         </a>
         <a href="{{ url_for('campus_gossip') }}"
             class="mobile-nav-item {{ 'active' if request.endpoint == 'campus_gossip' }}">
@@ -813,12 +1349,43 @@
             parentDropdown.classList.toggle('active');
         }
 
-        // Close dropdowns if clicking anywhere outside of them
-        window.addEventListener('click', function (e) {
+        // === NOTIFICATION BELL LOGIC ===
+        function toggleBellPopover(e) {
+            if (e) e.stopPropagation();
+            const pop = document.getElementById('bell-popover');
+            const bellBtn = document.getElementById('global-bell');
+            if (!pop) return;
+
+            const isOpen = pop.classList.contains('active');
+            pop.classList.toggle('active');
+
+            if (!isOpen && bellBtn) {
+                // Brief press animation
+                bellBtn.classList.add('new-ping');
+                setTimeout(() => bellBtn.classList.remove('new-ping'), 400);
+            }
+        }
+
+        // Close bell & dropdowns on outside click
+        window.addEventListener('click', function(e) {
+            // Dropdowns
             if (!e.target.closest('.dropdown') && !e.target.closest('.mobile-menu-btn')) {
-                document.querySelectorAll('.dropdown.active').forEach(d => {
-                    d.classList.remove('active');
-                });
+                document.querySelectorAll('.dropdown.active').forEach(d => d.classList.remove('active'));
+            }
+            // Bell popover
+            const bellPop = document.getElementById('bell-popover');
+            if (bellPop && bellPop.classList.contains('active') &&
+                !e.target.closest('#bell-popover') &&
+                !e.target.closest('#global-bell')) {
+                bellPop.classList.remove('active');
+            }
+        });
+
+        // Keyboard ESC closes popover
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const pop = document.getElementById('bell-popover');
+                if (pop) pop.classList.remove('active');
             }
         });
 
@@ -1164,6 +1731,13 @@
             transform: translateY(-50%) translateX(5px);
             box-shadow: 6px 0 25px rgba(16, 185, 129, 0.3);
             border-color: rgba(16, 185, 129, 0.6);
+        }
+
+        /* Hide the floating button on mobile to prevent overflow */
+        @media (max-width: 768px) {
+            .live-floating-btn {
+                display: none !important;
+            }
         }
 
         /* The glowing green heartbeat dot */

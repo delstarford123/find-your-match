@@ -11,7 +11,7 @@
     }
 
     .dir-header { margin-bottom: 20px; }
-    .dir-header h1 { font-size: 32px; font-weight: 900; }
+    .dir-header h1 { font-size: 32px; font-weight: 900; word-wrap: break-word; }
     .dir-header span { color: #E60026; }
 
     /* === SEARCH BAR === */
@@ -100,6 +100,16 @@
     
     .meta-data {
         text-align: right; font-size: 11px; color: #64748B;
+    }
+
+    /* === MOBILE RESPONSIVENESS === */
+    @media (max-width: 768px) {
+        .directory-wrapper { margin: 20px auto 100px; padding: 0 15px; }
+        .dir-header h1 { font-size: 26px; }
+        .user-row { padding: 12px 15px; }
+        .avatar-box img { width: 45px; height: 45px; }
+        .user-info h3 { font-size: 15px; flex-wrap: wrap; }
+        .action-area { gap: 10px; }
     }
 </style>
 

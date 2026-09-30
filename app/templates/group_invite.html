@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .invite-container {
+        max-width: 500px;
+        margin: 60px auto;
+        background: white;
+        border-radius: 24px;
+        padding: 40px 30px;
+        text-align: center;
+        box-shadow: 0 15px 40px rgba(114, 0, 0, 0.1);
+        border: 1px solid #FFD6DD;
+    }
+    
+    .group-icon {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        font-size: 45px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0 auto 20px;
+        box-shadow: 0 10px 25px rgba(230, 0, 38, 0.3);
+    }
+    
+    .group-name {
+        font-size: 26px;
+        font-weight: 900;
+        color: #111;
+        margin-bottom: 10px;
+    }
+    
+    .group-desc {
+        font-size: 15px;
+        color: #666;
+        margin-bottom: 30px;
+        line-height: 1.5;
+    }
+    
+    .btn-join {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 16px 30px;
+        border-radius: 50px;
+        font-size: 18px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: 0.3s;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.3);
+        width: 100%;
+        display: block;
+        text-decoration: none;
+    }
+    
+    .btn-join:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 25px rgba(230,0,38,0.4);
+    }
+    
+    .btn-cancel {
+        display: block;
+        margin-top: 15px;
+        color: #888;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 14px;
+        transition: 0.2s;
+    }
+    .btn-cancel:hover {
+        color: #333;
+    }
+</style>
+
+<div class="invite-container">
+    <div class="group-icon">👥</div>
+    <h1 class="group-name">You're invited to "{{ group.name }}"</h1>
+    <p class="group-desc">
+        {{ group.description }}
+        <br><br>
+        <strong>{{ group.members|length }} members</strong> are already chatting inside!
+    </p>
+    
+    <form action="{{ url_for('request_join_group', group_id=group_id) }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button type="submit" class="btn-join">Request Access</button>
+    </form>
+    
+    <a href="{{ url_for('groups') }}" class="btn-cancel">No thanks, take me back</a>
+</div>
+{% endblock %}

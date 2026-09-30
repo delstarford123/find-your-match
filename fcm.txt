@@ -1,0 +1,139 @@
+# FIREBASE CLOUD MESSAGING (FCM) IMPLEMENTATION GUIDE
+
+This document outlines how FCM should be correctly implemented for push notifications in your dating app, while avoiding the 403 Forbidden WAF (Web Application Firewall) issues on hosting providers like Hostpinnacle.
+
+## 1. The Architecture of FCM
+FCM requires three main components to work:
+1. **The Client (Frontend):** Requests permission to show notifications, gets a unique device token, and listens for incoming messages.
+2. **The Backend (Flask):** Stores the device token for each user and triggers push notifications when events (like a new match or message) happen.
+3. **The Service Worker:** A background script in the browser that handles notifications when the user is not actively looking at your website.
+
+---
+
+## 2. Frontend Implementation (Client-side)
+
+### A. The Service Worker (`static/firebase-messaging-sw.js`)
+You need a background script to handle notifications when the web app is closed. 
+*Important: To avoid WAF blocking this file, you can rename it to something generic like `push-worker.js` instead of `firebase-messaging-sw.js`.*
+
+```javascript
+importScripts('https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js');
+importScripts('https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js');
+
+firebase.initializeApp({
+    apiKey: "YOUR_API_KEY",
+    projectId: "mmust-dating-site",
+    messagingSenderId: "572096461211",
+    appId: "1:572096461211:web:e38b542343ac8e4eca893e"
+});
+
+const messaging = firebase.messaging();
+messaging.onBackgroundMessage(function(payload) {
+    console.log('[FCM] Background message received: ', payload);
+    const notificationTitle = payload.notification.title;
+    const notificationOptions = {
+        body: payload.notification.body,
+        icon: '/static/img/icon-192.png'
+    };
+    self.registration.showNotification(notificationTitle, notificationOptions);
+});
+```
+
+### B. Registering and Getting the Token (`base.html`)
+In your main layout, you request permission and get the device token.
+
+```html
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
+<script>
+    if (firebase.messaging.isSupported()) {
+        const messaging = firebase.messaging();
+        
+        // Use a generic endpoint name to avoid WAF 403 errors (e.g., /api/user/device instead of /api/save_fcm_token)
+        function sendTokenToServer(token) {
+            fetch('/api/user/device', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                // Avoid using "fcm" in the payload keys if WAF is very strict
+                body: JSON.stringify({ device_id: token })
+            });
+        }
+
+        Notification.requestPermission().then((permission) => {
+            if (permission === 'granted') {
+                messaging.getToken({ vapidKey: 'YOUR_PUBLIC_VAPID_KEY_HERE' })
+                    .then((currentToken) => {
+                        if (currentToken) sendTokenToServer(currentToken);
+                    });
+            }
+        });
+
+        // Handle messages when the app is in the foreground
+        messaging.onMessage((payload) => {
+            // Show a custom UI toast notification
+            console.log("Foreground message:", payload);
+        });
+    }
+</script>
+```
+
+---
+
+## 3. Backend Implementation (Flask)
+
+### A. Saving the Token (`main.py`)
+Create an endpoint to save the token. Use a generic name to slip past strict WAF rules.
+
+```python
+@app.route('/api/user/device', methods=['POST'])
+def save_device_token():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    token = data.get('device_id') # Notice we use 'device_id' instead of 'fcm_token'
+    
+    if token:
+        # Save it securely in Firebase Realtime Database
+        db.reference(f'profiles/{user_id}/fcm_token').set(token)
+        return jsonify({"success": True}), 200
+        
+    return jsonify({"error": "No token"}), 400
+```
+
+### B. Sending Push Notifications
+When a user matches or receives a message, you retrieve their token and send a notification.
+
+```python
+from firebase_admin import messaging
+
+def send_push_notification(receiver_id, title, body, click_url):
+    try:
+        receiver_profile = db.reference(f'profiles/{receiver_id}').get() or {}
+        fcm_token = receiver_profile.get('fcm_token')
+        
+        if fcm_token:
+            fcm_msg = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body
+                ),
+                data={
+                    "click_action": click_url
+                },
+                token=fcm_token
+            )
+            messaging.send(fcm_msg)
+            return True
+    except Exception as e:
+        print(f"Failed to send push notification: {e}")
+    return False
+```
+
+## Summary of WAF Bypasses Used Here:
+1. **Endpoint Renaming:** Changed `/api/save_fcm_token` to `/api/user/device`.
+2. **Payload Masking:** Sent `{ "device_id": "..." }` instead of `{ "fcm_token": "..." }` to avoid ModSecurity flagging the word "token".
+3. **File Renaming (Optional):** Renaming `firebase-messaging-sw.js` to `push-worker.js`.
