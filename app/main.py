@@ -2234,7 +2234,6 @@ def business_dashboard():
 
     if is_free and not restaurant.get('subscription_active'):
         # Auto-unlock legacy accounts if the fee is 0
-        from datetime import datetime, timedelta
         expiry = (datetime.now(EAT) + timedelta(days=365)).isoformat()
         db.reference(f'restaurants/{restaurant_id}').update({
             'subscription_active': True,
