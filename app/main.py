@@ -2145,7 +2145,7 @@ def business_register():
                 'password': hashed_password, 
                 'conditions': request.form.get('conditions'),
                 'subscription_active': is_free,
-                'subscription_package': 'gold' if is_free else None,
+                'subscription_package': 'DIAMOND' if is_free else None,
                 'subscription_expiry': (datetime.now(EAT) + timedelta(days=365)).isoformat() if is_free else None,
                 'profile_views': 0,
                 'qr_scans': 0,
@@ -2238,7 +2238,7 @@ def business_dashboard():
     restaurant.setdefault('hourly_stats', {})
     restaurant.setdefault('qr_scans', 0)
     restaurant.setdefault('profile_views', 0)
-    restaurant.setdefault('subscription_package', 'gold')
+    restaurant.setdefault('subscription_package', 'DIAMOND')
     restaurant.setdefault('average_spend', 1500)
 
     # ---------------------------------------------------------
@@ -2254,11 +2254,12 @@ def business_dashboard():
         expiry = (datetime.now(EAT) + timedelta(days=365)).isoformat()
         db.reference(f'restaurants/{restaurant_id}').update({
             'subscription_active': True,
-            'subscription_package': 'gold',
+            'subscription_package': 'DIAMOND',
             'subscription_expiry': expiry
         })
         restaurant['subscription_active'] = True
         restaurant['subscription_expiry'] = expiry
+        restaurant['subscription_package'] = 'DIAMOND'
 
     pending_count = sum(1 for b in bookings if b.get('status') == 'Pending')
     approved_count = sum(1 for b in bookings if b.get('status') == 'Approved')

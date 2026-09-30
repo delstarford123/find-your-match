@@ -208,7 +208,6 @@
     </div>
 
     <!-- --- PREMIUM TIER BANNER --- -->
-    {% if analytics.subscription_package == 'DIAMOND' %}
     <div class="premium-tier-banner">
         <div>
             <h3 style="margin: 0; color: white; font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 8px;">👑 Diamond VIP Merchant Active</h3>
@@ -216,15 +215,6 @@
         </div>
         <div class="status-badge" style="background: rgba(139, 92, 246, 0.1); color: var(--b2b-diamond); border: 1px solid var(--b2b-diamond);">💎 DIAMOND TIER</div>
     </div>
-    {% else %}
-    <div class="premium-tier-banner gold">
-        <div>
-            <h3 style="margin: 0; color: white; font-weight: 900; font-size: 16px;">💫 Standard Gold Merchant Portal</h3>
-            <p style="margin: 5px 0 0; font-size: 13px; color: var(--b2b-muted);">You are listed as a standard partner. Upgrade to Diamond to spotlight your venue and drive 10x more dates!</p>
-        </div>
-        <div class="status-badge" style="background: rgba(230, 0, 38, 0.1); color: var(--b2b-accent); border: 1px solid var(--b2b-accent);">💫 GOLD TIER</div>
-    </div>
-    {% endif %}
 
     <!-- --- ROI HUB ANALYTICS --- -->
     <div class="analytics-grid">
@@ -233,12 +223,12 @@
             <div class="a-val">{{ analytics.total_views }}</div>
             <div class="a-sub trend-up"><span>📈</span> High Intent Scans</div>
         </div>
-        <div class="a-card {% if analytics.subscription_package == 'DIAMOND' %}diamond-highlight{% endif %}">
+        <div class="a-card diamond-highlight">
             <span class="a-lbl">Total Sales Delivered</span>
             <div class="a-val" style="color: var(--b2b-success);">KSH {{ analytics.total_revenue_delivered }}</div>
             <div class="a-sub trend-up" style="color: var(--b2b-success);"><span>🎯</span> {{ analytics.monthly_completed }} Dates Hosted</div>
         </div>
-        <div class="a-card" style="border-bottom: 4px solid {% if analytics.subscription_package == 'DIAMOND' %}var(--b2b-diamond){% else %}var(--b2b-success){% endif %};">
+        <div class="a-card" style="border-bottom: 4px solid var(--b2b-diamond);">
             <span class="a-lbl">Platform ROI Indicator</span>
             <div class="a-val" style="color: #FFD6DD;">+{{ analytics.roi_percent }}%</div>
             <div class="a-sub" style="color: var(--b2b-success);"><span>📈</span> Dynamic Earning ROI</div>
@@ -303,18 +293,8 @@
             <div class="b2b-panel">
                 <h2 class="panel-title"><span>📊</span> Advanced Customer Demographics</h2>
                 <div class="insights-wrapper">
-                    {% if analytics.subscription_package != 'DIAMOND' %}
-                    <!-- Lock Overlay for standard accounts -->
-                    <div class="insights-locked-overlay">
-                        <div style="font-size: 40px; margin-bottom: 12px;">🔒</div>
-                        <h3 style="color: white; font-weight: 900; margin-bottom: 8px;">Unlock Demographic Insights</h3>
-                        <p style="color: var(--b2b-muted); font-size: 13px; max-width: 380px; margin-bottom: 18px; line-height: 1.4;">See which university departments, faculties, and genders visit your venue most to target your marketing perfectly.</p>
-                        <a href="#checkout-upgrades" class="btn-primary-b2b" style="padding: 10px 20px; font-size: 12px; background: var(--b2b-diamond); box-shadow: none;">UPGRADE TO DIAMOND VIP</a>
-                    </div>
-                    {% endif %}
-
                     <!-- Analytics charts or stats -->
-                    <div style="opacity: {% if analytics.subscription_package == 'DIAMOND' %}1{% else %}0.15{% endif %}; pointer-events: {% if analytics.subscription_package == 'DIAMOND' %}auto{% else %}none{% endif %};">
+                    <div style="opacity: 1; pointer-events: auto;">
                         <h4 style="margin: 0 0 15px 0; color: var(--b2b-muted); font-size: 12px; text-transform: uppercase;">Faculty Booking Share</h4>
                         <div style="display: flex; flex-direction: column; gap: 15px;">
                             {% if faculty_stats %}
@@ -372,22 +352,6 @@
                 {% endif %}
             </div>
 
-            <!-- DIAMOND VIP UPGRADE HUB -->
-            {% if analytics.subscription_package != 'DIAMOND' %}
-            <div class="action-box" style="border: 1.5px solid var(--b2b-diamond); background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(30, 41, 59, 0.5) 100%);">
-                <h3 style="margin: 0; color: white; display: flex; align-items: center; gap: 8px;">👑 Upgrade to Diamond VIP</h3>
-                <p style="font-size: 13px; color: var(--b2b-muted); margin: 0; line-height: 1.4;">Place your restaurant at the very top of "Approved Date Spots" feeds, unlock demographic details, and get unlimited Flash Perks!</p>
-                
-                <div style="background: rgba(15,23,42,0.4); border: 1px solid var(--b2b-border); padding: 15px; border-radius: 12px;">
-                    <label style="display: block; font-size: 9px; font-weight: 900; color: var(--b2b-diamond); text-transform: uppercase; margin-bottom: 6px;">M-Pesa Upgrade (5,000 KSH / Year)</label>
-                    <div style="display: flex; gap: 6px; flex-direction: column;">
-                        <input type="tel" id="mpesa-phone-upgrade" value="254" class="input-mpesa-phone" placeholder="2547XXXXXXXX">
-                        <button onclick="triggerMpesaPortal('diamond', 'mpesa-phone-upgrade', 'btn-pay-upgrade', 'mpesa-status-upgrade')" id="btn-pay-upgrade" class="btn-mpesa-checkout" style="background: var(--b2b-diamond);">UPGRADE NOW</button>
-                    </div>
-                    <div id="mpesa-status-upgrade" style="margin-top: 10px; font-size: 12px; font-weight: 700; color: var(--b2b-diamond); display: none;">Check phone...</div>
-                </div>
-            </div>
-            {% endif %}
 
             <!-- VERIFICATION QR & STATS -->
             <div class="action-box">
