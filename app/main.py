@@ -2245,8 +2245,11 @@ def business_dashboard():
     # ⚡ NEW: DYNAMIC FEE CHECK & AUTO-UNLOCK
     # ---------------------------------------------------------
     sys_settings = db.reference('system_settings').get() or {}
-    merchant_fee = sys_settings.get('merchant_fee', 0)
-    is_free = int(merchant_fee) == 0
+    try:
+        merchant_fee = int(sys_settings.get('merchant_fee') or 0)
+    except (ValueError, TypeError):
+        merchant_fee = 0
+    is_free = merchant_fee == 0
 
     if is_free and not restaurant.get('subscription_active'):
         # Auto-unlock legacy accounts if the fee is 0
