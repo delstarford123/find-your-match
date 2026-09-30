@@ -16,6 +16,8 @@ APScheduler
 firebase-admin
 python-dotenv
 psycopg2-binary
+groq
+requests
 
 # ==========================================
 # 🛠️ UTILITIES & COMMUNICATIONS
