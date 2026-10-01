@@ -278,6 +278,35 @@
         100% { transform: translateY(-300px) scale(1.5); opacity: 0; }
     }
 
+    /* Gamification Enhancements */
+    .rose-animation {
+        position: absolute;
+        font-size: 50px;
+        animation: throwRose 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        z-index: 250;
+        pointer-events: none;
+    }
+    
+    @keyframes throwRose {
+        0% { transform: scale(0) rotate(-45deg) translate(0, 100px); opacity: 1; }
+        50% { transform: scale(1.5) rotate(15deg) translate(0, -100px); }
+        100% { transform: scale(1) rotate(0deg) translate(0, 50px); opacity: 0; }
+    }
+    
+    .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: #f00;
+        animation: confetti-fall 3s linear forwards;
+        z-index: 300;
+    }
+    
+    @keyframes confetti-fall {
+        0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
     /* Animations */
     @keyframes pulseLive {
         0% { opacity: 1; }
@@ -336,7 +365,10 @@
 
         <!-- Spectator Chat Sidebar -->
         <div class="chat-sidebar" id="spectator-chat">
-            <div style="font-weight: 900; margin-bottom: 10px; color: var(--timer-color);">Live Audience</div>
+            <div style="font-weight: 900; margin-bottom: 10px; color: var(--timer-color); display: flex; justify-content: space-between;">
+                Live Audience
+                <button onclick="sendRose()" style="background: #E60026; color: white; border: none; border-radius: 8px; padding: 2px 8px; font-weight: 800; cursor: pointer; font-size: 11px;">Send Rose 🌹</button>
+            </div>
             <div class="chat-messages" id="chat-messages-box">
                 <!-- Messages go here -->
             </div>
@@ -365,6 +397,11 @@
     const myName = "{{ current_user.get('name', 'Anonymous') }}";
     let myRole = null;
     let currentContestantId = null;
+    
+    // Gamification SFX (using lightweight public sound bites)
+    const sfxPop = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_pop.ogg");
+    const sfxMatch = new Audio("https://actions.google.com/sounds/v1/cartoon/woodpecker.ogg"); 
+    const sfxJoin = new Audio("https://actions.google.com/sounds/v1/cartoon/pop.ogg");
     
     // Firebase References
     const roomRef = fdb.ref('balloon_room');
@@ -421,6 +458,8 @@
             const data = snapshot.val();
             if(data.type === 'reaction') {
                 renderFloatingEmoji(data.emoji);
+            } else if (data.type === 'rose') {
+                renderRoseAnimation(data.name);
             } else {
                 renderChatMessage(data);
             }
@@ -480,6 +519,9 @@
             }
         };
         api = new JitsiMeetExternalAPI(domain, options);
+        
+        // Play SFX when joining room
+        try { sfxJoin.play(); } catch(e){}
     }
     
     // Text-to-Speech Integration
@@ -510,6 +552,31 @@
             emoji: emoji,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
+    }
+    
+    function sendRose() {
+        fdb.ref('balloon_chat').push({
+            type: 'rose',
+            name: myName,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+    }
+    
+    function renderRoseAnimation(senderName) {
+        const stage = document.querySelector('.main-stage');
+        const el = document.createElement('div');
+        el.className = 'rose-animation';
+        el.innerText = '🌹';
+        el.style.left = Math.random() * 80 + '%';
+        el.style.top = '50%';
+        stage.appendChild(el);
+        
+        // Also add message to chat
+        const box = document.getElementById('chat-messages-box');
+        box.innerHTML += `<div class="chat-msg" style="background: rgba(230,0,38,0.2);"><span style="color:#E60026; font-weight:800;">${escapeHTML(senderName)}</span> sent a Rose! 🌹</div>`;
+        box.scrollTop = box.scrollHeight;
+        
+        setTimeout(() => el.remove(), 1500);
     }
     
     function renderChatMessage(data) {
@@ -575,6 +642,8 @@
             anim.style.top = '50%';
             btn.parentElement.appendChild(anim);
             
+            try { sfxPop.play(); } catch(e){}
+            
             // Sync to Firebase
             panelRef.child(myId).update({ popped: true });
         }
@@ -600,6 +669,21 @@
         } else if (state === 'match') {
             stageText.innerText = 'MATCH FOUND!';
             document.getElementById('breakout-overlay').classList.remove('hidden');
+            try { sfxMatch.play(); } catch(e){}
+            launchConfetti();
+        }
+    }
+    
+    function launchConfetti() {
+        const colors = ['#E60026', '#2de2a6', '#38bdf8', '#ffeb3b', '#fff'];
+        for(let i=0; i<100; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + 'vw';
+            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            document.body.appendChild(confetti);
+            setTimeout(() => confetti.remove(), 5000);
         }
     }
     
