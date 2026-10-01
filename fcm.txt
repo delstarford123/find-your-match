@@ -137,3 +137,8 @@ def send_push_notification(receiver_id, title, body, click_url):
 1. **Endpoint Renaming:** Changed `/api/save_fcm_token` to `/api/user/device`.
 2. **Payload Masking:** Sent `{ "device_id": "..." }` instead of `{ "fcm_token": "..." }` to avoid ModSecurity flagging the word "token".
 3. **File Renaming (Optional):** Renaming `firebase-messaging-sw.js` to `push-worker.js`.
+
+
+
+
+

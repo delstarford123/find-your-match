@@ -433,7 +433,7 @@ def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_na
                 </div>
                 
                 <div style="text-align: center; margin-top: 30px;">
-    <a href="{{ url_for('business_login', _external=True) }}" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/business/login" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
         Open Merchant Dashboard
     </a>
 </div>
@@ -491,7 +491,7 @@ def send_date_request_to_partner_email(partner_email, merchant_name, user_a_name
                 </div>
                 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="{{ url_for('auth.login', _external=True) }}" style="background: #e11d48; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #e11d48; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
                         Open Chats to Reply
                     </a>
                 </div>
@@ -506,6 +506,63 @@ def send_date_request_to_partner_email(partner_email, merchant_name, user_a_name
 
     return _send_email(partner_email, subject, text_content, html_content)
 
+
+def send_date_request_to_sender_email(sender_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
+    """Sends a confirmation email to the sender that their date request was dispatched."""
+    subject = f"Date Proposal Sent to {user_b_name}!"
+    
+    text_content = textwrap.dedent(f"""\
+        Hello {user_a_name},
+        
+        Your date invitation has been sent successfully to {user_b_name} and the venue ({merchant_name})!
+        
+        Venue: {merchant_name}
+        Proposed Time: {date_day} at {date_time}
+        
+        We'll let you know once they reply.
+        
+        - FIND YOUR MATCH AI Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+            </div>
+                <h2 style="color: #10b981; margin-top: 0; font-size: 22px; font-weight: 900;">Invitation Sent! 🎉</h2>
+                
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+                    Hello <strong>{user_a_name}</strong>, your date invitation was delivered to <strong>{user_b_name}</strong> and <strong>{merchant_name}</strong>!
+                </p>
+                
+                <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; border: 1px solid #a7f3d0; margin: 25px 0;">
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px;">
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #10b981; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+                        Check Messages
+                    </a>
+                </div>
+                
+                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
+                    Fingers crossed! We'll notify you as soon as they reply.
+                </p>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(sender_email, subject, text_content, html_content)
 
 def send_broadcast_email(recipient_email, recipient_name, subject, message_body, attachments=None):
     """Sends a generic mass broadcast email to users, generated by the Admin."""

@@ -418,21 +418,23 @@
             <input type="hidden" id="venueIdInput">
             <input type="hidden" id="venueNameInput">
             
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label>Select a Student</label>
-                <select id="partnerSelect" required>
-                    <option value="" disabled selected>Who are you looking for?</option>
+                <input type="text" id="partnerSearch" placeholder="Search by name or phone..." autocomplete="off" oninput="filterPartners()" onfocus="showPartnerDropdown()" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box;" required>
+                <input type="hidden" id="partnerSelect" required>
+                
+                <div id="partnerDropdown" style="display: none; position: absolute; background: white; border: 1px solid #ddd; border-radius: 8px; max-height: 200px; overflow-y: auto; width: 100%; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 5px;">
                     {% if matches %}
                         {% for match in matches %}
-                            <option value="{{ match.id }}">
-                                {% if match.is_perfect_match %}❤️ [Perfect Match] {% endif %}
-                                {{ match.name }} ({{ match.compatibility }}%)
-                            </option>
+                            <div class="partner-option" data-id="{{ match.id }}" data-search="{{ match.name | lower }} {{ match.phone | default('') }}" onclick="selectPartner('{{ match.id }}', '{{ match.name | escape }}')" style="padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s;">
+                                {% if match.is_perfect_match %}❤️ {% endif %}<strong>{{ match.name }}</strong> ({{ match.compatibility | default(0) }}%)<br>
+                                <small style="color: #666;">Phone: +{{ match.phone | default('N/A') }}</small>
+                            </div>
                         {% endfor %}
                     {% else %}
-                        <option value="" disabled>No other students available yet.</option>
+                        <div style="padding: 12px; color: #666; text-align: center;">No other students available.</div>
                     {% endif %}
-                </select>
+                </div>
             </div>
             
             <div class="form-group">
@@ -497,7 +499,39 @@
     }
     
     // Close modal when clicking the dark background overlay
-    window.onclick = (e) => { if (e.target == modal) closeModal(); }
+    window.onclick = (e) => { 
+        if (e.target == modal) closeModal(); 
+        
+        // Hide partner dropdown if clicking outside
+        if (e.target.id !== 'partnerSearch') {
+            document.getElementById('partnerDropdown').style.display = 'none';
+        }
+    }
+
+    function filterPartners() {
+        const input = document.getElementById('partnerSearch').value.toLowerCase();
+        const dropdown = document.getElementById('partnerDropdown');
+        dropdown.style.display = 'block';
+        
+        const options = document.querySelectorAll('.partner-option');
+        options.forEach(opt => {
+            if (opt.getAttribute('data-search').includes(input)) {
+                opt.style.display = 'block';
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+    }
+
+    function showPartnerDropdown() {
+        document.getElementById('partnerDropdown').style.display = 'block';
+    }
+
+    function selectPartner(id, name) {
+        document.getElementById('partnerSelect').value = id;
+        document.getElementById('partnerSearch').value = name;
+        document.getElementById('partnerDropdown').style.display = 'none';
+    }
 
     function submitProposal(e) {
         e.preventDefault();

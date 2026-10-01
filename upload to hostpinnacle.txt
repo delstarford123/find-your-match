@@ -1,0 +1,21 @@
+1. The Core App Logic
+Upload these to your app/ directory (overwrite the existing ones):
+
+app/main.py (Contains the new Merchant Diamond unlocks, super admin logic, and notification overhaul)
+app/database.py (Contains the fixed serverless Firebase connection logic)
+2. The HTML Templates
+Upload these to your app/templates/ directory (overwrite the existing ones):
+
+app/templates/business_dashboard.html (Contains the fully unlocked UI and dynamic payment displays)
+app/templates/super_admin.html (Contains your new professional grid layout and the Merchant Registration Fee controller)
+3. Requirements (Important)
+Upload this to your root directory:
+
+requirements.txt (We added groq and requests to this file. Make sure HostPinnacle has these installed in its Python environment!)
+
+
+I have just pushed these changes directly to the main branch, so Vercel is deploying them automatically as we speak. When you are ready to update HostPinnacle cPanel, include these 3 updated files:
+
+app/main.py
+app/templates/base.html
+app/static/push-worker.js (NEW FILE)

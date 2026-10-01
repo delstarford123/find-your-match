@@ -1755,12 +1755,13 @@ def matches(partner_id=None):
                     messages_left = MESSAGES_TO_REVEAL - message_count
 
     # Fetch real active venues from merchants
+    # get_all_restaurants() returns a list of dicts, each already containing 'id'
     all_restaurants = get_all_restaurants()
     active_venues = []
     if all_restaurants:
-        for rid, rdata in all_restaurants.items():
+        for rdata in all_restaurants:
             if rdata.get('subscription_active') or rdata.get('merchant_fee', 0) == 0:
-                active_venues.append({'id': rid, **rdata})
+                active_venues.append(rdata)
 
     return render_template('matches.html', 
                            current_user=session.get('user_name'),
@@ -4561,26 +4562,43 @@ def propose_date():
                 # Fetch partner name
                 partner_profile = db.reference(f"profiles/{partner_id}").get() or {}
                 user_b_name = partner_profile.get('name', 'Their Match').split(' ')[0]
-                
-                threading.Thread(target=send_date_request_to_merchant_email, args=(
-                    restaurant['email'], 
-                    restaurant.get('business_name', 'Merchant'),
-                    user_a_name,
-                    user_b_name,
-                    date_day,
-                    date_time
-                )).start()
-                
-                # Also notify the partner if they have an email address
-                if partner_profile.get('email'):
-                    threading.Thread(target=send_date_request_to_partner_email, args=(
-                        partner_profile['email'],
+                try:
+                    from app.email_service import send_date_request_to_merchant_email, send_date_request_to_partner_email, send_date_request_to_sender_email
+                    
+                    # Notify Merchant
+                    send_date_request_to_merchant_email(
+                        restaurant['email'], 
                         restaurant.get('business_name', 'Merchant'),
                         user_a_name,
                         user_b_name,
                         date_day,
                         date_time
-                    )).start()
+                    )
+                    
+                    # Notify Partner
+                    if partner_profile.get('email'):
+                        send_date_request_to_partner_email(
+                            partner_profile['email'],
+                            restaurant.get('business_name', 'Merchant'),
+                            user_a_name,
+                            user_b_name,
+                            date_day,
+                            date_time
+                        )
+                        
+                    # Notify Sender
+                    sender_email = session.get('user_email')
+                    if sender_email:
+                        send_date_request_to_sender_email(
+                            sender_email,
+                            restaurant.get('business_name', 'Merchant'),
+                            user_a_name,
+                            user_b_name,
+                            date_day,
+                            date_time
+                        )
+                except Exception as email_err:
+                    print(f"Failed to send email notifications: {email_err}")
                     
                 # Push real-time notification to the Merchant
                 db.reference(f'notifications/{venue_id}').push({

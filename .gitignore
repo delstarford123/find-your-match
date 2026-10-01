@@ -60,3 +60,4 @@ loveai/models/
 merge_and_push.py
 app/static/video/*.mp4" 
 merge_and_push.py 
+.vercel
