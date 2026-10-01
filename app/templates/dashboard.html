@@ -1268,6 +1268,13 @@ async function reviveMatch(partnerId) {
                 if(data.show_modal) {
                     document.getElementById('milestone-partner').innerText = data.partner_name;
                     document.getElementById('milestone-modal').classList.remove('hidden');
+                    if (typeof confetti === 'function') {
+                        confetti({
+                            particleCount: 150,
+                            spread: 80,
+                            origin: { y: 0.6 }
+                        });
+                    }
                 }
             })
             .catch(err => console.error("Milestone Check Error:", err));

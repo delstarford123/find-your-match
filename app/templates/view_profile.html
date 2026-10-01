@@ -247,6 +247,63 @@
                 {{ student.bio or "This student is keeping it mysterious... for now!" }}
             </div>
 
+            <!-- FEATURE 16: Personality Radar -->
+            {% if student.personality %}
+            <div style="background: white; border: 1.5px solid #E2E8F0; border-radius: 20px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+                    <span style="font-size: 20px;">🧠</span>
+                    <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #1E293B;">Personality Profile</h3>
+                </div>
+                <div style="position: relative; width: 100%; height: 250px;">
+                    <canvas id="personalityChart"></canvas>
+                </div>
+            </div>
+            
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const ctx = document.getElementById('personalityChart');
+                    if(ctx) {
+                        new Chart(ctx, {
+                            type: 'radar',
+                            data: {
+                                labels: ['Openness', 'Conscientiousness', 'Extraversion', 'Agreeableness', 'Neuroticism'],
+                                datasets: [{
+                                    label: 'Score',
+                                    data: [
+                                        {{ student.personality.openness | default(50) }},
+                                        {{ student.personality.conscientiousness | default(50) }},
+                                        {{ student.personality.extraversion | default(50) }},
+                                        {{ student.personality.agreeableness | default(50) }},
+                                        {{ student.personality.neuroticism | default(50) }}
+                                    ],
+                                    backgroundColor: 'rgba(230, 0, 38, 0.2)',
+                                    borderColor: 'rgba(230, 0, 38, 1)',
+                                    pointBackgroundColor: 'rgba(230, 0, 38, 1)',
+                                    pointBorderColor: '#fff',
+                                    pointHoverBackgroundColor: '#fff',
+                                    pointHoverBorderColor: 'rgba(230, 0, 38, 1)'
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    r: {
+                                        angleLines: { color: 'rgba(0,0,0,0.1)' },
+                                        grid: { color: 'rgba(0,0,0,0.1)' },
+                                        suggestedMin: 0,
+                                        suggestedMax: 100,
+                                        ticks: { display: false }
+                                    }
+                                },
+                                plugins: { legend: { display: false } },
+                                maintainAspectRatio: false
+                            }
+                        });
+                    }
+                });
+            </script>
+            {% endif %}
+
             <!-- === CAMPUS MIXTAPE ANTHEM === -->
             {% if student.spotify_playlist %}
                 {% set music = get_music_embed_info(student.spotify_playlist) %}

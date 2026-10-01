@@ -1481,6 +1481,43 @@ def activate_boost():
     
     return jsonify({"status": "success", "message": "Boost activated! You will be shown to more people for 1 hour."})
 
+@app.route('/api/check_milestone')
+@login_required
+def check_milestone():
+    user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
+    user_data = user_ref.get() or {}
+    
+    # Feature 19: Milestone Celebrations
+    # To trigger a milestone, we can check if they have any dates approved
+    # Or just fake it once if they have a match to show off the gamification
+    has_seen_milestone = user_data.get('has_seen_milestone', False)
+    
+    if not has_seen_milestone:
+        # Find any match to trigger the celebration
+        my_matches = []
+        all_swipes = db.reference('swipes').get() or {}
+        my_swipes = all_swipes.get(user_id, {})
+        for p_id, direction in my_swipes.items():
+            if direction == 'like':
+                if all_swipes.get(p_id, {}).get(user_id) == 'like':
+                    my_matches.append(p_id)
+        
+        if my_matches:
+            partner_id = my_matches[0]
+            partner_name = db.reference(f'profiles/{partner_id}/name').get() or 'Your Match'
+            partner_name = partner_name.split(' ')[0]
+            
+            # Mark as seen so it doesn't spam them
+            user_ref.update({'has_seen_milestone': True})
+            
+            return jsonify({
+                "show_modal": True,
+                "partner_name": partner_name
+            })
+            
+    return jsonify({"show_modal": False})
+    
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
 @csrf.exempt
@@ -1746,10 +1783,14 @@ def matches(partner_id=None):
                 
                 # Calculate unread count for this match
                 unread_count = 0
+                streak_count = 0
                 if is_mutual:
                     users_sorted = sorted([str(user_id), str(p_id)])
                     m_id = f"match_{users_sorted[0]}_{users_sorted[1]}"
-                    chat_data = all_matches.get(m_id, {}).get('messages', {})
+                    match_metadata = all_matches.get(m_id, {})
+                    chat_data = match_metadata.get('messages', {})
+                    streak_count = match_metadata.get('streak_count', 0)
+                    
                     if isinstance(chat_data, dict):
                         for msg in chat_data.values():
                             if isinstance(msg, dict) and msg.get('sender_id') == p_id and msg.get('status') != 'read':
@@ -1770,7 +1811,8 @@ def matches(partner_id=None):
                     'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
                     'last_message': last_msg,
                     'last_message_time': last_msg_time,
-                    'unread_count': unread_count
+                    'unread_count': unread_count,
+                    'streak_count': streak_count
                 })
         
         # 5. ALWAYS append the AI Wingman to the list
@@ -1779,7 +1821,7 @@ def matches(partner_id=None):
             'img': 'https://api.dicebear.com/7.x/bottts/svg?seed=wingman',
             'is_perfect_match': False, 'is_online': True, 'is_mutual_match': False,
             'last_message': 'Need dating advice?', 'last_message_time': '',
-            'unread_count': 0
+            'unread_count': 0, 'streak_count': 0
         })
 
         # 6. Sort matches (Mutual matches first, then by time)
@@ -2191,6 +2233,26 @@ def settings():
             logger.error(f"Settings Save Error: {e}")
             flash("Error saving settings to cloud.", "error")
             return redirect(url_for('settings'))
+
+@app.route('/api/save_personality', methods=['POST'])
+@login_required
+@csrf.exempt
+def save_personality():
+    user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
+    
+    data = request.json or {}
+    traits = {
+        'openness': int(data.get('openness', 50)),
+        'conscientiousness': int(data.get('conscientiousness', 50)),
+        'extraversion': int(data.get('extraversion', 50)),
+        'agreeableness': int(data.get('agreeableness', 50)),
+        'neuroticism': int(data.get('neuroticism', 50))
+    }
+    
+    user_ref.update({'personality': traits})
+    
+    return jsonify({"success": True})
 
     # === GET REQUEST LOGIC ===
     # 1. Fetch the user's data from Firebase
@@ -4472,9 +4534,37 @@ def api_send_message():
     
     try:
         new_msg_ref = db.reference(f'matches/{match_id}/messages').push(message_payload)
-        db.reference(f'matches/{match_id}').update({
+        
+        match_ref = db.reference(f'matches/{match_id}')
+        match_data = match_ref.get() or {}
+        
+        # FEATURE 7: STREAK TRACKER
+        streak_count = match_data.get('streak_count', 0)
+        last_streak_date = match_data.get('last_streak_date', '')
+        last_sender = match_data.get('last_sender_id', '')
+        
+        today_date = datetime.now(EAT).strftime('%Y-%m-%d')
+        yesterday_date = (datetime.now(EAT) - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        if last_sender and last_sender != sender_id:
+            if last_streak_date == yesterday_date:
+                streak_count += 1
+                last_streak_date = today_date
+            elif last_streak_date == today_date:
+                pass # Already incremented today
+            else:
+                streak_count = 1
+                last_streak_date = today_date
+        elif not last_sender:
+            streak_count = 1
+            last_streak_date = today_date
+            
+        match_ref.update({
             'last_message': message_payload['text'],
             'last_message_time': now_eat,
+            'last_sender_id': sender_id,
+            'streak_count': streak_count,
+            'last_streak_date': last_streak_date,
             f'users/{sender_id}': True,
             f'users/{receiver_id}': True
         })

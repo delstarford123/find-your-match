@@ -313,6 +313,9 @@
                         {% if match.is_mutual_match %}
                             <span class="badge-match" style="margin-left: 5px;">MATCH!</span>
                         {% endif %}
+                        {% if match.streak_count and match.streak_count > 2 %}
+                            <span class="badge-match" style="margin-left: 5px; background: #ff9800; border-color: #ff9800;">🔥 {{ match.streak_count }}</span>
+                        {% endif %}
                     </div>
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
@@ -352,6 +355,7 @@
                     <span class="chat-partner-name" onclick="window.location.href='/view_profile/{{ active_partner.id }}'" style="cursor: pointer;">
                         {{ active_partner.name }}
                         {% if active_partner.is_mutual_match %} <span class="badge-match" style="animation: none;">MATCH</span> {% endif %}
+                        {% if active_partner.streak_count and active_partner.streak_count > 2 %} <span class="badge-match" style="animation: none; background: #ff9800; border-color: #ff9800;">🔥 {{ active_partner.streak_count }} Streak</span> {% endif %}
                     </span>
                     
                     {% if active_partner.phone %}
@@ -388,6 +392,9 @@
                     <button onclick="toggleActionMenu(event)" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; font-weight: bold;">⋮</button>
                     
                     <div id="action-menu" class="theme-modal" style="width: 200px; right: 0; top: 40px; padding: 10px;">
+                        <button onclick="sendQuestionPrompt()" style="width: 100%; text-align: left; padding: 12px; background: #F3E8FF; border: none; color: #7E22CE; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
+                            🎲 Question Game
+                        </button>
                         <button onclick="openSuggestDateModal()" style="width: 100%; text-align: left; padding: 12px; background: #ECFDF5; border: none; color: #059669; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
                             ☕ Suggest a Date
                         </button>
@@ -750,6 +757,28 @@
     // ==========================================
     // SUGGEST A DATE LOGIC
     // ==========================================
+    function sendQuestionPrompt() {
+        document.getElementById('action-menu').classList.remove('active');
+        
+        const questions = [
+            "What's the most spontaneous thing you've ever done?",
+            "If you could travel anywhere right now, where would it be?",
+            "What's a movie or TV show you can watch over and over again without getting tired of it?",
+            "What's your biggest pet peeve?",
+            "What's a controversial food opinion you have?",
+            "If you had to eat one meal for the rest of your life, what would it be?",
+            "What's your go-to karaoke song?",
+            "What's the best piece of advice you've ever received?"
+        ];
+        const randomQ = questions[Math.floor(Math.random() * questions.length)];
+        
+        const textInput = document.getElementById('chat-input');
+        if (textInput) {
+            textInput.value = "🎲 Question Game: " + randomQ;
+            textInput.focus();
+        }
+    }
+
     function openSuggestDateModal() {
         document.getElementById('action-menu').classList.remove('active');
         document.getElementById('suggest-date-modal').style.display = 'flex';
