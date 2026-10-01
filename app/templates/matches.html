@@ -398,6 +398,11 @@
                         <button onclick="openSuggestDateModal()" style="width: 100%; text-align: left; padding: 12px; background: #ECFDF5; border: none; color: #059669; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
                             ☕ Suggest a Date
                         </button>
+                        <!-- FEATURE 12: Date Dare Challenges -->
+                        <!-- FEATURE 12: Date Dare Challenges -->
+                        <button onclick="sendDateDare()" style="width: 100%; text-align: left; padding: 12px; background: #FFF7ED; border: none; color: #EA580C; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
+                            🎯 Date Dare Challenge
+                        </button>
                         <button onclick="triggerSafeWalk()" style="width: 100%; text-align: left; padding: 12px; background: #f8f9fa; border: none; color: #111; font-weight: 800; cursor: pointer; border-radius: 10px; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; transition: 0.2s;">
                             📍 Safe Walk
                         </button>
@@ -775,6 +780,25 @@
         const textInput = document.getElementById('chat-input');
         if (textInput) {
             textInput.value = "🎲 Question Game: " + randomQ;
+            textInput.focus();
+        }
+    }
+
+    // FEATURE 12: Date Dare Challenges
+    function sendDateDare() {
+        document.getElementById('action-menu').classList.remove('active');
+        
+        const dares = [
+            "🎯 I dare you: Loser buys the first round of coffee at the Student Center. You in?",
+            "🎯 Dare challenge: Let's do a 10-minute walk around campus. First one to spot a squirrel owes the other a snack.",
+            "🎯 I dare you to meet up and debate the most controversial pizza topping for 5 minutes.",
+            "🎯 Date dare: Let's grab ice cream. If I can guess your favorite flavor, you're paying."
+        ];
+        
+        const randomDare = dares[Math.floor(Math.random() * dares.length)];
+        const textInput = document.getElementById('chat-input');
+        if (textInput) {
+            textInput.value = randomDare;
             textInput.focus();
         }
     }
