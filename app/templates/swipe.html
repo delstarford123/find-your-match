@@ -415,6 +415,7 @@
                 <div class="card-info">
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
                         <div id="profile-intent" class="intent-tag" style="display: none; margin-bottom: 0;">☕ Just Coffee</div>
+                        <div id="profile-tribe" class="intent-tag" style="display: none; margin-bottom: 0; background: #E0E7FF; color: #4338CA; border-color: #C7D2FE;"></div>
                         <div id="profile-connection" class="intent-tag" style="display: none; margin-bottom: 0; background: rgba(37, 211, 102, 0.25); border-color: rgba(37, 211, 102, 0.5);"></div>
                     </div>
                     <div class="name-age-row">
@@ -881,6 +882,17 @@
                 intentEl.style.display = 'inline-block';
             } else {
                 intentEl.style.display = 'none';
+            }
+
+            const tribeMap = { 'gym_rats': '💪 Gym Rats', 'tech_geeks': '💻 Tech & Coding', 'party_animals': '🎉 Party Animals', 'bookworms': '📚 Bookworms', 'creatives': '🎨 Creatives & Artists' };
+            const tribeEl = document.getElementById('profile-tribe');
+            if (tribeEl) {
+                if (profile.tribe && tribeMap[profile.tribe]) {
+                    tribeEl.innerText = tribeMap[profile.tribe];
+                    tribeEl.style.display = 'inline-block';
+                } else {
+                    tribeEl.style.display = 'none';
+                }
             }
 
             const connectionEl = document.getElementById('profile-connection');

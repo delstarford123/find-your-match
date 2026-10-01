@@ -170,6 +170,19 @@
                 </select>
             </div>
 
+            <!-- FEATURE 3: Interest Clusters / Tribes -->
+            <div class="settings-group">
+                <label class="field-label">My Tribe (Campus Community)</label>
+                <select name="tribe">
+                    <option value="none" {% if user.tribe == 'none' or not user.tribe %}selected{% endif %}>Just floating around</option>
+                    <option value="gym_rats" {% if user.tribe == 'gym_rats' %}selected{% endif %}>💪 Gym Rats</option>
+                    <option value="tech_geeks" {% if user.tribe == 'tech_geeks' %}selected{% endif %}>💻 Tech & Coding</option>
+                    <option value="party_animals" {% if user.tribe == 'party_animals' %}selected{% endif %}>🎉 Party Animals</option>
+                    <option value="bookworms" {% if user.tribe == 'bookworms' %}selected{% endif %}>📚 Bookworms / Library Dwellers</option>
+                    <option value="creatives" {% if user.tribe == 'creatives' %}selected{% endif %}>🎨 Creatives & Artists</option>
+                </select>
+            </div>
+
             <div class="settings-group">
                 <label class="field-label">Age Range</label>
                 <div style="display: flex; gap: 10px;">

@@ -1449,11 +1449,40 @@ def dashboard():
                         'compatibility': compat_score
                     })
 
+    # FEATURE 4: Fresh Faces Daily Reveal
+    daily_picks = []
+    if all_profiles_dict:
+        import random
+        # Find people not swiped yet, opposite gender
+        potential_picks = []
+        for pid, p in all_profiles_dict.items():
+            if pid != user_id and pid not in users and pid not in my_swipes:
+                p_gender = p.get('gender', '').strip().lower()
+                if current_user_gender and p_gender and current_user_gender != p_gender:
+                    potential_picks.append((pid, p))
+                elif not current_user_gender or not p_gender:
+                    potential_picks.append((pid, p))
+                    
+        # Sort by compatibility
+        potential_picks.sort(key=lambda x: x[1].get('compatibility', x[1].get('ai_score', 0)), reverse=True)
+        # Take top 10, pick 3 random
+        top_picks = potential_picks[:10]
+        if top_picks:
+            chosen = random.sample(top_picks, min(3, len(top_picks)))
+            for pid, p in chosen:
+                daily_picks.append({
+                    'id': pid,
+                    'name': p.get('name', 'Student').split(' ')[0], 
+                    'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                    'compatibility': p.get('compatibility', 85)
+                })
+
     return render_template(
         'dashboard.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0], 
         matches=my_matches,
         second_chances=second_chances,
+        daily_picks=daily_picks,
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
         subscription_active=subscription_active,
@@ -2202,6 +2231,7 @@ def settings():
         
         # 🆕 Grab the new Intent Tag (defaults to 'none' if they didn't touch it)
         intent = request.form.get('intent', 'none') 
+        tribe = request.form.get('tribe', 'none')
         
         age_min = int(request.form.get('age_min', 18))
         age_max = int(request.form.get('age_max', 99))
@@ -2221,7 +2251,8 @@ def settings():
             # 3. Update main profile attributes (visibility and the new intent tag)
             user_ref.update({
                 'is_visible': not ai_mode,
-                'intent': intent  # 🆕 Save the intent to the main profile
+                'intent': intent,  # 🆕 Save the intent to the main profile
+                'tribe': tribe     # Feature 3: Interest Clusters
             })
             
             flash("Discovery settings updated successfully!", "success")
