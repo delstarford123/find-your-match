@@ -61,12 +61,7 @@ def record_swipe():
             target_crush = db.reference(f'secret_crushes/{target_user_id}/{current_user_id}').get()
             target_crushed_on_me = target_crush and target_crush.get('status') == 'pending'
 
-            # NEW LOGIC: Instant Match on Like!
-            # Bypass mutual checks and force match to True if the current user likes them
-            is_match = True
-            target_swiped_right = True # Simulate mutual match for logic below
-            
-            if True: # Kept the block indented to avoid syntax errors
+            if target_swiped_right or target_crushed_on_me:
                 is_match = True
                 match_id = "_".join(sorted([current_user_id, target_user_id]))
                 
@@ -129,15 +124,14 @@ def record_swipe():
                         'match_id': match_id
                     })
 
-
                 except Exception as e:
                     print(f"Notification failed: {e}")
 
-                return jsonify({
-                "status": "success", 
-                "match": is_match,
-                "match_details": match_details if is_match else None
-                })
+        return jsonify({
+            "status": "success", 
+            "match": is_match,
+            "match_details": match_details if is_match else None
+        })
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500

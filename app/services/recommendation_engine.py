@@ -147,6 +147,11 @@ def generate_ranked_deck(current_user_id):
                     profile['bio'] = "✨ AI Top Pick (Based on your past dates!) - " + profile.get('bio', '')
                     break 
             
+        # FEATURE 1: Compatibility Score Badge
+        # Calculate a user-friendly match percentage (cap at 99%)
+        raw_percent = 60 + min(score / 300.0 * 39, 39)
+        profile['compatibility'] = int(round(raw_percent))
+        
         profile['ai_score'] = round(score, 2)
         scored_profiles.append(profile)
         

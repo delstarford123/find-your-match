@@ -413,7 +413,10 @@
                 <div id="stamp-like" class="stamp stamp-like">LIKE</div>
                 
                 <div class="card-info">
-                    <div id="profile-intent" class="intent-tag" style="display: none;">☕ Just Coffee</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                        <div id="profile-intent" class="intent-tag" style="display: none; margin-bottom: 0;">☕ Just Coffee</div>
+                        <div id="profile-connection" class="intent-tag" style="display: none; margin-bottom: 0; background: rgba(37, 211, 102, 0.25); border-color: rgba(37, 211, 102, 0.5);"></div>
+                    </div>
                     <div class="name-age-row">
                         <h2 id="profile-name">Connecting...</h2>
                         <span id="profile-age"></span>
@@ -808,7 +811,10 @@
             }
 
             // DYNAMIC BADGE LOGIC
-            const score = profile.ai_score || profile.compatibility || Math.floor(Math.random() * 20) + 70;
+            let score = profile.compatibility || profile.ai_score || Math.floor(Math.random() * 20) + 70;
+            if (score > 100) {
+                score = 60 + Math.min(Math.round((score / 300.0) * 39), 39);
+            }
             if (profile.is_ad) {
                 compatBadge.innerHTML = `🚀 SPONSORED`;
                 compatBadge.style.background = 'linear-gradient(135deg, #A855F7 0%, #6366F1 100%)';
@@ -876,7 +882,14 @@
             } else {
                 intentEl.style.display = 'none';
             }
-            
+
+            const connectionEl = document.getElementById('profile-connection');
+            if (profile.connection_msg) {
+                connectionEl.innerText = profile.connection_msg;
+                connectionEl.style.display = 'inline-block';
+            } else {
+                connectionEl.style.display = 'none';
+            }
             gsap.set([stampLike, stampNope], { opacity: 0 });
 
             // Preload the next card's image for zero latency!

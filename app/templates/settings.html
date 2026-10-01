@@ -171,6 +171,14 @@
             </div>
 
             <div class="settings-group">
+                <label class="field-label">Age Range</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" name="age_min" value="{{ user.age_min|default(18) }}" min="18" max="99" style="width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid #FFD6DD;" placeholder="Min Age">
+                    <input type="number" name="age_max" value="{{ user.age_max|default(99) }}" min="18" max="99" style="width: 100%; padding: 12px; border-radius: 12px; border: 1.5px solid #FFD6DD;" placeholder="Max Age">
+                </div>
+            </div>
+
+            <div class="settings-group">
                 <label class="field-label">What are you looking for?</label>
                 <select name="intent">
                     <option value="none" {% if user.intent == 'none' or not user.intent %}selected{% endif %}> Keep it mysterious</option>

@@ -1074,6 +1074,30 @@ def swipe():
             if p_gender != gender_pref.lower():
                 continue
                 
+        # AGE FILTER
+        p_age = int(p.get('age', 18) or 18)
+        age_min = user_settings.get('age_min', 18)
+        age_max = user_settings.get('age_max', 99)
+        if p_age < age_min or p_age > age_max:
+            continue
+            
+        # MAJOR FILTER
+        major_filter = user_settings.get('major_filter', 'All')
+        if major_filter != 'All':
+            p_major = p.get('major', '').lower()
+            if major_filter == 'CS_IT' and not any(kw in p_major for kw in ['comput', 'it', 'soft', 'info']):
+                continue
+            elif major_filter == 'Health' and not any(kw in p_major for kw in ['nurs', 'med', 'health', 'clinic']):
+                continue
+            elif major_filter == 'Engineering' and 'engin' not in p_major:
+                continue
+            elif major_filter == 'Business' and not any(kw in p_major for kw in ['busin', 'econ', 'financ', 'account']):
+                continue
+            elif major_filter == 'Education' and not any(kw in p_major for kw in ['edu', 'teach', 'art']):
+                continue
+            elif major_filter == 'Agriculture' and not any(kw in p_major for kw in ['agri', 'bio']):
+                continue
+                
         # --- THE SCORING ALGORITHM ---
         base_score = p.get('ai_score', random.randint(65, 80))
         bonus = 0
@@ -1085,7 +1109,8 @@ def swipe():
             
         # Bio Overlap Bonus
         p_bio_words = set(p.get('bio', '').lower().replace('.', '').replace(',', '').split())
-        if len((p_bio_words - stop_words) & my_keywords) > 0:
+        common_words = (p_bio_words - stop_words) & my_keywords
+        if len(common_words) > 0:
             bonus += 5
             
         final_score = min(base_score + bonus, 99)
@@ -1095,9 +1120,29 @@ def swipe():
             final_score += 20
             final_score = min(final_score, 99)
         
+        # ACTIVE BOOST (Feature #18)
+        boost_expiry_str = p.get('boost_expiry')
+        if boost_expiry_str:
+            try:
+                boost_expiry = datetime.fromisoformat(boost_expiry_str.replace('Z', '+00:00'))
+                if datetime.now(timezone.utc) < boost_expiry:
+                    final_score = 140 # Float just under Secret Crush (150)
+            except: pass
+        
         # SECRET CRUSH OVERRIDE (Forces them to the absolute front of the line)
         if p_id in pending_crushers:
             final_score = 150 
+            
+        # FEATURE 5: Mutual Connections
+        connections = []
+        if p.get('major') and user_profile.get('major') and p.get('major').strip() == user_profile.get('major').strip():
+            connections.append('📚 Same Course')
+        if p_intent != 'none' and p_intent == my_intent:
+            connections.append('🎯 Same Goal')
+        if common_words:
+            connections.append(f'🗣️ "{list(common_words)[0]}"')
+            
+        connection_msg = " • ".join(connections[:2]) if connections else ""
         
         potential_matches.append({
             'id': p_id,
@@ -1109,7 +1154,8 @@ def swipe():
             'phone': p.get('phone'), # Direct access for professional profile contact
             'intent': p_intent, # Passes the intent so the frontend tag works!
             'compatibility': final_score,
-            'is_perfect_match': final_score >= 80  # Flag for the frontend badge
+            'is_perfect_match': final_score >= 80,  # Flag for the frontend badge
+            'connection_msg': connection_msg
         })
 
     # 4.5 Build the Teaser Deck for Empty State (Top Opposite Gender)
@@ -1320,12 +1366,17 @@ def dashboard():
                 if current_user_gender and partner_gender and current_user_gender == partner_gender:
                     continue  # Skip same-gender matches
                     
+                compat_score = p.get('compatibility')
+                if compat_score is None:
+                    raw_score = p.get('ai_score', 85)
+                    compat_score = raw_score if raw_score <= 100 else int(60 + min(raw_score / 300.0 * 39, 39))
+
                 my_matches.append({
                     'id': partner_id,
                     'name': p.get('name', 'Student').split(' ')[0], 
                     'bio': p.get('bio', 'Hey there!'),
                     'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
-                    'compatibility': p.get('ai_score', 85),
+                    'compatibility': compat_score,
                     'is_perfect_match': True, # They are an actual match
                     'last_seen': p.get('last_seen', '')
                 })
@@ -1375,10 +1426,34 @@ def dashboard():
     unread_ref = db.reference(f'notifications/{user_id}').order_by_child('status').equal_to('unread').get()
     unread_count = len(unread_ref) if unread_ref else 0
 
+    # FEATURE 2: Second Chance Queue
+    second_chances = []
+    my_swipes = db.reference(f'swipes/{user_id}').get() or {}
+    passed_ids = [target_id for target_id, data in my_swipes.items() if data.get('action') == 'pass']
+    
+    if passed_ids:
+        all_swipes = db.reference('swipes').get() or {}
+        for pid in passed_ids:
+            if all_swipes.get(pid, {}).get(user_id, {}).get('action') == 'like':
+                p = all_profiles_dict.get(pid, {})
+                if p:
+                    compat_score = p.get('compatibility')
+                    if compat_score is None:
+                        raw_score = p.get('ai_score', 85)
+                        compat_score = raw_score if raw_score <= 100 else int(60 + min(raw_score / 300.0 * 39, 39))
+
+                    second_chances.append({
+                        'id': pid,
+                        'name': p.get('name', 'Student').split(' ')[0], 
+                        'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                        'compatibility': compat_score
+                    })
+
     return render_template(
         'dashboard.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0], 
         matches=my_matches,
+        second_chances=second_chances,
         pending_dates_count=pending_dates_count,
         upcoming_dates=upcoming_dates,
         subscription_active=subscription_active,
@@ -1390,6 +1465,22 @@ def dashboard():
         profile_complete=is_profile_complete(user_data)
     )
     
+@app.route('/api/boost', methods=['POST'])
+@login_required
+@csrf.exempt
+def activate_boost():
+    user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
+    
+    # Calculate expiry: 1 hour from now
+    expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    
+    user_ref.update({
+        'boost_expiry': expiry
+    })
+    
+    return jsonify({"status": "success", "message": "Boost activated! You will be shown to more people for 1 hour."})
+
 @app.route('/api/unmatch', methods=['POST'])
 @login_required
 @csrf.exempt
@@ -2069,6 +2160,9 @@ def settings():
         
         # 🆕 Grab the new Intent Tag (defaults to 'none' if they didn't touch it)
         intent = request.form.get('intent', 'none') 
+        
+        age_min = int(request.form.get('age_min', 18))
+        age_max = int(request.form.get('age_max', 99))
 
         try:
             # 2. Save filter settings to the 'settings' sub-node
@@ -2077,7 +2171,9 @@ def settings():
                 'major_filter': major_filter,
                 'strict_schedule': strict_mode,
                 'ai_companion_mode': ai_mode,
-                'blind_date_mode': blind_date_mode  # 🔥 Save to Firebase
+                'blind_date_mode': blind_date_mode,  # 🔥 Save to Firebase
+                'age_min': age_min,
+                'age_max': age_max
             })
             
             # 3. Update main profile attributes (visibility and the new intent tag)
@@ -2112,7 +2208,10 @@ def settings():
         'blind_date_mode': user_settings.get('blind_date_mode', True),
         
         # 🆕 Pass the intent back so the dropdown remembers their choice
-        'intent': user_profile.get('intent', 'none') 
+        'intent': user_profile.get('intent', 'none'),
+        
+        'age_min': user_settings.get('age_min', 18),
+        'age_max': user_settings.get('age_max', 99)
     }
 
     # 3. Render the page
