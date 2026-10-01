@@ -241,6 +241,15 @@
       ".read": "auth != null",
       ".write": "auth != null",
       ".indexOn": ["timestamp"]
+    },
+    "balloon_room": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "balloon_chat": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["timestamp"]
     }
   }
 }

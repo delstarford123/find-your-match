@@ -431,12 +431,15 @@ from app.routes.v3.auth import auth_v3_bp      # v3: no reg number
 from app.routes.profiles import profiles_bp
 from app.routes.matches import matches_bp
 from app.routes.v3.matching import v3_matching_bp
+from app.routes.gamification import gamification_v4_bp
+
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
 app.register_blueprint(auth_v3_bp)
 app.register_blueprint(profiles_bp)
 app.register_blueprint(matches_bp)
 app.register_blueprint(v3_matching_bp)
+app.register_blueprint(gamification_v4_bp)
 
 # ==========================================
 # 5. SECURITY DECORATORS & HELPERS
