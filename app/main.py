@@ -2265,25 +2265,6 @@ def settings():
             flash("Error saving settings to cloud.", "error")
             return redirect(url_for('settings'))
 
-@app.route('/api/save_personality', methods=['POST'])
-@login_required
-@csrf.exempt
-def save_personality():
-    user_id = session.get('user_id')
-    user_ref = db.reference(f'profiles/{user_id}')
-    
-    data = request.json or {}
-    traits = {
-        'openness': int(data.get('openness', 50)),
-        'conscientiousness': int(data.get('conscientiousness', 50)),
-        'extraversion': int(data.get('extraversion', 50)),
-        'agreeableness': int(data.get('agreeableness', 50)),
-        'neuroticism': int(data.get('neuroticism', 50))
-    }
-    
-    user_ref.update({'personality': traits})
-    
-    return jsonify({"success": True})
 
     # === GET REQUEST LOGIC ===
     # 1. Fetch the user's data from Firebase
@@ -2313,8 +2294,28 @@ def save_personality():
         current_user=session.get('user_name'),
         user=template_user_data
     )
+
+@app.route('/api/save_personality', methods=['POST'])
+@login_required
+@csrf.exempt
+def save_personality():
+    user_id = session.get('user_id')
+    user_ref = db.reference(f'profiles/{user_id}')
     
+    data = request.json or {}
+    traits = {
+        'openness': int(data.get('openness', 50)),
+        'conscientiousness': int(data.get('conscientiousness', 50)),
+        'extraversion': int(data.get('extraversion', 50)),
+        'agreeableness': int(data.get('agreeableness', 50)),
+        'neuroticism': int(data.get('neuroticism', 50))
+    }
     
+    user_ref.update({'personality': traits})
+    
+    return jsonify({"success": True})
+
+
 @app.route('/merchant-terms')
 def merchant_terms():
     return render_template('merchant_terms.html')
