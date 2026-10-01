@@ -76,38 +76,8 @@
     }
     .crush-input:focus { border-color: #6610f2; box-shadow: 0 0 0 3px rgba(102, 16, 242, 0.1); }
 
-    /* === NOTIFICATION POPOVER MENU === */
-    .bell-popover {
-        position: fixed; top: calc(80px + env(safe-area-inset-top, 0px)); right: 20px; 
-        background: white; border-radius: 20px;
-        box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; z-index: 100000; 
-        border: 1px solid #FFD6DD; display: none; flex-direction: column;
-        overflow: hidden; transform-origin: top right; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-    }
-    .bell-popover.active { display: flex; }
-
-    .popover-header {
-        padding: 16px 20px; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white; font-weight: 900; font-size: 15px; display: flex;
-        justify-content: space-between; align-items: center; letter-spacing: 0.5px;
-    }
-    .popover-list { max-height: 350px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    .popover-item {
-        padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer;
-        border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white;
-    }
-    @media (hover: hover) { .popover-item:hover { background: #FEF2F4; } }
-    .popover-item:last-child { border-bottom: none; }
-
-    .popover-unread-count {
-        background: #E60026; color: white; border-radius: 12px;
-        padding: 4px 10px; font-size: 11px; font-weight: 900; flex-shrink: 0;
-    }
-
     @media (max-width: 768px) {
-        .floating-bell { top: calc(15px + env(safe-area-inset-top, 0px)); right: 15px; width: 45px; height: 45px; font-size: 20px; }
         .radar-btn { top: calc(15px + env(safe-area-inset-top, 0px)); left: 15px; padding: 10px 16px; font-size: 13px; }
-        .bell-popover { top: calc(70px + env(safe-area-inset-top, 0px)); right: 15px; width: calc(100vw - 30px); max-width: 320px; }
         
         .deck-container { 
             height: calc(100dvh - 180px); 
@@ -446,6 +416,9 @@
             </p>
 
             <div class="empty-btn-group">
+                <a href="#" onclick="window.location.reload(); return false;" class="empty-btn" style="background: linear-gradient(135deg, #E60026, #FF4B2B); color: white; box-shadow: 0 10px 25px rgba(230,0,38,0.3);">
+                    <span style="font-size: 20px;">🔄</span> Load More Matches
+                </a>
                 <a href="{{ url_for('ai_wingman') }}" class="empty-btn btn-wingman">
                     <span style="font-size: 20px;"></span> Roast My Profile
                 </a>
@@ -541,54 +514,7 @@
         return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag] || tag));
     }
 
-    function toggleBellPopover(e) {
-        e.stopPropagation();
-        const pop = document.getElementById('bell-popover');
-        if (pop) pop.classList.toggle('active');
-    }
 
-    function updateBellUI() {
-        const badge = document.getElementById('bell-badge');
-        const list  = document.getElementById('bell-popover-list');
-        if (!badge || !list) return;
-
-        let totalUnread = 0;
-        let popoverHtml = '';
-
-        for (const [uid, data] of Object.entries(unreadMap)) {
-            if (typeof data !== 'object') {
-                 unreadMap[uid] = { count: data, text: "New Message" };
-            }
-            const count = unreadMap[uid].count;
-            const msgText = escapeHTML(unreadMap[uid].text);
-            totalUnread += count;
-
-            popoverHtml += `
-                <div class="popover-item" onclick="window.location.href='/matches/${uid}'">
-                    <div style="position:relative; flex-shrink:0;">
-                        <img src="/static/img/placeholder.png" style="width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-                        <span style="position:absolute; bottom:1px; right:1px; width:14px; height:14px; border-radius:50%; border:2px solid white; background:#28a745;"></span>
-                    </div>
-                    <div style="flex:1; overflow:hidden;">
-                        <div style="font-weight:900; font-size:15px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom: 2px;">New Match</div>
-                        <div style="font-size:13px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${msgText}</div>
-                    </div>
-                    <span class="popover-unread-count">${count}</span>
-                </div>
-            `;
-        }
-
-        if (totalUnread > 0) {
-            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-            badge.style.display = 'flex';
-            list.innerHTML = popoverHtml;
-        } else {
-            badge.style.display = 'none';
-            list.innerHTML = '<div style="padding:30px;text-align:center;color:#888;font-size:14px;font-weight:600;">No new messages</div>';
-        }
-    }
-
-    updateBellUI();
 
     /* Temporarily disabled
     socket.on('receive_message', function(data) {

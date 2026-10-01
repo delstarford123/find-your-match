@@ -1187,21 +1187,11 @@ def swipe():
     top_teasers = top_teasers[:10]
 
     # 5. Sort the deck: Show the Highest Compatibility matches first!
+    # To suggest different 10 profiles every time, we randomly shuffle first, then pick 10, then sort.
+    random.shuffle(potential_matches)
+    potential_matches = potential_matches[:10]
     potential_matches.sort(key=lambda x: x['compatibility'], reverse=True)
 
-    # NEW LOGIC: Enforce 10 Daily Opposite Gender Profiles
-    # Check how many swipes the user has made today
-    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    daily_swipes_ref = db.reference(f'daily_swipes/{user_id}/{today_str}')
-    swipes_today = daily_swipes_ref.get() or 0
-    
-    if swipes_today >= 10:
-        potential_matches = [] # Block further discovery for today
-        flash("You have reached your limit of 10 new daily matches! Check back tomorrow.", "info")
-    else:
-        # Give them enough to reach their daily limit of 10
-        remaining_swipes = 10 - swipes_today
-        potential_matches = potential_matches[:remaining_swipes]
 
     return render_template(
         'swipe.html', 

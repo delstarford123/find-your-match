@@ -430,7 +430,7 @@
         .bell-popover {
             position: fixed;
             top: calc(var(--nav-height, 65px) + 10px);
-            right: 15px;
+            right: 12px;
             width: 340px;
             max-width: calc(100vw - 24px);
             background: white;
@@ -484,7 +484,7 @@
         .bell-clear-all:hover { background: #fff1f2; }
 
         .popover-list {
-            max-height: 380px;
+            max-height: min(400px, calc(100vh - 140px));
             overflow-y: auto;
             background: #fff;
             scrollbar-width: thin;
@@ -676,39 +676,6 @@
             transform: translate3d(0, 0, 0);
         }
 
-        /* === GLOBAL NOTIFICATION BELL POPOVER === */
-        .bell-popover {
-            position: absolute; top: 50px; right: 0; 
-            background: white; border-radius: 20px;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2); width: 320px; max-width: calc(100vw - 30px); z-index: 100000; 
-            border: 1px solid #FFD6DD; display: none; flex-direction: column;
-            overflow: hidden; transform-origin: top right; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            text-align: left;
-        }
-        .bell-popover.active { display: flex; }
-
-        .popover-header {
-            padding: 16px 20px; background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-            color: white; font-weight: 900; font-size: 15px; display: flex;
-            justify-content: space-between; align-items: center; letter-spacing: 0.5px;
-        }
-        .popover-list { max-height: 350px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-        .popover-item {
-            padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer;
-            border-bottom: 1px solid #f0f0f0; transition: 0.2s; background: white; text-decoration: none; color: inherit;
-        }
-        @media (hover: hover) { .popover-item:hover { background: #FEF2F4; } }
-        .popover-item:last-child { border-bottom: none; }
-
-        .popover-unread-count {
-            background: #E60026; color: white; border-radius: 12px;
-            padding: 4px 10px; font-size: 11px; font-weight: 900; flex-shrink: 0;
-        }
-
-        @keyframes popIn {
-            0% { opacity: 0; transform: scale(0.9) translateY(-10px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
     </style>
 
     <style>
