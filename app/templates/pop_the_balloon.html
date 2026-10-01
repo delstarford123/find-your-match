@@ -75,6 +75,16 @@
         flex: 1;
         gap: 15px;
         min-height: 0; /* Important for flex-shrink */
+        position: relative;
+    }
+
+    #jitsi-container {
+        flex: 1;
+        background: var(--panel-bg);
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.05);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
     /* Contestant Spotlight */
@@ -315,37 +325,13 @@
     <!-- Main Stage -->
     <div class="main-stage">
         
-        <!-- Active Contestant -->
-        <div class="spotlight-area blind-mode" id="spotlight">
-            <video id="contestant-video" class="contestant-feed" autoplay playsinline muted loop>
-                <!-- Placeholder loop for empty state -->
-                <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
-            </video>
-            
-            <div style="position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 12px; backdrop-filter: blur(4px); display: flex; align-items: center; gap: 10px;">
-                <span id="contestant-name" style="font-weight: 800; font-size: 18px;">? ? ?</span>
-                <button id="tts-btn" class="hidden" onclick="speakContestantBio()" style="background: none; border: none; color: #38bdf8; cursor: pointer;" title="Read Bio Aloud">🔊</button>
-            </div>
-            
-            <!-- Host Controls (Only visible to admin/host) -->
-            <div id="host-controls" class="hidden" style="position: absolute; top: 20px; right: 20px;">
-                <button onclick="startRound()" style="background: #2de2a6; color: #111; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; cursor: pointer;">Start Pitch</button>
-                <button onclick="triggerBreakoutRoom()" style="background: #E60026; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; cursor: pointer; margin-left: 5px;">Force Match</button>
-            </div>
-            
-            <!-- Reverse Roles / Breakout Overlay -->
-            <div id="breakout-overlay" class="hidden" style="position: absolute; inset: 0; background: rgba(230,0,38,0.8); z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <h2 style="font-size: 32px; font-weight: 900; margin-bottom: 20px;">IT'S A MATCH! 💘</h2>
-                <button onclick="enterBreakoutRoom()" class="role-btn" style="background: white; color: #E60026;">Go to Private Breakout Room</button>
-            </div>
-        </div>
-
-        <!-- Panelists Grid -->
-        <div class="panel-area" id="panel-grid">
-            <!-- Dynamically populated via JS -->
-            <div class="panelist-card empty">
-                <span style="color: #666; font-weight: 800;">Waiting...</span>
-            </div>
+        <!-- Live Video Room (Jitsi Meet) -->
+        <div id="jitsi-container"></div>
+        
+        <!-- Breakout Overlay (Matches) -->
+        <div id="breakout-overlay" class="hidden" style="position: absolute; inset: 0; background: rgba(230,0,38,0.8); z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 20px;">
+            <h2 style="font-size: 32px; font-weight: 900; margin-bottom: 20px;">IT'S A MATCH! 💘</h2>
+            <button onclick="enterBreakoutRoom()" class="role-btn" style="background: white; color: #E60026;">Go to Private Breakout Room</button>
         </div>
 
         <!-- Spectator Chat Sidebar -->
@@ -371,6 +357,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://meet.jit.si/external_api.js"></script>
 
 <script>
     // System Variables
@@ -443,18 +430,56 @@
         checkHardwarePermissions();
     }
     
+    let api = null; // Jitsi API instance
+
     // WebRTC / Hardware Permission Check (Placeholder for Signaling)
     async function checkHardwarePermissions() {
         if (myRole !== 'spectator') {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                // If WebRTC is fully implemented, stream gets attached here and SDP offers exchange via RTDB
-                console.log("Hardware access granted. Ready for WebRTC connection.");
+                console.log("Hardware access granted. Initializing Live Video Room.");
+                initializeJitsiRoom();
             } catch (err) {
                 console.warn("Camera blocked. Falling back to Profile Picture + Text-to-Speech mode.");
-                document.getElementById('tts-btn').classList.remove('hidden');
+                document.getElementById('tts-btn')?.classList.remove('hidden');
+                // Even without hardware, we can join to watch
+                initializeJitsiRoom(false);
             }
+        } else {
+            // Spectators join with muted audio/video automatically
+            initializeJitsiRoom(false);
         }
+    }
+    
+    function initializeJitsiRoom(hasHardware = true) {
+        if (api) {
+            api.dispose();
+        }
+        
+        const domain = 'meet.jit.si';
+        const options = {
+            roomName: 'MMUST_Dating_Live_Room_001',
+            width: '100%',
+            height: '100%',
+            parentNode: document.querySelector('#jitsi-container'),
+            userInfo: {
+                displayName: myName
+            },
+            configOverwrite: {
+                startWithAudioMuted: !hasHardware || myRole === 'spectator',
+                startWithVideoMuted: !hasHardware || myRole === 'spectator',
+                prejoinPageEnabled: false,
+                disableDeepLinking: true,
+            },
+            interfaceConfigOverwrite: {
+                TOOLBAR_BUTTONS: [
+                    'microphone', 'camera', 'chat', 'raisehand',
+                    'videoquality', 'tileview'
+                ],
+                SHOW_JITSI_WATERMARK: false,
+            }
+        };
+        api = new JitsiMeetExternalAPI(domain, options);
     }
     
     // Text-to-Speech Integration
