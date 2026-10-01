@@ -6778,7 +6778,23 @@ def campus_life():
 @login_required
 @csrf.exempt
 def rsvp_event():
-    return jsonify({'success': True, 'message': 'You have successfully RSVP\'d to this event! See you there.'})
+    user_id = session.get('user_id')
+    data = request.json
+    event_id = data.get('event_id')
+    
+    if not event_id:
+        return jsonify({'success': False, 'error': 'No event specified.'}), 400
+        
+    try:
+        # Save to database
+        db.reference(f'events_rsvps/{event_id}/{user_id}').set({
+            'timestamp': int(time.time() * 1000),
+            'status': 'attending'
+        })
+        return jsonify({'success': True, 'message': 'You have successfully RSVP\'d to this event! See you there.'})
+    except Exception as e:
+        print(f"Error RSVPing to event: {e}")
+        return jsonify({'success': False, 'error': 'Failed to process RSVP.'}), 500
 
 @app.route('/campus-gossip')
 @requires_subscription

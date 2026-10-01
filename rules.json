@@ -39,8 +39,15 @@
         "created_at", 
         "institution_name", 
         "institution_type",
-        "crush_votes"
+        "crush_votes",
+        "tribe"
       ]
+    },
+    
+    "events_rsvps": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["event_id", "user_id"]
     },
     
     "notifications": {
