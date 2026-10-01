@@ -375,7 +375,7 @@
                         <span class="chat-partner-status status-text">
                             {% if active_partner.id == 'AI_COMPANION' %}Always Online
                             {% elif active_partner.is_online %}Online
-                            {% else %}Offline{% endif %}
+                            {% else %}{{ active_partner.last_seen | time_ago }}{% endif %}
                         </span>
                     {% endif %}
                 </div>
@@ -1297,6 +1297,41 @@
                     statusElement.title = 'Send failed - check connection';
                 }
             });
+        }
+        
+        // FEATURE 6: AI ICEBREAKERS
+        async function generateIcebreakerInChat() {
+            if (!activePartnerId || activePartnerId === 'AI_COMPANION') return;
+            
+            const btn = document.getElementById('btn-magic');
+            if (btn) btn.classList.add('loading');
+            
+            try {
+                const _csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                const response = await fetch('/api/generate_icebreakers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf },
+                    body: JSON.stringify({ partner_id: activePartnerId })
+                });
+                
+                const data = await response.json();
+                if (data.success && data.icebreakers && data.icebreakers.length > 0) {
+                    // Randomly select one of the 3 icebreakers
+                    const randomIdx = Math.floor(Math.random() * data.icebreakers.length);
+                    const chatInput = document.getElementById('chat-input');
+                    if (chatInput) {
+                        chatInput.value = data.icebreakers[randomIdx];
+                        chatInput.focus();
+                    }
+                } else {
+                    alert('Failed to generate icebreaker. Try again later.');
+                }
+            } catch (err) {
+                console.error('Icebreaker error:', err);
+                alert('Connection error while generating icebreaker.');
+            } finally {
+                if (btn) btn.classList.remove('loading');
+            }
         }
 
         if (chatInput) chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });

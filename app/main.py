@@ -342,6 +342,33 @@ def to_locale_string_filter(value):
     except (ValueError, TypeError):
         return value
 
+@app.template_filter('time_ago')
+def time_ago_filter(value):
+    """Converts an ISO timestamp to a relative time string (e.g., '2 hours ago')."""
+    if not value:
+        return "Unknown"
+    try:
+        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=EAT)
+        
+        now = datetime.now(timezone.utc)
+        diff = now - dt
+        
+        if diff.total_seconds() < 60:
+            return "Active just now"
+        elif diff.total_seconds() < 3600:
+            minutes = int(diff.total_seconds() / 60)
+            return f"Active {minutes}m ago"
+        elif diff.total_seconds() < 86400:
+            hours = int(diff.total_seconds() / 3600)
+            return f"Active {hours}h ago"
+        else:
+            days = int(diff.total_seconds() / 86400)
+            return f"Active {days}d ago"
+    except Exception:
+        return "Unknown"
+
 @app.context_processor
 def inject_system_settings():
     """Injects system-wide settings like Party Mode into all HTML templates."""
@@ -1299,7 +1326,8 @@ def dashboard():
                     'bio': p.get('bio', 'Hey there!'),
                     'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
                     'compatibility': p.get('ai_score', 85),
-                    'is_perfect_match': True # They are an actual match
+                    'is_perfect_match': True, # They are an actual match
+                    'last_seen': p.get('last_seen', '')
                 })
 
     # 4. FETCH DATE BOOKINGS (Single network call)
@@ -1647,6 +1675,7 @@ def matches(partner_id=None):
                     'phone': p.get('phone'), # Professional access for mutual matches
                     'is_perfect_match': is_perfect_match, # ❤️ TRIGGERS PERFECT MATCH BADGE
                     'is_online': p.get('is_online', False),
+                    'last_seen': p.get('last_seen', ''),
                     'is_mutual_match': is_mutual,      # 🔥 TRIGGERS MUTUAL MATCH GLOW
                     'last_message': last_msg,
                     'last_message_time': last_msg_time,
@@ -1974,6 +2003,11 @@ def calculate_profile_badges(user_data):
     # 3. Highly Responsive (Simulated based on online status/activity)
     if user_data.get('is_online'):
         badges.append({'id': 'active', 'icon': '⚡', 'label': 'Highly Responsive', 'color': '#22C55E'})
+        
+    # 4. FEATURE 15: Verified Vibes Badge
+    # Awarded to users with 5 or more positive post-date/call reviews
+    if int(user_data.get('positive_vibes', 0)) >= 5:
+        badges.append({'id': 'verified_vibes', 'icon': '🌟', 'label': 'Verified Vibes', 'color': '#F59E0B'})
         
     # 4. Legacy Badge (Account Age)
     created_at = user_data.get('created_at')
@@ -6096,6 +6130,65 @@ def talk_directory():
 #  users who don't already have a longer subscription.
 #  Offer end date: 2026-10-23 (1 month from launch: 2026-09-23)
 # ─────────────────────────────────────────────────────────────
+@app.route('/api/generate_icebreakers', methods=['POST'])
+@login_required
+def generate_icebreakers():
+    """FEATURE 6: AI Icebreaker Prompts"""
+    user_id = session.get('user_id')
+    data = request.json
+    partner_id = data.get('partner_id')
+    
+    if not partner_id:
+        return jsonify({"success": False, "error": "Partner ID required"}), 400
+        
+    partner_profile = db.reference(f'profiles/{partner_id}').get()
+    if not partner_profile:
+        return jsonify({"success": False, "error": "Partner not found"}), 404
+        
+    try:
+        from groq import Groq
+        client = Groq(api_key=os.getenv('GROQ_API_KEY'))
+        
+        partner_bio = partner_profile.get('bio', 'No bio provided.')
+        partner_interests = ', '.join(partner_profile.get('interests', []))
+        partner_course = partner_profile.get('course', 'Unknown Course')
+        
+        prompt = f"""
+        You are an expert dating wingman. I need 3 short, funny, and engaging icebreaker messages to send to someone I just matched with.
+        
+        Here is what I know about them:
+        Bio: {partner_bio}
+        Interests: {partner_interests}
+        Course: {partner_course}
+        
+        Generate exactly 3 distinct conversation starters. 
+        Keep them under 15 words each. Do not use quotes or numbering. Separate each by a pipe character '|'.
+        Make them sound natural, a bit playful, and specific to their profile.
+        """
+        
+        chat_completion = client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama3-8b-8192",
+            max_tokens=100
+        )
+        
+        response_text = chat_completion.choices[0].message.content.strip()
+        icebreakers = [i.strip().strip('"').strip("'") for i in response_text.split('|') if i.strip()]
+        
+        # Fallback if AI fails to format
+        if len(icebreakers) < 3:
+            icebreakers = [
+                "Hey! What's the best thing that happened to you today?",
+                "Quick question: pineapple on pizza?",
+                "If you could teleport anywhere right now, where would you go?"
+            ]
+            
+        return jsonify({"success": True, "icebreakers": icebreakers[:3]})
+    except Exception as e:
+        logger.error(f"Error generating icebreakers: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/admin/apply-female-promo', methods=['POST'])
 @login_required
 def admin_apply_female_promo():
@@ -6200,6 +6293,14 @@ def submit_review():
             'reported': report,
             'timestamp': datetime.now(EAT).isoformat()
         })
+        
+        # FEATURE 15: VERIFIED VIBES BADGE
+        # If vibe is positive, increment the partner's positive vibe score
+        if vibe == 'up':
+            partner_ref = db.reference(f'profiles/{partner_id}')
+            partner_data = partner_ref.get() or {}
+            current_vibes = int(partner_data.get('positive_vibes', 0))
+            partner_ref.update({'positive_vibes': current_vibes + 1})
 
         # Check if the partner also gave a thumbs up (Mutual Vibe Match)
         partner_review = db.reference(f'call_reviews/{partner_id}/{user_id}').get()
@@ -6890,6 +6991,49 @@ def start_premium_email_schedulers():
     """
     pass
 
+def process_anti_ghosting_alerts(now):
+    """
+    Checks all matches for inactivity > 48 hours and sends a nudge to prevent ghosting.
+    """
+    alerts_sent = 0
+    all_matches = db.reference('matches').get() or {}
+    for match_id, match_data in all_matches.items():
+        if match_data.get('anti_ghost_sent'):
+            continue
+            
+        last_time_str = match_data.get('last_message_time')
+        if not last_time_str:
+            continue
+            
+        try:
+            last_time = datetime.fromisoformat(last_time_str.replace('Z', '+00:00'))
+            if last_time.tzinfo is None:
+                last_time = last_time.replace(tzinfo=EAT)
+                
+            if (now - last_time) > timedelta(hours=48):
+                # Send push notification / internal alert
+                users = match_data.get('users', {})
+                for uid in users.keys():
+                    # Check if they are actually a user and not a boolean
+                    if isinstance(uid, str):
+                        db.reference(f'notifications/{uid}').push({
+                            'sender_id': 'SYSTEM',
+                            'sender_name': 'Love Guru',
+                            'sender_img': '/static/img/mascot.png',
+                            'type': 'system',
+                            'message': f"👻 Don't ghost! It's been 48h since you last spoke here. Send a meme or a quick question!",
+                            'timestamp': now.isoformat(),
+                            'match_id': match_id
+                        })
+                
+                # Mark as sent so we don't spam them every hour
+                db.reference(f'matches/{match_id}/anti_ghost_sent').set(True)
+                alerts_sent += 1
+        except Exception:
+            pass
+            
+    return alerts_sent
+
 @app.route('/api/cron/hourly-check', methods=['GET', 'POST'])
 def cron_hourly_check():
     """
@@ -6937,6 +7081,14 @@ def cron_hourly_check():
                 results.append("Friday emails dispatched.")
             else:
                 results.append("Friday emails already sent this week.")
+                
+        # FEATURE 17: ANTI-GHOSTING ALERTS (Runs every hour)
+        try:
+            alerts_sent = process_anti_ghosting_alerts(now)
+            if alerts_sent > 0:
+                results.append(f"Anti-ghosting alerts sent: {alerts_sent}")
+        except Exception as ag_err:
+            logger.error(f"Anti-ghosting error: {ag_err}")
 
         return jsonify({
             "success": True, 
