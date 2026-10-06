@@ -8229,6 +8229,15 @@ def reject_join_group(group_id, target_user_id):
     flash("User request rejected.")
     return redirect(url_for('group_chat', group_id=group_id))
 
+
+# ==========================================
+# SPONSORS V2 INTEGRATION
+# ==========================================
+from app.routes.sponsors import sponsors_bp
+app.register_blueprint(sponsors_bp)
+csrf.exempt(sponsors_bp)
+
+
 if __name__ == '__main__':
     # Grab the port from Render's environment, default to 5000 for local testing
     port = int(os.environ.get('PORT', 5000))

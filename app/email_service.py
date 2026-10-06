@@ -2230,3 +2230,155 @@ def send_system_update_email(email, user_name=""):
     except Exception as e:
         logger.error(f"Failed to send system update email to {email}: {e}")
         return False
+
+
+# ==========================================
+# SPONSOR SYSTEM EMAILS (v2)
+# ==========================================
+
+def send_sponsor_welcome_email(recipient_email: str, recipient_name: str) -> bool:
+    """Sent to a new sponsor after their 1000 KSH registration payment is confirmed."""
+    subject = "💖 Welcome to FindYourMatch Sponsors — You're In!"
+
+    text_content = textwrap.dedent(f"""\
+        Welcome, {recipient_name}!
+
+        Your sponsor account on FindYourMatch is now active.
+        Your profile is under review and will be verified shortly.
+
+        You can now:
+        - Complete your profile and upload a photo
+        - Browse student profiles
+        - Send connection requests to students
+
+        Log in at: https://findyourmatch.co.ke/sponsor/login
+
+        Wishing you all the best,
+        — The FindYourMatch Team
+    """)
+
+    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
+                <!-- Logo -->
+                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
+                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
+                </div>
+                <!-- Hero -->
+                <div style="background:linear-gradient(135deg,#720000,#e60026);padding:40px 30px;text-align:center;color:white;">
+                    <div style="font-size:48px;margin-bottom:12px;">🌟</div>
+                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">Welcome, {recipient_name}!</h1>
+                    <p style="margin:0;font-size:15px;opacity:0.9;">Your sponsor account is now active on FindYourMatch</p>
+                </div>
+                <!-- Body -->
+                <div style="padding:35px 30px;">
+                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
+                        Congratulations! Your registration is complete and your profile is now live.
+                        Our team will verify your account shortly and you'll be discoverable by students across Kenya.
+                    </p>
+                    <div style="background:#fef2f2;border-radius:12px;padding:20px;border:1px solid #fecaca;margin:25px 0;">
+                        <h3 style="color:#720000;margin:0 0 12px;font-size:16px;">✅ What you can do now:</h3>
+                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
+                            <li>Complete your profile and upload your photo</li>
+                            <li>Browse student profiles looking for sponsors</li>
+                            <li>Send connection requests and start conversations</li>
+                            <li>Receive weekly match suggestions via email</li>
+                        </ul>
+                    </div>
+                    <div style="text-align:center;margin-top:30px;">
+                        <a href="{base_url}/sponsor/login"
+                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#720000,#e60026);
+                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
+                                  box-shadow:0 4px 15px rgba(230,0,38,0.3);">
+                            💖 Go to My Sponsor Dashboard
+                        </a>
+                    </div>
+                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
+                        May you find exactly what you're looking for. 🌹
+                    </p>
+                </div>
+                <!-- Footer -->
+                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
+                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
+
+
+def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, is_free: bool = False) -> bool:
+    """Sent to a student after gaining Sponsors Room access (paid or free)."""
+    subject = "🏠 You're In — Welcome to the FindYourMatch Sponsors Room!"
+    access_note = "as a complimentary benefit" if is_free else "for the next 30 days"
+
+    text_content = textwrap.dedent(f"""\
+        Hi {recipient_name}!
+
+        You now have access to the FindYourMatch Sponsors Room {access_note}.
+
+        Inside you'll find sponsor profiles — people outside campus who are interested
+        in connecting with students like you. Browse their profiles and say hello!
+
+        Visit: https://findyourmatch.co.ke/sponsors-room
+
+        Have a blessed day,
+        — The FindYourMatch Team
+    """)
+
+    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
+                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
+                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
+                </div>
+                <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:40px 30px;text-align:center;color:white;">
+                    <div style="font-size:48px;margin-bottom:12px;">🏠✨</div>
+                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">You're In, {recipient_name}!</h1>
+                    <p style="margin:0;font-size:15px;opacity:0.9;">The Sponsors Room is now unlocked for you {access_note}</p>
+                </div>
+                <div style="padding:35px 30px;">
+                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
+                        Welcome to the <strong>FindYourMatch Sponsors Room</strong> — an exclusive space where students
+                        connect with sponsors who are genuinely interested in meaningful relationships.
+                    </p>
+                    <div style="background:#f5f3ff;border-radius:12px;padding:20px;border:1px solid #ddd6fe;margin:25px 0;">
+                        <h3 style="color:#7c3aed;margin:0 0 12px;font-size:16px;">🎯 Inside the Sponsors Room:</h3>
+                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
+                            <li>Browse verified sponsor profiles</li>
+                            <li>See compatibility scores</li>
+                            <li>Send connection requests</li>
+                            <li>Chat directly with sponsors</li>
+                        </ul>
+                    </div>
+                    <div style="text-align:center;margin-top:30px;">
+                        <a href="{base_url}/sponsors-room"
+                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#7c3aed,#a855f7);
+                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
+                                  box-shadow:0 4px 15px rgba(124,58,237,0.3);">
+                            🚀 Enter the Sponsors Room
+                        </a>
+                    </div>
+                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
+                        Your perfect match is waiting. Have a blessed day! 💖
+                    </p>
+                </div>
+                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
+                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")

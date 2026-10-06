@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden mt-10">
+    <div class="bg-gradient-to-r from-purple-600 to-fuchsia-600 p-8 text-center text-white">
+        <div class="text-4xl mb-4">🔓</div>
+        <h2 class="text-3xl font-black mb-2">Unlock Sponsors Room</h2>
+        <p class="text-purple-100 font-medium">Access premium sponsor profiles for 30 days.</p>
+    </div>
+
+    <div class="p-8 text-center" id="payment-form-container">
+        <div class="bg-purple-50 rounded-2xl p-6 border border-purple-100 mb-6">
+            <p class="text-sm text-purple-800 font-bold mb-1">Access Fee</p>
+            <p class="text-4xl font-black text-purple-900">KES {{ fee }}</p>
+            <p class="text-xs text-purple-600 mt-2">Valid for 30 days</p>
+        </div>
+
+        <form id="stk-push-form" class="space-y-4 text-left">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">M-Pesa Phone Number</label>
+                <input type="tel" id="phone" name="phone" placeholder="e.g. 0712345678" required
+                       class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-purple-500 focus:ring-0 transition-colors font-medium">
+            </div>
+            
+            <button type="submit" id="pay-btn"
+                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-200">
+                Pay Now via M-Pesa
+            </button>
+        </form>
+    </div>
+    
+    <!-- Loading State -->
+    <div id="loading-state" class="hidden p-8 text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-6"></div>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">Check your phone...</h3>
+        <p class="text-gray-500 mb-4">Enter your M-Pesa PIN to complete the payment of KES {{ fee }}.</p>
+        <p class="text-sm font-bold text-purple-600 animate-pulse">Waiting for confirmation...</p>
+    </div>
+    
+    <!-- Success State -->
+    <div id="success-state" class="hidden p-8 text-center">
+        <div class="text-5xl mb-4">🎉</div>
+        <h3 class="text-2xl font-black text-gray-900 mb-2">Payment Successful!</h3>
+        <p class="text-gray-500 mb-6">The Sponsors Room is now unlocked.</p>
+        <button onclick="window.location.reload()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-200">
+            Enter Room
+        </button>
+    </div>
+</div>
+
+<script>
+document.getElementById('stk-push-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('pay-btn');
+    const phone = document.getElementById('phone').value;
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    
+    btn.disabled = true;
+    btn.innerText = "Processing...";
+    
+    try {
+        const formData = new FormData();
+        formData.append('phone', phone);
+        
+        const response = await fetch("{{ url_for('sponsors.pay_sponsor_room') }}", {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrfToken},
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('payment-form-container').classList.add('hidden');
+            document.getElementById('loading-state').classList.remove('hidden');
+            pollPaymentStatus();
+        } else {
+            alert(data.error || "Failed to initiate payment.");
+            btn.disabled = false;
+            btn.innerText = "Pay Now via M-Pesa";
+        }
+    } catch (err) {
+        alert("Network error. Please try again.");
+        btn.disabled = false;
+        btn.innerText = "Pay Now via M-Pesa";
+    }
+});
+
+function pollPaymentStatus() {
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    let attempts = 0;
+    
+    const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > 30) {
+            clearInterval(interval);
+            alert("Payment check timed out. If you paid, please refresh the page.");
+            window.location.reload();
+            return;
+        }
+        
+        try {
+            const response = await fetch("{{ url_for('sponsors.finalize_sponsor_room') }}", {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrfToken}
+            });
+            const data = await response.json();
+            
+            if (data.success && data.status === "PAID") {
+                clearInterval(interval);
+                document.getElementById('loading-state').classList.add('hidden');
+                document.getElementById('success-state').classList.remove('hidden');
+            } else if (data.status === "FAILED" || data.status === "CANCELED") {
+                clearInterval(interval);
+                alert("Payment was canceled or failed.");
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error("Polling error", e);
+        }
+    }, 2000);
+}
+</script>
+{% endblock %}

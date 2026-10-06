@@ -588,6 +588,20 @@
 </div>
 {% endif %}
 
+<!-- SPONSORS ROOM BANNER -->
+<div class="mb-8 p-6 bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-3xl shadow-xl text-center text-white relative overflow-hidden">
+    <div class="relative z-10">
+        <h2 class="text-2xl font-black mb-2">🏠 Enter the Sponsors Room</h2>
+        <p class="font-medium text-purple-100 mb-4">Connect with verified sponsors off-campus.</p>
+        <a href="{{ url_for('sponsors.sponsors_room') }}" class="inline-block bg-white text-purple-700 font-bold px-8 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-md">
+            Enter Room
+        </a>
+    </div>
+    <!-- Decorative background elements -->
+    <div class="absolute -top-12 -right-12 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+    <div class="absolute -bottom-12 -left-12 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+</div>
+
 <h2 class="section-title">Discover Students</h2>
 {% if matches %}
 <div class="matches-grid">

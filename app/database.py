@@ -552,3 +552,140 @@ def add_campus_manager(name: str, email: str, institution: str, password_hash: s
     except Exception as e:
         logger.error(f"Error adding campus manager: {e}")
         return False
+
+
+# ==========================================
+# SPONSORS SYSTEM (v2)
+# ==========================================
+
+def create_sponsor_profile(sponsor_id: str, data: dict) -> bool:
+    """Saves a new sponsor profile under sponsor_profiles/{sponsor_id}."""
+    try:
+        data['account_type']  = 'sponsor'
+        data['is_verified']   = False
+        data['joined_at']     = datetime.now(EAT).isoformat()
+        db.reference(f'sponsor_profiles/{sponsor_id}').set(data)
+        logger.info(f"✅ Sponsor profile created: {sponsor_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error creating sponsor profile {sponsor_id}: {e}")
+        return False
+
+
+def get_sponsor_profile(sponsor_id: str) -> dict:
+    """Fetches a single sponsor profile."""
+    try:
+        data = db.reference(f'sponsor_profiles/{sponsor_id}').get()
+        if data:
+            data['id'] = sponsor_id
+        return data or {}
+    except Exception as e:
+        logger.error(f"Error fetching sponsor {sponsor_id}: {e}")
+        return {}
+
+
+_sponsors_cache = None
+_sponsors_cache_expiry = None
+
+def get_all_sponsors(verified_only: bool = False) -> list:
+    """Fetches all sponsor profiles with a 30-second cache."""
+    global _sponsors_cache, _sponsors_cache_expiry
+    try:
+        now = datetime.now()
+        if _sponsors_cache is not None and _sponsors_cache_expiry and now < _sponsors_cache_expiry:
+            data = _sponsors_cache
+        else:
+            raw = db.reference('sponsor_profiles').get() or {}
+            data = [{**v, 'id': k} for k, v in raw.items() if isinstance(v, dict)]
+            _sponsors_cache = data
+            _sponsors_cache_expiry = now + timedelta(seconds=30)
+
+        if verified_only:
+            return [s for s in data if s.get('is_verified')]
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching sponsors: {e}")
+        return _sponsors_cache or []
+
+
+def update_sponsor_profile(sponsor_id: str, updates: dict) -> bool:
+    """Partial update to a sponsor profile."""
+    try:
+        db.reference(f'sponsor_profiles/{sponsor_id}').update(updates)
+        global _sponsors_cache
+        _sponsors_cache = None  # invalidate cache
+        return True
+    except Exception as e:
+        logger.error(f"Error updating sponsor {sponsor_id}: {e}")
+        return False
+
+
+def get_sponsor_by_email(email: str) -> dict:
+    """Finds a sponsor by email (linear scan — sponsors list is small)."""
+    try:
+        raw = db.reference('sponsor_profiles').get() or {}
+        for sid, sdata in raw.items():
+            if isinstance(sdata, dict) and sdata.get('email', '').lower() == email.lower():
+                return {**sdata, 'id': sid}
+        return {}
+    except Exception as e:
+        logger.error(f"Error finding sponsor by email: {e}")
+        return {}
+
+
+# ------------------------------------------------------------------
+# Sponsors Room Student Access
+# ------------------------------------------------------------------
+
+def has_sponsors_room_access(user_id: str) -> bool:
+    """
+    Checks if a student currently has active Sponsors Room access.
+    Female students always return True (free access — enforced here).
+    """
+    try:
+        profile = db.reference(f'profiles/{user_id}').get() or {}
+        gender = str(profile.get('gender', '')).lower()
+        if gender in ('female', 'f'):
+            return True  # always free for female students
+
+        access_until_str = profile.get('sponsor_room_access_until')
+        if not access_until_str:
+            return False
+        access_until = datetime.fromisoformat(access_until_str)
+        # Make aware if naive
+        if access_until.tzinfo is None:
+            access_until = access_until.replace(tzinfo=EAT)
+        return datetime.now(EAT) < access_until
+    except Exception as e:
+        logger.error(f"Error checking sponsors room access for {user_id}: {e}")
+        return False
+
+
+def grant_sponsors_room_access(user_id: str, days: int = 30) -> bool:
+    """Grants a student Sponsors Room access for N days from now."""
+    try:
+        expires_at = datetime.now(EAT) + timedelta(days=days)
+        db.reference(f'profiles/{user_id}').update({
+            'sponsor_room_access_until': expires_at.isoformat()
+        })
+        clear_profiles_cache()
+        logger.info(f"✅ Sponsors Room access granted to {user_id} until {expires_at.date()}")
+        return True
+    except Exception as e:
+        logger.error(f"Error granting sponsors room access: {e}")
+        return False
+
+
+def log_sponsors_room_payment(user_id: str, amount: int, checkout_id: str) -> bool:
+    """Logs a Sponsors Room payment for auditing."""
+    try:
+        db.reference(f'sponsor_room_payments/{user_id}').push({
+            'amount': amount,
+            'checkout_id': checkout_id,
+            'paid_at': datetime.now(EAT).isoformat(),
+            'expires_at': (datetime.now(EAT) + timedelta(days=30)).isoformat()
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error logging sponsor room payment: {e}")
+        return False
