@@ -43,6 +43,18 @@
         "tribe"
       ]
     },
+
+    "sponsor_profiles": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": [
+        "email",
+        "phone",
+        "is_active",
+        "is_verified",
+        "gender"
+      ]
+    },
     
     "events_rsvps": {
       ".read": "auth != null",
