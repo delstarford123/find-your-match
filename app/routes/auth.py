@@ -391,6 +391,10 @@ def verify_email():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    # Smart Router for Sponsors
+    if request.method == 'GET' and request.cookies.get('account_type_pref') == 'sponsor':
+        return redirect(url_for('sponsors.sponsor_login'))
+        
     # Notification for existing clients
     if request.headers.get('Accept') == 'application/json':
         return jsonify({

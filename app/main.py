@@ -8243,22 +8243,6 @@ def clear_session():
     resp.set_cookie('account_type_pref', '', expires=0)
     return resp
 
-@app.route('/join')
-def join_selection():
-    """Renders the selector page: I am a student vs I am not a student."""
-    # Clear session to ensure they start fresh when trying to register
-    session.clear()
-    return render_template('join_selection.html')
-
-@app.route('/login-router')
-def login_router():
-    """Remembers the user's account type and sends them to the right login portal."""
-    pref = request.cookies.get('account_type_pref')
-    if pref == 'sponsor':
-        return redirect(url_for('sponsors.sponsor_login'))
-    # Default to student login
-    return redirect(url_for('auth.login'))
-
 
 # ==========================================
 # SPONSORS V2 INTEGRATION
