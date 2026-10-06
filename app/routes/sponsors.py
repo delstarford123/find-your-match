@@ -124,7 +124,11 @@ def sponsor_finalize_registration():
         session['user_id'] = pending['id']
         session['account_type'] = 'sponsor'
         session.pop('pending_sponsor', None)
-        return jsonify({"success": True})
+        
+        from flask import make_response
+        resp = make_response(jsonify({"success": True}))
+        resp.set_cookie('account_type_pref', 'sponsor', max_age=31536000)
+        return resp
     return jsonify({"success": False, "error": "Failed to create profile."})
 
 
@@ -142,7 +146,11 @@ def sponsor_login():
         session['account_type'] = 'sponsor'
         session['gender'] = sponsor.get('gender')
         session.permanent = True
-        return redirect(url_for('sponsors.sponsor_dashboard'))
+        
+        from flask import make_response
+        resp = make_response(redirect(url_for('sponsors.sponsor_dashboard')))
+        resp.set_cookie('account_type_pref', 'sponsor', max_age=31536000)
+        return resp
         
     flash("Invalid sponsor credentials.", "error")
     return redirect(url_for('sponsors.sponsor_login'))

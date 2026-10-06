@@ -253,7 +253,11 @@ def verify_email():
         session['user_email'] = user_data.get('email')
         session['user_img'] = user_data.get('img')
         session.pop('temp_user_id', None)
-        return redirect(url_for('swipe'))
+        
+        from flask import make_response
+        resp = make_response(redirect(url_for('swipe')))
+        resp.set_cookie('account_type_pref', 'student', max_age=31536000)
+        return resp
 
     if request.method == 'POST':
         entered_code = request.form.get('otp_code', '').strip()
@@ -374,7 +378,10 @@ def verify_email():
                 else:
                     flash("Account verified successfully! Welcome to MMUST Dating AI.", "success")
                 
-            return redirect(url_for('swipe'))
+            from flask import make_response
+            resp = make_response(redirect(url_for('swipe')))
+            resp.set_cookie('account_type_pref', 'student', max_age=31536000)
+            return resp
         else:
             flash("Invalid code. Please check your email and try again.", "error")
 
@@ -499,7 +506,11 @@ def login():
                         session['user_religion'] = user.get('religion', 'Other') 
                         
                         flash(f"Welcome back, {user['name']}!", "success")
-                        return redirect(url_for('swipe'))
+                        
+                        from flask import make_response
+                        resp = make_response(redirect(url_for('swipe')))
+                        resp.set_cookie('account_type_pref', 'student', max_age=31536000)
+                        return resp
                     else:
                         # Failed Password Attempt Handling
                         attempts = user.get('failed_attempts', 0) + 1

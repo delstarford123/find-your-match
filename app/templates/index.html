@@ -396,16 +396,8 @@
             <p>We use cutting-edge Artificial Intelligence to analyze schedules, aesthetics, and personalities across Kenya's top institutions. No more random swiping or awkward silences—just smart, verified student connections.</p>
             
             <div class="hero-buttons">
-                <a href="{{ url_for('auth.signup') }}" class="btn-hero-primary">Find My Match 🚀</a>
-                <a href="{{ url_for('auth.login') }}" class="btn-hero-secondary">Log In to Account</a>
-            </div>
-            
-            <div style="margin-top: 35px; border-top: 1px solid #FFD6DD; padding-top: 25px;">
-                <p style="font-size: 14px; color: #720000; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;">Not a student? Join the Sponsors Room</p>
-                <div class="hero-buttons" style="gap: 15px;">
-                    <a href="{{ url_for('sponsors.sponsor_register') }}" class="btn-hero-primary" style="background: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%); box-shadow: 0 10px 25px rgba(124, 58, 237, 0.25);">Become a Sponsor 🌟</a>
-                    <a href="{{ url_for('sponsors.sponsor_login') }}" class="btn-hero-secondary" style="color: #7c3aed;">Sponsor Login</a>
-                </div>
+                <a href="{{ url_for('join_selection') }}" class="btn-hero-primary">Find My Match 🚀</a>
+                <a href="{{ url_for('login_router') }}" class="btn-hero-secondary">Log In to Account</a>
             </div>
         </div>
         

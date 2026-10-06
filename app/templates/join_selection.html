@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-16">
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-black text-red-900 mb-4">How do you want to join?</h1>
+        <p class="text-lg text-gray-600 font-medium max-w-xl mx-auto">Select your account type to proceed to the correct registration portal.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        <!-- Student Option -->
+        <a href="{{ url_for('auth.signup') }}" class="group block bg-white rounded-3xl p-8 border-2 border-red-100 shadow-xl hover:border-red-500 hover:shadow-2xl transition-all transform hover:-translate-y-2">
+            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center text-4xl mb-6 mx-auto group-hover:scale-110 transition-transform">
+                🎓
+            </div>
+            <h2 class="text-2xl font-black text-gray-900 text-center mb-3">I am a Student</h2>
+            <p class="text-gray-500 text-center font-medium leading-relaxed">
+                I want to meet other students on campus, swipe on profiles, and join the anonymous gossip board.
+            </p>
+            <div class="mt-8 text-center text-red-600 font-bold group-hover:text-red-700">
+                Continue as Student &rarr;
+            </div>
+        </a>
+
+        <!-- Sponsor Option -->
+        <a href="{{ url_for('sponsors.sponsor_register') }}" class="group block bg-white rounded-3xl p-8 border-2 border-purple-100 shadow-xl hover:border-purple-500 hover:shadow-2xl transition-all transform hover:-translate-y-2">
+            <div class="w-20 h-20 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-4xl mb-6 mx-auto group-hover:scale-110 transition-transform">
+                🌟
+            </div>
+            <h2 class="text-2xl font-black text-gray-900 text-center mb-3">I am Not a Student</h2>
+            <p class="text-gray-500 text-center font-medium leading-relaxed">
+                I want to join the exclusive Sponsors Room to connect with students and meet my perfect match.
+            </p>
+            <div class="mt-8 text-center text-purple-600 font-bold group-hover:text-purple-700">
+                Continue to Sponsors Room &rarr;
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

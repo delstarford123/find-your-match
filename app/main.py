@@ -8231,6 +8231,25 @@ def reject_join_group(group_id, target_user_id):
 
 
 # ==========================================
+# SMART ACCOUNT ROUTING (Students vs Sponsors)
+# ==========================================
+
+@app.route('/join')
+def join_selection():
+    """Renders the selector page: I am a student vs I am not a student."""
+    return render_template('join_selection.html')
+
+@app.route('/login-router')
+def login_router():
+    """Remembers the user's account type and sends them to the right login portal."""
+    pref = request.cookies.get('account_type_pref')
+    if pref == 'sponsor':
+        return redirect(url_for('sponsors.sponsor_login'))
+    # Default to student login
+    return redirect(url_for('auth.login'))
+
+
+# ==========================================
 # SPONSORS V2 INTEGRATION
 # ==========================================
 from app.routes.sponsors import sponsors_bp
