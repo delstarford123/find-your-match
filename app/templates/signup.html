@@ -280,6 +280,11 @@
 <div class="auth-wrapper">
     <div class="auth-card">
         
+        <div style="background: rgba(29, 78, 216, 0.1); border: 1px solid rgba(29, 78, 216, 0.2); border-radius: 12px; padding: 12px 20px; text-align: center; margin-bottom: 25px;">
+            <span style="font-size: 14px; font-weight: 600; color: #1e40af;">Not a student?</span> 
+            <a href="{{ url_for('sponsors.sponsor_register') }}" style="color: #1d4ed8; font-weight: 800; text-decoration: underline; margin-left: 5px;">Join the Sponsors Room 🌟</a>
+        </div>
+        
         <div class="auth-header">
             <div style="margin-bottom: 25px; display: flex; justify-content: center;">
                 <div style="background: linear-gradient(135deg, rgba(230,0,38,0.1) 0%, rgba(230,0,38,0.05) 100%); width: 85px; height: 85px; border-radius: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 15px 35px rgba(230,0,38,0.15); font-size: 40px; border: 1px solid rgba(230,0,38,0.2); transform: rotate(-8deg); animation: pulseGlow 3s infinite;">
@@ -439,9 +444,6 @@
 
         <div class="auth-footer">
             Already have an account? <a href="{{ url_for('auth.login') }}">Log in here</a>.
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(0,0,0,0.1);">
-                Not a student? <a href="{{ url_for('sponsors.sponsor_register') }}" style="color: #1d4ed8;">Join the Sponsors Room 🌟</a>
-            </div>
         </div>
     </div>
 </div>
