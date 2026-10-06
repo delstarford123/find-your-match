@@ -388,11 +388,27 @@
         <div id="status-box" class="status-alert"></div>
         <input type="hidden" id="selected-package" value="gold">
 
+        <!-- === PACKAGE DETAILS === -->
+        {% if intent == 'sponsor_register' %}
+        <div class="price-badge" style="background: #eff6ff; color: #1d4ed8;">Sponsor Registration</div>
+        <h1 class="pay-title" style="color: #1e40af;">Activate Account</h1>
+        <p class="pay-subtitle">Complete your payment of KSH {{ amount }} to access the exclusive Sponsors Room.</p>
+
+        <div class="package-options">
+            <div class="package-card active" data-package="sponsor" data-amount="{{ amount }}" style="border: 2px solid #1d4ed8; background: #eff6ff;">
+                <div class="popular-tag" style="background: #1e40af;">LIFETIME VIP 🌟</div>
+                <div class="package-header">
+                    <span class="package-name">🌟 Sponsor Access</span>
+                    <span class="package-price" style="color: #1e40af;">{{ amount }} <small>KSH</small></span>
+                </div>
+                <p class="package-desc">Exclusive unrestricted access to the FindYourMatch network.</p>
+            </div>
+        </div>
+        {% else %}
         <div class="price-badge">Monthly Access</div>
         <h1 class="pay-title">Choose Your Package</h1>
         <p class="pay-subtitle">Find verification, connections, and live calling on campus.</p>
 
-        <!-- === PREMIUM PACKAGE DETAILS === -->
         <div class="package-options">
             <div class="package-card active" data-package="gold" data-amount="50" style="border: 2px solid #E60026; background: #fff0f2;">
                 <div class="popular-tag">ALL FEATURES UNLOCKED 💎</div>
@@ -403,7 +419,9 @@
                 <p class="package-desc">Complete unrestricted access to all campus social and safety features.</p>
             </div>
         </div>
+        {% endif %}
 
+        {% if intent != 'sponsor_register' %}
         <button class="view-comparison-btn" onclick="toggleComparison()">View All Included Features ▾</button>
 
         <!-- === FEATURES LIST === -->
@@ -442,9 +460,10 @@
             <div class="comp-row"><span>💫 Golden Super-Like Blast</span><span class="y">✓</span></div>
             <div class="comp-row"><span>🛡️ SafeWalk Pro GPS Tracker</span><span class="y">✓</span></div>
         </div>
+        {% endif %}
 
         <!-- PHASE 1: INPUT FORM (default) -->
-        <div id="phase-input">
+        <div id="phase-input" style="{% if intent == 'sponsor_register' %}display: none;{% else %}display: block;{% endif %}">
             <div class="mpesa-input-group" id="input-container">
                 <label for="student-phone">M-Pesa Number</label>
                 <input type="tel" id="student-phone" value="" placeholder="07XXXXXXXX or 01XXXXXXXX"
@@ -466,15 +485,15 @@
         </div>
 
         <!-- PHASE 2: WAITING / POLLING VIEW (shown after STK push sent) -->
-        <div id="phase-waiting" style="display:none; width:100%;">
+        <div id="phase-waiting" style="{% if intent == 'sponsor_register' %}display:block;{% else %}display:none;{% endif %} width:100%;">
             <!-- Animated phone icon -->
             <div style="text-align:center; margin-bottom:20px; position:relative; z-index:2;">
                 <div id="phone-pulse" style="
                     width:80px; height:80px; border-radius:50%;
-                    background:linear-gradient(135deg,#E60026,#720000);
+                    background:linear-gradient(135deg, {% if intent == 'sponsor_register' %}#1e40af,#1d4ed8{% else %}#E60026,#720000{% endif %});
                     display:flex; align-items:center; justify-content:center;
                     margin:0 auto 16px; font-size:36px;
-                    box-shadow:0 0 0 0 rgba(230,0,38,0.4);
+                    box-shadow:0 0 0 0 {% if intent == 'sponsor_register' %}rgba(29, 78, 216, 0.4){% else %}rgba(230,0,38,0.4){% endif %};
                     animation: phonePulse 1.5s ease-out infinite;
                 ">📱</div>
                 <style>
@@ -543,12 +562,16 @@
             </div>
 
             <!-- Cancel / try again -->
+            {% if intent != 'sponsor_register' %}
             <button onclick="cancelPayment()" style="
                 background:transparent; border:none; color:#aaa;
                 font-size:12px; font-weight:700; cursor:pointer;
                 margin-top:8px; text-decoration:underline;
                 position:relative; z-index:2;
             ">Cancel &amp; Try a Different Number</button>
+            {% else %}
+            <p style="font-size: 11px; color: #888; margin-top: 15px;">Check your phone to complete the transaction.</p>
+            {% endif %}
         </div>
 
         <!-- PHASE 3: SUCCESS VIEW -->
@@ -566,7 +589,7 @@
                 </style>
                 <h3 style="color:#15803d;font-size:22px;font-weight:900;margin:0 0 8px;">Payment Confirmed!</h3>
                 <p style="color:#166534;font-size:14px;font-weight:600;margin:0 0 20px;">
-                    Your KSH 50 has been received. Welcome to Premium!
+                    Your KSH {{ amount }} has been received. Welcome!
                 </p>
                 <div style="
                     background:#22c55e; color:white; padding:16px;
@@ -593,17 +616,28 @@
     // =============================================
     // On page load, check if we were already in a payment flow
     window.addEventListener('DOMContentLoaded', function() {
-        const saved = getSavedState();
-        if (saved && saved.phase === 'waiting') {
-            // STK push was already sent — restore waiting UI immediately
-            pendingPhone = saved.phone || '';
+        const isSponsorFlow = "{{ intent }}" === "sponsor_register";
+        
+        if (isSponsorFlow) {
+            // For sponsors, STK push was already sent server-side
+            pendingPhone = "{{ phone }}";
             showPhase('waiting');
             document.getElementById('waiting-phone-display').innerText = formatDisplayPhone(pendingPhone);
-            document.getElementById('waiting-status-text').innerText = 'Reconnected — still waiting for Safaricom...';
-            // Immediately do one check in case they already paid
-            manualCheckSilent();
-            // Resume polling
+            // Immediately start polling for sponsor
             pollForPaymentSuccess();
+        } else {
+            const saved = getSavedState();
+            if (saved && saved.phase === 'waiting') {
+                // STK push was already sent — restore waiting UI immediately
+                pendingPhone = saved.phone || '';
+                showPhase('waiting');
+                document.getElementById('waiting-phone-display').innerText = formatDisplayPhone(pendingPhone);
+                document.getElementById('waiting-status-text').innerText = 'Reconnected — still waiting for Safaricom...';
+                // Immediately do one check in case they already paid
+                manualCheckSilent();
+                // Resume polling
+                pollForPaymentSuccess();
+            }
         }
     });
 
@@ -746,30 +780,42 @@
     // =============================================
     // POLL — auto-check every 2.5s
     // =============================================
+    // =============================================
+    // POLL — auto-check every 2.5s
+    // =============================================
     function pollForPaymentSuccess() {
         if (pollInterval) clearInterval(pollInterval);
         let attempts = 0;
         const maxAttempts = 72; // ~3 minutes
+        
+        const isSponsor = "{{ intent }}" === "sponsor_register";
+        const pollEndpoint = isSponsor ? "{{ url_for('sponsors.sponsor_finalize_registration') }}" : "/api/check_access?t=" + Date.now();
+        const fetchOptions = isSponsor ? { method: 'POST', headers: {'X-CSRFToken': CSRF_TOKEN}, cache: 'no-store' } : { method: 'GET', cache: 'no-store' };
 
         pollInterval = setInterval(async () => {
             attempts++;
             try {
-                const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+                const r = await fetch(pollEndpoint, fetchOptions);
                 const data = await r.json();
 
-                if (data.granted === true) {
+                if (data.granted === true || data.success === true) {
                     clearInterval(pollInterval);
                     handleSuccess();
                 } else if (data.status === 'failed') {
                     clearInterval(pollInterval);
                     clearState();
-                    showToast(data.message || 'Payment was cancelled or failed.', 'error');
-                    showPhase('input');
-                    const btn = document.getElementById('btn-pay-student');
-                    document.getElementById('btn-text').innerText = 'Pay KSH 50 to Unlock';
-                    document.getElementById('btn-spinner').style.display = 'none';
-                    btn.disabled = false;
-                    btn.style.background = 'linear-gradient(135deg,#E60026,#720000)';
+                    showToast(data.message || data.error || 'Payment was cancelled or failed.', 'error');
+                    if (!isSponsor) {
+                        showPhase('input');
+                        const btn = document.getElementById('btn-pay-student');
+                        document.getElementById('btn-text').innerText = 'Pay KSH 50 to Unlock';
+                        document.getElementById('btn-spinner').style.display = 'none';
+                        btn.disabled = false;
+                        btn.style.background = 'linear-gradient(135deg,#E60026,#720000)';
+                    } else {
+                        // Sponsor failed, redirect back to register to try again
+                        window.location.href = "{{ url_for('sponsors.sponsor_register') }}";
+                    }
                 }
             } catch(e) { /* network hiccup — keep trying */ }
 
@@ -790,17 +836,21 @@
         btn.disabled = true;
         text.innerText = 'Checking...';
 
+        const isSponsor = "{{ intent }}" === "sponsor_register";
+        const endpoint = isSponsor ? "{{ url_for('sponsors.sponsor_finalize_registration') }}" : "/api/check_access?t=" + Date.now();
+        const fetchOptions = isSponsor ? { method: 'POST', headers: {'X-CSRFToken': CSRF_TOKEN}, cache: 'no-store' } : { method: 'GET', cache: 'no-store' };
+
         try {
-            const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+            const r = await fetch(endpoint, fetchOptions);
             const data = await r.json();
-            if (data.granted === true) {
+            if (data.granted === true || data.success === true) {
                 if (pollInterval) clearInterval(pollInterval);
                 handleSuccess();
             } else {
                 btn.disabled = false;
                 text.innerText = '\ud83d\udd13 Confirm Payment & Unlock Access';
                 document.getElementById('waiting-status-text').innerText =
-                    data.message || 'Not confirmed yet. Please enter your PIN first, then click above.';
+                    data.message || data.error || 'Not confirmed yet. Please enter your PIN first, then click above.';
                 showToast('Payment not confirmed yet. Enter your PIN first.', 'error');
             }
         } catch(e) {
@@ -812,10 +862,14 @@
 
     // Silent check on page reload (no button disable)
     async function manualCheckSilent() {
+        const isSponsor = "{{ intent }}" === "sponsor_register";
+        const endpoint = isSponsor ? "{{ url_for('sponsors.sponsor_finalize_registration') }}" : "/api/check_access?t=" + Date.now();
+        const fetchOptions = isSponsor ? { method: 'POST', headers: {'X-CSRFToken': CSRF_TOKEN}, cache: 'no-store' } : { method: 'GET', cache: 'no-store' };
+
         try {
-            const r = await fetch('/api/check_access?t=' + Date.now(), { cache: 'no-store' });
+            const r = await fetch(endpoint, fetchOptions);
             const data = await r.json();
-            if (data.granted === true) {
+            if (data.granted === true || data.success === true) {
                 if (pollInterval) clearInterval(pollInterval);
                 handleSuccess();
             }
@@ -828,7 +882,10 @@
     function handleSuccess() {
         clearState();
         showPhase('success');
-        showToast('\ud83c\udf89 Payment Confirmed! Welcome to Premium!', 'success');
+        showToast('\ud83c\udf89 Payment Confirmed! Welcome!', 'success');
+        
+        const isSponsor = "{{ intent }}" === "sponsor_register";
+        
         // Countdown then redirect
         let count = 3;
         const countEl = document.getElementById('redirect-countdown');
@@ -837,7 +894,11 @@
             if (countEl) countEl.innerText = count;
             if (count <= 0) {
                 clearInterval(cd);
-                window.location.replace('/swipe?unlocked=1&t=' + Date.now());
+                if (isSponsor) {
+                    window.location.replace("{{ url_for('sponsors.sponsor_dashboard') }}");
+                } else {
+                    window.location.replace('/swipe?unlocked=1&t=' + Date.now());
+                }
             }
         }, 1000);
     }

@@ -1,78 +1,208 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden mt-10">
-    <div class="bg-gradient-to-r from-blue-900 to-blue-700 p-8 text-center text-white">
-        <h2 class="text-3xl font-black mb-2">Become a Sponsor</h2>
-        <p class="text-white/90 font-medium">Join FindYourMatch to connect with students.</p>
-        <div class="mt-4 inline-block bg-white/20 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm">
-            Registration Fee: KES {{ fee }}
+<style>
+    /* === ANIMATIONS === */
+    @keyframes slideUpFade {
+        from { opacity: 0; transform: translateY(40px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* === LAYOUT === */
+    .auth-wrapper {
+        display: flex; justify-content: center; align-items: center;
+        min-height: calc(100dvh - var(--nav-height, 70px) - 80px);
+        padding: clamp(20px, 5vw, 40px) 15px; position: relative;
+    }
+    
+    .auth-wrapper::before, .auth-wrapper::after {
+        content: ''; position: absolute;
+        width: clamp(200px, 40vw, 400px); height: clamp(200px, 40vw, 400px);
+        border-radius: 50%; filter: blur(100px); z-index: 0;
+        animation: floatOrb 10s infinite alternate ease-in-out;
+    }
+    .auth-wrapper::before { background: rgba(29, 78, 216, 0.15); top: 0%; left: 10%; }
+    .auth-wrapper::after { background: rgba(30, 64, 175, 0.1); bottom: 0%; right: 10%; animation-delay: -5s; }
+    
+    @keyframes floatOrb {
+        from { transform: translate(0, 0) scale(1); }
+        to { transform: translate(50px, 50px) scale(1.1); }
+    }
+    
+    .auth-card {
+        background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px); padding: clamp(30px, 6vw, 45px);
+        border-radius: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.7);
+        width: 100%; max-width: 580px; animation: slideUpFade 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        box-sizing: border-box; position: relative; z-index: 10; overflow: hidden;
+    }
+
+    /* === TYPOGRAPHY === */
+    .auth-header { text-align: center; margin-bottom: 30px; }
+    .auth-logo-icon {
+        background: linear-gradient(135deg, rgba(29, 78, 216, 0.1) 0%, rgba(30, 64, 175, 0.05) 100%);
+        width: 70px; height: 70px; border-radius: 22px; display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 20px; font-size: 32px; border: 1px solid rgba(29, 78, 216, 0.2);
+        box-shadow: 0 10px 25px rgba(29, 78, 216, 0.1); transform: rotate(-5deg);
+    }
+    .auth-title { color: #111; font-size: 28px; font-weight: 900; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .auth-subtitle { color: #555; font-size: 15px; margin: 0; font-weight: 500; }
+
+    /* ── Form inputs ── */
+    .flex-row { display: flex; gap: 20px; }
+    @media (max-width: 600px) {
+        .flex-row { flex-direction: column; gap: 0; }
+    }
+    .input-group { margin-bottom: 18px; width: 100%; }
+    .input-group label {
+        display: block; font-size: 11px; font-weight: 900; color: #1d4ed8;
+        margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .input-group input, .input-group select, .input-group textarea {
+        width: 100%; padding: 16px; border: 2px solid #f0f0f0; border-radius: 14px;
+        font-size: 16px; background: #fafafa; transition: all 0.3s ease;
+        font-family: inherit; outline: none; color: #111; font-weight: 600;
+        box-sizing: border-box; -webkit-appearance: none;
+    }
+    .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+        border-color: #1d4ed8; background: white;
+        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.1);
+    }
+    .input-group input::placeholder, .input-group textarea::placeholder { color: #bbb; font-weight: 400; }
+    
+    .input-group select {
+        background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%231d4ed8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+        background-repeat: no-repeat;
+        background-position: right 18px top 50%;
+        background-size: 14px auto;
+        padding-right: 45px;
+    }
+
+    /* ── Password field ── */
+    .password-container { position: relative; width: 100%; }
+    .password-container input { padding-right: 50px !important; }
+    .toggle-password {
+        position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+        background: none; border: none; cursor: pointer; font-size: 18px;
+        color: #888; padding: 10px; outline: none; border-radius: 50%;
+        transition: 0.2s; display: flex; align-items: center;
+    }
+    .toggle-password:hover { background: #f0f0f0; }
+
+    /* ── Submit btn ── */
+    .btn-submit {
+        width: 100%; background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+        color: white; border: none; padding: 18px; border-radius: 14px;
+        font-size: 16px; font-weight: 900; cursor: pointer; margin-top: 10px;
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+        box-shadow: 0 10px 20px rgba(29, 78, 216, 0.25); letter-spacing: 0.2px;
+    }
+    .btn-submit:active { transform: scale(0.97); }
+    @media (hover: hover) {
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 15px 30px rgba(29, 78, 216, 0.3); }
+    }
+
+    .auth-footer {
+        text-align: center; margin-top: 28px; font-size: 14px; color: #666;
+        border-top: 1px solid #f0f0f0; padding-top: 22px; line-height: 1.6;
+    }
+    .auth-footer a { color: #1d4ed8; font-weight: 900; text-decoration: none; }
+    .auth-footer a:hover { color: #1e40af; text-decoration: underline; }
+
+    .flash-msg {
+        padding: 14px 16px; border-radius: 10px; margin-bottom: 20px;
+        font-size: 14px; font-weight: 700;
+        background: #eff6ff; color: #1d4ed8; border-left: 4px solid #1d4ed8;
+    }
+</style>
+
+<div class="auth-wrapper">
+    <div class="auth-card">
+
+        <div class="auth-header">
+            <div class="auth-logo-icon">🌟</div>
+            <h1 class="auth-title">Become a Sponsor</h1>
+            <p class="auth-subtitle">Join FindYourMatch to connect with students.</p>
+            <div style="display: inline-block; background: rgba(29, 78, 216, 0.1); color: #1d4ed8; font-weight: 800; padding: 6px 12px; border-radius: 10px; font-size: 12px; margin-top: 15px;">
+                Registration Fee: KES {{ fee }}
+            </div>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-msg">⚠️ {{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('sponsors.sponsor_register') }}" method="POST" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+            <div class="input-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required placeholder="e.g. John Doe">
+            </div>
+
+            <div class="flex-row">
+                <div class="input-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="sponsor@example.com">
+                </div>
+                <div class="input-group">
+                    <label for="phone">M-Pesa Phone</label>
+                    <input type="tel" id="phone" name="phone" required placeholder="07XXXXXXXX">
+                </div>
+            </div>
+
+            <div class="flex-row">
+                <div class="input-group">
+                    <label for="gender">Gender</label>
+                    <select name="gender" id="gender" required>
+                        <option value="" disabled selected>Select</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="age">Age</label>
+                    <input type="number" id="age" name="age" required min="18" max="99" value="25">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="county">County / City</label>
+                <input type="text" id="county" name="county" required placeholder="e.g. Nairobi">
+            </div>
+            
+            <div class="input-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" required
+                           placeholder="Min 6 characters">
+                    <button type="button" class="toggle-password" onclick="togglePass('password')">👁️</button>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="bio">A short bio about you</label>
+                <textarea id="bio" name="bio" required rows="3" placeholder="What are you looking for?"></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit">Pay KES {{ fee }} & Register</button>
+        </form>
+
+        <div class="auth-footer">
+            Already a sponsor? <a href="{{ url_for('sponsors.sponsor_login') }}">Log in here</a>.<br>
         </div>
     </div>
-
-    <form action="{{ url_for('sponsors.sponsor_register') }}" method="POST" class="p-8 space-y-6">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-            <input type="text" name="name" required
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
-            <input type="email" name="email" required
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">M-Pesa Phone Number</label>
-            <input type="tel" name="phone" placeholder="e.g. 0712345678" required
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-        </div>
-        
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">Password</label>
-            <input type="password" name="password" required
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">Gender</label>
-                <select name="gender" required class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-red-500 focus:ring-0 transition-colors font-medium">
-                    <option value="">Select...</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">Age</label>
-                <input type="number" name="age" min="18" max="99" required
-                       class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-            </div>
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">County / City</label>
-            <input type="text" name="county" required placeholder="e.g. Nairobi"
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium">
-        </div>
-
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">A short bio about you</label>
-            <textarea name="bio" rows="3" required placeholder="What are you looking for?"
-                      class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:ring-0 transition-colors font-medium"></textarea>
-        </div>
-
-        <button type="submit"
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-blue-200">
-            Pay KES {{ fee }} & Register
-        </button>
-
-        <p class="text-center text-gray-500 text-sm font-medium mt-4">
-            Already a sponsor? <a href="{{ url_for('sponsors.sponsor_login') }}" class="text-blue-600 hover:underline">Log in here</a>
-        </p>
-    </form>
 </div>
+
+<script>
+    function togglePass(id) {
+        const input = document.getElementById(id);
+        input.type = input.type === 'password' ? 'text' : 'password';
+    }
+</script>
 {% endblock %}
