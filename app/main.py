@@ -8234,9 +8234,20 @@ def reject_join_group(group_id, target_user_id):
 # SMART ACCOUNT ROUTING (Students vs Sponsors)
 # ==========================================
 
+@app.route('/clear-session')
+def clear_session():
+    """Manual override for testing/debugging to clear the session and cookies."""
+    session.clear()
+    from flask import make_response
+    resp = make_response(redirect(url_for('home')))
+    resp.set_cookie('account_type_pref', '', expires=0)
+    return resp
+
 @app.route('/join')
 def join_selection():
     """Renders the selector page: I am a student vs I am not a student."""
+    # Clear session to ensure they start fresh when trying to register
+    session.clear()
     return render_template('join_selection.html')
 
 @app.route('/login-router')
