@@ -11,8 +11,9 @@
     /* === LAYOUT === */
     .auth-wrapper {
         display: flex; justify-content: center; align-items: center;
-        min-height: calc(100dvh - var(--nav-height, 70px) - 80px);
+        min-height: 100vh;
         padding: clamp(20px, 5vw, 40px) 15px; position: relative;
+        overflow: hidden; box-sizing: border-box;
     }
     
     .auth-wrapper::before, .auth-wrapper::after {
