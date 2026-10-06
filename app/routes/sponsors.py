@@ -61,7 +61,9 @@ def sponsor_register():
         return redirect(url_for('sponsors.sponsor_register'))
 
     sponsor_id = f"spon_{uuid.uuid4().hex[:16]}"
-    session['pending_sponsor'] = {
+    now_eat = datetime.now(EAT).isoformat()
+    
+    sponsor_data = {
         'id': sponsor_id,
         'name': name,
         'email': email,
@@ -71,24 +73,35 @@ def sponsor_register():
         'age': age,
         'county': county,
         'bio': bio,
+        'is_active': False,
+        'is_verified': False,
+        'created_at': now_eat
     }
 
-    # Initiate STK Push
+    # Save to database immediately
+    create_sponsor_profile(sponsor_id, sponsor_data)
+    
+    # Log them in
+    session['user_id'] = sponsor_id
+    session['account_type'] = 'sponsor'
+    session['gender'] = gender
+    
+    from flask import make_response
+    resp = make_response(redirect(url_for('sponsors.sponsor_dashboard')))
+    resp.set_cookie('account_type_pref', 'sponsor', max_age=31536000)
+
+    # Initiate STK Push automatically
     fee = get_sponsor_registration_fee(gender)
     base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
     callback_url = f"{base_url}/api/v2/sponsor/payment/callback"
     
     stk_res = initiate_stk_push(phone, fee, sponsor_id, callback_url, "Sponsor Registration")
     
-    if "error" in stk_res:
-        flash(stk_res["error"], "error")
-        return redirect(url_for('sponsors.sponsor_register'))
-        
-    checkout_id = stk_res.get("CheckoutRequestID")
-    session['checkout_id'] = checkout_id
-    session['payment_intent'] = 'sponsor_register'
+    if "error" not in stk_res:
+        session['checkout_id'] = stk_res.get("CheckoutRequestID")
+        session['payment_intent'] = 'sponsor_register'
     
-    return render_template('paywall.html', amount=fee, phone=phone, checkout_id=checkout_id, intent='sponsor_register')
+    return resp
 
 
 @sponsors_bp.route('/api/v2/sponsor/payment/callback', methods=['POST'])
@@ -112,24 +125,51 @@ def sponsor_payment_callback():
 
 
 @sponsors_bp.route('/api/v2/sponsor/finalize-registration', methods=['POST'])
+@login_required
 def sponsor_finalize_registration():
     """Called by paywall.html when polling confirms payment."""
-    pending = session.get('pending_sponsor')
-    if not pending:
-        return jsonify({"success": False, "error": "No pending registration found."})
+    user_id = session.get('user_id')
+    checkout_id = session.get('checkout_id')
+    
+    if not checkout_id or not user_id:
+        return jsonify({"success": False, "error": "No pending payment found."})
         
-    success = create_sponsor_profile(pending['id'], pending)
-    if success:
-        send_sponsor_welcome_email(pending['email'], pending['name'])
-        session['user_id'] = pending['id']
-        session['account_type'] = 'sponsor'
-        session.pop('pending_sponsor', None)
+    sponsor = get_sponsor_profile(user_id)
+    if not sponsor:
+        return jsonify({"success": False, "error": "Profile not found."})
+
+    from app.payments import check_payment_status
+    status = check_payment_status(checkout_id)
+    
+    if status.get("status") == "PAID":
+        update_sponsor_profile(user_id, {'is_active': True})
+        send_sponsor_welcome_email(sponsor['email'], sponsor['name'])
         
-        from flask import make_response
-        resp = make_response(jsonify({"success": True}))
-        resp.set_cookie('account_type_pref', 'sponsor', max_age=31536000)
-        return resp
-    return jsonify({"success": False, "error": "Failed to create profile."})
+        return jsonify({"success": True, "status": "PAID"})
+        
+    return jsonify({"success": False, "status": status.get("status")})
+
+@sponsors_bp.route('/api/v2/sponsor/trigger-payment', methods=['POST'])
+@login_required
+def trigger_sponsor_payment():
+    """Called by paywall.html if a sponsor needs to manually retry STK push."""
+    data = request.get_json() or {}
+    phone = data.get('phone_number')
+    sponsor = get_sponsor_profile(session.get('user_id'))
+    
+    if not phone or not sponsor:
+        return jsonify({"success": False, "message": "Invalid request."})
+        
+    fee = get_sponsor_registration_fee(sponsor.get('gender'))
+    base_url = os.getenv("BASE_URL", request.host_url.rstrip('/'))
+    callback_url = f"{base_url}/api/v2/sponsor/payment/callback"
+    
+    stk_res = initiate_stk_push(phone, fee, sponsor['id'], callback_url, "Sponsor Registration")
+    if "error" in stk_res:
+        return jsonify({"success": False, "message": stk_res["error"]})
+        
+    session['checkout_id'] = stk_res.get("CheckoutRequestID")
+    return jsonify({"success": True})
 
 
 @sponsors_bp.route('/sponsor/login', methods=['GET', 'POST'])
@@ -160,6 +200,14 @@ def sponsor_login():
 @login_required
 def sponsor_dashboard():
     sponsor = get_sponsor_profile(session['user_id'])
+    
+    if not sponsor.get('is_active'):
+        fee = get_sponsor_registration_fee(sponsor.get('gender'))
+        phone = sponsor.get('phone', '')
+        checkout_id = session.get('checkout_id')
+        # Show paywall directly on dashboard if inactive
+        return render_template('paywall.html', amount=fee, phone=phone, checkout_id=checkout_id, intent='sponsor_register')
+        
     # Sponsors can see all verified students matching their preference (or all)
     all_students = get_all_profiles()
     active_students = [s for s in all_students if s.get('is_verified') and not s.get('is_banned')]

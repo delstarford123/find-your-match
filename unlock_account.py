@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, db
 from dotenv import load_dotenv
+import uuid
+from werkzeug.security import generate_password_hash
 
 # Load environment variables
 load_dotenv()
@@ -36,13 +38,13 @@ def initialize_firebase():
 # 2. THE UNLOCK FUNCTION (BY EMAIL)
 # ==========================================
 def grant_vip_access(email_address, package='premium'):
-    """Searches for a user by email and grants them a 30-day VIP pass with the selected package."""
+    """Searches for a user or sponsor by email and grants them VIP access."""
     email_clean = email_address.strip().lower()
     print(f"\n🔍 Searching database for email: {email_clean}...")
     
     try:
+        # 1. Search Student Profiles
         profiles_ref = db.reference('profiles')
-        # Search the database for the matching EMAIL
         matching_users = profiles_ref.order_by_child('email').equal_to(email_clean).get()
         
         if matching_users:
@@ -58,18 +60,84 @@ def grant_vip_access(email_address, package='premium'):
                     'is_paid': True,
                     'subscription_package': package,
                     'subscription_expiry': expiry_date,
-                    'last_payment_receipt': f'GOD_MODE_{package.upper()}_PASS' # So you know how they got it
+                    'last_payment_receipt': f'GOD_MODE_{package.upper()}_PASS'
                 })
                 
-                print(f"\n👤 Found User: {name} (ID: {uid})")
+                print(f"\n👤 Found Student: {name} (ID: {uid})")
                 print(f"✅ SUCCESS: {package.upper()} VIP Access Granted!")
                 print(f"📅 Pass expires on: {expiry_date[:10]}")
+            return
+
+        # 2. Search Sponsor Profiles
+        sponsors_ref = db.reference('sponsor_profiles')
+        matching_sponsors = sponsors_ref.order_by_child('email').equal_to(email_clean).get()
+
+        if matching_sponsors:
+            for sid, sponsor_data in matching_sponsors.items():
+                name = sponsor_data.get('name', 'Unknown Sponsor')
+                
+                now_eat = datetime.now(EAT)
+                expiry_date = (now_eat + timedelta(days=3650)).isoformat() # Lifetime VIP
+                
+                db.reference(f'sponsor_profiles/{sid}').update({
+                    'is_active': True,
+                    'is_verified': True,
+                    'subscription_package': 'sponsor',
+                    'subscription_expiry': expiry_date,
+                    'last_payment_receipt': 'GOD_MODE_SPONSOR_PASS'
+                })
+                
+                print(f"\n🌟 Found Sponsor: {name} (ID: {sid})")
+                print(f"✅ SUCCESS: Sponsor Access Granted!")
+            return
+
+        # 3. Not Found -> Ask to Create Sponsor
+        print(f"\n❌ Could not find any account registered with {email_clean}.")
+        print("Note: Sponsors are NOT saved to the database until they pay.")
+        create_new = input("Would you like to CREATE a NEW Sponsor account and bypass payment? (y/n): ").strip().lower()
+        
+        if create_new == 'y':
+            create_sponsor_bypass(email_clean)
         else:
-            print(f"\n❌ ERROR: Could not find any account registered with {email_clean}.")
-            print("Make sure you typed the exact email they used to sign up.")
+            print("Operation cancelled. Make sure you typed the exact email they used to sign up.")
             
     except Exception as e:
         print(f"\n❌ Database Error: {e}")
+
+def create_sponsor_bypass(email):
+    print(f"\n--- CREATING NEW SPONSOR ---")
+    name = input("Enter Full Name: ").strip()
+    phone = input("Enter Phone Number (e.g., 0712345678): ").strip()
+    gender = input("Enter Gender (male/female): ").strip().lower()
+    password = input("Enter a temporary password for them: ").strip()
+    
+    sponsor_id = f"spon_{uuid.uuid4().hex[:16]}"
+    now_eat = datetime.now(EAT)
+    expiry_date = (now_eat + timedelta(days=3650)).isoformat()
+    
+    sponsor_data = {
+        'id': sponsor_id,
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'password_hash': generate_password_hash(password),
+        'gender': gender,
+        'is_active': True,
+        'is_verified': True,
+        'subscription_package': 'sponsor',
+        'subscription_expiry': expiry_date,
+        'last_payment_receipt': 'GOD_MODE_SPONSOR_PASS',
+        'created_at': now_eat.isoformat()
+    }
+    
+    try:
+        db.reference(f'sponsor_profiles/{sponsor_id}').set(sponsor_data)
+        print(f"\n✅ SUCCESS: Sponsor account created & payment bypassed!")
+        print(f"They can now log in at /sponsor/login with:")
+        print(f"Email: {email}")
+        print(f"Password: {password}")
+    except Exception as e:
+        print(f"❌ Failed to save sponsor: {e}")
 
 # ==========================================
 # 3. RUN THE SCRIPT

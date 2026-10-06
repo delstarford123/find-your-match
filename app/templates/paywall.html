@@ -733,10 +733,13 @@
         spinner.style.display = 'block';
         btn.disabled = true;
 
-        fetch('/api/pay_student_fee', {
+        const isSponsor = "{{ intent }}" === "sponsor_register";
+        const triggerUrl = isSponsor ? "{{ url_for('sponsors.trigger_sponsor_payment') }}" : "/api/pay_student_fee";
+
+        fetch(triggerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
-            body: JSON.stringify({ phone_number: phone, package: 'premium' })
+            body: JSON.stringify({ phone_number: phone, package: isSponsor ? 'sponsor' : 'premium' })
         })
         .then(r => r.json())
         .then(data => {
