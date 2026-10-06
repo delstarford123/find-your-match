@@ -3,11 +3,11 @@
 {% block content %}
 <div class="max-w-4xl mx-auto mt-8">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-red-600 to-red-800 rounded-3xl p-8 text-white shadow-xl mb-8">
+    <div class="bg-gradient-to-r from-blue-900 to-blue-700 rounded-3xl p-8 text-white shadow-xl mb-8">
         <div class="flex justify-between items-center">
             <div>
                 <h1 class="text-3xl font-black mb-2">Welcome, {{ sponsor.name.split()[0] }}!</h1>
-                <p class="text-red-100 font-medium">
+                <p class="text-blue-100 font-medium">
                     {% if sponsor.is_verified %}
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
                         ✅ Verified Sponsor
@@ -39,7 +39,7 @@
                 <h3 class="text-lg font-bold text-gray-900">{{ student.name.split()[0] }}, {{ student.age }}</h3>
                 <p class="text-sm text-gray-500 font-medium mb-3">{{ student.institution }}</p>
                 <p class="text-sm text-gray-600 line-clamp-2 mb-4">{{ student.bio }}</p>
-                <a href="{{ url_for('view_profile', uid=student.id) }}" class="block w-full text-center py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors">
+                <a href="{{ url_for('view_profile', uid=student.id) }}" class="block w-full text-center py-2 bg-blue-50 text-blue-700 font-bold rounded-xl hover:bg-blue-100 transition-colors">
                     View Profile
                 </a>
             </div>
