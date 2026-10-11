@@ -11,5 +11,11 @@
       "src": "/(.*)",
       "dest": "index.py"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/hourly-check?cron_key=mmust_dating_cron_secret_2026",
+      "schedule": "0 5 * * *"
+    }
   ]
 }

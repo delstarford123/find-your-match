@@ -210,7 +210,17 @@ def sponsor_dashboard():
         
     # Sponsors can see all verified students matching their preference (or all)
     all_students = get_all_profiles()
-    active_students = [s for s in all_students if s.get('is_verified') and not s.get('is_banned')]
+    sponsor_gender = sponsor.get('gender', '').strip().lower()
+    
+    active_students = []
+    for s in all_students:
+        if s.get('is_verified') and not s.get('is_banned'):
+            s_gender = s.get('gender', '').strip().lower()
+            if sponsor_gender and s_gender and sponsor_gender != s_gender:
+                active_students.append(s)
+            elif not sponsor_gender:
+                active_students.append(s)
+                
     return render_template('sponsor_dashboard.html', sponsor=sponsor, students=active_students)
 
 

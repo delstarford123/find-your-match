@@ -7297,12 +7297,15 @@ def process_anti_ghosting_alerts(now):
     return alerts_sent
 
 @app.route('/api/cron/hourly-check', methods=['GET', 'POST'])
+@csrf.exempt
 def cron_hourly_check():
     """
-    Cron endpoint to be called every hour by cPanel or external Cron service.
+    Cron endpoint to be called every hour by Vercel Cron, cPanel, or external Cron service.
     Requires a secret key for security.
     """
-    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key')
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
     secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
     
     if cron_key != secret:

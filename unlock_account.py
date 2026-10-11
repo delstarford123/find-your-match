@@ -43,11 +43,14 @@ def grant_vip_access(email_address, package='premium'):
     print(f"\n🔍 Searching database for email: {email_clean}...")
     
     try:
+        found = False
+        
         # 1. Search Student Profiles
         profiles_ref = db.reference('profiles')
         matching_users = profiles_ref.order_by_child('email').equal_to(email_clean).get()
         
         if matching_users:
+            found = True
             for uid, user_data in matching_users.items():
                 name = user_data.get('name', 'Unknown User')
                 
@@ -66,13 +69,13 @@ def grant_vip_access(email_address, package='premium'):
                 print(f"\n👤 Found Student: {name} (ID: {uid})")
                 print(f"✅ SUCCESS: {package.upper()} VIP Access Granted!")
                 print(f"📅 Pass expires on: {expiry_date[:10]}")
-            return
 
         # 2. Search Sponsor Profiles
         sponsors_ref = db.reference('sponsor_profiles')
         matching_sponsors = sponsors_ref.order_by_child('email').equal_to(email_clean).get()
 
         if matching_sponsors:
+            found = True
             for sid, sponsor_data in matching_sponsors.items():
                 name = sponsor_data.get('name', 'Unknown Sponsor')
                 
@@ -89,17 +92,16 @@ def grant_vip_access(email_address, package='premium'):
                 
                 print(f"\n🌟 Found Sponsor: {name} (ID: {sid})")
                 print(f"✅ SUCCESS: Sponsor Access Granted!")
-            return
 
         # 3. Not Found -> Ask to Create Sponsor
-        print(f"\n❌ Could not find any account registered with {email_clean}.")
-        print("Note: Sponsors are NOT saved to the database until they pay.")
-        create_new = input("Would you like to CREATE a NEW Sponsor account and bypass payment? (y/n): ").strip().lower()
-        
-        if create_new == 'y':
-            create_sponsor_bypass(email_clean)
-        else:
-            print("Operation cancelled. Make sure you typed the exact email they used to sign up.")
+        if not found:
+            print(f"\n❌ Could not find any account registered with {email_clean}.")
+            create_new = input("Would you like to CREATE a NEW Sponsor account for this email and bypass payment? (y/n): ").strip().lower()
+            
+            if create_new == 'y':
+                create_sponsor_bypass(email_clean)
+            else:
+                print("Operation cancelled. Make sure you typed the exact email they used to sign up.")
             
     except Exception as e:
         print(f"\n❌ Database Error: {e}")
