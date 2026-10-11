@@ -1,5 +1,5 @@
 import random
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from app.database import db
 
 # Import the master recommendation engine we just built
@@ -9,9 +9,11 @@ profiles_bp = Blueprint('profiles', __name__)
 @profiles_bp.route('/api/profiles', methods=['GET'])
 def get_profiles():
     user_id = request.args.get('user_id')
+    if not user_id or user_id == 'undefined':
+        user_id = session.get('user_id')
     
     if not user_id:
-        return jsonify({"error": "User ID required"}), 400
+        return jsonify({"error": "User ID required"}), 401
 
     # Trigger the ML Engine
     sorted_profiles = generate_ranked_deck(user_id)

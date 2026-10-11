@@ -1244,7 +1244,14 @@
     if (activePartnerId !== 'none') {
         window.onload = () => {
             setTimeout(forceScrollToBottom, 100);
-            if (window.innerWidth > 768 && chatInput) chatInput.focus();
+            const urlParams = new URLSearchParams(window.location.search);
+            const introText = urlParams.get('intro') || urlParams.get('msg') || '';
+            if (introText && chatInput) {
+                chatInput.value = introText;
+                chatInput.focus();
+            } else if (window.innerWidth > 768 && chatInput) {
+                chatInput.focus();
+            }
         };
         
         function renderMyMessageInstantly(text, tempId, replyToId, type = 'text', fileUrl = null) {

@@ -9,6 +9,26 @@ get_schedule_matches = sched.get_schedule_matches
 cf = importlib.import_module('ml_pipeline.4_collaborative_filtering.trainer')
 get_recommendations = cf.get_recommendations
 
+def is_opposite_gender_match(my_gender, target_gender):
+    """
+    Enforces strict opposite-gender matching:
+    - Ladies only see male profiles
+    - Males only see female profiles
+    """
+    g1 = (my_gender or '').strip().lower()
+    g2 = (target_gender or '').strip().lower()
+    
+    male_aliases = {'male', 'man', 'm', 'boy'}
+    female_aliases = {'female', 'woman', 'f', 'lady', 'girl'}
+    
+    if g1 in male_aliases:
+        return g2 in female_aliases
+    elif g1 in female_aliases:
+        return g2 in male_aliases
+    elif g1 and g2:
+        return g1 != g2
+    return True
+
 def generate_ranked_deck(current_user_id):
     """
     Fetches all profiles, applies the user's Discovery Settings (Hard Filters),
@@ -21,7 +41,13 @@ def generate_ranked_deck(current_user_id):
     # 1. Grab the current user and their specific settings
     current_user = next((p for p in all_profiles if p.get('id') == current_user_id), None)
     if not current_user:
-        return []
+        try:
+            from app.database import get_sponsor_profile
+            current_user = get_sponsor_profile(current_user_id)
+        except Exception:
+            pass
+        if not current_user:
+            return []
 
     # Safely extract settings (with fallbacks if they haven't visited the settings page yet)
     settings = current_user.get('settings', {})
@@ -56,29 +82,18 @@ def generate_ranked_deck(current_user_id):
         # STAGE 1: HARD FILTERS (Discovery & Biology)
         # ==========================================
         target_gender = profile.get('gender')
-        target_age = int(profile.get('age', 18))
+        target_age = int(profile.get('age', 18) or 18)
 
-        # A. Strict Gender Filter (No Same-Sex matching based on your rules)
-        if my_gender and target_gender and my_gender == target_gender:
+        # A. Strict Gender Filter (Opposite-gender matching: ladies only see males, males only see females)
+        if not is_opposite_gender_match(my_gender, target_gender):
             continue 
 
-        # B. Strict Age Gap Filter (University Safe)
-        # Everyone must be 18 or older. No exceptions.
+        # B. Strict Age Gap Filter (University Safe - 18+ and peer range)
         if target_age < 18:
             continue
 
-        if my_gender == 'Male':
-            # Men see ladies 3-5 years younger. 
-            # If the man is 20, 3 years younger is 17 (illegal). 
-            # We use max(18, ...) to ensure the youngest he sees is 18, even if the gap is smaller.
-            min_allowed_age = max(18, my_age - 5)
-            if target_age < min_allowed_age or target_age >= my_age:
-                continue
-                
-        elif my_gender == 'Female':
-            # Ladies see men 3 to 5 years older
-            if not (my_age + 3 <= target_age <= my_age + 5):
-                continue
+        if abs(target_age - my_age) > 8:
+            continue
 
         # B2. SHADOWBAN CHECK
         if profile.get('is_shadowbanned'):
@@ -157,5 +172,17 @@ def generate_ranked_deck(current_user_id):
         
     # 4. Sort the filtered deck from highest AI score to lowest
     ranked_profiles = sorted(scored_profiles, key=lambda x: x['ai_score'], reverse=True)
+    
+    # 5. Safety fallback if filters produced zero matches (still strictly opposite gender)
+    if not ranked_profiles and all_profiles:
+        for p in all_profiles[:40]:
+            if p.get('id') != current_user_id and p.get('is_visible', True):
+                if is_opposite_gender_match(my_gender, p.get('gender')):
+                    p_copy = dict(p)
+                    p_copy['compatibility'] = 82
+                    p_copy['ai_score'] = 82.0
+                    ranked_profiles.append(p_copy)
+                    if len(ranked_profiles) >= 10:
+                        break
     
     return ranked_profiles

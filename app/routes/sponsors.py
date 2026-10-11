@@ -30,9 +30,11 @@ def student_login_required(f):
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session or session.get('account_type') == 'sponsor':
-            flash("Please log in as a student.", "warning")
-            return redirect(url_for('login'))
+        if 'user_id' not in session:
+            flash("Please log in to continue.", "warning")
+            return redirect(url_for('auth.login'))
+        if session.get('account_type') == 'sponsor':
+            return redirect(url_for('sponsors.sponsor_dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -83,8 +85,10 @@ def sponsor_register():
     
     # Log them in
     session['user_id'] = sponsor_id
+    session['user_name'] = name
     session['account_type'] = 'sponsor'
     session['gender'] = gender
+    session.permanent = True
     
     from flask import make_response
     resp = make_response(redirect(url_for('sponsors.sponsor_dashboard')))
@@ -183,6 +187,7 @@ def sponsor_login():
     sponsor = get_sponsor_by_email(email)
     if sponsor and check_password_hash(sponsor.get('password_hash', ''), password):
         session['user_id'] = sponsor['id']
+        session['user_name'] = sponsor.get('name', 'Sponsor')
         session['account_type'] = 'sponsor'
         session['gender'] = sponsor.get('gender')
         session.permanent = True

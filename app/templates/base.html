@@ -181,6 +181,16 @@
             const notifs = Object.values(notificationData).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             const count = notifs.length;
 
+            const mobileChatBadge = document.getElementById('mobile-chat-badge');
+            if (mobileChatBadge) {
+                if (count > 0) {
+                    mobileChatBadge.textContent = count > 99 ? '99+' : count;
+                    mobileChatBadge.style.display = 'inline-flex';
+                } else {
+                    mobileChatBadge.style.display = 'none';
+                }
+            }
+
             if (count > 0) {
                 document.title = `(${count}) New Notification! - Find Your Match`;
                 badge.textContent = count > 99 ? '99+' : count;
@@ -199,12 +209,12 @@
                 notifs.forEach((notif) => {
                     const key = notif._key;
                     const cfg = typeConfig[notif.type] || typeConfig.message;
-                    const link = notif.match_id ? `/matches/${notif.sender_id}` : (notif.type === 'date_request' ? '/bookings' : '/matches');
+                    const link = notif.sender_id ? `/matches/${notif.sender_id}` : (notif.type === 'date_request' ? '/bookings' : '/matches');
                     const img = notif.sender_img || '/static/img/placeholder.png';
                     const ago = timeAgo(notif.timestamp);
 
                     html += `
-                        <div class="bell-notif-item" onclick="window.location.href='${link}'">
+                        <div class="bell-notif-item" onclick="clearNotification('${key}'); window.location.href='${link}';">
                             <div class="bell-notif-avatar">
                                 <img src="${img}" alt="" onerror="this.src='/static/img/placeholder.png'">
                                 <span class="bell-notif-type-icon" style="background:${cfg.color}">${cfg.icon}</span>
@@ -1098,7 +1108,10 @@
         </a>
         <a href="{{ url_for('full_directory') }}"
             class="mobile-nav-item {{ 'active' if request.endpoint == 'full_directory' }}">
-            <span>💬</span>
+            <span style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+                💬
+                <span id="mobile-chat-badge" style="display: none; position: absolute; top: -6px; right: -8px; background: #E60026; color: white; border-radius: 50%; font-size: 10px; font-weight: 900; min-width: 16px; height: 16px; padding: 0 3px; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(230,0,38,0.4);"></span>
+            </span>
             Chats
         </a>
         <a href="{{ url_for('groups') }}"

@@ -2,8 +2,8 @@
 
 {% block content %}
 <style>
-    /* HIDE FOOTER ON SWIPE PAGE */
-    footer { display: none !important; }
+    /* HIDE FOOTER & FLOATING SUPPORT BUTTON ON SWIPE PAGE */
+    footer, .support-trigger-btn { display: none !important; }
 
     /* === 🚨 CRITICAL NAVBAR FIX 🚨 === */
     /* Forces the 3D swipe deck to stay underneath your global navigation bar */
@@ -107,9 +107,12 @@
         background: white; border-radius: 32px; overflow: hidden; 
         box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2); 
         position: absolute; inset: 0; display: flex; flex-direction: column; 
-        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
         will-change: transform; cursor: grab;
         border: 2px solid #FFD6DD; z-index: 5; 
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
     }
     .card:active { cursor: grabbing; }
     
@@ -121,14 +124,15 @@
         z-index: 100; display: none; animation: pulseBadge 1.5s infinite; pointer-events: none;
     }
     
-    /* Dynamic Badge Styling */
+    /* Swipe Card Match Badge (Compact pill at the bottom inside card-info) */
     #compat-badge {
-        position: absolute; top: 20px; left: 20px;
-        padding: 6px 14px; border-radius: 20px; font-weight: 900;
-        font-size: 12px; display: none; z-index: 10; letter-spacing: 0.5px;
-        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        transition: background 0.3s, color 0.3s;
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 4px 10px; border-radius: 20px; font-weight: 800;
+        font-size: 11px; letter-spacing: 0.3px; width: fit-content;
+        max-width: max-content; height: auto; white-space: nowrap;
+        pointer-events: auto; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.25); transition: background 0.3s, color 0.3s;
+        margin-bottom: 0; z-index: 10;
     }
 
     @keyframes pulseBadge {
@@ -153,16 +157,16 @@
     
     .card-info { 
         position: absolute; bottom: 0; left: 0; right: 0; 
-        padding: 120px 25px 110px; 
-        background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 30%, transparent 100%); 
+        padding: 90px 20px 105px; 
+        background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.7) 45%, transparent 100%); 
         color: white; pointer-events: none; z-index: 5;
     }
 
     .intent-tag {
-        display: inline-block; padding: 6px 14px; border-radius: 20px;
-        background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5);
-        color: white; font-size: 13px; font-weight: 900; margin-bottom: 12px;
+        display: inline-block; padding: 4px 10px; border-radius: 20px;
+        background: rgba(255, 255, 255, 0.22); backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.45);
+        color: white; font-size: 11px; font-weight: 800; margin-bottom: 0;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     
@@ -305,7 +309,7 @@
     .match-img-wrapper { position: relative; width: 100%; aspect-ratio: 1; }
     .match-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
     
-    .perfect-match-badge, .compat-badge {
+    .match-card .perfect-match-badge, .match-card .compat-badge {
         position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
         background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: white;
         padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: 900;
@@ -372,39 +376,61 @@
     <div class="deck-container">
         <div id="is-match-signal">ITS A MATCH!</div>
 
+        <!-- 3D Stack Preview Card (Sits underneath active card) -->
+        <div id="next-card-preview" class="card card-preview" style="z-index: 2; transform: scale(0.95) translateY(14px); opacity: 0.85; pointer-events: none; border-color: #f1f5f9; {% if potential_matches and potential_matches|length > 1 %}display: block;{% else %}display: none;{% endif %}">
+            <div class="image-container">
+                <img id="preview-img" src="{% if potential_matches and potential_matches|length > 1 %}{{ potential_matches[1].img }}{% else %}/static/img/placeholder.png{% endif %}" alt="Next Student" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; z-index: 2;">
+                <div class="card-info" style="opacity: 0.75;">
+                    <div class="name-age-row">
+                        <h2 id="preview-name" style="font-size: 26px;">{% if potential_matches and potential_matches|length > 1 %}{{ potential_matches[1].name }}{% else %}...{% endif %}</h2>
+                        <span id="preview-age">{% if potential_matches and potential_matches|length > 1 and potential_matches[1].age %}, {{ potential_matches[1].age }}{% endif %}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Swipe Card -->
         <div id="profile-card" class="card">
             <div class="image-container">
-                <div id="shimmer"></div>
-                <img id="profile-img" src="" alt="Student Profile" loading="eager">
-                
-                <div id="compat-badge" class="compat-badge"></div>
+                <div id="shimmer" style="display: none;"></div>
+                <img id="profile-img" src="{% if potential_matches and potential_matches|length > 0 %}{{ potential_matches[0].img }}{% else %}/static/img/placeholder.png{% endif %}" alt="{% if potential_matches and potential_matches|length > 0 %}{{ potential_matches[0].name }}{% else %}Student Profile{% endif %}" loading="eager" style="display: block; opacity: 1;">
                 
                 <div id="stamp-nope" class="stamp stamp-nope">NOPE</div>
                 <div id="stamp-like" class="stamp stamp-like">LIKE</div>
                 
                 <div class="card-info">
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                        <div id="profile-intent" class="intent-tag" style="display: none; margin-bottom: 0;">☕ Just Coffee</div>
-                        <div id="profile-tribe" class="intent-tag" style="display: none; margin-bottom: 0; background: #E0E7FF; color: #4338CA; border-color: #C7D2FE;"></div>
-                        <div id="profile-connection" class="intent-tag" style="display: none; margin-bottom: 0; background: rgba(37, 211, 102, 0.25); border-color: rgba(37, 211, 102, 0.5);"></div>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; align-items: center;">
+                        {% if potential_matches and potential_matches|length > 0 %}
+                            {% set p0 = potential_matches[0] %}
+                            <div id="compat-badge" style="display: inline-flex; {% if p0.is_perfect_match %}background: rgba(230, 0, 38, 0.95); color: white; border: 1px solid #720000;{% else %}background: rgba(255, 255, 255, 0.95); color: #720000; border: 1px solid #FFD6DD;{% endif %}">
+                                {% if p0.is_perfect_match %}❤️ Perfect Match ({{ p0.compatibility }}%){% else %}✨ {{ p0.compatibility }}% Match{% endif %}
+                            </div>
+                        {% else %}
+                            <div id="compat-badge" style="display: none;"></div>
+                        {% endif %}
+                        <div id="profile-synergy" class="intent-tag" style="display: none; background: rgba(99, 102, 241, 0.35); border-color: rgba(129, 140, 248, 0.6); color: white;"></div>
+                        <div id="profile-intent" class="intent-tag" style="{% if potential_matches and potential_matches[0].intent and potential_matches[0].intent != 'none' %}display: inline-block;{% else %}display: none;{% endif %}">{{ potential_matches[0].intent if potential_matches else '' }}</div>
+                        <div id="profile-tribe" class="intent-tag" style="{% if potential_matches and potential_matches[0].tribe and potential_matches[0].tribe != 'none' %}display: inline-block;{% else %}display: none;{% endif %} background: #E0E7FF; color: #4338CA; border-color: #C7D2FE;">{{ potential_matches[0].tribe if potential_matches else '' }}</div>
+                        <div id="profile-connection" class="intent-tag" style="{% if potential_matches and potential_matches[0].connection_msg %}display: inline-block;{% else %}display: none;{% endif %} background: rgba(37, 211, 102, 0.25); border-color: rgba(37, 211, 102, 0.5);">{{ potential_matches[0].connection_msg if potential_matches else '' }}</div>
                     </div>
                     <div class="name-age-row">
-                        <h2 id="profile-name">Connecting...</h2>
-                        <span id="profile-age"></span>
+                        <h2 id="profile-name">{% if potential_matches and potential_matches|length > 0 %}{{ potential_matches[0].name }}{% else %}Campus Singles{% endif %}</h2>
+                        <span id="profile-age">{% if potential_matches and potential_matches|length > 0 and potential_matches[0].age %}, {{ potential_matches[0].age }}{% endif %}</span>
                     </div>
 
-                    <div id="swipe-phone-row" style="display: none; align-items: center; gap: 8px; margin-bottom: 12px; background: #E60026; padding: 10px 18px; border-radius: 50px; width: fit-content; box-shadow: 0 8px 20px rgba(230,0,38,0.3); pointer-events: auto; z-index: 10;">
+                    <div id="swipe-phone-row" style="{% if potential_matches and potential_matches[0].phone %}display: flex;{% else %}display: none;{% endif %} align-items: center; gap: 8px; margin-bottom: 12px; background: #E60026; padding: 10px 18px; border-radius: 50px; width: fit-content; box-shadow: 0 8px 20px rgba(230,0,38,0.3); pointer-events: auto; z-index: 10;">
                         <span style="font-size: 18px;">📞</span>
-                        <a id="swipe-phone-link" href="#" style="color: white; font-weight: 900; text-decoration: none; font-size: 16px; letter-spacing: 0.5px;"></a>
+                        <a id="swipe-phone-link" href="tel:{{ potential_matches[0].phone if potential_matches else '' }}" style="color: white; font-weight: 900; text-decoration: none; font-size: 16px; letter-spacing: 0.5px;">+{{ potential_matches[0].phone if potential_matches else '' }}</a>
                     </div>
-                    <p id="profile-bio">Searching for your perfect match...</p>
+                    <p id="profile-bio">{% if potential_matches and potential_matches|length > 0 %}{{ potential_matches[0].bio }}{% else %}Searching for your genuine connection...{% endif %}</p>
                 </div>
             </div>
+        </div>
 
-            <div class="action-buttons" id="swipe-buttons">
-                <button onclick="window.handleSwipe('pass')" class="btn-action pass">✕</button>
-                <button onclick="window.handleSwipe('like')" class="btn-action like">❤</button>
-            </div>
+        <!-- Action Buttons (Pinned outside card so they never fly away) -->
+        <div class="action-buttons" id="swipe-buttons">
+            <button onclick="window.handleSwipe('pass')" class="btn-action pass" aria-label="Pass" title="Pass (Left Arrow)">✕</button>
+            <button onclick="window.handleSwipe('like')" class="btn-action like" aria-label="Like" title="Like (Right Arrow)">❤</button>
         </div>
 
         <div id="empty-state" class="hidden empty-state-container">
@@ -609,11 +635,21 @@
     // CORE SWIPE & RENDER LOGIC
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
-        let profiles = [];
+        // Zero-latency instant deck from server
+        const serverDeck = {{ potential_matches | tojson | safe }} || [];
+        let profiles = Array.isArray(serverDeck) ? [...serverDeck] : [];
         let currentIndex = 0;
+        let isAnimating = false;
+        let isFetchingMore = false;
         
         const card = document.getElementById('profile-card');
+        const previewCard = document.getElementById('next-card-preview');
+        const previewImg = document.getElementById('preview-img');
+        const previewName = document.getElementById('preview-name');
+        const previewAge = document.getElementById('preview-age');
+        
         const emptyState = document.getElementById('empty-state');
+        const swipeButtons = document.getElementById('swipe-buttons');
         const imgEl = document.getElementById('profile-img');
         const shimmer = document.getElementById('shimmer');
         const nameEl = document.getElementById('profile-name');
@@ -626,7 +662,6 @@
         // --- 🚀 MICRO PARTICLE HEART BURST EFFECT ---
         function triggerHeartBurst(x, y) {
             const container = document.body;
-            const colors = ['#E60026', '#FF4B2B', '#FFD6DD', '#FF7A90', '#720000'];
             const icons = ['❤️', '✨', '💖', '💘', '💕'];
             
             for (let i = 0; i < 16; i++) {
@@ -641,7 +676,6 @@
                 p.style.userSelect = 'none';
                 container.appendChild(p);
 
-                // Radial direction calculations
                 const angle = (i / 16) * Math.PI * 2 + gsap.utils.random(-0.2, 0.2);
                 const distance = gsap.utils.random(70, 150);
                 const destX = x + Math.cos(angle) * distance;
@@ -660,43 +694,93 @@
             }
         }
 
-        // 1. Fetch Profiles from API
-        fetch(`/api/profiles?user_id=${window.currentUserId}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data || data.length === 0 || data.error) {
-                    card.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
-                } else {
-                    profiles = data;
-                    renderProfile(profiles[currentIndex]);
-                }
-            })
-            .catch(err => {
-                console.error("Fetch Error:", err);
-                nameEl.innerText = "Network Error";
-                bioEl.innerText = "Please refresh the page.";
-            });
+        // --- 🔄 BACKGROUND FETCH FOR ENDLESS SWIPING ---
+        function fetchMoreProfiles() {
+            if (isFetchingMore) return;
+            isFetchingMore = true;
+            const uid = window.currentUserId || '';
 
-        // Background Image Preloader
-        function preloadNextImage(index) {
-            if (profiles[index]) {
-                const img = new Image();
-                img.src = profiles[index].img || '/static/img/placeholder.png';
+            fetch(`/api/profiles?user_id=${encodeURIComponent(uid)}`)
+                .then(res => res.json())
+                .then(data => {
+                    const list = Array.isArray(data) ? data : (data.profiles || []);
+                    if (list && list.length > 0) {
+                        const seenIds = new Set(profiles.map(p => p.id));
+                        const fresh = list.filter(p => !seenIds.has(p.id));
+                        if (fresh.length > 0) {
+                            profiles.push(...fresh);
+                        }
+                        if (currentIndex < profiles.length) {
+                            card.classList.remove('hidden');
+                            if (emptyState) emptyState.classList.add('hidden');
+                            if (swipeButtons) swipeButtons.style.display = 'flex';
+                            renderProfile(profiles[currentIndex]);
+                        }
+                    } else if (profiles.length === 0 || currentIndex >= profiles.length) {
+                        card.classList.add('hidden');
+                        if (previewCard) previewCard.style.display = 'none';
+                        if (swipeButtons) swipeButtons.style.display = 'none';
+                        if (emptyState) emptyState.classList.remove('hidden');
+                    }
+                })
+                .catch(err => {
+                    console.warn("Background fetch error:", err);
+                    if (profiles.length === 0 || currentIndex >= profiles.length) {
+                        card.classList.add('hidden');
+                        if (previewCard) previewCard.style.display = 'none';
+                        if (swipeButtons) swipeButtons.style.display = 'none';
+                        if (emptyState) emptyState.classList.remove('hidden');
+                    }
+                })
+                .finally(() => {
+                    isFetchingMore = false;
+                });
+        }
+
+        // --- 🃏 3D PREVIEW CARD UNDERNEATH ---
+        function updatePreviewCard(nextIndex) {
+            if (!previewCard) return;
+            const nextP = profiles[nextIndex];
+            if (nextP) {
+                previewCard.style.display = 'block';
+                if (previewImg) {
+                    previewImg.src = nextP.img || '/static/img/placeholder.png';
+                }
+                if (previewName) {
+                    previewName.innerText = nextP.is_ad ? 'Sponsored' : (nextP.name || 'Student').split(' ')[0];
+                }
+                if (previewAge) {
+                    previewAge.innerText = nextP.is_ad ? '' : (nextP.age ? `, ${nextP.age}` : '');
+                }
+                gsap.set(previewCard, { scale: 0.95, y: 14, opacity: 0.85 });
+                
+                // Preload image
+                if (nextP.img) {
+                    const preload = new Image();
+                    preload.src = nextP.img;
+                }
+            } else {
+                previewCard.style.display = 'none';
             }
         }
 
-        // 2. Render Profile Function with premium lazy fade-in
+        // --- 🎨 2. RENDER ACTIVE PROFILE ---
         window.renderProfile = function(profile) {
             if (!profile) {
                 card.classList.add('hidden');
-                emptyState.classList.remove('hidden');
+                if (previewCard) previewCard.style.display = 'none';
+                if (swipeButtons) swipeButtons.style.display = 'none';
+                if (emptyState) emptyState.classList.remove('hidden');
+                fetchMoreProfiles();
                 return;
             }
             
-            imgEl.style.display = 'none';
-            gsap.set(imgEl, { opacity: 0, scale: 0.98 });
-            if (shimmer) shimmer.style.display = 'block';
+            card.classList.remove('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
+            if (swipeButtons) swipeButtons.style.display = 'flex';
+
+            imgEl.style.display = 'block';
+            if (shimmer) shimmer.style.display = 'none';
 
             // COSMIC SYNERGY CALCULATION
             let cosmicSynergy = null;
@@ -717,11 +801,11 @@
                 const element1 = getElement(window.currentUserZodiac);
                 const element2 = getElement(profile.zodiac);
                 
-                let synergy = 60; // base synergy
+                let synergy = 60;
                 if (element1 && element2) {
-                    if (element1 === element2) synergy += 25; // same element: high vibe
-                    else if ((element1 === 'fire' && element2 === 'air') || (element1 === 'air' && element2 === 'fire')) synergy += 30; // fire + air
-                    else if ((element1 === 'earth' && element2 === 'water') || (element1 === 'water' && element2 === 'earth')) synergy += 30; // earth + water
+                    if (element1 === element2) synergy += 25;
+                    else if ((element1 === 'fire' && element2 === 'air') || (element1 === 'air' && element2 === 'fire')) synergy += 30;
+                    else if ((element1 === 'earth' && element2 === 'water') || (element1 === 'water' && element2 === 'earth')) synergy += 30;
                     else synergy += 10;
                 }
                 
@@ -731,8 +815,8 @@
                     const last1 = window.currentUserMbti.slice(1);
                     const last2 = profile.mbti.slice(1);
                     
-                    if (char1 !== char2) synergy += 5; // Opposites attract on Extrovert/Introvert
-                    if (last1 === last2) synergy += 5; // Share rest of traits
+                    if (char1 !== char2) synergy += 5;
+                    if (last1 === last2) synergy += 5;
                 }
                 cosmicSynergy = Math.min(synergy, 99);
             }
@@ -750,31 +834,34 @@
                 compatBadge.style.boxShadow = '0 0 15px rgba(168, 85, 247, 0.5)';
             } else if (score >= 80) {
                 compatBadge.innerHTML = `❤️ Perfect Match (${score}%)`;
-                if (cosmicSynergy) {
-                    compatBadge.innerHTML += `<br><span style="font-size: 10px; opacity: 0.95; font-weight:800; display:block; margin-top:4px;">🌌 Cosmic Synergy: ${cosmicSynergy}% (${profile.zodiac} + ${profile.mbti || 'INFJ'})</span>`;
-                }
                 compatBadge.style.background = 'rgba(230, 0, 38, 0.95)';
                 compatBadge.style.color = 'white';
                 compatBadge.style.border = '1px solid #720000';
             } else {
                 compatBadge.innerHTML = `✨ ${score}% Match`;
-                if (cosmicSynergy) {
-                    compatBadge.innerHTML += `<br><span style="font-size: 10px; opacity: 0.95; font-weight:800; display:block; margin-top:4px;">🌌 Cosmic Synergy: ${cosmicSynergy}% (${profile.zodiac} + ${profile.mbti || 'INFJ'})</span>`;
-                }
                 compatBadge.style.background = 'rgba(255, 255, 255, 0.95)';
                 compatBadge.style.color = '#720000';
                 compatBadge.style.border = '1px solid #FFD6DD';
             }
-            compatBadge.style.display = 'block';
+            compatBadge.style.display = 'inline-flex';
 
+            const synergyEl = document.getElementById('profile-synergy');
+            if (synergyEl) {
+                if (cosmicSynergy && !profile.is_ad) {
+                    synergyEl.innerText = `🌌 ${cosmicSynergy}% Synergy`;
+                    synergyEl.style.display = 'inline-block';
+                } else {
+                    synergyEl.style.display = 'none';
+                }
+            }
+
+            // Lazy image loading with smooth GSAP fade
             imgEl.onload = () => {
                 imgEl.style.display = 'block';
                 if (shimmer) shimmer.style.display = 'none';
-                
-                // Rich image fade-in transition
                 gsap.fromTo(imgEl, 
-                    { opacity: 0, scale: 0.97 }, 
-                    { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out" }
+                    { opacity: 0, scale: 0.98 }, 
+                    { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" }
                 );
             };
             
@@ -783,13 +870,18 @@
                 imgEl.src = '/static/img/placeholder.png'; 
                 imgEl.style.display = 'block';
                 if (shimmer) shimmer.style.display = 'none';
+                gsap.to(imgEl, { opacity: 1, scale: 1, duration: 0.2 });
             };
             
             imgEl.src = profile.img || '/static/img/placeholder.png';
+            if (imgEl.complete) {
+                imgEl.style.opacity = '1';
+            }
             nameEl.innerText = profile.is_ad ? 'Sponsored' : (profile.name || 'Student').split(' ')[0];
             ageEl.innerText = profile.is_ad ? '' : (profile.age ? `, ${profile.age}` : '');
-            bioEl.innerText = profile.bio || 'No bio provided.';
+            bioEl.innerText = profile.bio || 'Looking for a genuine connection.';
 
+            // Phone direct connect
             const phoneRow = document.getElementById('swipe-phone-row');
             const phoneLink = document.getElementById('swipe-phone-link');
             if (profile.phone && !profile.is_ad) {
@@ -800,9 +892,9 @@
                 phoneRow.style.display = 'none';
             }
             
+            // Intent badge
             const intentMap = { 'coffee': '☕ Just Coffee', 'study': '📚 Study Buddy', 'event': '🎉 Event +1', 'relationship': '💘 Relationship', 'promotion': '📢 Special Offer' };
             const intentEl = document.getElementById('profile-intent');
-            
             if (profile.intent && intentMap[profile.intent]) {
                 intentEl.innerText = intentMap[profile.intent];
                 intentEl.style.display = 'inline-block';
@@ -810,6 +902,7 @@
                 intentEl.style.display = 'none';
             }
 
+            // Tribe badge
             const tribeMap = { 'gym_rats': '💪 Gym Rats', 'tech_geeks': '💻 Tech & Coding', 'party_animals': '🎉 Party Animals', 'bookworms': '📚 Bookworms', 'creatives': '🎨 Creatives & Artists' };
             const tribeEl = document.getElementById('profile-tribe');
             if (tribeEl) {
@@ -821,6 +914,7 @@
                 }
             }
 
+            // Connection message
             const connectionEl = document.getElementById('profile-connection');
             if (profile.connection_msg) {
                 connectionEl.innerText = profile.connection_msg;
@@ -828,14 +922,19 @@
             } else {
                 connectionEl.style.display = 'none';
             }
+
             gsap.set([stampLike, stampNope], { opacity: 0 });
 
-            // Preload the next card's image for zero latency!
-            preloadNextImage(currentIndex + 1);
+            // Prepare next card preview
+            updatePreviewCard(currentIndex + 1);
+
+            // Prefetch if running low
+            if (profiles.length - currentIndex <= 3) {
+                fetchMoreProfiles();
+            }
         };
 
-        // 3. Handle Swipe Animations & Syncing
-        let isAnimating = false;
+        // --- 💥 3. HANDLE SWIPE (BUTTON OR DRAG) ---
         window.handleSwipe = function(action, wasDragged = false) {
             const currentProfile = profiles[currentIndex];
             if (!currentProfile || isAnimating) return;
@@ -843,33 +942,32 @@
 
             const stamp = action === 'like' ? stampLike : stampNope;
             
-            // If button clicked, fade in stamp first
             if (!wasDragged) {
                 gsap.to(stamp, { opacity: 1, duration: 0.1 });
-                // Trigger visual heart burst at card center
-                const rect = card.getBoundingClientRect();
                 if (action === 'like') {
+                    const rect = card.getBoundingClientRect();
                     triggerHeartBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
                 }
             }
 
             const throwX = action === 'like' ? window.innerWidth * 1.3 : -window.innerWidth * 1.3;
-            const throwRot = action === 'like' ? 25 : -25;
+            const throwRot = action === 'like' ? 22 : -22;
 
-            // Direct GSAP GPU-driven throw transition
+            // Throw active card off screen
             gsap.to(card, {
                 x: throwX,
-                y: -50,
+                y: -40,
                 rotation: throwRot,
                 opacity: 0,
-                duration: 0.45,
+                duration: 0.38,
                 ease: "power2.in",
                 onComplete: () => {
                     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
                     if (currentProfile.is_ad) {
                         fetch('/api/admin/action', {
-                            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                             body: JSON.stringify({ action: 'track_ad_click', target_id: currentProfile.id })
                         });
                         if (action === 'like' && currentProfile.click_link) {
@@ -889,10 +987,11 @@
                             if (data.match) {
                                 window.triggerMatchCelebration(data.match_details, currentProfile.id);
                             }
-                        });
+                        })
+                        .catch(err => console.warn("Swipe sync error:", err));
                     }
 
-                    // Increment and instantly reset variables
+                    // Increment and reset
                     currentIndex++;
                     gsap.set(card, { x: 0, y: 0, rotation: 0, opacity: 1 });
                     gsap.set([stampLike, stampNope], { opacity: 0 });
@@ -901,9 +1000,20 @@
                     isAnimating = false;
                 }
             });
+
+            // Smoothly lift the preview card to active position
+            if (previewCard && previewCard.style.display !== 'none') {
+                gsap.to(previewCard, {
+                    scale: 1,
+                    y: 0,
+                    opacity: 1,
+                    duration: 0.38,
+                    ease: "power2.out"
+                });
+            }
         };
 
-        // --- 🎮 4. PREMIUM POINTER PHYSICS DRAGGING ---
+        // --- 🎮 4. SILKY SMOOTH POINTER PHYSICS (60FPS DRAG) ---
         let isDragging = false;
         let startX = 0;
         let startY = 0;
@@ -911,13 +1021,16 @@
         let dragY = 0;
 
         card.addEventListener('pointerdown', (e) => {
-            // Block drag actions ifAnimating or deck is empty
             if (isAnimating || currentIndex >= profiles.length || card.classList.contains('hidden')) return;
+            // Prevent drag when clicking interactive elements
+            if (e.target.closest('a') || e.target.closest('button')) return;
             
             isDragging = true;
-            card.setPointerCapture(e.pointerId);
+            try { card.setPointerCapture(e.pointerId); } catch(err) {}
             startX = e.clientX;
             startY = e.clientY;
+            dragX = 0;
+            dragY = 0;
             
             card.style.cursor = 'grabbing';
             gsap.killTweensOf(card);
@@ -930,50 +1043,69 @@
             dragX = e.clientX - startX;
             dragY = e.clientY - startY;
             
-            const rotation = dragX * 0.08; // Delicate rotation
-            
-            // Dynamic opacities based on pull distance
-            const opacityLike = Math.max(0, Math.min(1, (dragX - 40) / 100));
-            const opacityNope = Math.max(0, Math.min(1, (-dragX - 40) / 100));
+            const rotation = dragX * 0.08;
+            const opacityLike = Math.max(0, Math.min(1, (dragX - 35) / 95));
+            const opacityNope = Math.max(0, Math.min(1, (-dragX - 35) / 95));
             
             gsap.set(card, {
                 x: dragX,
-                y: dragY * 0.35, // damp vertical drag
+                y: dragY * 0.28,
                 rotation: rotation
             });
 
             gsap.set(stampLike, { opacity: opacityLike });
             gsap.set(stampNope, { opacity: opacityNope });
+
+            // Scale preview card up slightly with pull distance
+            if (previewCard && previewCard.style.display !== 'none') {
+                const pullProgress = Math.min(1, Math.abs(dragX) / 140);
+                gsap.set(previewCard, {
+                    scale: 0.95 + pullProgress * 0.05,
+                    y: 14 - pullProgress * 14,
+                    opacity: 0.85 + pullProgress * 0.15
+                });
+            }
         });
 
-        const endDrag = () => {
+        const endDrag = (e) => {
             if (!isDragging) return;
             isDragging = false;
             card.style.cursor = 'grab';
+            if (e.pointerId) {
+                try { card.releasePointerCapture(e.pointerId); } catch(err) {}
+            }
             
-            const threshold = 130;
+            const threshold = 105;
             if (dragX > threshold) {
-                // Drag Swipe Like
+                // Swiped Like
                 const rect = card.getBoundingClientRect();
                 triggerHeartBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
                 window.handleSwipe('like', true);
             } else if (dragX < -threshold) {
-                // Drag Swipe Pass
+                // Swiped Pass
                 window.handleSwipe('pass', true);
             } else {
-                // Satisfying elastic return bounce
+                // Elastic snap back
                 gsap.to(card, {
                     x: 0,
                     y: 0,
                     rotation: 0,
-                    duration: 0.6,
-                    ease: "elastic.out(1.1, 0.65)"
+                    duration: 0.45,
+                    ease: "back.out(1.4)"
                 });
                 gsap.to([stampLike, stampNope], {
                     opacity: 0,
                     duration: 0.2,
                     ease: "power2.out"
                 });
+                if (previewCard && previewCard.style.display !== 'none') {
+                    gsap.to(previewCard, {
+                        scale: 0.95,
+                        y: 14,
+                        opacity: 0.85,
+                        duration: 0.3
+                    });
+                }
             }
             dragX = 0;
             dragY = 0;
@@ -982,9 +1114,21 @@
         card.addEventListener('pointerup', endDrag);
         card.addEventListener('pointercancel', endDrag);
 
+        // --- ⌨️ KEYBOARD SHORTCUTS ---
+        window.addEventListener('keydown', (e) => {
+            if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                window.handleSwipe('pass');
+            } else if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                window.handleSwipe('like');
+            }
+        });
+
         // --- 🎉 5. GLORIOUS MUTUAL MATCH CELEBRATION EFFECTS ---
         window.triggerMatchCelebration = function(matchData, partnerId) {
-            const firstName = matchData.name.split(' ')[0];
+            const firstName = (matchData.name || 'Match').split(' ')[0];
             
             document.getElementById('match-name-celeb').innerText = firstName;
             document.getElementById('match-avatar-celeb').src = matchData.img || "/static/img/placeholder.png";
@@ -999,7 +1143,6 @@
             document.getElementById('match-overlay').style.display = 'flex';
             document.getElementById('btn-send-msg').onclick = () => window.location.href = `/matches/${partnerId}`;
 
-            // Trigger glorious cascading bursts around avatar zones
             setTimeout(() => {
                 const w = window.innerWidth;
                 const h = window.innerHeight;
@@ -1030,18 +1173,24 @@
                     div.className = 'ice-bubble';
                     div.innerText = text.replace(/^\d+\.\s*/, '');
                     div.onclick = () => {
-                        navigator.clipboard.writeText(div.innerText);
-                        div.innerText = "✨ Copied to clipboard!";
-                        setTimeout(() => div.innerText = text, 2000);
+                        window.location.href = `/matches/${partnerId}?intro=${encodeURIComponent(div.innerText)}`;
                     };
                     container.appendChild(div);
                 });
-            });
+            })
+            .catch(err => console.warn("Icebreaker error:", err));
         };
 
         window.closeMatchOverlay = function() {
             document.getElementById('match-overlay').style.display = 'none';
         };
+
+        // --- 🚀 INITIALIZE FIRST PROFILE ---
+        if (profiles.length > 0) {
+            renderProfile(profiles[currentIndex]);
+        } else {
+            fetchMoreProfiles();
+        }
     });
 </script>
 {% endblock %}

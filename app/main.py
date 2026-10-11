@@ -253,8 +253,8 @@ app.config.update(
     # Prevents CSRF (already handled by Flask-WTF, but this is an extra layer)
     SESSION_COOKIE_SAMESITE='Lax',
     
-    # Hardens the session length to 7 days
-    PERMANENT_SESSION_LIFETIME=timedelta(days=7)
+    # Hardens the session length to 30 days
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30)
 )
 def is_safaricom_ip(ip_str):
     """Verifies if an incoming request is actually from Safaricom."""
@@ -438,6 +438,7 @@ app.register_blueprint(auth_v2_bp)
 app.register_blueprint(auth_v3_bp)
 app.register_blueprint(profiles_bp)
 app.register_blueprint(matches_bp)
+csrf.exempt(matches_bp)
 app.register_blueprint(v3_matching_bp)
 app.register_blueprint(gamification_v4_bp)
 
@@ -472,6 +473,10 @@ def profile_complete_required(f):
         if 'user_id' not in session:
             flash("Please log in or sign up to access this page.", "warning")
             return redirect(url_for('auth.login', next=request.path))
+
+        # Sponsors have VIP non-student status, bypass student profile completeness
+        if session.get('account_type') == 'sponsor':
+            return f(*args, **kwargs)
 
         # Skip re-check if we already confirmed completeness recently
         last_check = session.get('profile_checked_at')
@@ -629,6 +634,17 @@ def requires_subscription(f):
             return redirect(url_for('auth.login', next=request.path))
             
         user_id = session.get('user_id')
+
+        # --- SPONSOR VIP PASS: Active sponsors have full paid access to all pages ---
+        if session.get('account_type') == 'sponsor':
+            from app.database import get_sponsor_profile
+            sponsor = get_sponsor_profile(user_id)
+            if sponsor and sponsor.get('is_active'):
+                return f(*args, **kwargs)
+            elif sponsor and not sponsor.get('is_active'):
+                flash("Please complete your sponsor registration payment to unlock all pages.", "warning")
+                return redirect(url_for('sponsors.sponsor_dashboard'))
+
         user_data = db.reference(f'profiles/{user_id}').get()
         
         if not user_data:
@@ -665,6 +681,14 @@ def requires_diamond_subscription(f):
             return redirect(url_for('auth.login'))
             
         user_id = session.get('user_id')
+
+        # --- SPONSOR VIP PASS ---
+        if session.get('account_type') == 'sponsor':
+            from app.database import get_sponsor_profile
+            sponsor = get_sponsor_profile(user_id)
+            if sponsor and sponsor.get('is_active'):
+                return f(*args, **kwargs)
+
         user_data = db.reference(f'profiles/{user_id}').get()
         
         if not user_data:
@@ -755,7 +779,11 @@ def party():
 
 @app.route('/')
 def home():
-    # Public route
+    # If user/sponsor is already logged in, remember them and redirect directly to their dashboard/swipe
+    if 'user_id' in session:
+        if session.get('account_type') == 'sponsor':
+            return redirect(url_for('sponsors.sponsor_dashboard'))
+        return redirect(url_for('swipe'))
     return render_template('index.html')
 
 @app.route('/manifest.json')
@@ -1002,7 +1030,25 @@ from flask import render_template, session, redirect, url_for, flash
 from flask import session, flash, redirect, url_for, render_template
 # Make sure your db is imported! e.g., from app.database import db
 
-import random
+def is_opposite_gender_match(my_gender, target_gender):
+    """
+    Enforces strict opposite-gender matching:
+    - Ladies only see male profiles
+    - Males only see female profiles
+    """
+    g1 = (my_gender or '').strip().lower()
+    g2 = (target_gender or '').strip().lower()
+    
+    male_aliases = {'male', 'man', 'm', 'boy'}
+    female_aliases = {'female', 'woman', 'f', 'lady', 'girl'}
+    
+    if g1 in male_aliases:
+        return g2 in female_aliases
+    elif g1 in female_aliases:
+        return g2 in male_aliases
+    elif g1 and g2:
+        return g1 != g2
+    return True
 
 
 @app.route('/swipe')
@@ -1020,7 +1066,11 @@ def swipe():
         return redirect(url_for('auth.login')) 
 
     # 2. Fetch Current User Data & Swipes
-    user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    if session.get('account_type') == 'sponsor':
+        from app.database import get_sponsor_profile
+        user_profile = get_sponsor_profile(user_id) or {}
+    else:
+        user_profile = db.reference(f'profiles/{user_id}').get() or {}
     user_swipes = db.reference(f'swipes/{user_id}').get() or {}
 
     # Extract Current User's Gender for strict filtering
@@ -1061,8 +1111,7 @@ def swipe():
         p_gender = p.get('gender', '').strip().lower()
         
         # --- STRICT OPPOSITE-GENDER RULE ---
-        # If both users have a gender set and they are the same, completely skip this profile
-        if current_user_gender and p_gender and current_user_gender == p_gender:
+        if not is_opposite_gender_match(current_user_gender, p_gender):
             continue
         
         # SKIP CONDITIONS:
@@ -1156,6 +1205,9 @@ def swipe():
             'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
             'phone': p.get('phone'), # Direct access for professional profile contact
             'intent': p_intent, # Passes the intent so the frontend tag works!
+            'tribe': p.get('tribe', ''),
+            'zodiac': p.get('zodiac', ''),
+            'mbti': p.get('mbti', ''),
             'compatibility': final_score,
             'is_perfect_match': final_score >= 80,  # Flag for the frontend badge
             'connection_msg': connection_msg
@@ -1167,9 +1219,8 @@ def swipe():
         if p_id == user_id or not p.get('is_visible', True):
             continue
             
-        p_gender = p.get('gender', '').strip().lower()
-        if current_user_gender and p_gender and current_user_gender == p_gender:
-            continue # Strict opposite-gender rule
+        if not is_opposite_gender_match(current_user_gender, p_gender):
+            continue
             
         if gender_pref != 'Everyone' and p_gender != gender_pref.lower():
             continue
@@ -1189,8 +1240,45 @@ def swipe():
     top_teasers.sort(key=lambda x: x['compatibility'], reverse=True)
     top_teasers = top_teasers[:10]
 
-    # 5. Sort the deck: Show the Highest Compatibility matches first!
-    # To suggest different 10 profiles every time, we randomly shuffle first, then pick 10, then sort.
+    # 5. Backfill safety net: Ensure the deck is NEVER empty so swipe works instantly!
+    if len(potential_matches) < 10 and all_profiles:
+        seen_ids = set(m['id'] for m in potential_matches)
+        for p in all_profiles:
+            p_id = p.get('id')
+            if p_id == user_id or p_id in seen_ids or not p.get('is_visible', True):
+                continue
+            p_gender = p.get('gender', '').strip().lower()
+            if not is_opposite_gender_match(current_user_gender, p_gender):
+                continue
+            
+            # Don't re-show profiles the user previously liked
+            user_swipe = user_swipes.get(p_id)
+            if (isinstance(user_swipe, dict) and user_swipe.get('action') == 'like') or user_swipe == 'like':
+                continue
+                
+            p_intent = p.get('intent', 'none')
+            score = p.get('ai_score', random.randint(70, 88))
+            potential_matches.append({
+                'id': p_id,
+                'name': p.get('name', 'Student').split(' ')[0],
+                'age': p.get('age', 18),
+                'major': p.get('major', 'MMUST Student'),
+                'bio': p.get('bio', 'Hey! I am using FIND YOUR MATCH.'),
+                'img': p.get('img') or url_for('static', filename='img/placeholder.png'),
+                'phone': p.get('phone'),
+                'intent': p_intent,
+                'tribe': p.get('tribe', ''),
+                'zodiac': p.get('zodiac', ''),
+                'mbti': p.get('mbti', ''),
+                'compatibility': score,
+                'is_perfect_match': score >= 80,
+                'connection_msg': '✨ Recommended Match'
+            })
+            seen_ids.add(p_id)
+            if len(potential_matches) >= 15:
+                break
+
+    # 6. Sort the deck: Show the Highest Compatibility matches first!
     random.shuffle(potential_matches)
     potential_matches = potential_matches[:10]
     potential_matches.sort(key=lambda x: x['compatibility'], reverse=True)
@@ -1295,6 +1383,8 @@ import random
 def dashboard():
     """THE MAIN STUDENT COMMAND CENTER (OPEN DIRECTORY MODE)"""
     user_id = session.get('user_id')
+    if session.get('account_type') == 'sponsor':
+        return redirect(url_for('sponsors.sponsor_dashboard'))
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
     
@@ -1729,7 +1819,11 @@ def start_chat(target_id):
 def matches(partner_id=None):
     # PROTECTED: Must be logged in AND paid
     user_id = session.get('user_id')
-    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    if session.get('account_type') == 'sponsor':
+        from app.database import get_sponsor_profile
+        user_data = get_sponsor_profile(user_id) or {}
+    else:
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
     
     # Check if the user is in "Ghost Mode" (only talking to AI)
     ai_mode = user_data.get('settings', {}).get('ai_companion_mode') == True
