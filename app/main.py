@@ -6394,6 +6394,7 @@ def get_turn_credentials():
 #  3. WEBRTC SIGNALING & E2EE HANDSHAKE (REST API REPLACEMENT)
 # ─────────────────────────────────────────────────────────────
 @app.route('/api/call/signal', methods=['POST'])
+@csrf.exempt
 def api_call_signal():
     """Handles WebRTC signaling via Firebase Realtime Database instead of Socket.IO"""
     data = request.json or {}
@@ -6406,6 +6407,28 @@ def api_call_signal():
         db.reference(f'signals/{room_id}').push(data)
         
     return jsonify({"success": True})
+
+@app.route('/api/call/ring', methods=['POST'])
+@csrf.exempt
+def api_call_ring():
+    """Server-side trigger to ensure incoming call is delivered to partner's Firebase queue."""
+    data = request.json or {}
+    partner_id = data.get('partner_id')
+    caller_id = session.get('user_id') or data.get('caller_id')
+    caller_name = session.get('user_name', 'Student').split()[0]
+    caller_img = session.get('profile_img', '/static/img/placeholder.png')
+    is_video = data.get('is_video', False)
+    
+    if partner_id and caller_id:
+        db.reference(f'incoming_calls/{partner_id}').push({
+            'caller_id': caller_id,
+            'caller_name': caller_name,
+            'caller_img': caller_img,
+            'is_video': is_video,
+            'timestamp': int(time.time() * 1000)
+        })
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Missing partner_id"}), 400
 
 # 🚨 EMERGENCY SOS BROADCAST (REST API REPLACEMENT) 🚨
 @app.route('/api/sos/trigger', methods=['POST'])

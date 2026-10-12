@@ -561,14 +561,22 @@
                     }
                 }, 45000);
 
-                // Push incoming call alert to partner's Firebase queue
-                fdb.ref(`incoming_calls/${partnerId}`).push({
+                // 1. Client Firebase push
+                const callPayload = {
                     caller_id: myId,
                     caller_name: "{{ session.get('user_name', 'Student').split()[0] }}",
                     caller_img: "{{ session.get('profile_img', '/static/img/placeholder.png') }}",
                     is_video: isVideoCall,
                     timestamp: Date.now()
-                });
+                };
+                fdb.ref(`incoming_calls/${partnerId}`).push(callPayload);
+
+                // 2. Dual server-side trigger fallback
+                fetch('/api/call/ring', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ partner_id: partnerId, is_video: isVideoCall })
+                }).catch(e => console.warn("Server ring notice:", e));
 
                 setupPeerConnection();
 

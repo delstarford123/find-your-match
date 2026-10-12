@@ -215,16 +215,16 @@
       ".write": "auth != null"
     },
     "calls": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "incoming_calls": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "signals": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "emergency_alerts": {
       ".read": "auth != null",
