@@ -1,6 +1,7 @@
 import os
 import random
 import logging
+import threading
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Blueprint, request, jsonify, session
@@ -156,6 +157,39 @@ def record_swipe():
                         'timestamp': datetime.now(timezone.utc).isoformat()
                     })
 
+                    # SEND OFFLINE EMAIL ALERTS SO STUDENTS NEVER MISS A MATCH (ASYNC)
+                    try:
+                        from app.email_service import send_mutual_match_email
+                        def _dispatch_v3_match_emails_bg(t_id, c_id, t_prof, c_prof, reason):
+                            try:
+                                t_email = t_prof.get('email') or db.reference(f'users/{t_id}/email').get()
+                                if t_email:
+                                    send_mutual_match_email(
+                                        recipient_email=t_email,
+                                        recipient_name=t_prof.get('name', 'Comrade'),
+                                        partner_name=c_prof.get('name', 'Someone'),
+                                        partner_img=c_prof.get('img'),
+                                        match_reason=reason
+                                    )
+                                c_email = c_prof.get('email') or db.reference(f'users/{c_id}/email').get()
+                                if c_email:
+                                    send_mutual_match_email(
+                                        recipient_email=c_email,
+                                        recipient_name=c_prof.get('name', 'Comrade'),
+                                        partner_name=t_prof.get('name', 'Someone'),
+                                        partner_img=t_prof.get('img'),
+                                        match_reason=reason
+                                    )
+                            except Exception as ex:
+                                logger.error(f"Background V3 match email failed: {ex}")
+
+                        threading.Thread(
+                            target=_dispatch_v3_match_emails_bg,
+                            args=(target_user_id, current_user_id, target_profile, current_profile, match_reason),
+                            daemon=True
+                        ).start()
+                    except Exception as e_mail:
+                        logger.error(f"Failed to launch V3 match email thread: {e_mail}")
 
                 except Exception as e:
                     logger.error(f"Failed to emit V3 match Firebase notification: {e}")
@@ -233,6 +267,40 @@ def auto_match():
             'last_message_time': timestamp,
             'match_reason': f"Smart Auto-Matchmaker: You share an extreme {best_score}% compatibility index! 🌌"
         })
+
+        # SEND OFFLINE EMAIL ALERTS SO STUDENTS NEVER MISS A MATCH (ASYNC)
+        try:
+            from app.email_service import send_mutual_match_email
+            def _dispatch_auto_match_emails_bg(t_id, c_id, t_prof, c_prof, reason):
+                try:
+                    t_email = t_prof.get('email') or db.reference(f'users/{t_id}/email').get()
+                    if t_email:
+                        send_mutual_match_email(
+                            recipient_email=t_email,
+                            recipient_name=t_prof.get('name', 'Comrade'),
+                            partner_name=c_prof.get('name', 'Someone'),
+                            partner_img=c_prof.get('img'),
+                            match_reason=reason
+                        )
+                    c_email = c_prof.get('email') or db.reference(f'users/{c_id}/email').get()
+                    if c_email:
+                        send_mutual_match_email(
+                            recipient_email=c_email,
+                            recipient_name=c_prof.get('name', 'Comrade'),
+                            partner_name=t_prof.get('name', 'Someone'),
+                            partner_img=t_prof.get('img'),
+                            match_reason=reason
+                        )
+                except Exception as ex:
+                    logger.error(f"Background auto match email failed: {ex}")
+
+            threading.Thread(
+                target=_dispatch_auto_match_emails_bg,
+                args=(target_id, current_user_id, best_target, current_profile, f"Smart Auto-Matchmaker: You share an extreme {best_score}% compatibility index! 🌌"),
+                daemon=True
+            ).start()
+        except Exception as e_mail:
+            logger.error(f"Failed to launch auto match email thread: {e_mail}")
 
         return jsonify({
             "success": True,

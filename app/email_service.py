@@ -8,25 +8,33 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import formataddr, formatdate, make_msgid
+import ssl
+from dotenv import load_dotenv
+
+# Ensure environment variables from .env are loaded immediately
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # Define standard sender name for consistency
 SENDER_NAME_DEFAULT = "FIND YOUR MATCH"
 
-import ssl
-
 def _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT, attachments=None):
     """
     Private helper function to handle the actual SMTP connection and email dispatch.
     This prevents repeating connection and error-handling code for every email type.
     """
-    sender_email = os.getenv("MAIL_USERNAME")
-    sender_password = os.getenv("MAIL_PASSWORD")
-    
-    # Allows switching to SendGrid/AWS later via .env without changing code
-    smtp_server = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    smtp_port = int(os.getenv("MAIL_PORT", 465))
+    if not recipient_email or "@" not in str(recipient_email):
+        logger.warning(f"Invalid recipient email provided: {recipient_email}")
+        return False
+
+    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('\"\'')
+    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('\"\'')
+    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('\"\'')
+    try:
+        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('\"\''))
+    except (ValueError, TypeError):
+        smtp_port = 465
 
     if not sender_email or not sender_password:
         logger.error("Email credentials missing in environment variables!")
@@ -66,11 +74,11 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
         
         if smtp_port == 465:
             # Use context manager (with) to safely close connection even on failure
-            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=15) as server:
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
                 server.starttls(context=context)
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
@@ -83,6 +91,201 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
     except Exception as e:
         logger.error(f"❌ Failed to send email to {recipient_email}: {e}")
         return False
+
+
+def send_mutual_match_email(recipient_email, recipient_name, partner_name, partner_img=None, match_reason=None):
+    """
+    Sends an instant email notification when two users match so they don't miss chats when offline.
+    """
+    recipient_first = (recipient_name or 'Comrade').split()[0]
+    partner_first = (partner_name or 'Someone').split()[0]
+    
+    subject = f"❤️ You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
+    
+    text_content = textwrap.dedent(f"""\
+        Hey {recipient_first}!
+        
+        You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
+        
+        You and {partner_first} just liked each other!
+        
+        Don't leave them waiting — say hi today before they log off:
+        https://findyourmatch.co.ke/matches
+        
+        — Find Your Match Team
+    """)
+    
+    avatar_html = ""
+    if partner_img and "placeholder" not in partner_img:
+        avatar_html = f"""
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="{partner_img}" alt="{partner_first}" style="width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #E60026; box-shadow: 0 8px 24px rgba(230,0,38,0.25);" />
+        </div>
+        """
+        
+    reason_html = ""
+    if match_reason:
+        reason_html = f"""
+        <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 12px; padding: 12px; margin: 15px 0; text-align: center; color: #BE123C; font-weight: 700; font-size: 14px;">
+            ✨ {match_reason}
+        </div>
+        """
+        
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Mutual Match</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
+  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
+    
+    <!-- Top Banner -->
+    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
+      <div style="font-size: 32px; margin-bottom: 8px;">❤️</div>
+      <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">It's a Mutual Match!</h1>
+      <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95; font-weight: 500;">You and {partner_first} liked each other!</p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="padding: 32px 28px;">
+      <!-- Match Notification Alert -->
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
+          🔥 You have a new mutual match on Find Your Match!<br>
+          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
+        </p>
+      </div>
+
+      {avatar_html}
+      <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0F172A; text-align: center;">
+        Hey {recipient_first}! 👋
+      </h2>
+      <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569; text-align: center;">
+        Great news! You and <strong>{partner_first}</strong> liked each other on <strong>Find Your Match</strong>. The ice is already broken — now it's time to connect!
+      </p>
+
+      {reason_html}
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 16px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35); letter-spacing: 0.5px;">
+          💬 Tap to Chat on Find Your Match
+        </a>
+      </div>
+
+      <!-- Campus Pro Tip -->
+      <div style="background: #F8FAFC; border-radius: 14px; padding: 14px 18px; margin-top: 24px; border-left: 4px solid #E60026;">
+        <p style="margin: 0; font-size: 13px; color: #64748B; line-height: 1.5;">
+          💡 <strong>Pro Tip:</strong> Matches who exchange a message within the first hour are <strong>3x more likely</strong> to meet up on campus. Say hello before they log off!
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
+      <p style="margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #94A3B8;">
+        FIND YOUR MATCH • MMUST Student Dating & Connections
+      </p>
+      <p style="margin: 0; font-size: 11px; color: #CBD5E1;">
+        Direct link: https://findyourmatch.co.ke/matches
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>"""
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+def send_offline_chat_email(recipient_email, recipient_name, sender_name, message_preview):
+    """
+    Sends an email when an offline user receives a new message so they don't miss chats.
+    """
+    recipient_first = (recipient_name or 'Comrade').split()[0]
+    sender_first = (sender_name or 'Someone').split()[0]
+    
+    subject = f"💬 {sender_first} sent you a message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
+    
+    clean_preview = (message_preview or 'Sent you a message').strip()
+    if len(clean_preview) > 80:
+        clean_preview = clean_preview[:77] + "..."
+        
+    text_content = textwrap.dedent(f"""\
+        Hey {recipient_first}!
+        
+        You have a new message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
+        
+        {sender_first} sent you:
+        "{clean_preview}"
+        
+        Don't keep them waiting — tap here to reply:
+        https://findyourmatch.co.ke/matches
+        
+        — Find Your Match Team
+    """)
+    
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Message Alert</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
+  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
+    
+    <!-- Top Banner -->
+    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+      <div style="font-size: 30px; margin-bottom: 6px;">💬</div>
+      <h1 style="margin: 0; font-size: 22px; font-weight: 900;">New Message on Campus!</h1>
+      <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.95;">{sender_first} is waiting for your reply</p>
+    </div>
+
+    <!-- Main Content -->
+    <div style="padding: 30px 26px;">
+      <!-- Offline Notice Alert -->
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
+        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
+          💬 You have a new message on Find Your Match!<br>
+          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
+        </p>
+      </div>
+
+      <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 800; color: #0F172A;">
+        Hey {recipient_first},
+      </h2>
+      <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.5; color: #475569;">
+        <strong>{sender_first}</strong> just sent you a message on Find Your Match:
+      </p>
+
+      <!-- Message Quote Bubble -->
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-left: 4px solid #E60026; border-radius: 14px; padding: 16px 20px; margin: 20px 0; color: #1E293B; font-size: 15px; font-style: italic;">
+        "{clean_preview}"
+      </div>
+
+      <!-- CTA Button -->
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 15px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
+          💬 Reply to {sender_first} Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
+      <p style="margin: 0; font-size: 12px; color: #94A3B8;">
+        FIND YOUR MATCH • https://findyourmatch.co.ke/matches
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>"""
+
+    return _send_email(recipient_email, subject, text_content, html_content)
 
 
 def send_verification_email(recipient_email, user_name, otp_code, purpose="signup"):

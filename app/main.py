@@ -1748,6 +1748,27 @@ def add_crush():
             # (WebSockets removed: Handled via Firebase Realtime Database)
             pass
 
+            # Dispatch mutual match email alerts so neither user misses the match
+            try:
+                def _dispatch_crush_match_emails(uid1, uid2):
+                    try:
+                        p1 = db.reference(f'profiles/{uid1}').get() or {}
+                        p2 = db.reference(f'profiles/{uid2}').get() or {}
+                        e1 = p1.get('email') or db.reference(f'users/{uid1}/email').get()
+                        e2 = p2.get('email') or db.reference(f'users/{uid2}/email').get()
+                        reason = "OMG! Secret Crush Radar Match! You both liked each other! 🤫❤️"
+                        from app.email_service import send_mutual_match_email
+                        if e1:
+                            send_mutual_match_email(e1, p1.get('name', 'Comrade'), p2.get('name', 'Someone'), p2.get('img'), reason)
+                        if e2:
+                            send_mutual_match_email(e2, p2.get('name', 'Comrade'), p1.get('name', 'Someone'), p1.get('img'), reason)
+                    except Exception as err:
+                        logger.error(f"Crush match email dispatch failed: {err}")
+
+                threading.Thread(target=_dispatch_crush_match_emails, args=(user_id, raw_crush_id), daemon=True).start()
+            except Exception as e:
+                logger.error(f"Crush email dispatch setup error: {e}")
+
             return jsonify({
                 "status": "success", 
                 "match": True, 
@@ -4710,6 +4731,44 @@ def api_send_message():
                 click_url=f"/chat/{match_id}"
             )
 
+            # SEND OFFLINE EMAIL ALERT SO STUDENTS NEVER MISS A CHAT (ASYNC)
+            if receiver_id != 'AI_COMPANION':
+                def _dispatch_offline_email_worker(r_id, s_name, msg_body, m_id, m_ref):
+                    try:
+                        r_prof = db.reference(f'profiles/{r_id}').get() or {}
+                        r_email = r_prof.get('email') or db.reference(f'users/{r_id}/email').get()
+                        is_online = r_prof.get('is_online', False)
+                        
+                        # Only send if receiver is currently offline and has a valid email
+                        if r_email and not is_online:
+                            m_info = m_ref.get() or {}
+                            last_email_time = m_info.get(f'last_offline_email_{r_id}')
+                            should_send = True
+                            if last_email_time:
+                                try:
+                                    last_dt = datetime.fromisoformat(last_email_time)
+                                    if datetime.now(EAT) - last_dt < timedelta(minutes=15):
+                                        should_send = False
+                                except Exception:
+                                    pass
+                            
+                            if should_send:
+                                m_ref.update({f'last_offline_email_{r_id}': datetime.now(EAT).isoformat()})
+                                from app.email_service import send_offline_chat_email
+                                send_offline_chat_email(
+                                    recipient_email=r_email,
+                                    recipient_name=r_prof.get('name', 'Comrade'),
+                                    sender_name=s_name,
+                                    message_preview=msg_body
+                                )
+                    except Exception as err:
+                        logger.error(f"Failed to send offline chat alert: {err}")
+
+                threading.Thread(
+                    target=_dispatch_offline_email_worker,
+                    args=(receiver_id, sender_name, message_payload['text'], match_id, match_ref),
+                    daemon=True
+                ).start()
 
         except Exception as e:
             logger.error(f"Failed to push chat notification: {e}")

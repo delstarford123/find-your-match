@@ -127,6 +127,41 @@ def record_swipe():
                 except Exception as e:
                     print(f"Notification failed: {e}")
 
+                # 7. SEND OFFLINE EMAIL ALERTS SO STUDENTS NEVER MISS A MATCH (ASYNC BACKGROUND THREAD)
+                try:
+                    from app.email_service import send_mutual_match_email
+                    def _dispatch_match_emails_bg(t_id, c_id, t_prof, c_prof, reason):
+                        try:
+                            target_email = t_prof.get('email') or db.reference(f'users/{t_id}/email').get()
+                            if target_email:
+                                send_mutual_match_email(
+                                    recipient_email=target_email,
+                                    recipient_name=t_prof.get('name', 'Comrade'),
+                                    partner_name=c_prof.get('name', 'Someone'),
+                                    partner_img=c_prof.get('img'),
+                                    match_reason=reason
+                                )
+                            current_email = c_prof.get('email') or db.reference(f'users/{c_id}/email').get()
+                            if current_email:
+                                send_mutual_match_email(
+                                    recipient_email=current_email,
+                                    recipient_name=c_prof.get('name', 'Comrade'),
+                                    partner_name=t_prof.get('name', 'Someone'),
+                                    partner_img=t_prof.get('img'),
+                                    match_reason=reason
+                                )
+                        except Exception as ex:
+                            print(f"Background mutual match email failed: {ex}")
+
+                    import threading
+                    threading.Thread(
+                        target=_dispatch_match_emails_bg,
+                        args=(target_user_id, current_user_id, target_profile, current_profile, match_reason),
+                        daemon=True
+                    ).start()
+                except Exception as e:
+                    print(f"Mutual match email dispatch setup failed: {e}")
+
         return jsonify({
             "status": "success", 
             "match": is_match,
