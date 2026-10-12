@@ -66,7 +66,11 @@ def build_html(name, students):
 
     return f"""<!DOCTYPE html>
     <html><body style="font-family:sans-serif;background:#f8fafc;padding:20px;margin:0;">
-        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;">
+        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.05);">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto;">
+            </div>
             <div style="background:linear-gradient(135deg,#720000,#e60026);padding:25px;text-align:center;color:white;">
                 <h1 style="margin:0;font-size:24px;">FindYourMatch Sponsors</h1>
             </div>

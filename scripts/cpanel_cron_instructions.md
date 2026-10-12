@@ -1,38 +1,103 @@
-# How to Set Up the Campus Manager Email Cron Job in cPanel (HostPinnacle)
+# HostPinnacle (cPanel) Complete Cron Jobs Guide
+**Domain**: `findyourmatch.co.ke`  
+**User**: `farmerma`  
+**Virtual Environment**: `/home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate`  
+**Project Directory**: `/home1/farmerma/findyourmatch.co.ke/mmust-dating-ai`
 
-This guide explains how to set up the automated monthly email script in your HostPinnacle cPanel.
+---
 
-## Step 1: Configure SMTP Settings
+## Preparation Step
+Before setting up cron jobs, ensure the `logs` folder exists in your project directory so logs can be saved without errors:
+```bash
+mkdir -p /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai/logs
+```
 
-Before the script can send emails, it needs your actual email credentials.
-1. Open `scripts/send_campus_managers_report.py` in the cPanel File Manager (or locally before uploading).
-2. Look at the top of the file and replace the default credentials with your actual HostPinnacle Webmail credentials.
-   ```python
-   SMTP_SERVER = 'mail.yourdomain.com'
-   SMTP_PORT = 465
-   SMTP_USERNAME = 'admin@yourdomain.com'
-   SMTP_PASSWORD = 'your_real_email_password'
-   ```
+---
 
-## Step 2: Ensure Dependencies are Installed
+## 1. Monday Match Emails ("Monday Love Sheet")
+- **Frequency**: Every Monday at 08:00 AM EAT (05:00 UTC)
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `5`
+  - Day: `*`
+  - Month: `*`
+  - Weekday: `1`
+- **Command**:
+  ```bash
+  source /home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate && cd /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai && python send_monday_email_job.py >> logs/monday_email.log 2>&1
+  ```
 
-Since this script uses `firebase_admin`, it must be run using the Python environment where your app dependencies are installed. If you are using cPanel's "Setup Python App", you have a virtual environment.
-To find the virtual environment path, it usually looks something like this:
-`/home/yourusername/virtualenv/your_app_folder/3.9/bin/python`
+---
 
-## Step 3: Set up the Cron Job
+## 2. Tuesday Match & Blessings ("Blessed Tuesday")
+- **Frequency**: Every Tuesday at 09:00 AM EAT (06:00 UTC)
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `6`
+  - Day: `*`
+  - Month: `*`
+  - Weekday: `2`
+- **Command**:
+  ```bash
+  source /home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate && cd /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai && python send_tuesday_email_job.py >> logs/tuesday_email.log 2>&1
+  ```
 
-1. Log in to your HostPinnacle cPanel.
-2. Scroll down to the **Advanced** section and click on **Cron Jobs**.
-3. Under **Add New Cron Job**:
-   - **Common Settings**: Select `Once Per Month (0 0 1 * *)`. This runs the script on the 1st of every month at midnight.
-   - **Command**: You need to provide the absolute path to your Python executable and the absolute path to the script.
-     It should look something like this:
-     ```bash
-     /home/username/virtualenv/mmust-dating-ai/3.9/bin/python /home/username/mmust-dating-ai/scripts/send_campus_managers_report.py >> /home/username/mmust-dating-ai/logs/cron.log 2>&1
-     ```
-     *(Make sure to replace `username` with your actual cPanel username, and adjust the paths depending on where you uploaded the files).*
-4. Click **Add New Cron Job**.
+---
 
-## Verifying it Works
-To test it immediately, you can run the command directly in the cPanel Terminal, or set the cron job to run "Once Per Minute" just to see if the email arrives, and then change it back to "Once Per Month".
+## 3. Wednesday Sponsor Match Job
+- **Frequency**: Every Wednesday at 10:00 AM EAT (07:00 UTC)
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `7`
+  - Day: `*`
+  - Month: `*`
+  - Weekday: `3`
+- **Command**:
+  ```bash
+  source /home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate && cd /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai && python send_sponsor_match_email_job.py >> logs/sponsor_email.log 2>&1
+  ```
+
+---
+
+## 4. Friday Weekend Match Emails ("Friday Perfect Match")
+- **Frequency**: Every Friday at 04:00 PM EAT (13:00 UTC)
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `13`
+  - Day: `*`
+  - Month: `*`
+  - Weekday: `5`
+- **Command**:
+  ```bash
+  source /home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate && cd /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai && python send_friday_email_job.py >> logs/friday_email.log 2>&1
+  ```
+
+---
+
+## 5. Monthly Campus Managers Report
+- **Frequency**: 1st day of every month at midnight (00:00 UTC / 03:00 AM EAT)
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `0`
+  - Day: `1`
+  - Month: `*`
+  - Weekday: `*`
+- **Command**:
+  ```bash
+  source /home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/activate && cd /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai && python scripts/send_campus_managers_report.py >> logs/campus_report.log 2>&1
+  ```
+
+---
+
+## 6. Hourly System Health & Anti-Ghosting Webhook
+- **Frequency**: Every hour
+- **Schedule**:
+  - Minute: `0`
+  - Hour: `*`
+  - Day: `*`
+  - Month: `*`
+  - Weekday: `*`
+- **Command**:
+  ```bash
+  curl -s "https://www.findyourmatch.co.ke/api/cron/hourly-check?cron_key=mmust_dating_cron_secret_2026" > /dev/null 2>&1
+  ```

@@ -38,9 +38,11 @@ from firebase_admin import credentials, db
 
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase_key.json"))
+        cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", os.path.join(BASE_DIR, "firebase_key.json"))
+        cred = credentials.Certificate(cred_path)
+        db_url = os.getenv("FIREBASE_DB_URL") or os.getenv("FIREBASE_DATABASE_URL") or "https://mmust-dating-site-default-rtdb.firebaseio.com/"
         firebase_admin.initialize_app(cred, {
-            'databaseURL': os.getenv("FIREBASE_DATABASE_URL", "https://mmust-dating-ai-default-rtdb.firebaseio.com/")
+            'databaseURL': db_url
         })
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {e}")
@@ -51,6 +53,8 @@ SMTP_PORT = int(os.getenv("MAIL_PORT", 465))
 SMTP_USER = os.getenv("MAIL_USERNAME", "noreply@findyourmatch.co.ke")
 SMTP_PASS = os.getenv("MAIL_PASSWORD", "Delstarford123")
 
+import ssl
+
 def send_email(to_email, subject, html_body):
     try:
         msg = MIMEMultipart('alternative')
@@ -59,19 +63,20 @@ def send_email(to_email, subject, html_body):
         msg['To'] = to_email
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
         
-        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=20)
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, to_email, msg.as_string())
-        server.quit()
+        context = ssl._create_unverified_context()
+        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=25, context=context) as server:
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, to_email, msg.as_string())
         return True
     except Exception as e:
         logger.error(f"Failed to send email to {to_email}: {e}")
         return False
 
 def get_html_template(title, message, profiles):
+    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke").rstrip("/")
     profile_cards = ""
     for p in profiles:
-        img_url = p.get('photo_url') or 'https://findyourmatch.co.ke/static/default_avatar.png'
+        img_url = p.get('photo_url') or f"{base_url}/static/img/placeholder.png"
         name = p.get('name', 'Anonymous').split()[0]
         age = p.get('age', '?')
         institution = p.get('institution', 'Campus')
@@ -86,7 +91,7 @@ def get_html_template(title, message, profiles):
             <div style="padding: 15px;">
                 <h4 style="margin: 0; color: #0f172a; font-size: 16px; font-weight: 900;">{name}, {age}</h4>
                 <p style="margin: 5px 0 0 0; color: #64748b; font-size: 12px;">{institution}</p>
-                <a href="https://findyourmatch.co.ke/student/{p.get('id', '')}" style="display: inline-block; margin-top: 10px; padding: 6px 12px; background: #fef2f2; color: #e60026; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #fecaca;">View Profile</a>
+                <a href="{base_url}/student/{p.get('id', '')}" style="display: inline-block; margin-top: 10px; padding: 6px 12px; background: #fef2f2; color: #e60026; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #fecaca;">View Profile</a>
             </div>
         </div>
         """
@@ -96,11 +101,17 @@ def get_html_template(title, message, profiles):
     <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body style="font-family: 'Arial', sans-serif; background-color: #f8fafc; margin: 0; padding: 20px;">
         <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <div style="background: linear-gradient(135deg, #720000 0%, #e60026 100%); padding: 30px; text-align: center; color: white;">
-                <h1 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: 1px;">FindYourMatch</h1>
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto;">
+            </div>
+            <div style="background: linear-gradient(135deg, #720000 0%, #e60026 100%); padding: 25px; text-align: center; color: white;">
+                <h1 style="margin: 0 0 6px 0; font-size: 24px; font-weight: 900; letter-spacing: 1px;">FindYourMatch</h1>
+                <p style="margin: 0; font-size: 13px; opacity: 0.9;">💖 Connecting Hearts on Campus 💖</p>
             </div>
             <div style="padding: 30px; color: #334155; line-height: 1.6; text-align: center;">
                 <h2 style="color: #0f172a; margin-top: 0; font-size: 22px;">{title}</h2>
@@ -141,18 +152,36 @@ def compute_compatibility(user, candidate):
     score  += min(len(my_w & their_w) * 3, 15)
     return min(score, 100)
 
-def main():
+import argparse
+import time
+
+def main(dry_run=False, test_email=None, limit=None):
     logger.info("=" * 55)
-    logger.info(f"Friday Job Started")
+    logger.info(f"Friday Job Started {'[DRY RUN]' if dry_run else ''}")
     logger.info("=" * 55)
 
     all_data = db.reference("profiles").get() or {}
     all_profiles = [{**v, "id": k} for k, v in all_data.items() if isinstance(v, dict)]
     eligible = [u for u in all_profiles if u.get("is_verified") and u.get("email") and not u.get("email_opt_out") and not u.get("is_banned")]
 
+    if test_email:
+        logger.info(f"Test mode active: Overriding target recipient to {test_email}")
+        if eligible:
+            eligible = [dict(eligible[0], email=test_email)]
+        else:
+            eligible = [{"id": "test_user", "name": "Test User", "email": test_email, "gender": "male"}]
+
+    if limit and limit > 0:
+        logger.info(f"Limiting execution to first {limit} eligible users.")
+        eligible = eligible[:limit]
+
+    logger.info(f"Found {len(eligible)} eligible recipient(s) out of {len(all_profiles)} total profiles.")
+
     active_males = []
     active_females = []
-    for p in eligible:
+    for p in all_profiles:
+        if not p.get("is_verified") or p.get("is_banned"):
+            continue
         gender = str(p.get('gender', '')).lower()
         if gender in ['male', 'm']:
             active_males.append(p)
@@ -162,7 +191,7 @@ def main():
     sent = 0
     skipped = 0
 
-    for user in eligible:
+    for idx, user in enumerate(eligible, 1):
         # 1. Compute Matches
         scored = []
         for c in all_profiles:
@@ -177,14 +206,21 @@ def main():
         scored.sort(key=lambda x: x[0], reverse=True)
         matches = [m[1] for m in scored[:50]]
 
+        recipient_addr = test_email if test_email else user["email"]
+
         if matches:
             subject = f"💌 Friday Perfect Matches: You have {len(matches)} perfect matches waiting!"
             html = get_html_template("It's a Match!", "It's Friday! The FYM weekend matchmaker has compiled your compatibility reports. Below are your top perfect matches on campus. Make your move before Lights Out!", matches)
-            if send_email(user["email"], subject, html):
+            if dry_run:
+                logger.info(f"  [{idx}/{len(eligible)}] [DRY RUN] Would send MATCHES to {recipient_addr} ({len(matches)} matches)")
                 sent += 1
-                logger.info(f"  SENT MATCHES -> {user['email']}")
             else:
-                skipped += 1
+                if send_email(recipient_addr, subject, html):
+                    sent += 1
+                    logger.info(f"  [{idx}/{len(eligible)}] SENT MATCHES -> {recipient_addr}")
+                    time.sleep(1.0)
+                else:
+                    skipped += 1
         else:
             # 2. Fallback logic
             pref_gender = str(user.get('gender_preference', '')).lower()
@@ -197,15 +233,25 @@ def main():
                 fallback = random.sample(pool, min(10, len(pool)))
                 subject = f"✨ Friday Perfect Matches: Check out these active profiles!"
                 html = get_html_template("Suggested Profiles", "You don't have any perfect matches >50% right now, but we found these active profiles at your campus to check out before the weekend. Swipe right!", fallback)
-                if send_email(user["email"], subject, html):
+                if dry_run:
+                    logger.info(f"  [{idx}/{len(eligible)}] [DRY RUN] Would send FALLBACK to {recipient_addr} ({len(fallback)} profiles)")
                     sent += 1
-                    logger.info(f"  SENT FALLBACK -> {user['email']}")
                 else:
-                    skipped += 1
+                    if send_email(recipient_addr, subject, html):
+                        sent += 1
+                        logger.info(f"  [{idx}/{len(eligible)}] SENT FALLBACK -> {recipient_addr}")
+                        time.sleep(1.0)
+                    else:
+                        skipped += 1
             else:
                 skipped += 1
 
     logger.info(f"DONE | Sent: {sent} | Skipped: {skipped}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Send Friday Weekend Match Emails")
+    parser.add_argument("--dry-run", action="store_true", help="Preview without actually sending emails")
+    parser.add_argument("--test-email", type=str, default=None, help="Send a single test email to this specific address")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of emails sent")
+    args = parser.parse_args()
+    main(dry_run=args.dry_run, test_email=args.test_email, limit=args.limit)

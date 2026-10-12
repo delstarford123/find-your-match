@@ -16,12 +16,13 @@ logger = logging.getLogger(__name__)
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path)
 
-# Initialize Firebase if not already initialized
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate(os.getenv("FIREBASE_CREDENTIALS_PATH", "credentials.json"))
+        cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "firebase_key.json"))
+        cred = credentials.Certificate(cred_path)
+        db_url = os.getenv("FIREBASE_DB_URL") or os.getenv("FIREBASE_DATABASE_URL") or "https://mmust-dating-site-default-rtdb.firebaseio.com/"
         firebase_admin.initialize_app(cred, {
-            'databaseURL': os.getenv("FIREBASE_DATABASE_URL", "https://mmust-dating-ai-default-rtdb.firebaseio.com/")
+            'databaseURL': db_url
         })
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {e}")
@@ -88,6 +89,10 @@ def get_html_template(title, message, profiles):
     </head>
     <body>
         <div class="container">
+            <!-- LOGO HEADER -->
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                <img src="https://www.findyourmatch.co.ke/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto;">
+            </div>
             <div class="header">
                 <h1>FindYourMatch</h1>
             </div>

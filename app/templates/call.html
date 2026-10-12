@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Live Call | Find Your Match</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <style>
         /* === NATIVE FULLSCREEN APP UI === */
@@ -13,6 +13,7 @@
             background: #0B1219; color: white; font-family: 'Outfit', sans-serif; 
             overflow: hidden; height: 100vh; height: 100dvh; display: flex; 
             flex-direction: column; align-items: center; justify-content: center; 
+            user-select: none;
         }
         
         /* === DYNAMIC VIDEO SWAP LAYERS === */
@@ -26,7 +27,7 @@
         
         /* The floating small video in the corner */
         .video-pip {
-            position: absolute; bottom: 120px; right: 20px; 
+            position: absolute; bottom: 130px; right: 20px; 
             width: 110px; height: 160px; object-fit: cover; 
             border-radius: 16px; border: 2px solid rgba(255,255,255,0.8); 
             box-shadow: 0 10px 25px rgba(0,0,0,0.6); 
@@ -38,73 +39,102 @@
         .pip-hover:hover { transform: scale(1.05) scaleX(-1) !important; }
         
         /* === VOICE AVATAR LAYERS === */
-        .avatar-container { z-index: 2; text-align: center; margin-bottom: 40px; transition: 0.3s; }
+        .avatar-container { z-index: 2; text-align: center; margin-bottom: 30px; transition: 0.3s; }
         
         .avatar { 
-            width: 160px; height: 160px; border-radius: 50%; object-fit: cover; 
-            border: 4px solid #38bdf8; margin-bottom: 24px; 
-            animation: pulse 2s infinite; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 150px; height: 150px; border-radius: 50%; object-fit: cover; 
+            border: 4px solid #38bdf8; margin-bottom: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        .avatar.ringing {
+            animation: pulse 2s infinite;
         }
         @keyframes pulse { 
-            0% { box-shadow: 0 0 0 0 rgba(56,189,248,0.6); } 
+            0% { box-shadow: 0 0 0 0 rgba(56,189,248,0.7); } 
             70% { box-shadow: 0 0 0 35px rgba(56,189,248,0); } 
             100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); } 
         }
         
-        h1 { margin: 0 0 10px 0; font-size: 32px; font-weight: 900; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
-        .status { color: #38bdf8; font-size: 18px; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.8); letter-spacing: 0.5px;}
-
-        /* === NETWORK WARNING === */
-        .network-warning {
-            position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
-            background: rgba(239, 68, 68, 0.9); color: white; padding: 6px 16px;
-            border-radius: 20px; font-size: 13px; font-weight: 700; z-index: 10;
-            display: none; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+        h1 { margin: 0 0 8px 0; font-size: 28px; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        .status { color: #38bdf8; font-size: 16px; font-weight: 700; text-shadow: 0 2px 10px rgba(0,0,0,0.8); letter-spacing: 0.5px; }
+        .timer { 
+            margin-top: 6px; font-size: 14px; font-weight: 600; color: #a5f3fc; 
+            background: rgba(15,23,42,0.6); padding: 4px 12px; border-radius: 20px; 
+            border: 1px solid rgba(56,189,248,0.3); display: inline-block;
         }
 
-        /* === CONTROLS === */
-        .controls { position: absolute; bottom: 40px; z-index: 10; display: flex; gap: 25px; }
+        /* === BANNERS & NOTIFICATIONS === */
+        .top-banner {
+            position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+            padding: 8px 18px; border-radius: 25px; font-size: 13px; font-weight: 700; 
+            z-index: 25; display: none; box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from { transform: translate(-50%, -20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        .banner-warning { background: rgba(239, 68, 68, 0.95); color: white; }
+        .banner-toast { background: rgba(15, 23, 42, 0.9); color: #38bdf8; border: 1px solid #38bdf8; }
+        .banner-audio-prompt { 
+            background: #0284c7; color: white; cursor: pointer; display: none; 
+            box-shadow: 0 0 20px rgba(2, 132, 199, 0.6);
+        }
+
+        /* === CONTROLS BAR === */
+        .controls-wrapper {
+            position: absolute; bottom: 35px; z-index: 15; 
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
+        }
+        .controls { 
+            display: flex; align-items: center; gap: 15px; 
+            background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(16px);
+            padding: 10px 20px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
         
         .btn { 
-            width: 70px; height: 70px; border-radius: 50%; border: none; 
-            cursor: pointer; font-size: 28px; display: flex; align-items: center; 
-            justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,0.4); 
-            transition: 0.2s;
+            width: 56px; height: 56px; border-radius: 50%; border: none; 
+            cursor: pointer; font-size: 22px; display: flex; align-items: center; 
+            justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
         }
         .btn:active { transform: scale(0.9); }
-        .btn-hangup { background: #ef4444; color: white; }
-        .btn-hangup:hover { background: #dc2626; }
-
-        /* Extra control buttons */
-        .btn-pip-sys { background: #1E293B; color: #38BDF8; font-size: 24px; border: 1px solid #334155; }
-        .btn-pip-sys:hover { background: #334155; color: white; }
         
+        .btn-ctrl { background: #1E293B; color: #F1F5F9; border: 1px solid #334155; }
+        .btn-ctrl:hover { background: #334155; }
+        .btn-ctrl.muted { background: #ef4444; color: white; border-color: #dc2626; }
+        
+        .btn-hangup { background: #ef4444; color: white; width: 62px; height: 62px; font-size: 26px; }
+        .btn-hangup:hover { background: #dc2626; transform: scale(1.05); }
+
         .btn-magic { background: #1E293B; color: #A855F7; border: 1px solid #334155; }
-        .btn-magic.active { background: rgba(168, 85, 247, 0.2); border-color: #A855F7; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+        .btn-magic.active { background: rgba(168, 85, 247, 0.25); border-color: #A855F7; box-shadow: 0 0 15px rgba(168, 85, 247, 0.5); }
 
         /* === STUDIO GLOW FILTER === */
         .studio-glow {
-            filter: brightness(1.1) contrast(1.05) saturate(1.2) sepia(0.1);
+            filter: brightness(1.1) contrast(1.05) saturate(1.2) sepia(0.08);
         }
 
         /* === SCROLLABLE 100-EMOJI REACTIONS UI === */
         .reaction-bar-container {
-            position: absolute; right: 20px; top: 40%; transform: translateY(-50%);
-            height: 55vh; width: 60px; z-index: 20; border-radius: 30px;
-            background: rgba(11, 18, 25, 0.5); backdrop-filter: blur(12px);
+            position: absolute; right: 15px; top: 40%; transform: translateY(-50%);
+            height: 50vh; width: 55px; z-index: 20; border-radius: 28px;
+            background: rgba(11, 18, 25, 0.6); backdrop-filter: blur(12px);
             border: 1px solid rgba(255,255,255,0.1); display: none; overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         .reaction-scroll {
             height: 100%; overflow-y: auto; display: flex; flex-direction: column;
-            align-items: center; gap: 15px; padding: 15px 0;
-            /* Hide scrollbar for sleekness */
+            align-items: center; gap: 14px; padding: 12px 0;
             -ms-overflow-style: none; scrollbar-width: none; 
         }
         .reaction-scroll::-webkit-scrollbar { display: none; }
         
         .react-btn {
-            background: none; border: none; font-size: 28px; cursor: pointer;
+            background: none; border: none; font-size: 26px; cursor: pointer;
             transition: 0.2s; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
         }
         .react-btn:active { transform: scale(0.6); }
@@ -130,13 +160,14 @@
 </head>
 <body>
 
-    <div class="network-warning" id="networkWarning">⚠️ Weak Connection</div>
+    <div class="top-banner banner-warning" id="networkWarning">⚠️ Weak Connection</div>
+    <div class="top-banner banner-toast" id="toastNotice">Notification</div>
+    <div class="top-banner banner-audio-prompt" id="audioPrompt" onclick="unlockAudio()">🔊 Tap to Enable Audio</div>
 
     <div id="reaction-layer"></div>
 
     <div class="reaction-bar-container" id="reactionBar">
-        <div class="reaction-scroll" id="reactionScroll">
-            </div>
+        <div class="reaction-scroll" id="reactionScroll"></div>
     </div>
 
     <div class="video-container" id="videoContainer">
@@ -145,27 +176,55 @@
     </div>
     
     <div class="avatar-container" id="avatarContainer">
-        <img src="{{ partner_img }}" class="avatar" id="partnerAvatar">
+        <img src="{{ partner_img }}" class="avatar ringing" id="partnerAvatar" alt="{{ partner_name }}">
         <h1>{{ partner_name }}</h1>
         <div class="status" id="callStatus">Connecting...</div>
+        <div class="timer" id="callTimer" style="display: none;">00:00</div>
     </div>
 
-    <div class="controls">
-        <button class="btn btn-magic" id="btnGlow" onclick="toggleGlow()" title="Studio Glow">✨</button>
-        <button class="btn btn-pip-sys" id="btnPipSys" onclick="toggleSystemPiP()" style="display: none;" title="Minimize Browser Video">⧉</button>
-        <button class="btn btn-hangup" onclick="endCall()" title="End Call">📵</button>
+    <div class="controls-wrapper">
+        <div class="controls">
+            <!-- Mic Mute Toggle -->
+            <button class="btn btn-ctrl" id="btnMic" onclick="toggleMute()" title="Mute Microphone">🎙️</button>
+            
+            <!-- Video Toggle (Video Calls only) -->
+            <button class="btn btn-ctrl" id="btnVideo" onclick="toggleVideo()" title="Turn Camera Off" style="display: none;">📹</button>
+            
+            <!-- Camera Flip (Video Calls only) -->
+            <button class="btn btn-ctrl" id="btnFlip" onclick="switchCamera()" title="Switch Camera" style="display: none;">🔄</button>
+            
+            <!-- Studio Glow (Video Calls only) -->
+            <button class="btn btn-magic" id="btnGlow" onclick="toggleGlow()" title="Studio Beauty Glow" style="display: none;">✨</button>
+            
+            <!-- PiP Button -->
+            <button class="btn btn-ctrl" id="btnPipSys" onclick="toggleSystemPiP()" style="display: none;" title="Minimize Window">⧉</button>
+            
+            <!-- Hangup Button -->
+            <button class="btn btn-hangup" onclick="endCall(true)" title="End Call">📵</button>
+        </div>
     </div>
 
+    <!-- Hidden Remote Audio Receiver -->
     <audio id="remoteAudio" autoplay playsinline></audio>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script>
         // ==========================================
-        // 1. INITIALIZATION & VARIABLES
+        // 1. FIREBASE & CORE PARAMETERS
         // ==========================================
-        const firebaseConfig = { databaseURL: "{{ config['FIREBASE_DB_URL'] }}" };
-        firebase.initializeApp(firebaseConfig);
+        const firebaseConfig = {
+            apiKey: "{{ firebase_api_key }}",
+            authDomain: "mmust-dating-site.firebaseapp.com",
+            databaseURL: "{{ firebase_db_url or 'https://mmust-dating-site-default-rtdb.firebaseio.com' }}",
+            projectId: "mmust-dating-site",
+            storageBucket: "mmust-dating-site.firebasestorage.app",
+            messagingSenderId: "572096461211",
+            appId: "1:572096461211:web:e38b542343ac8e4eca893e"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const fdb = firebase.database();
         
         const myId = "{{ session.get('user_id') }}";
@@ -178,24 +237,143 @@
         let pc = null;
         let localStream = null;
         let networkCheckInterval = null;
-        let isCallConnected = false; 
-        
-        // Track which video is currently in the small corner
+        let isCallConnected = false;
         let localIsPip = true; 
-        
-        let rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        let pendingIceCandidates = [];
+        let callTimeoutId = null;
 
-        // Clean up when leaving page
+        // UI Controls State
+        let isMicMuted = false;
+        let isVideoMuted = false;
+        let currentFacingMode = 'user';
+        let isGlowActive = false;
+
+        // Timer
+        let callTimerInterval = null;
+        let callDurationSec = 0;
+        
+        let rtcConfig = { 
+            iceServers: [
+                { urls: [
+                    'stun:stun.l.google.com:19302',
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302',
+                    'stun:stun3.l.google.com:19302',
+                    'stun:stun4.l.google.com:19302'
+                ]},
+                { urls: 'stun:stun.cloudflare.com:3478' }
+            ] 
+        };
+
         window.addEventListener('beforeunload', () => endCall(true));
 
         // ==========================================
-        // 2. WHATSAPP-STYLE VIDEO SWAP
+        // 2. SYNTHESIZED SOUND ENGINE (ZERO 404, ZERO LAG)
+        // ==========================================
+        let outgoingRingCtx = null;
+        let outgoingRingInterval = null;
+
+        function playOutgoingRing(start) {
+            if (!start) {
+                if (outgoingRingInterval) {
+                    clearInterval(outgoingRingInterval);
+                    outgoingRingInterval = null;
+                }
+                if (outgoingRingCtx) {
+                    try { outgoingRingCtx.close(); } catch(e){}
+                    outgoingRingCtx = null;
+                }
+                return;
+            }
+            if (outgoingRingInterval) return;
+
+            const ringBurst = () => {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    outgoingRingCtx = ctx;
+                    if (ctx.state === 'suspended') ctx.resume();
+
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sine'; osc2.type = 'sine';
+                    osc1.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(480, ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.1);
+                    gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 1.8);
+                    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2.0);
+
+                    osc1.connect(gain); osc2.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc1.start(); osc2.start();
+                    osc1.stop(ctx.currentTime + 2.0);
+                    osc2.stop(ctx.currentTime + 2.0);
+                } catch(e) {}
+            };
+
+            ringBurst();
+            outgoingRingInterval = setInterval(ringBurst, 4000);
+        }
+
+        function playConnectedChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15); // E5
+                osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.3); // G5
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        function playEndedChime() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(); osc.stop(ctx.currentTime + 0.4);
+            } catch(e) {}
+        }
+
+        function unlockAudio() {
+            const ra = document.getElementById('remoteAudio');
+            const rv = document.getElementById('remoteVideo');
+            if (ra) ra.play().catch(() => {});
+            if (rv) rv.play().catch(() => {});
+            document.getElementById('audioPrompt').style.display = 'none';
+        }
+
+        function showToastNotice(msg) {
+            const t = document.getElementById('toastNotice');
+            t.innerText = msg;
+            t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 2500);
+        }
+
+        // ==========================================
+        // 3. WHATSAPP-STYLE VIDEO SWAP
         // ==========================================
         function handleVideoClick(clickedType) {
             const localVid = document.getElementById('localVideo');
             const remoteVid = document.getElementById('remoteVideo');
 
-            // Only swap if the user clicks the video that is currently SMALL (PiP)
             if (clickedType === 'local' && localIsPip) {
                 localVid.className = 'video-main mirrored';
                 remoteVid.className = 'video-pip pip-hover';
@@ -208,31 +386,46 @@
         }
 
         // ==========================================
-        // 3. WEBRTC PEER CONNECTION SETUP
+        // 4. WEBRTC PEER CONNECTION SETUP
         // ==========================================
         function setupPeerConnection() {
             pc = new RTCPeerConnection(rtcConfig);
             
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            // Add local tracks to connection
+            if (localStream) {
+                localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+            }
 
+            // Stream Receiver (Unified Plan: handles audio and video tracks)
             pc.ontrack = e => {
+                const stream = e.streams && e.streams[0] ? e.streams[0] : new MediaStream([e.track]);
+                
+                // Route to remote audio
+                const ra = document.getElementById('remoteAudio');
+                if (ra && ra.srcObject !== stream) {
+                    ra.srcObject = stream;
+                    ra.play().catch(() => {
+                        document.getElementById('audioPrompt').style.display = 'block';
+                    });
+                }
+
+                // If video call, route to remote video
                 if (isVideoCall) {
                     const rv = document.getElementById('remoteVideo');
-                    rv.srcObject = e.streams[0];
-                    rv.play().catch(err => console.warn('Video play override:', err));
-                    
+                    if (rv && rv.srcObject !== stream) {
+                        rv.srcObject = stream;
+                        rv.play().catch(() => {
+                            document.getElementById('audioPrompt').style.display = 'block';
+                        });
+                    }
                     document.getElementById('avatarContainer').style.display = 'none';
-
                     if (document.pictureInPictureEnabled) {
                         document.getElementById('btnPipSys').style.display = 'flex';
                     }
-                } else {
-                    const ra = document.getElementById('remoteAudio');
-                    ra.srcObject = e.streams[0];
-                    ra.play().catch(err => console.warn('Audio play override:', err));
                 }
             };
 
+            // Send local ICE candidates to Firebase
             pc.onicecandidate = e => {
                 if (e.candidate) {
                     callsRef.child(`candidates_${myId}`).push(e.candidate.toJSON());
@@ -243,7 +436,7 @@
                 const warningEl = document.getElementById('networkWarning');
                 if (pc.iceConnectionState === 'disconnected') {
                     warningEl.style.display = 'block';
-                    warningEl.innerText = "⚠️ Reconnecting...";
+                    warningEl.innerText = "⚠️ Weak signal, reconnecting...";
                 } else if (pc.iceConnectionState === 'connected') {
                     warningEl.style.display = 'none';
                 } else if (pc.iceConnectionState === 'failed') {
@@ -253,64 +446,122 @@
                 }
             };
 
-            // Listen for remote ICE candidates
+            // Listen for Remote ICE Candidates with instant flush
             callsRef.child(`candidates_${partnerId}`).on('child_added', snapshot => {
                 const candidateData = snapshot.val();
                 if (!candidateData) return;
+                const candidate = new RTCIceCandidate(candidateData);
                 
-                // If remoteDescription is not set yet, we must queue the candidate or wait
-                let retries = 0;
-                let addCandidateInterval = setInterval(() => {
-                    if (pc && pc.remoteDescription) {
-                        pc.addIceCandidate(new RTCIceCandidate(candidateData)).catch(e => console.error("ICE Error", e));
-                        clearInterval(addCandidateInterval);
-                    }
-                    if (++retries > 50) clearInterval(addCandidateInterval);
-                }, 100);
+                if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+                    pc.addIceCandidate(candidate).catch(e => console.warn("ICE Candidate notice:", e));
+                } else {
+                    pendingIceCandidates.push(candidate);
+                }
             });
         }
 
+        function drainPendingIceCandidates() {
+            while (pendingIceCandidates.length > 0) {
+                const cand = pendingIceCandidates.shift();
+                if (pc && pc.remoteDescription) {
+                    pc.addIceCandidate(cand).catch(e => console.warn("Drain ICE notice:", e));
+                }
+            }
+        }
+
         function finalizeConnection() {
-            document.getElementById('callStatus').innerText = "Connected! 🟢";
-            document.getElementById('partnerAvatar').style.animation = 'none'; 
-            isCallConnected = true; 
+            if (isCallConnected) return;
+            isCallConnected = true;
+            if (callTimeoutId) clearTimeout(callTimeoutId);
+            playOutgoingRing(false);
+            playConnectedChime();
+
+            document.getElementById('callStatus').innerText = "Connected 🟢";
+            document.getElementById('partnerAvatar').classList.remove('ringing');
             
+            // Show Live Call Timer
+            startCallTimer();
+
+            // Enable video reactions bar
             if (isVideoCall) {
                 document.getElementById('reactionBar').style.display = 'block';
             }
             startNetworkMonitor();
         }
 
+        function startCallTimer() {
+            callDurationSec = 0;
+            const timerEl = document.getElementById('callTimer');
+            timerEl.style.display = 'inline-block';
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            callTimerInterval = setInterval(() => {
+                callDurationSec++;
+                const mins = String(Math.floor(callDurationSec / 60)).padStart(2, '0');
+                const secs = String(callDurationSec % 60).padStart(2, '0');
+                timerEl.innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
         // ==========================================
-        // 4. MASTER HANDSHAKE FLOW
+        // 5. MASTER HANDSHAKE FLOW
         // ==========================================
         async function initWebRTC() {
-            populateEmojis(); // Load the 100 emojis
+            populateEmojis();
 
+            // Show video-specific control buttons if in video mode
+            if (isVideoCall) {
+                document.getElementById('btnVideo').style.display = 'flex';
+                document.getElementById('btnFlip').style.display = 'flex';
+                document.getElementById('btnGlow').style.display = 'flex';
+            }
+
+            // Fetch high-speed ICE/TURN configuration
             try {
                 const res = await fetch('/api/turn-credentials');
                 const data = await res.json();
-                if (data.iceServers) rtcConfig.iceServers = data.iceServers;
-            } catch(e) { console.warn("Using free STUN."); }
+                if (data.iceServers && data.iceServers.length > 0) {
+                    rtcConfig.iceServers = data.iceServers;
+                }
+            } catch(e) {
+                console.warn("Using built-in STUN network routing.");
+            }
 
+            // Acquire User Media (Microphone & Optional Camera)
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideoCall });
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, 
+                    video: isVideoCall ? { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } } : false 
+                });
+                
                 if (isVideoCall) {
                     document.getElementById('videoContainer').style.display = 'block';
                     document.getElementById('localVideo').srcObject = localStream;
                 }
             } catch (e) {
-                alert("Microphone/Camera access denied!");
+                console.error("Media permission error:", e);
+                alert("Microphone/Camera permission is required to make calls. Please allow permissions in your browser settings.");
                 window.location.href = '/talk';
                 return;
             }
 
             if (action === 'call') {
-                document.getElementById('callStatus').innerText = "Ringing...";
-                // Clear old call data
+                document.getElementById('callStatus').innerText = "Ringing... 🔔";
+                playOutgoingRing(true);
+
+                // Clear previous session node
                 await callsRef.remove();
                 
-                // Send push notification to receiver's Firebase node
+                // Ring timeout (45 seconds)
+                callTimeoutId = setTimeout(() => {
+                    if (!isCallConnected) {
+                        playOutgoingRing(false);
+                        playEndedChime();
+                        document.getElementById('callStatus').innerText = "No Answer 📵";
+                        setTimeout(() => endCall(true), 2500);
+                    }
+                }, 45000);
+
+                // Push incoming call alert to partner's Firebase queue
                 fdb.ref(`incoming_calls/${partnerId}`).push({
                     caller_id: myId,
                     caller_name: "{{ session.get('user_name', 'Student').split()[0] }}",
@@ -321,10 +572,10 @@
 
                 setupPeerConnection();
 
-                // Caller waits for receiver to be ready before creating offer
+                // Caller waits for receiver to confirm ready
                 callsRef.child('receiver_ready').on('value', async snap => {
-                    if (snap.val() === true) {
-                        document.getElementById('callStatus').innerText = "Connecting...";
+                    if (snap.val() === true && pc && !pc.currentLocalDescription) {
+                        document.getElementById('callStatus').innerText = "Connecting... 🔄";
                         const offer = await pc.createOffer();
                         await pc.setLocalDescription(offer);
                         callsRef.child('offer').set({ type: offer.type, sdp: offer.sdp });
@@ -334,24 +585,26 @@
                 // Caller waits for receiver's answer
                 callsRef.child('answer').on('value', async snap => {
                     const answer = snap.val();
-                    if (answer && !pc.currentRemoteDescription) {
+                    if (answer && pc && !pc.currentRemoteDescription) {
                         await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                        drainPendingIceCandidates();
                         finalizeConnection();
                     }
                 });
 
             } else if (action === 'answer') {
-                document.getElementById('callStatus').innerText = "Connecting...";
+                document.getElementById('callStatus').innerText = "Connecting... 🔄";
                 setupPeerConnection();
                 
-                // Tell caller we are ready for their offer
+                // Notify caller we are ready for their offer
                 callsRef.child('receiver_ready').set(true);
 
                 // Receiver waits for caller's offer
                 callsRef.child('offer').on('value', async snap => {
                     const offer = snap.val();
-                    if (offer && !pc.currentRemoteDescription) {
+                    if (offer && pc && !pc.currentRemoteDescription) {
                         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                        drainPendingIceCandidates();
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
                         callsRef.child('answer').set({ type: answer.type, sdp: answer.sdp });
@@ -360,10 +613,35 @@
                 });
             }
             
-            // Listen for Call Termination
+            // Listen for Call Termination or Decline from room
             callsRef.child('ended').on('value', snap => {
                 if (snap.val() === true) {
                     endCall(false);
+                }
+            });
+
+            callsRef.child('status').on('value', snap => {
+                if (snap.val() === 'declined') {
+                    playOutgoingRing(false);
+                    playEndedChime();
+                    document.getElementById('callStatus').innerText = "Call Declined 📵";
+                    setTimeout(() => endCall(false), 2000);
+                }
+            });
+
+            // Also listen to personal signal queue for end_call
+            fdb.ref(`signals/${myId}`).on('child_added', snap => {
+                const data = snap.val();
+                if (data && (data.type === 'end_call' || data.type === 'call_ended')) {
+                    snap.ref.remove();
+                    if (data.reason === 'declined') {
+                        playOutgoingRing(false);
+                        playEndedChime();
+                        document.getElementById('callStatus').innerText = "Call Declined 📵";
+                        setTimeout(() => endCall(false), 2000);
+                    } else {
+                        endCall(false);
+                    }
                 }
             });
             
@@ -377,34 +655,120 @@
         }
 
         // ==========================================
-        // 5. CALL TERMINATION
+        // 6. CALL CONTROLS (MIC, VIDEO, CAM-FLIP)
+        // ==========================================
+        function toggleMute() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (!audioTrack) return;
+            
+            isMicMuted = !isMicMuted;
+            audioTrack.enabled = !isMicMuted;
+            
+            const btn = document.getElementById('btnMic');
+            if (isMicMuted) {
+                btn.innerHTML = '🔇';
+                btn.classList.add('muted');
+                showToastNotice("Microphone Muted");
+            } else {
+                btn.innerHTML = '🎙️';
+                btn.classList.remove('muted');
+                showToastNotice("Microphone Active");
+            }
+        }
+
+        function toggleVideo() {
+            if (!localStream || !isVideoCall) return;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (!videoTrack) return;
+            
+            isVideoMuted = !isVideoMuted;
+            videoTrack.enabled = !isVideoMuted;
+            
+            const btn = document.getElementById('btnVideo');
+            if (isVideoMuted) {
+                btn.innerHTML = '🚫';
+                btn.classList.add('muted');
+                showToastNotice("Camera Off");
+            } else {
+                btn.innerHTML = '📹';
+                btn.classList.remove('muted');
+                showToastNotice("Camera On");
+            }
+        }
+
+        async function switchCamera() {
+            if (!localStream || !isVideoCall) return;
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: { facingMode: currentFacingMode }
+                });
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                const oldVideoTrack = localStream.getVideoTracks()[0];
+                
+                if (pc) {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(newVideoTrack);
+                }
+                
+                localStream.removeTrack(oldVideoTrack);
+                oldVideoTrack.stop();
+                localStream.addTrack(newVideoTrack);
+                document.getElementById('localVideo').srcObject = localStream;
+                showToastNotice("Camera Switched");
+            } catch(err) {
+                console.warn("Could not switch camera:", err);
+                showToastNotice("Only 1 camera detected");
+            }
+        }
+
+        // ==========================================
+        // 7. CALL TERMINATION
         // ==========================================
         function endCall(notifyOther = true) {
+            playOutgoingRing(false);
+            if (callTimeoutId) clearTimeout(callTimeoutId);
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            
             if (notifyOther) {
                 callsRef.child('ended').set(true);
+                fdb.ref(`signals/${partnerId}`).push({ type: 'end_call' });
             }
             
-            if (pc) pc.close();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            if (pc) {
+                try { pc.close(); } catch(e){}
+                pc = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+                localStream = null;
+            }
             clearInterval(networkCheckInterval);
             
             if (!isCallConnected && notifyOther) {
-                alert("Call cancelled.");
-                window.location.href = '/talk';
+                playEndedChime();
+                showToastNotice("Call ended");
+                setTimeout(() => { window.location.href = '/talk'; }, 800);
             } else {
+                playEndedChime();
                 window.location.href = '/call-review/' + partnerId; 
             }
         }
 
         // ==========================================
-        // 6. SYSTEM PiP & NETWORK QUALITY
+        // 8. SYSTEM PiP & NETWORK QUALITY
         // ==========================================
         async function toggleSystemPiP() {
             const rv = document.getElementById('remoteVideo');
             try {
                 if (document.pictureInPictureElement) await document.exitPictureInPicture();
                 else if (document.pictureInPictureEnabled && rv.readyState !== 0) await rv.requestPictureInPicture();
-            } catch (error) { alert("Picture-in-Picture is blocked by your browser."); }
+            } catch (error) { 
+                showToastNotice("PiP unavailable in this browser"); 
+            }
         }
 
         function startNetworkMonitor() {
@@ -439,9 +803,8 @@
         }
 
         // ==========================================
-        // 7. STUDIO GLOW (BEAUTY FILTER)
+        // 9. STUDIO GLOW (BEAUTY FILTER)
         // ==========================================
-        let isGlowActive = false;
         function toggleGlow() {
             isGlowActive = !isGlowActive;
             const localVid = document.getElementById('localVideo');
@@ -450,26 +813,24 @@
             if (isGlowActive) {
                 localVid.classList.add('studio-glow');
                 glowBtn.classList.add('active');
+                showToastNotice("Studio Glow: ON ✨");
             } else {
                 localVid.classList.remove('studio-glow');
                 glowBtn.classList.remove('active');
+                showToastNotice("Studio Glow: OFF");
             }
         }
 
         // ==========================================
-        // 8. 100 EMOJI SCROLL & LIVE REACTIONS
+        // 10. EMOJI SCROLL & LIVE REACTIONS
         // ==========================================
         const reactionEmojis = [
-            // Feelings
             '😀','😂','🥺','😭','😡','🤯','😱','🥶','🥵','😎','🥳','😴','🥴','🤢','🤮',
             '🤧','😷','🤫','🤥','🤡','👻','💀','👽','👾','🤖','🎃','😈','👿','👹','👺',
-            // Love
             '❤️','🔥','😍','🥰','😘','😗','😙','😚','💌','💘','💝','💖','💗','💓','💞',
             '💕','💟','❣️','💔','❤️‍🔥','❤️‍🩹','💋','💍','💑','💏','💐','🌹','🥀','🌺','🌻',
-            // War / Action / Movies
             '💣','💥','⚔️','🗡️','🛡️','🏹','🔫','🧨','🩸','🚁','✈️','🚀','🛸','🛰️','🚨',
             '🥷','🦸‍♂️','🦸‍♀️','🦹‍♂️','🦹‍♀️','🧙‍♂️','🧙‍♀️','🧛‍♂️','🧛‍♀️','🧟‍♂️','🧟‍♀️','🧜‍♂️','🧜‍♀️','🧚‍♂️','🧚‍♀️',
-            // Reactions / Misc
             '👍','👎','👏','🙌','👐','🤲','🤝','🙏','✍️','💪','🦾','🦵','🦿','👣','👁️'
         ];
 
@@ -496,7 +857,6 @@
             emojiEl.innerText = emoji;
             
             const randomX = Math.random() * 40 - 20; 
-            
             if (isLocal) {
                 emojiEl.style.right = (50 + randomX) + 'px';
             } else {
@@ -504,14 +864,11 @@
             }
 
             layer.appendChild(emojiEl);
-
-            setTimeout(() => {
-                emojiEl.remove();
-            }, 2500);
+            setTimeout(() => { emojiEl.remove(); }, 2500);
         }
 
-        // Boot up the system as soon as the page loads
+        // Initialize Call Engine
         initWebRTC();
     </script>
 </body> 
-</html> 
+</html>

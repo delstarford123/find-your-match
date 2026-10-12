@@ -6339,12 +6339,17 @@ def call_page(partner_id):
         partner_name = "Student"
         partner_img = '/static/img/placeholder.png'
 
+    firebase_db_url = os.getenv('FIREBASE_DB_URL', 'https://mmust-dating-site-default-rtdb.firebaseio.com/').strip('"').rstrip('/')
+    firebase_api_key = os.getenv('FIREBASE_API_KEY', '')
+
     return render_template('call.html', 
                            partner_id=partner_id,
                            partner_name=partner_name,
                            partner_img=partner_img,
                            action=action,
-                           is_video=is_video)
+                           is_video=is_video,
+                           firebase_db_url=firebase_db_url,
+                           firebase_api_key=firebase_api_key)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -6353,25 +6358,36 @@ def call_page(partner_id):
 @app.route('/api/turn-credentials')
 @requires_subscription
 def get_turn_credentials():
-    """Generates temporary, secure tokens to punch through strict university firewalls via Metered.ca."""
+    """Generates temporary tokens to punch through strict university/mobile firewalls via Metered.ca, with reliable fallback."""
     domain = os.getenv('METERED_DOMAIN')
     api_key = os.getenv('METERED_SECRET_KEY')
     
+    fallback_ice_servers = [
+        {"urls": [
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+            "stun:stun3.l.google.com:19302",
+            "stun:stun4.l.google.com:19302"
+        ]},
+        {"urls": ["stun:stun.cloudflare.com:3478"]},
+        {"urls": ["stun:global.stun.twilio.com:3478"]}
+    ]
+
     if not domain or not api_key:
-        logger.error("Missing Metered.ca credentials in environment.")
-        return jsonify({'error': 'Server config error'}), 500
+        return jsonify({'iceServers': fallback_ice_servers})
 
     try:
-        response = requests.get(f"https://{domain}/api/v1/turn/credentials?apiKey={api_key}")
+        response = requests.get(f"https://{domain}/api/v1/turn/credentials?apiKey={api_key}", timeout=4)
         if response.status_code == 200:
             turn_servers = response.json()
-            return jsonify({'iceServers': turn_servers})
-        else:
-            logger.error(f"Metered API Error: {response.status_code} - {response.text}")
-            return jsonify({'error': 'Failed to fetch turn credentials'}), 500
+            if isinstance(turn_servers, list) and len(turn_servers) > 0:
+                return jsonify({'iceServers': turn_servers + fallback_ice_servers})
+        logger.warning(f"Metered API returned status {response.status_code}, using resilient fallback STUN.")
+        return jsonify({'iceServers': fallback_ice_servers})
     except Exception as e:
-        logger.error(f"Metered Token Generation Error: {e}")
-        return jsonify({'error': 'Failed to generate network routing'}), 500
+        logger.warning(f"Metered Token Generation notice: {e}, falling back to STUN.")
+        return jsonify({'iceServers': fallback_ice_servers})
 
 
 # ─────────────────────────────────────────────────────────────

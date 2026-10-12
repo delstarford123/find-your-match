@@ -10,6 +10,7 @@ from email_service import _send_email, SENDER_NAME_DEFAULT
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger("cs_week_mailer")
 EMAIL_DELAY_SECONDS = 1.5
+BASE_URL = os.getenv("BASE_URL", "https://findyourmatch.co.ke").rstrip("/")
 
 def send_cs_week_email(recipient_email, recipient_name):
     subject = "🎉 Happy Customer Service Week from Find Your Match!"
@@ -45,7 +46,12 @@ def send_cs_week_email(recipient_email, recipient_name):
         <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
             <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
                 
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
+                <!-- LOGO HEADER -->
+                <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                    <img src="{BASE_URL}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 220px; height: auto; display: block; margin: 0 auto;">
+                </div>
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 40px 30px; text-align: center;">
                     <div style="font-size: 52px; margin-bottom: 15px;">🎉</div>
                     <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
                         Happy Customer Service Week!
@@ -81,7 +87,7 @@ def send_cs_week_email(recipient_email, recipient_name):
                     </div>
 
                     <div style="text-align: center; margin-top: 35px;">
-                        <a href="https://mmust-dating-site.firebaseapp.com" style="display: inline-block; background-color: #E60026; color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(230,0,38,0.3);">
+                        <a href="https://www.findyourmatch.co.ke/login" style="display: inline-block; background-color: #E60026; color: white; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(230,0,38,0.3);">
                             Find Your Matches Now
                         </a>
                     </div>
@@ -94,9 +100,9 @@ def send_cs_week_email(recipient_email, recipient_name):
     return _send_email(recipient_email, subject, text_content, html_content)
 
 
-def run():
+def run(dry_run=False, test_email=None, limit=None):
     logger.info("=" * 60)
-    logger.info("  FYM CS Week Mailer - Starting Up")
+    logger.info(f"  FYM CS Week Mailer - Starting Up {'[DRY RUN]' if dry_run else ''}")
     logger.info("=" * 60)
 
     initialize_firebase()
@@ -108,11 +114,25 @@ def run():
 
     logger.info(f"Fetched {len(all_profiles)} profiles total.")
     
-    target_users = all_profiles
+    if test_email:
+        logger.info(f"Test mode active: Overriding target recipient to {test_email}")
+        target_users = [{"id": "test_user", "name": "Valued User", "email": test_email}]
+    else:
+        target_users = [
+            u for u in all_profiles 
+            if (u.get("email") or "").strip() 
+            and not u.get("is_banned") 
+            and not u.get("email_opt_out")
+        ]
+
+    if limit and limit > 0:
+        logger.info(f"Limiting execution to first {limit} users.")
+        target_users = target_users[:limit]
+
     sent = failed = 0
 
     logger.info("Sending Customer Service Week Emails ...")
-    logger.info(f"Targeting ALL {len(target_users)} users (including unpaid and unverified accounts).")
+    logger.info(f"Targeting {len(target_users)} users.")
     for idx, user in enumerate(target_users, 1):
         name  = user.get("name") or user.get("username") or "there"
         email = user.get("email", "").strip()
@@ -122,6 +142,11 @@ def run():
             failed += 1
             continue
             
+        if dry_run:
+            logger.info(f"[{idx}/{len(target_users)}] [DRY RUN] Would send -> {name} <{email}>")
+            sent += 1
+            continue
+
         if send_cs_week_email(email, name):
             logger.info(f"[{idx}/{len(target_users)}] Sent -> {name} <{email}>")
             sent += 1
@@ -137,4 +162,11 @@ def run():
     logger.info("=" * 60)
 
 if __name__ == "__main__":
-    run()
+    import argparse
+    parser = argparse.ArgumentParser(description="Send Customer Service Week Broadcast Emails")
+    parser.add_argument("--dry-run", action="store_true", help="Preview recipients without sending")
+    parser.add_argument("--test-email", type=str, default=None, help="Send a single test email to this address")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of emails to send")
+    args = parser.parse_args()
+
+    run(dry_run=args.dry_run, test_email=args.test_email, limit=args.limit)

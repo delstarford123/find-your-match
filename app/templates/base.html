@@ -2415,6 +2415,62 @@
     <script>
         const currentUserId = "{{ session.get('user_id') }}";
         let globalIncomingCallerId = null;
+        let incomingCallTimeout = null;
+        let ringtoneAudioCtx = null;
+        let ringtoneInterval = null;
+
+        function playGlobalRingtone(play) {
+            if (!play) {
+                if (ringtoneInterval) {
+                    clearInterval(ringtoneInterval);
+                    ringtoneInterval = null;
+                }
+                if (ringtoneAudioCtx) {
+                    try { ringtoneAudioCtx.close(); } catch(e){}
+                    ringtoneAudioCtx = null;
+                }
+                return;
+            }
+
+            if (ringtoneInterval) return;
+
+            const playToneBurst = () => {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    ringtoneAudioCtx = ctx;
+                    if (ctx.state === 'suspended') ctx.resume();
+
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc2.type = 'sine';
+                    osc1.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc2.frequency.setValueAtTime(480, ctx.currentTime);
+
+                    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 0.05);
+                    gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.45);
+                    gainNode.gain.linearRampToValueAtTime(0.28, ctx.currentTime + 0.6);
+                    gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.1);
+
+                    osc1.connect(gainNode);
+                    osc2.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+
+                    osc1.start();
+                    osc2.start();
+                    osc1.stop(ctx.currentTime + 1.2);
+                    osc2.stop(ctx.currentTime + 1.2);
+                } catch(e) {
+                    console.warn("Ringtone audio notice:", e);
+                }
+            };
+
+            playToneBurst();
+            ringtoneInterval = setInterval(playToneBurst, 3000);
+        }
 
         if (currentUserId && currentUserId !== 'None') {
             // 1. Listen for Incoming Calls
@@ -2448,6 +2504,7 @@
 
                 // Configure answer button redirection
                 document.getElementById('gBtnAnswer').onclick = function () {
+                    if (incomingCallTimeout) clearTimeout(incomingCallTimeout);
                     playGlobalRingtone(false);
                     document.getElementById('globalIncomingCall').classList.remove('active');
                     window.location.href = `/call/${data.caller_id}?action=answer&video=${isVideo}`;
@@ -2455,14 +2512,21 @@
 
                 // Trigger modal and audio
                 document.getElementById('globalIncomingCall').classList.add('active');
-                if (typeof playGlobalRingtone === 'function') playGlobalRingtone(true);
+                playGlobalRingtone(true);
+
+                // Auto-decline if ringing exceeds 45s without answer
+                if (incomingCallTimeout) clearTimeout(incomingCallTimeout);
+                incomingCallTimeout = setTimeout(() => {
+                    globalDeclineCall();
+                }, 45000);
             });
 
             // Listen for Call Ends from Caller
             fdb.ref('signals/' + currentUserId).on('child_added', (snapshot) => {
                 const data = snapshot.val();
-                if (data && data.type === 'end_call') {
-                    if (typeof playGlobalRingtone === 'function') playGlobalRingtone(false);
+                if (data && (data.type === 'end_call' || data.type === 'call_ended')) {
+                    if (incomingCallTimeout) clearTimeout(incomingCallTimeout);
+                    playGlobalRingtone(false);
                     document.getElementById('globalIncomingCall').classList.remove('active');
                     globalIncomingCallerId = null;
                     snapshot.ref.remove();
@@ -2471,11 +2535,16 @@
         }
 
         function globalDeclineCall() {
-            if (typeof playGlobalRingtone === 'function') playGlobalRingtone(false);
+            if (incomingCallTimeout) clearTimeout(incomingCallTimeout);
+            playGlobalRingtone(false);
             document.getElementById('globalIncomingCall').classList.remove('active');
             if (globalIncomingCallerId) {
                 // Signal the caller that the call was declined
                 fdb.ref('signals/' + globalIncomingCallerId).push({ type: 'end_call', reason: 'declined' });
+                // Also signal the room node
+                const roomId = `call_${[currentUserId, globalIncomingCallerId].sort().join('_')}`;
+                fdb.ref(`calls/${roomId}/ended`).set(true);
+                fdb.ref(`calls/${roomId}/status`).set('declined');
                 globalIncomingCallerId = null;
             }
         }

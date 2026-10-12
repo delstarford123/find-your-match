@@ -7,20 +7,24 @@ from firebase_admin import credentials, db
 from datetime import datetime
 import json
 
-# Setup environment variables (adjust paths for cPanel environment)
-CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), '..', 'admin_sdk.json')
-# Ensure you update these with real SMTP credentials in your production environment
-SMTP_SERVER = os.getenv('SMTP_SERVER', 'mail.hostpinnacle.co.ke')
-SMTP_PORT = int(os.getenv('SMTP_PORT', 465))
-SMTP_USERNAME = os.getenv('SMTP_USERNAME', 'admin@yourdomain.com') # Replace with actual
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'yourpassword') # Replace with actual
+from dotenv import load_dotenv
+
+# Setup environment variables
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', os.path.join(BASE_DIR, 'firebase_key.json'))
+SMTP_SERVER = os.getenv('MAIL_SERVER') or os.getenv('SMTP_SERVER', 'mail.findyourmatch.co.ke')
+SMTP_PORT = int(os.getenv('MAIL_PORT') or os.getenv('SMTP_PORT', 465))
+SMTP_USERNAME = os.getenv('MAIL_USERNAME') or os.getenv('SMTP_USERNAME', 'noreply@findyourmatch.co.ke')
+SMTP_PASSWORD = os.getenv('MAIL_PASSWORD') or os.getenv('SMTP_PASSWORD', '')
 
 def initialize_firebase():
     if not firebase_admin._apps:
         cred = credentials.Certificate(CREDENTIALS_PATH)
-        # Remember to update the databaseURL below with your actual Firebase URL
+        db_url = os.getenv("FIREBASE_DB_URL") or os.getenv("FIREBASE_DATABASE_URL") or "https://mmust-dating-site-default-rtdb.firebaseio.com/"
         firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://find-your-match-36109-default-rtdb.firebaseio.com' 
+            'databaseURL': db_url
         })
 
 def send_email(to_email, subject, body):
