@@ -162,23 +162,31 @@
         const notifSound = new Audio('/static/audio/1.mp3');
 
         function timeAgo(timestamp) {
-            if (!timestamp) return '';
+            if (!timestamp) return 'just now';
             const now = new Date();
             const then = new Date(timestamp);
+            if (isNaN(then.getTime())) return 'just now';
             const diff = Math.floor((now - then) / 1000);
-            if (diff < 60) return 'just now';
+            if (diff < 10) return 'just now';
+            if (diff < 60) return diff + 's ago';
             if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
             if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-            return Math.floor(diff / 86400) + 'd ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+            return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         }
 
         function updateGlobalBellUI() {
             const badge = document.getElementById('bell-badge');
             const list = document.getElementById('bell-popover-list');
             const countEl = document.getElementById('bell-count-label');
+            const bell = document.getElementById('global-bell');
             if (!badge || !list) return;
 
-            const notifs = Object.values(notificationData).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const notifs = Object.values(notificationData).sort((a, b) => {
+                const ta = new Date(a.timestamp || 0).getTime();
+                const tb = new Date(b.timestamp || 0).getTime();
+                return tb - ta;
+            });
             const count = notifs.length;
 
             const mobileChatBadge = document.getElementById('mobile-chat-badge');
@@ -191,17 +199,33 @@
                 }
             }
 
+            if (bell) {
+                if (count > 0) {
+                    bell.classList.add('has-unread');
+                } else {
+                    bell.classList.remove('has-unread');
+                }
+            }
+
             if (count > 0) {
                 document.title = `(${count}) New Notification! - Find Your Match`;
                 badge.textContent = count > 99 ? '99+' : count;
                 badge.style.display = 'flex';
-                if (countEl) countEl.textContent = count + ' unread';
+                if (countEl) countEl.textContent = count + (count === 1 ? ' unread' : ' unread');
 
                 const typeConfig = {
                     match:        { icon: '❤️', color: '#E60026', label: 'New Match!' },
                     message:      { icon: '💬', color: '#3B82F6', label: 'Message' },
                     date_request: { icon: '🍷', color: '#9333ea', label: 'Date Request' },
                     crush:        { icon: '🤫', color: '#ec4899', label: 'Secret Crush' },
+                    like:         { icon: '💖', color: '#f43f5e', label: 'New Like' },
+                    shot:         { icon: '🎯', color: '#ec4899', label: 'Shot Fired' },
+                    meetup:       { icon: '📍', color: '#0ea5e9', label: 'Campus Meetup' },
+                    group:        { icon: '👥', color: '#10b981', label: 'Group Chat' },
+                    call:         { icon: '📞', color: '#06b6d4', label: 'Call Alert' },
+                    promo:        { icon: '🎁', color: '#8b5cf6', label: 'Reward' },
+                    success:      { icon: '❤️', color: '#E60026', label: 'New Match!' },
+                    info:         { icon: '📍', color: '#3B82F6', label: 'Campus Alert' },
                     system:       { icon: '🔔', color: '#f59e0b', label: 'Update' }
                 };
 
@@ -209,9 +233,29 @@
                 notifs.forEach((notif) => {
                     const key = notif._key;
                     const cfg = typeConfig[notif.type] || typeConfig.message;
-                    const link = notif.sender_id ? `/matches/${notif.sender_id}` : (notif.type === 'date_request' ? '/bookings' : '/matches');
-                    const img = notif.sender_img || '/static/img/placeholder.png';
+                    
+                    let link = notif.link || notif.click_url || notif.url;
+                    if (!link) {
+                        if (notif.match_id && String(notif.match_id).startsWith('group_')) {
+                            const gId = notif.match_id.replace(/^group_invite_|^group_/, '');
+                            link = gId ? `/group/${gId}` : '/groups';
+                        } else if (notif.type === 'date_request') {
+                            link = '/bookings';
+                        } else if (notif.type === 'group') {
+                            link = '/groups';
+                        } else if (notif.type === 'like') {
+                            link = '/swipe';
+                        } else if (notif.sender_id && notif.sender_id !== 'SYSTEM' && notif.sender_id !== 'system') {
+                            link = `/matches/${notif.sender_id}`;
+                        } else {
+                            link = '/matches';
+                        }
+                    }
+
+                    const img = notif.sender_img || notif.img || notif.profile_img || '/static/img/placeholder.png';
                     const ago = timeAgo(notif.timestamp);
+                    const displayName = notif.title || notif.sender_name || cfg.label;
+                    const displayMsg = notif.message || notif.body || notif.text || cfg.label;
 
                     html += `
                         <div class="bell-notif-item" onclick="clearNotification('${key}'); window.location.href='${link}';">
@@ -220,8 +264,8 @@
                                 <span class="bell-notif-type-icon" style="background:${cfg.color}">${cfg.icon}</span>
                             </div>
                             <div class="bell-notif-body">
-                                <div class="bell-notif-name">${notif.sender_name || 'System'}</div>
-                                <div class="bell-notif-msg">${notif.message || cfg.label}</div>
+                                <div class="bell-notif-name">${displayName}</div>
+                                <div class="bell-notif-msg">${displayMsg}</div>
                                 <div class="bell-notif-time">${ago}</div>
                             </div>
                             <button class="bell-notif-dismiss" onclick="event.stopPropagation();clearNotification('${key}')" title="Dismiss">&times;</button>
@@ -244,29 +288,42 @@
         }
 
         function clearNotification(key) {
+            delete notificationData[key];
+            updateGlobalBellUI();
             if (notificationsRef) notificationsRef.child(key).remove();
         }
 
         function clearAllNotifications() {
             if (notificationsRef && Object.keys(notificationData).length > 0) {
                 if (!confirm('Clear all notifications?')) return;
+                notificationData = {};
+                updateGlobalBellUI();
                 notificationsRef.remove();
             }
         }
-        
-        // toggleBellPopover is defined below in the main script block
 
-        notificationsRef.once('value', () => { initialLoad = false; });
+        notificationsRef.once('value', () => { 
+            initialLoad = false; 
+            updateGlobalBellUI();
+        });
+
+        // Ensure updateGlobalBellUI runs when DOM is loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateGlobalBellUI);
+        } else {
+            updateGlobalBellUI();
+        }
 
         // Listen for new notifications
         notificationsRef.on('child_added', function(snapshot) {
             const data = snapshot.val();
+            if (!data) return;
             data._key = snapshot.key;
             notificationData[snapshot.key] = data;
             updateGlobalBellUI();
             
             if (!initialLoad) {
-                // Trigger the new bell ring animation
+                // Trigger bell ring animation
                 const bell = document.getElementById('global-bell');
                 if (bell) {
                     bell.classList.remove('has-notifs');
@@ -276,10 +333,17 @@
                     bellShakeTimeout = setTimeout(() => bell.classList.remove('has-notifs'), 2000);
                 }
                 
-                const now = new Date().getTime();
-                const notifTime = new Date(data.timestamp).getTime();
-                if (now - notifTime < 10000) { 
-                    notifSound.play().catch(e => console.log("Audio play blocked by browser."));
+                notifSound.play().catch(e => console.log("Audio play blocked by browser."));
+
+                // Show instant floating toast alert so users never miss anything while browsing
+                if (typeof showGlobalToast === 'function') {
+                    showGlobalToast({
+                        sender_name: data.sender_name || data.title || 'Notification',
+                        message: data.message || data.body || data.text || 'You have a new alert!',
+                        sender_img: data.sender_img || data.img || '/static/img/placeholder.png',
+                        sender_id: data.sender_id || '',
+                        link: data.link || data.click_url || ''
+                    });
                 }
             }
         });
@@ -412,6 +476,20 @@
         }
         .bell-btn.new-ping .bell-icon {
             animation: bellPop 0.4s ease forwards;
+        }
+        .bell-btn.has-unread {
+            background: rgba(230, 0, 38, 0.16);
+            border-color: rgba(230, 0, 38, 0.4);
+            box-shadow: 0 0 12px rgba(230, 0, 38, 0.25);
+        }
+        .bell-btn.has-unread .bell-icon {
+            animation: gentleBellGlow 3s infinite ease-in-out;
+        }
+        @keyframes gentleBellGlow {
+            0%, 100% { transform: rotate(0deg); }
+            5%, 15% { transform: rotate(10deg); }
+            10%, 20% { transform: rotate(-10deg); }
+            25% { transform: rotate(0deg); }
         }
 
         #bell-badge {
@@ -2403,9 +2481,9 @@
         }
 
         // ==========================================
-        // 1.5 Global Chat Notifications
+        // 1.5 Global Chat & Alert Notifications
         // ==========================================
-        const notificationAudio = new Audio('/static/audio/ding.mp3');
+        const notificationAudio = new Audio('/static/audio/1.mp3');
 
         fdb.ref('chat_notifications/' + currentUserId).on('child_added', (snapshot) => {
             const data = snapshot.val();
@@ -2425,22 +2503,45 @@
         });
 
         function showGlobalToast(data) {
+            if (!data) return;
             notificationAudio.play().catch(e => console.log('Audio blocked by browser'));
 
             const container = document.getElementById('global-toast-container');
+            if (!container) return;
             const toast = document.createElement('div');
             toast.className = 'toast-notification';
 
-            // Clicking the toast takes you to the chat
+            // Smart destination routing based on notification type and payload
             toast.onclick = () => {
-                window.location.href = `/matches/${data.sender_id}`;
+                let link = data.link || data.click_url || data.url;
+                if (!link) {
+                    if (data.match_id && String(data.match_id).startsWith('group_')) {
+                        const gId = data.match_id.replace(/^group_invite_|^group_/, '');
+                        link = gId ? `/group/${gId}` : '/groups';
+                    } else if (data.type === 'date_request') {
+                        link = '/bookings';
+                    } else if (data.type === 'group') {
+                        link = '/groups';
+                    } else if (data.type === 'like') {
+                        link = '/swipe';
+                    } else if (data.sender_id && data.sender_id !== 'SYSTEM' && data.sender_id !== 'system') {
+                        link = `/matches/${data.sender_id}`;
+                    } else {
+                        link = '/matches';
+                    }
+                }
+                window.location.href = link;
             };
 
+            const displayName = data.sender_name || data.title || 'Notification';
+            const displayMsg = data.message || data.body || data.text || 'You have a new update!';
+            const img = data.sender_img || data.img || data.profile_img || '/static/img/placeholder.png';
+
             toast.innerHTML = `
-                <img src="${data.sender_img || '/static/img/placeholder.png'}" alt="Profile">
+                <img src="${img}" alt="Profile" onerror="this.src='/static/img/placeholder.png'">
                 <div class="toast-content">
-                    <div class="toast-title">${data.sender_name}</div>
-                    <div class="toast-message">${data.message}</div>
+                    <div class="toast-title">${displayName}</div>
+                    <div class="toast-message">${displayMsg}</div>
                 </div>
             `;
 
@@ -2457,6 +2558,7 @@
                 setTimeout(() => toast.remove(), 400); // Wait for transition
             }, 5000);
         }
+        window.showGlobalToast = showGlobalToast;
 
         // 2. Global Emergency SOS Listener
         window.sosAudio1 = new Audio('/static/audio/danger1.mp3');

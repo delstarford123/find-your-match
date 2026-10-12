@@ -153,8 +153,14 @@ def record_swipe():
                     db.reference(f'notifications/{target_user_id}').push({
                         'title': title,
                         'message': body,
-                        'type': 'success',
-                        'timestamp': datetime.now(timezone.utc).isoformat()
+                        'type': 'match',
+                        'timestamp': datetime.now(timezone.utc).isoformat(),
+                        'sender_id': current_user_id,
+                        'sender_name': current_name,
+                        'sender_img': current_profile.get('img', '/static/img/placeholder.png'),
+                        'match_id': match_id,
+                        'link': f'/matches/{current_user_id}',
+                        'status': 'unread'
                     })
 
                     # SEND OFFLINE EMAIL ALERTS SO STUDENTS NEVER MISS A MATCH (ASYNC)
@@ -267,6 +273,24 @@ def auto_match():
             'last_message_time': timestamp,
             'match_reason': f"Smart Auto-Matchmaker: You share an extreme {best_score}% compatibility index! 🌌"
         })
+
+        # Trigger real-time bell notification to target student
+        try:
+            c_name = current_profile.get('name', 'Someone').split(' ')[0]
+            db.reference(f'notifications/{target_id}').push({
+                'title': 'Smart Auto-Match! ❤️',
+                'message': f"You and {c_name} have been auto-matched with {best_score}% compatibility! Tap to chat.",
+                'type': 'match',
+                'timestamp': timestamp,
+                'sender_id': current_user_id,
+                'sender_name': c_name,
+                'sender_img': current_profile.get('img', '/static/img/placeholder.png'),
+                'match_id': match_id,
+                'link': f'/matches/{current_user_id}',
+                'status': 'unread'
+            })
+        except Exception as auto_notif_err:
+            logger.error(f"Auto-match notification push failed: {auto_notif_err}")
 
         # SEND OFFLINE EMAIL ALERTS SO STUDENTS NEVER MISS A MATCH (ASYNC)
         try:
@@ -497,8 +521,13 @@ def meetup_request():
         try:
             db.reference(f'notifications/{target_id}').push({
                 'title': '📍 Meetup Request!',
-                'message': f'{sender_name} is nearby and wants to meet up with you! Check your email.',
-                'type': 'info',
+                'message': f'{sender_name.split()[0]} is nearby and wants to meet up with you! Tap to view profile.',
+                'type': 'meetup',
+                'sender_id': current_user_id,
+                'sender_name': sender_name,
+                'sender_img': current_profile.get('img', '/static/img/placeholder.png'),
+                'link': f'/matches/{current_user_id}',
+                'status': 'unread',
                 'timestamp': datetime.now(timezone.utc).isoformat()
             })
         except Exception as se:
@@ -752,13 +781,23 @@ def proximity_meetup_vote():
                 db.reference(f'notifications/{user_a_id}').push({
                     'title': '🤝 Meetup Agreed!',
                     'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
-                    'type': 'success',
+                    'type': 'meetup',
+                    'sender_id': user_b_id,
+                    'sender_name': profile_b.get('name', 'Comrade'),
+                    'sender_img': profile_b.get('img', '/static/img/placeholder.png'),
+                    'link': f'/matches/{user_b_id}',
+                    'status': 'unread',
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
                 db.reference(f'notifications/{user_b_id}').push({
                     'title': '🤝 Meetup Agreed!',
                     'message': 'Both of you agreed to meet! Check your email for profiles and pictures of nearby matches!',
-                    'type': 'success',
+                    'type': 'meetup',
+                    'sender_id': user_a_id,
+                    'sender_name': profile_a.get('name', 'Comrade'),
+                    'sender_img': profile_a.get('img', '/static/img/placeholder.png'),
+                    'link': f'/matches/{user_a_id}',
+                    'status': 'unread',
                     'timestamp': datetime.now(timezone.utc).isoformat()
                 })
             except Exception as se:

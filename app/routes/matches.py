@@ -121,7 +121,9 @@ def record_swipe():
                         'sender_id': current_user_id,
                         'sender_name': current_name,
                         'sender_img': current_profile.get('img', '/static/img/placeholder.png'),
-                        'match_id': match_id
+                        'match_id': match_id,
+                        'link': f'/matches/{current_user_id}',
+                        'status': 'unread'
                     })
 
                 except Exception as e:

@@ -1744,9 +1744,42 @@ def add_crush():
             db.reference(f'swipes/{user_id}/{raw_crush_id}').set({'action': 'like', 'timestamp': timestamp})
             db.reference(f'swipes/{raw_crush_id}/{user_id}').set({'action': 'like', 'timestamp': timestamp})
 
-            # Trigger real-time push notifications if they are online
-            # (WebSockets removed: Handled via Firebase Realtime Database)
-            pass
+            # Trigger real-time push notifications to both comrades
+            try:
+                p1 = db.reference(f'profiles/{user_id}').get() or {}
+                p2 = db.reference(f'profiles/{raw_crush_id}').get() or {}
+                p1_name = p1.get('name', 'Secret Crush').split()[0]
+                p2_name = p2.get('name', 'Secret Crush').split()[0]
+
+                # Alert user 1 (the one who just unlocked the match)
+                db.reference(f'notifications/{user_id}').push({
+                    'sender_id': raw_crush_id,
+                    'sender_name': p2.get('name', 'Secret Crush'),
+                    'sender_img': p2.get('img', '/static/img/placeholder.png'),
+                    'type': 'crush',
+                    'title': '🤫 Secret Crush Match! ❤️',
+                    'message': f"💘 OMG! You and {p2_name} secretly liked each other! Tap to chat.",
+                    'timestamp': timestamp,
+                    'match_id': match_id,
+                    'link': f"/matches/{raw_crush_id}",
+                    'status': 'unread'
+                })
+
+                # Alert user 2 (the crush who had previously entered user 1)
+                db.reference(f'notifications/{raw_crush_id}').push({
+                    'sender_id': user_id,
+                    'sender_name': p1.get('name', 'Secret Crush'),
+                    'sender_img': p1.get('img', '/static/img/placeholder.png'),
+                    'type': 'crush',
+                    'title': '🤫 Secret Crush Match! ❤️',
+                    'message': f"💘 OMG! Your Secret Crush on {p1_name} was mutual! Tap to chat.",
+                    'timestamp': timestamp,
+                    'match_id': match_id,
+                    'link': f"/matches/{user_id}",
+                    'status': 'unread'
+                })
+            except Exception as crush_notif_err:
+                logger.error(f"Crush radar notification push error: {crush_notif_err}")
 
             # Dispatch mutual match email alerts so neither user misses the match
             try:
@@ -2779,6 +2812,37 @@ def manage_booking(booking_id, action):
                     threading.Thread(target=send_date_approval_email, args=(
                         user_b['email'], user_b_name, user_a_name, r_name, d_day, d_time, r_location
                     )).start()
+
+                # Push real-time notification alerts to both students
+                try:
+                    now_eat_notif = datetime.now(EAT).isoformat()
+                    user_a_id = booking.get('user_a_id')
+                    user_b_id = booking.get('user_b_id')
+                    b_status_lower = status.lower()
+                    if status == 'Approved':
+                        notif_title = f"Date Confirmed at {r_name}! 🍷✨"
+                        notif_msg = f"Your reservation for {d_day} at {d_time} has been approved by {r_name}!"
+                        notif_type = 'date_request'
+                    else:
+                        notif_title = f"Date Reservation {status.capitalize()} 📍"
+                        notif_msg = f"Your reservation at {r_name} was {b_status_lower}."
+                        notif_type = 'system'
+
+                    for uid in [user_a_id, user_b_id]:
+                        if uid:
+                            db.reference(f'notifications/{uid}').push({
+                                'sender_id': restaurant_id or 'SYSTEM',
+                                'sender_name': r_name,
+                                'sender_img': restaurant.get('image') or '/static/img/placeholder.png',
+                                'type': notif_type,
+                                'title': notif_title,
+                                'message': notif_msg,
+                                'timestamp': now_eat_notif,
+                                'link': '/bookings',
+                                'status': 'unread'
+                            })
+                except Exception as booking_notif_err:
+                    logger.error(f"Failed to push booking status notification: {booking_notif_err}")
 
         flash(f"Reservation {status.lower()}! The couple has been notified via email.", "success")
         
@@ -8173,6 +8237,40 @@ def group_shoot_shot(group_id, target_id):
         })
         flash("💘 OMG! It's a match! They shot their shot at you too. Check your unread chats!")
         db.reference(f'group_shots/{group_id}/{target_id}').delete()
+
+        # Alert both users via real-time notification bell
+        try:
+            p_curr = db.reference(f'profiles/{current_user_id}').get() or {}
+            p_targ = db.reference(f'profiles/{target_id}').get() or {}
+            c_name = p_curr.get('name', 'Someone').split()[0]
+            t_name = p_targ.get('name', 'Someone').split()[0]
+            
+            db.reference(f'notifications/{target_id}').push({
+                'sender_id': current_user_id,
+                'sender_name': p_curr.get('name', 'Someone'),
+                'sender_img': p_curr.get('img', '/static/img/placeholder.png'),
+                'type': 'shot',
+                'title': '🎯 Shot Fired Match! 💘',
+                'message': f"OMG! {c_name} shot their shot back at you in the group! Tap to chat.",
+                'timestamp': timestamp,
+                'match_id': match_id,
+                'link': f"/matches/{current_user_id}",
+                'status': 'unread'
+            })
+            db.reference(f'notifications/{current_user_id}').push({
+                'sender_id': target_id,
+                'sender_name': p_targ.get('name', 'Someone'),
+                'sender_img': p_targ.get('img', '/static/img/placeholder.png'),
+                'type': 'shot',
+                'title': '🎯 Shot Fired Match! 💘',
+                'message': f"OMG! It's a match! You and {t_name} shot your shots at each other!",
+                'timestamp': timestamp,
+                'match_id': match_id,
+                'link': f"/matches/{target_id}",
+                'status': 'unread'
+            })
+        except Exception as shot_notif_err:
+            logger.error(f"Group shoot match notification push error: {shot_notif_err}")
     else:
         db.reference(f'group_shots/{group_id}/{current_user_id}').set(target_id)
         flash("💘 Shot fired! If they shoot back, it's a match.")
@@ -8321,12 +8419,15 @@ def request_join_group(group_id):
         try:
             db.reference(f'notifications/{admin_id}').push({
                 'sender_id': user_id,
-                'sender_name': 'System',
-                'sender_img': '/static/img/placeholder.png',
-                'type': 'system',
-                'message': f"👥 {user_data.get('name', 'Someone').split(' ')[0]} requested to join {group_data.get('name')}! Check the group to approve.",
+                'sender_name': user_data.get('name', 'Someone'),
+                'sender_img': user_data.get('img', '/static/img/placeholder.png'),
+                'type': 'group',
+                'title': '👥 Group Join Request',
+                'message': f"{user_data.get('name', 'Someone').split(' ')[0]} requested to join {group_data.get('name')}! Tap to view.",
                 'timestamp': now,
-                'match_id': f'group_invite_{group_id}'
+                'match_id': f'group_invite_{group_id}',
+                'link': f'/group/{group_id}',
+                'status': 'unread'
             })
             
             # Send Email Notification to Admin
@@ -8357,15 +8458,33 @@ def approve_join_group(group_id, target_user_id):
     
     now = datetime.now(EAT).isoformat()
     try:
+        # Push persistent bell notification
+        db.reference(f'notifications/{target_user_id}').push({
+            'sender_id': user_id or 'SYSTEM',
+            'sender_name': group_data.get('name', 'Group'),
+            'sender_img': group_data.get('icon') or '/static/img/placeholder.png',
+            'type': 'group',
+            'title': '👥 Group Request Approved! 🎉',
+            'message': f"You've been accepted into {group_data.get('name')}! Tap to chat.",
+            'timestamp': now,
+            'match_id': f'group_invite_{group_id}',
+            'link': f'/group/{group_id}',
+            'status': 'unread'
+        })
+        # Transient in-app toast
         db.reference(f'chat_notifications/{target_user_id}').push({
-            'sender_id': 'system',
-            'sender_name': 'System',
-            'sender_img': '/static/img/placeholder.png',
+            'sender_id': user_id or 'system',
+            'sender_name': group_data.get('name', 'Group'),
+            'sender_img': group_data.get('icon') or '/static/img/placeholder.png',
+            'type': 'group',
+            'title': 'Group Approved! 🎉',
             'message': f"🎉 You were approved to join {group_data.get('name')}!",
             'timestamp': now,
-            'match_id': f'group_invite_{group_id}'
+            'match_id': f'group_invite_{group_id}',
+            'link': f'/group/{group_id}'
         })
-    except: pass
+    except Exception as grp_notif_err:
+        logger.error(f"Group approval notification error: {grp_notif_err}")
     
     flash("User approved and added to the group.")
     return redirect(url_for('group_chat', group_id=group_id))
