@@ -142,6 +142,7 @@
         const myUserIdStr = "{{ session.get('user_id') }}";
         const userStatusRef = fdb.ref('/profiles/' + myUserIdStr + '/is_online');
         const userLastActiveRef = fdb.ref('/profiles/' + myUserIdStr + '/last_active');
+        const userPresenceRef = fdb.ref('/users/' + myUserIdStr + '/is_online');
         const notificationsRef = fdb.ref('/notifications/' + myUserIdStr);
 
         // Presence system
@@ -149,10 +150,11 @@
             if (snapshot.val() === false) {
                 return;
             }
-            userStatusRef.onDisconnect().set(false).then(function() {
-                userStatusRef.set(true);
-                userLastActiveRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
-            });
+            userStatusRef.onDisconnect().set(false);
+            userPresenceRef.onDisconnect().set(false);
+            userLastActiveRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
+            userStatusRef.set(true);
+            userPresenceRef.set(true);
         });
 
         // Real-time Notification Bell Logic
@@ -2554,22 +2556,24 @@
         // ==========================================
         const notificationAudio = new Audio('/static/audio/1.mp3');
 
-        fdb.ref('chat_notifications/' + currentUserId).on('child_added', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
+        if (currentUserId && currentUserId !== 'None') {
+            fdb.ref('chat_notifications/' + currentUserId).on('child_added', (snapshot) => {
+                const data = snapshot.val();
+                if (!data) return;
 
-            // If the user is currently on the chat page with this specific sender, do not show a toast.
-            if (window.activeChatId === String(data.sender_id)) {
-                snapshot.ref.remove(); // Clean up silently
-                return;
-            }
+                // If the user is currently on the chat page with this specific sender, do not show a toast.
+                if (window.activeChatId === String(data.sender_id)) {
+                    snapshot.ref.remove(); // Clean up silently
+                    return;
+                }
 
-            // Show Toast
-            showGlobalToast(data);
+                // Show Toast
+                showGlobalToast(data);
 
-            // Clean up from Firebase immediately so it doesn't stay forever
-            snapshot.ref.remove();
-        });
+                // Clean up from Firebase immediately so it doesn't stay forever
+                snapshot.ref.remove();
+            });
+        }
 
         function showGlobalToast(data) {
             if (!data) return;

@@ -16,16 +16,21 @@
 
     "party_participants": {
       ".read": true,
-      "$user_id": {
-        ".write": "auth != null && auth.uid === $user_id",
-        ".indexOn": ["joined_at", "shape_seed"]
-      },
+      ".write": true,
       ".indexOn": ["joined_at"]
     },
 
     "profiles": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      "$user_id": {
+        "is_online": {
+          ".read": true,
+          ".write": true
+        },
+        "last_active": {
+          ".read": true,
+          ".write": true
+        }
+      },
       ".indexOn": [
         "email", 
         "phone", 
@@ -63,8 +68,8 @@
     },
     
     "notifications": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       "$user_id": {
         ".indexOn": ["status", "timestamp"]
       }
@@ -95,22 +100,22 @@
     },
     
     "matches": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["users"]
     },
 
     "messages": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       "$match_id": {
         ".indexOn": ["timestamp"]
       }
     },
 
     "chats": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       "$room_id": {
         ".indexOn": ["timestamp"]
       }
@@ -189,30 +194,64 @@
     },
 
     "party_chat": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_chat_main": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_chat_dj": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_chat_vip": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_chat_chill": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp_ms"]
+    },
+
+    "party_chat_live_video": {
+      ".read": true,
+      ".write": true,
       ".indexOn": ["timestamp_ms"]
     },
 
     "party_typing": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     
     "users": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      "$user_id": {
+        "is_online": {
+          ".read": true,
+          ".write": true
+        }
+      },
       ".indexOn": ["is_online"]
     },
     
     "lights_out_queue": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["timestamp"]
     },
     "lights_out_rooms": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "calls": {
       ".read": true,
@@ -227,8 +266,8 @@
       ".write": true
     },
     "emergency_alerts": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["timestamp"]
     },
     "campus_managers": {
@@ -241,8 +280,8 @@
       ".write": false
     },
     "groups": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["created_by", "name"]
     },
     "group_messages": {
@@ -250,17 +289,17 @@
       ".write": true
     },
     "chat_notifications": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["timestamp"]
     },
     "balloon_room": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": true,
+      ".write": true
     },
     "balloon_chat": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": true,
+      ".write": true,
       ".indexOn": ["timestamp"]
     }
   }

@@ -1229,14 +1229,25 @@
 
     // Online Status Listener
     Object.keys(unreadMap).forEach(uid => {
-        fdb.ref(`users/${uid}/is_online`).on('value', (snap) => {
-            const is_online = snap.val() === true;
+        const updateOnlineStatus = (is_online) => {
             document.querySelectorAll(`.match-item[data-uid="${uid}"] .online-dot`)
                 .forEach(dot => dot.classList.toggle('active', is_online));
                 
             if (String(uid) === String(activePartnerId)) {
                 const statusEl = document.querySelector('.chat-header .status-text');
                 if (statusEl) statusEl.textContent = is_online ? 'Online' : 'Offline';
+            }
+        };
+
+        fdb.ref(`profiles/${uid}/is_online`).on('value', (snap) => {
+            if (snap.val() !== null) {
+                updateOnlineStatus(snap.val() === true);
+            }
+        });
+
+        fdb.ref(`users/${uid}/is_online`).on('value', (snap) => {
+            if (snap.val() !== null) {
+                updateOnlineStatus(snap.val() === true);
             }
         });
     });
