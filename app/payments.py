@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 # ==========================================
 # DARAJA API CREDENTIALS (PRODUCTION)
 # ==========================================
-CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY")
-CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET")
-BUSINESS_SHORTCODE = os.getenv("MPESA_SHORTCODE") 
-PASSKEY = os.getenv("MPESA_PASSKEY")
+CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY") or os.getenv("CONSUMER_KEY") or "OgkAKD4soo5xGVEegeGPvWS9HK3QuRgZYGQXnKmDxVTxnMDG"
+CONSUMER_SECRET = os.getenv("MPESA_CONSUMER_SECRET") or os.getenv("CONSUMER_SECRET") or "LXgsZGYdl6kpunxzGuAw4Fi3JK7FtTLqbCK9JZjI6VDR6e93n5mmW8gFKUORhuQQ"
+BUSINESS_SHORTCODE = os.getenv("BUSINESS_SHORT_CODE") or os.getenv("MPESA_SHORTCODE") or "4050545"
+PASSKEY = os.getenv("MPESA_PASSKEY") or os.getenv("PASSKEY") or "f2d5541751a9649a49971680017613ecec69eb7bd886bda8bfb5d07c5d1c2d1f"
 
 # Hardcoded to the live Safaricom API
 BASE_URL = "https://api.safaricom.co.ke"
@@ -236,11 +236,11 @@ def initiate_b2c_payout(
         logger.error("❌ B2C Payout failed: Could not obtain M-Pesa access token.")
         return {"success": False, "error": "Failed to authenticate with M-Pesa."}
 
-    initiator = os.getenv("DARAJA_INITIATOR_NAME", "Delstarford Api")
-    credential = os.getenv("DARAJA_SECURITY_CREDENTIAL")
-    shortcode = os.getenv("BUSINESS_SHORT_CODE") or os.getenv("MPESA_SHORTCODE", "4050545")
-    timeout_url = os.getenv("DARAJA_B2C_TIMEOUT_URL", "https://www.findyourmatch.co.ke/mpesa/b2c/timeout")
-    result_url = os.getenv("DARAJA_B2C_RESULT_URL", "https://www.findyourmatch.co.ke/mpesa/b2c/result")
+    initiator = os.getenv("DARAJA_INITIATOR_NAME") or "Delstarford Api"
+    credential = os.getenv("DARAJA_SECURITY_CREDENTIAL") or "fwrS8i2o7+s/XdCz+jl05zQyQgsOv/y6o4tGRETOMqk/3mccnywYx+YngcZgxOWicaEAqzi0U7UoTak83d7QeSJ+F87HER2077r00aB90sLxxZ8/JDoJWNPf6a4xl1Ovd4FesrqfIN6HZcaCfTZU+1gx68vq6cpuKijr6SJ1aHOeCE+tqEbQs2pEllQmb+AefNg+PH2A2ElkBjjKKfMNoEw6GixZeRVewQFloDA2Ymf2Fp67zbvXlMJAIScHViS8h4yNUEtsSwODv1F7TkqbSfNtrMDJ4AilJ3kzXx0rSd8NWnSWZ0pVQOb91qJOhKnvzbm2IEIq+dk9Kw5FtIe07w=="
+    shortcode = os.getenv("BUSINESS_SHORT_CODE") or os.getenv("MPESA_SHORTCODE") or "4050545"
+    timeout_url = os.getenv("DARAJA_B2C_TIMEOUT_URL") or "https://www.findyourmatch.co.ke/mpesa/b2c/timeout"
+    result_url = os.getenv("DARAJA_B2C_RESULT_URL") or "https://www.findyourmatch.co.ke/mpesa/b2c/result"
 
     if not credential:
         logger.error("❌ B2C Payout failed: Missing DARAJA_SECURITY_CREDENTIAL in environment.")
