@@ -225,7 +225,14 @@
                 </div>
             </div>
             
-            <div style="display: flex; gap: 15px; align-items: center; position: relative;">
+            <div style="display: flex; gap: 10px; align-items: center; position: relative;">
+                <!-- Group Video & Voice Call Buttons -->
+                <button type="button" onclick="initiateGroupCall('video')" style="background: rgba(230, 0, 38, 0.08); border: 1px solid rgba(230, 0, 38, 0.25); color: #E60026; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; cursor: pointer; transition: transform 0.15s, background 0.15s;" title="Start Group Video Call" onmouseover="this.style.transform='scale(1.1)'; this.style.background='rgba(230, 0, 38, 0.15)';" onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(230, 0, 38, 0.08)';">
+                    📹
+                </button>
+                <button type="button" onclick="initiateGroupCall('audio')" style="background: rgba(37, 211, 102, 0.1); border: 1px solid rgba(37, 211, 102, 0.35); color: #16a34a; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; transition: transform 0.15s, background 0.15s;" title="Start Group Voice Call" onmouseover="this.style.transform='scale(1.1)'; this.style.background='rgba(37, 211, 102, 0.2)';" onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(37, 211, 102, 0.1)';">
+                    📞
+                </button>
                 
                 <div style="position: relative;">
                     <button onclick="toggleActionMenu(event)" style="background: none; border: none; color: #333; font-size: 24px; cursor: pointer; font-weight: bold;">⋮</button>
@@ -364,6 +371,22 @@
             <div id="bg-picker" class="bg-grid"></div>
         </div>
         
+        <!-- Active Live Group Call Banner -->
+        <div id="active-call-banner" style="display: none; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: white; padding: 12px 18px; border-bottom: 2px solid #22c55e; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 10px #22c55e;"></span>
+                    <div>
+                        <strong id="active-call-title" style="font-size: 13.5px; color: #f8fafc;">Group Call in Progress</strong>
+                        <div id="active-call-sub" style="font-size: 11.5px; color: #94a3b8;">Tap to answer and join other members</div>
+                    </div>
+                </div>
+                <a id="active-call-join-btn" href="#" style="background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color: white; padding: 8px 18px; border-radius: 50px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);">
+                    📞 Join Call Now
+                </a>
+            </div>
+        </div>
+        
         <div id="lights-out-banner" style="display: none; background: linear-gradient(90deg, #1A0B2E, #720000); color: #fff; text-align: center; padding: 10px; font-weight: bold; font-size: 12px; letter-spacing: 1px; border-bottom: 1px solid #38BDF8; animation: pulseBg 2s infinite alternate;">
             🌑 LIGHTS OUT MODE ACTIVE: All identities are hidden. Chat purely on vibes!
         </div>
@@ -423,6 +446,26 @@
     }
     
     function renderMessage(msg) {
+        if (msg.type === 'group_call') {
+            const timeStr = new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            const callDiv = document.createElement('div');
+            callDiv.className = 'message system';
+            callDiv.style.margin = '14px 0';
+            callDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); border: 1px solid #334155; border-radius: 18px; padding: 18px 22px; color: white; text-align: center; max-width: 380px; margin: 0 auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">
+                    <div style="font-size: 28px; margin-bottom: 6px;">${msg.call_type === 'video' ? '📹' : '📞'}</div>
+                    <div style="font-weight: 900; font-size: 16px; margin-bottom: 4px; color: white;">Group ${msg.call_type === 'video' ? 'Video' : 'Voice'} Call</div>
+                    <div style="font-size: 12.5px; color: #94a3b8; margin-bottom: 14px;">Started by ${msg.user_name || 'Member'} • ${timeStr}</div>
+                    <a href="/group/${groupId}/call/${msg.call_id}" style="display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color: white; padding: 10px 24px; border-radius: 50px; font-weight: 800; font-size: 13.5px; text-decoration: none; box-shadow: 0 4px 15px rgba(22,163,74,0.4);">
+                        📞 Join Live Call
+                    </a>
+                </div>
+            `;
+            messagesContainer.appendChild(callDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return;
+        }
+
         const isMine = msg.sender_id === currentUserId;
         const isSystem = msg.sender_id === 'system_ai';
         const msgDiv = document.createElement('div');
@@ -443,7 +486,7 @@
         
         msgDiv.innerHTML = `
             <div class="msg-sender">${displayName}</div>
-            <div class="msg-bubble">${escapeHtml(msg.text)}</div>
+            <div class="msg-bubble">${escapeHtml(msg.text || msg.message || '')}</div>
             <div class="msg-time">${timeString}</div>
         `;
         messagesContainer.appendChild(msgDiv);
@@ -475,6 +518,52 @@
     messageInput.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') {
             sendMessage();
+        }
+    });
+
+    // === GROUP VIDEO & VOICE CALL INITIATION ===
+    function initiateGroupCall(callType) {
+        const typeLabel = callType === 'audio' ? 'Voice' : 'Video';
+        if (!confirm(`📞 Start a Group ${typeLabel} Call in {{ group.name }}?\n\nThis will send an incoming call notification to all members and email anyone who is currently offline.`)) {
+            return;
+        }
+
+        showCustomAlert(`Starting Group ${typeLabel} Call...`);
+
+        fetch(`/api/groups/start_call/${groupId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ call_type: callType })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.call_url) {
+                window.location.href = data.call_url;
+            } else {
+                alert(data.message || 'Could not start group call.');
+            }
+        })
+        .catch(err => {
+            console.error('Call initiation error:', err);
+            alert('Failed to initiate group call. Please check your internet connection.');
+        });
+    }
+
+    // === LISTEN FOR ACTIVE GROUP CALL IN REAL-TIME ===
+    const activeCallRef = db.ref(`group_calls/${groupId}/active`);
+    activeCallRef.on('value', snapshot => {
+        const callData = snapshot.val();
+        const banner = document.getElementById('active-call-banner');
+        if (!banner) return;
+
+        if (callData && callData.call_id) {
+            const isVideo = (callData.call_type === 'video');
+            document.getElementById('active-call-title').innerText = `Live Group ${isVideo ? 'Video' : 'Voice'} Call`;
+            document.getElementById('active-call-sub').innerText = `${callData.caller_name || 'Comrades'} is in the call • Tap to join now`;
+            document.getElementById('active-call-join-btn').href = `/group/${groupId}/call/${callData.call_id}`;
+            banner.style.display = 'block';
+        } else {
+            banner.style.display = 'none';
         }
     });
     

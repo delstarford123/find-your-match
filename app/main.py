@@ -9062,6 +9062,290 @@ def reject_join_group(group_id, target_user_id):
 
 
 # ==========================================
+# GROUP AUDIO & VIDEO CALL ROUTES
+# ==========================================
+from app.email_service import send_group_call_invite_email
+
+@app.route('/api/groups/start_call/<group_id>', methods=['POST'])
+@csrf.exempt
+@requires_subscription
+def start_group_call(group_id):
+    """
+    Initiates or retrieves an active group video/audio call session.
+    Dispatches in-app notifications and emails to members not online.
+    """
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+        
+    user_id = session['user_id']
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data:
+        return jsonify({'success': False, 'message': 'Group not found'}), 404
+        
+    members = group_data.get('members', {})
+    if user_id not in members:
+        return jsonify({'success': False, 'message': 'You must be a member to call'}), 403
+        
+    caller_data = db.reference(f"profiles/{user_id}").get() or {}
+    caller_name = caller_data.get('name', 'Student').split()[0]
+    caller_img = caller_data.get('img', '/static/img/placeholder.png')
+    group_name = group_data.get('name', 'Campus Group')
+    
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    call_type = 'audio' if data.get('call_type') == 'audio' else 'video'
+    
+    # Check if there is already an active call in this group
+    active_call = db.reference(f"group_calls/{group_id}/active").get()
+    now_ms = int(time.time() * 1000)
+    
+    call_id = None
+    if active_call and isinstance(active_call, dict) and active_call.get('call_id'):
+        call_created = int(active_call.get('created_at', 0) or 0)
+        if now_ms - call_created < 4 * 3600 * 1000:
+            call_id = active_call.get('call_id')
+            
+    if not call_id:
+        call_id = f"grpcall_{uuid.uuid4().hex[:10]}"
+        call_payload = {
+            'call_id': call_id,
+            'group_id': group_id,
+            'group_name': group_name,
+            'started_by': user_id,
+            'caller_name': caller_name,
+            'caller_img': caller_img,
+            'call_type': call_type,
+            'status': 'active',
+            'created_at': now_ms
+        }
+        db.reference(f"group_calls/{group_id}/{call_id}").set(call_payload)
+        db.reference(f"group_calls/{group_id}/active").set(call_payload)
+        
+        # Post interactive announcement message to group chat
+        try:
+            db.reference(f'group_messages/{group_id}').push({
+                'sender_id': 'SYSTEM',
+                'sender_name': group_name,
+                'user_name': caller_name,
+                'is_system': True,
+                'type': 'group_call',
+                'call_type': call_type,
+                'call_id': call_id,
+                'message': f"📞 {caller_name} started a Group {call_type.title()} Call • Tap to Join",
+                'timestamp': datetime.utcnow().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Error posting group call message: {e}")
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    call_url = f"{base_url}/group/{group_id}/call/{call_id}"
+    
+    # Dispatch in-app notifications & email alerts in background
+    def notify_group_members_async():
+        for m_id in members.keys():
+            if m_id == user_id:
+                continue
+            try:
+                m_profile = db.reference(f"profiles/{m_id}").get() or {}
+                m_name = m_profile.get('name', 'Comrade').split()[0]
+                m_email = m_profile.get('email', '')
+                is_online = bool(m_profile.get('is_online'))
+                
+                # 1. In-app real-time notification in Firebase
+                db.reference(f'notifications/{m_id}').push({
+                    'sender_name': f"{caller_name} ({group_name})",
+                    'title': f"📞 Group {call_type.title()} Call",
+                    'message': f"Incoming group call in {group_name}. Tap to join!",
+                    'sender_img': caller_img,
+                    'link': f"/group/{group_id}/call/{call_id}",
+                    'type': 'group_call',
+                    'timestamp': int(time.time() * 1000)
+                })
+                
+                # Push to chat_notifications for bottom alert bar
+                db.reference(f'chat_notifications/{m_id}').push({
+                    'sender_id': user_id,
+                    'sender_name': f"{caller_name} ({group_name})",
+                    'sender_img': caller_img,
+                    'type': 'group_call',
+                    'title': f"📞 Group {call_type.title()} Call!",
+                    'message': f"Live call started in {group_name}. Tap to answer.",
+                    'timestamp': datetime.now(EAT).isoformat(),
+                    'match_id': f"grpcall_{group_id}",
+                    'link': f"/group/{group_id}/call/{call_id}"
+                })
+                
+                # 2. Email notification to offline members
+                if m_email and not is_online:
+                    send_group_call_invite_email(
+                        to_email=m_email,
+                        user_name=m_name,
+                        caller_name=caller_name,
+                        caller_img=caller_img,
+                        group_name=group_name,
+                        call_type=call_type,
+                        call_url=call_url
+                    )
+            except Exception as notify_err:
+                logger.error(f"Error notifying member {m_id} for group call: {notify_err}")
+
+    threading.Thread(target=notify_group_members_async, daemon=True).start()
+
+    return jsonify({
+        'success': True,
+        'call_id': call_id,
+        'call_type': call_type,
+        'call_url': f"/group/{group_id}/call/{call_id}"
+    })
+
+
+@app.route('/group/<group_id>/call', methods=['GET'])
+@app.route('/group/<group_id>/call/<call_id>', methods=['GET'])
+@requires_subscription
+def group_call_page(group_id, call_id=None):
+    """
+    Dedicated WhatsApp-style Group Video & Audio Call interface.
+    Multi-peer WebRTC mesh with live camera grid, active speaker detection,
+    mute controls, and in-call chat.
+    """
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    user_id = session['user_id']
+    group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get()
+    
+    if not group_data:
+        flash("Group not found.")
+        return redirect(url_for('groups'))
+        
+    members = group_data.get('members', {})
+    if user_id not in members:
+        flash("You are not a member of this group.")
+        return redirect(url_for('groups'))
+        
+    user_data = db.reference(f"profiles/{user_id}").get() or {}
+    user_name = user_data.get('name', 'Student').split()[0]
+    user_img = user_data.get('img', '/static/img/placeholder.png')
+    
+    # If call_id is not specified, check active or create
+    if not call_id:
+        active_call = db.reference(f"group_calls/{group_id}/active").get()
+        if active_call and isinstance(active_call, dict) and active_call.get('call_id'):
+            call_id = active_call.get('call_id')
+        else:
+            call_id = f"grpcall_{uuid.uuid4().hex[:10]}"
+            
+    call_record = db.reference(f"group_calls/{group_id}/{call_id}").get() or {}
+    call_type = call_record.get('call_type') or ('video' if request.args.get('video', 'true') == 'true' else 'audio')
+    if request.args.get('type') in ['audio', 'video']:
+        call_type = request.args.get('type')
+        
+    member_details = []
+    for m_id, role in members.items():
+        m_prof = db.reference(f"profiles/{m_id}").get() or {}
+        member_details.append({
+            'id': m_id,
+            'name': m_prof.get('name', 'Student').split()[0],
+            'photo_url': m_prof.get('img', '/static/img/placeholder.png'),
+            'is_online': m_prof.get('is_online', False),
+            'role': role
+        })
+
+    firebase_db_url = os.getenv('FIREBASE_DB_URL', 'https://mmust-dating-site-default-rtdb.firebaseio.com/').strip('"').rstrip('/')
+    firebase_api_key = os.getenv('FIREBASE_API_KEY', '')
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    return render_template(
+        'group_call.html',
+        group=group_data,
+        group_id=group_id,
+        call_id=call_id,
+        call_type=call_type,
+        user=user_data,
+        user_id=user_id,
+        user_name=user_name,
+        user_img=user_img,
+        members=member_details,
+        firebase_db_url=firebase_db_url,
+        firebase_api_key=firebase_api_key,
+        base_url=base_url
+    )
+
+
+@app.route('/api/groups/ring_member/<group_id>/<call_id>/<target_user_id>', methods=['POST'])
+@csrf.exempt
+@requires_subscription
+def ring_group_member(group_id, call_id, target_user_id):
+    """Allows anyone in the call to re-ring / ping an absent member."""
+    if 'user_id' not in session:
+        return jsonify({'success': False}), 401
+    caller_id = session['user_id']
+    caller_prof = db.reference(f"profiles/{caller_id}").get() or {}
+    caller_name = caller_prof.get('name', 'Student').split()[0]
+    caller_img = caller_prof.get('img', '/static/img/placeholder.png')
+    
+    group_data = db.reference(f"groups/{group_id}").get() or {}
+    group_name = group_data.get('name', 'Campus Group')
+    
+    target_prof = db.reference(f"profiles/{target_user_id}").get() or {}
+    target_name = target_prof.get('name', 'Comrade').split()[0]
+    target_email = target_prof.get('email', '')
+    
+    call_record = db.reference(f"group_calls/{group_id}/{call_id}").get() or {}
+    call_type = call_record.get('call_type', 'video')
+    
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    call_url = f"{base_url}/group/{group_id}/call/{call_id}"
+    
+    # In-app notification
+    db.reference(f'notifications/{target_user_id}').push({
+        'sender_name': f"{caller_name} ({group_name})",
+        'title': f"📞 Calling You to {group_name}!",
+        'message': f"{caller_name} is calling you right now to join the group call!",
+        'sender_img': caller_img,
+        'link': f"/group/{group_id}/call/{call_id}",
+        'type': 'group_call',
+        'timestamp': int(time.time() * 1000)
+    })
+    
+    # Email alert
+    if target_email:
+        threading.Thread(
+            target=send_group_call_invite_email,
+            args=(target_email, target_name, caller_name, caller_img, group_name, call_type, call_url),
+            daemon=True
+        ).start()
+        
+    return jsonify({'success': True, 'message': f"Ringing {target_name}..."})
+
+
+@app.route('/api/groups/end_call/<group_id>/<call_id>', methods=['POST'])
+@csrf.exempt
+@requires_subscription
+def end_group_call(group_id, call_id):
+    """Leaves or closes the group call session."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False}), 401
+        
+    # Remove from participants
+    db.reference(f"group_calls/{group_id}/{call_id}/participants/{user_id}").delete()
+    
+    # Check remaining participants
+    participants = db.reference(f"group_calls/{group_id}/{call_id}/participants").get() or {}
+    if not participants:
+        # All members left, mark ended
+        db.reference(f"group_calls/{group_id}/{call_id}").update({'status': 'ended', 'ended_at': int(time.time() * 1000)})
+        active_call = db.reference(f"group_calls/{group_id}/active").get() or {}
+        if active_call.get('call_id') == call_id:
+            db.reference(f"group_calls/{group_id}/active").delete()
+            
+    return jsonify({'success': True})
+
+
+# ==========================================
 # SMART ACCOUNT ROUTING (Students vs Sponsors)
 # ==========================================
 

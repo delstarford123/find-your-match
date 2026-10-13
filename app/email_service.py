@@ -479,6 +479,76 @@ def send_group_notification_email(member_email, member_name, sender_name, group_
     """)
     return _send_email(member_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
 
+def send_group_call_invite_email(to_email, user_name, caller_name, caller_img, group_name, call_type, call_url):
+    """
+    Sends an urgent email invitation to an offline group member when a live group video/audio call is started.
+    """
+    call_label = "Group Video Call 📹" if str(call_type).lower() == 'video' else "Group Voice Call 📞"
+    subject = f"📞 {caller_name} started a {call_label} in {group_name}!"
+    
+    caller_photo = caller_img or "https://findyourmatch.co.ke/static/img/placeholder.png"
+    
+    text_content = textwrap.dedent(f"""\
+        Hi {user_name},
+        
+        {caller_name} just started a live {call_label} in "{group_name}" on FindYourMatch!
+        
+        Other group members are joining now. Tap below to join the call immediately:
+        {call_url}
+        
+        (You can join with your camera or voice-only anytime.)
+        
+        Best regards,
+        FindYourMatch Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 24px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a;">
+            <div style="max-width: 560px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: #f8fafc;">
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 28px 24px; text-align: center;">
+                    <div style="display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; color: white;">
+                        LIVE GROUP CALL 🟢
+                    </div>
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: white;">{group_name}</h1>
+                    <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9; color: white;">{call_label} is happening right now</p>
+                </div>
+                
+                <div style="padding: 28px 24px; text-align: center;">
+                    <div style="position: relative; display: inline-block; margin-bottom: 16px;">
+                        <img src="{caller_photo}" alt="{caller_name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E60026; box-shadow: 0 0 20px rgba(230,0,38,0.5);">
+                    </div>
+                    
+                    <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #ffffff;">{caller_name} is calling!</h2>
+                    <p style="margin: 0 0 24px; font-size: 14px; color: #cbd5e1; line-height: 1.5;">
+                        Hey <strong>{user_name}</strong>, a live group call was initiated in <strong>{group_name}</strong>. The rest of the group is waiting for you to jump in!
+                    </p>
+                    
+                    <div style="margin: 26px 0;">
+                        <a href="{call_url}" style="display: inline-block; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color: white; padding: 16px 36px; border-radius: 50px; text-decoration: none; font-weight: 900; font-size: 16px; box-shadow: 0 8px 25px rgba(22, 163, 74, 0.45); letter-spacing: 0.5px;">
+                            📞 Answer & Join Group Call
+                        </a>
+                    </div>
+                    
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 18px;">
+                        💡 <em>Tip: You can join with camera or mute your video/mic anytime.</em>
+                    </div>
+                </div>
+                
+                <div style="background: #0f172a; padding: 16px; text-align: center; border-top: 1px solid #334155; font-size: 11px; color: #64748b;">
+                    FindYourMatch • Campus Connection & Group Calls • Kakamega, Kenya
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    return _send_email(to_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH GROUP CALL")
+
 def send_group_invite_email(to_email, user_name, group_name, admin_name):
     """Sends a professional welcome email when added to a group."""
     subject = f"💬 You've been invited to join {group_name}!"

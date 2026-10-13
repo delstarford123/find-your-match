@@ -45,7 +45,12 @@
     <div class="group-grid">
         {% for group in my_groups %}
         <div class="group-card">
-            <div class="group-name">🗣️ {{ group.name }}</div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <div class="group-name" style="margin-bottom: 0;">🗣️ {{ group.name }}</div>
+                <span id="call-pill-{{ group.id }}" style="display: none; background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 20px; align-items: center; gap: 4px;">
+                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #16a34a;"></span> Live Call 📞
+                </span>
+            </div>
             <div class="group-desc">{{ group.description }}</div>
             <a href="{{ url_for('group_chat', group_id=group.id) }}" class="btn-action btn-enter">Enter Chat</a>
         </div>
@@ -104,6 +109,19 @@
         if (event.target == document.getElementById('createModal')) {
             document.getElementById('createModal').style.display = "none";
         }
+    };
+
+    // Live active group call indicator
+    if (typeof fdb !== 'undefined') {
+        {% for group in my_groups %}
+        fdb.ref('group_calls/{{ group.id }}/active').on('value', function(snap) {
+            var val = snap.val();
+            var pill = document.getElementById('call-pill-{{ group.id }}');
+            if (pill) {
+                pill.style.display = (val && val.call_id) ? 'inline-flex' : 'none';
+            }
+        });
+        {% endfor %}
     }
 </script>
 {% endblock %}

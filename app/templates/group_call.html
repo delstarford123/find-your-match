@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Group Call • {{ group.name }} | Find Your Match</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --wa-dark-bg: #0b141a;
+            --wa-card-bg: #111b21;
+            --wa-tile-bg: #1f2c34;
+            --wa-green: #25d366;
+            --wa-emerald: #10b981;
+            --wa-red: #ea0038;
+            --fym-crimson: #720000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--wa-dark-bg);
+            color: #e9edef;
+            font-family: 'Outfit', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* === 1. TOP HEADER BAR === */
+        .call-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: linear-gradient(180deg, rgba(11, 20, 26, 0.95) 0%, rgba(11, 20, 26, 0) 100%);
+            pointer-events: auto;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .btn-back-chat {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            text-decoration: none;
+            backdrop-filter: blur(8px);
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-back-chat:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .group-meta {
+            min-width: 0;
+        }
+
+        .group-title {
+            font-size: clamp(15px, 3.5vw, 18px);
+            font-weight: 800;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .call-sub-status {
+            font-size: 12px;
+            color: #8696a0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 2px;
+        }
+
+        .call-timer-badge {
+            color: #25d366;
+            font-weight: 700;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-action-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 8px 14px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(8px);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .header-action-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .unread-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid var(--wa-dark-bg);
+            display: none;
+        }
+
+        /* === 2. DYNAMIC PARTICIPANTS GRID === */
+        .call-stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 70px 16px 110px;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .participants-grid {
+            display: grid;
+            gap: 12px;
+            width: 100%;
+            height: 100%;
+            max-width: 1300px;
+            margin: 0 auto;
+            transition: all 0.3s ease;
+        }
+
+        /* Grid configurations based on count */
+        .grid-1 {
+            grid-template-columns: 1fr;
+            max-width: 700px;
+            height: 85%;
+        }
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .grid-3, .grid-4 {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+        .grid-5, .grid-6 {
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+        }
+        .grid-7, .grid-8, .grid-many {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(2, 1fr);
+            }
+            .grid-3 {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(3, 1fr);
+            }
+            .grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+            }
+        }
+
+        /* Tile Component */
+        .participant-tile {
+            position: relative;
+            background: var(--wa-tile-bg);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid transparent;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+            width: 100%;
+            height: 100%;
+        }
+
+        .participant-tile.speaking {
+            border-color: #25d366;
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.5), 0 0 25px rgba(37, 211, 102, 0.4);
+        }
+
+        .video-feed {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .video-feed.mirrored {
+            transform: scaleX(-1);
+        }
+
+        /* Avatar Backdrop (when camera is off or voice-only) */
+        .voice-avatar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .avatar-circle-pulse {
+            position: relative;
+            width: clamp(80px, 14vw, 130px);
+            height: clamp(80px, 14vw, 130px);
+            margin-bottom: 12px;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 2;
+        }
+
+        .speaking-ring {
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            border: 3px solid #25d366;
+            opacity: 0;
+            transform: scale(0.9);
+            transition: opacity 0.2s, transform 0.2s;
+            z-index: 1;
+        }
+
+        .participant-tile.speaking .speaking-ring {
+            opacity: 1;
+            transform: scale(1.1);
+            animation: pulseWave 1.4s infinite;
+        }
+
+        @keyframes pulseWave {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 0.3; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        /* Tile Overlay Info Tag */
+        .tile-info-bar {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .tile-name-tag {
+            background: rgba(11, 20, 26, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 5px 12px;
+            border-radius: 50px;
+            font-size: 12px;
+            font-weight: 800;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 75%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tile-mic-status {
+            background: rgba(11, 20, 26, 0.75);
+            backdrop-filter: blur(8px);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .tile-mic-status.muted {
+            background: rgba(234, 0, 56, 0.85);
+            color: white;
+        }
+
+        /* Solo Waiting Screen */
+        .waiting-room-banner {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(17, 27, 33, 0.85);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: 700;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.4s ease;
+        }
+
+        /* === 3. BOTTOM FLOATING CONTROLS PILL === */
+        .call-controls-wrapper {
+            position: absolute;
+            bottom: 24px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        .controls-pill {
+            pointer-events: auto;
+            background: rgba(17, 27, 33, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            display: flex;
+            align-items: center;
+            gap: clamp(10px, 3vw, 18px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .ctrl-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: none;
+            background: #2a3942;
+            color: #e9edef;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+
+        .ctrl-btn:hover { background: #3b4a54; transform: scale(1.05); }
+        .ctrl-btn:active { transform: scale(0.92); }
+
+        .ctrl-btn.active-off {
+            background: var(--wa-red);
+            color: white;
+        }
+
+        .ctrl-btn-leave {
+            background: var(--wa-red);
+            color: white;
+            width: 54px;
+            height: 54px;
+            font-size: 24px;
+        }
+        .ctrl-btn-leave:hover {
+            background: #c2002e;
+            transform: scale(1.08);
+        }
+
+        /* === 4. IN-CALL CHAT DRAWER === */
+        .chat-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 360px;
+            max-width: 90vw;
+            background: #111b21;
+            border-left: 1px solid #222e35;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .chat-drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            padding: 16px 20px;
+            background: #202c33;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #222e35;
+        }
+
+        .drawer-header h3 {
+            font-size: 16px;
+            font-weight: 800;
+            color: white;
+        }
+
+        .btn-close-drawer {
+            background: none;
+            border: none;
+            color: #8696a0;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .drawer-messages-list {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .in-call-msg {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .in-call-msg.mine {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .in-call-msg.theirs {
+            align-self: flex-start;
+            align-items: flex-start;
+        }
+
+        .msg-sender-name {
+            font-size: 11px;
+            color: #00a884;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+
+        .in-call-msg-bubble {
+            padding: 9px 14px;
+            border-radius: 14px;
+            font-size: 13.5px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .in-call-msg.mine .in-call-msg-bubble {
+            background: #005c4b;
+            color: #e9edef;
+            border-bottom-right-radius: 3px;
+        }
+
+        .in-call-msg.theirs .in-call-msg-bubble {
+            background: #202c33;
+            color: #e9edef;
+            border-bottom-left-radius: 3px;
+        }
+
+        /* Floating Flying Emoji Reactions */
+        .emoji-reaction-bar {
+            padding: 8px 12px;
+            background: #202c33;
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid #222e35;
+        }
+
+        .emoji-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .emoji-btn:hover { transform: scale(1.3); }
+
+        .drawer-input-bar {
+            padding: 12px 16px;
+            background: #202c33;
+            display: flex;
+            gap: 8px;
+        }
+
+        .drawer-input {
+            flex: 1;
+            background: #2a3942;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 30px;
+            color: white;
+            font-size: 13.5px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .drawer-send-btn {
+            background: #00a884;
+            color: white;
+            border: none;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Flying Reaction Animation */
+        .floating-emoji {
+            position: absolute;
+            bottom: 90px;
+            left: 50%;
+            font-size: 38px;
+            z-index: 999;
+            pointer-events: none;
+            animation: floatUp 2.5s ease-out forwards;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+            20% { opacity: 1; transform: translate(-50%, -40px) scale(1.2); }
+            80% { opacity: 0.8; }
+            100% { transform: translate(calc(-50% + var(--rand-x, 20px)), -400px) scale(1); opacity: 0; }
+        }
+
+        /* Participants List Drawer */
+        .participants-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 360px;
+            max-width: 90vw;
+            background: #111b21;
+            border-left: 1px solid #222e35;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
+        }
+        .participants-drawer.open { transform: translateX(0); }
+
+        .participant-list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #222e35;
+        }
+
+        .btn-ring-member {
+            background: #00a884;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Studio Glow Filter */
+        .studio-glow {
+            filter: brightness(1.1) contrast(1.05) saturate(1.2) sepia(0.08);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. TOP HEADER -->
+    <header class="call-header">
+        <div class="header-left">
+            <a href="/group/{{ group_id }}" class="btn-back-chat" title="Back to Group Chat">←</a>
+            <div class="group-meta">
+                <div class="group-title">
+                    <span>{{ group.name }}</span>
+                    <span style="font-size: 11px; background: rgba(37, 211, 102, 0.15); color: #25d366; padding: 2px 8px; border-radius: 20px; font-weight: 800;">
+                        {{ "📹 Video" if call_type == "video" else "📞 Voice" }}
+                    </span>
+                </div>
+                <div class="call-sub-status">
+                    <span class="call-timer-badge" id="callDuration">00:00</span>
+                    <span>•</span>
+                    <span id="activeCountPill">1 in call</span>
+                    <span>•</span>
+                    <span>🔒 E2EE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <button class="header-action-btn" onclick="toggleChatDrawer()" title="In-Call Text Chat">
+                💬 Chat
+                <span class="unread-dot" id="chatUnreadDot"></span>
+            </button>
+            <button class="header-action-btn" onclick="toggleParticipantsDrawer()" title="Group Members">
+                👥 <span id="headerMemberCount">{{ members|length }}</span>
+            </button>
+            <button class="header-action-btn" onclick="copyCallLink()" title="Copy Link">
+                🔗
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. CALL STAGE (DYNAMIC TILE GRID) -->
+    <main class="call-stage" id="callStage">
+        <!-- Waiting indicator when alone -->
+        <div class="waiting-room-banner" id="waitingBanner">
+            <span>⏳</span>
+            <span>Ringing group comrades... Waiting for members to answer.</span>
+        </div>
+
+        <div class="participants-grid grid-1" id="participantsGrid">
+            <!-- Local User Tile (Always rendered first) -->
+            <div class="participant-tile" id="tile-{{ user_id }}">
+                <video id="localVideo" class="video-feed mirrored" autoplay playsinline muted style="{{ 'display:none;' if call_type == 'audio' else '' }}"></video>
+                
+                <div class="voice-avatar-wrap" id="localAvatarWrap" style="{{ 'display:flex;' if call_type == 'audio' else 'display:none;' }}">
+                    <div class="avatar-circle-pulse">
+                        <img src="{{ user_img }}" class="avatar-img" alt="{{ user_name }}">
+                        <div class="speaking-ring"></div>
+                    </div>
+                </div>
+
+                <div class="tile-info-bar">
+                    <span class="tile-name-tag">{{ user_name }} (You)</span>
+                    <span class="tile-mic-status" id="localMicIcon">🎙️</span>
+                </div>
+            </div>
+
+            <!-- Remote peer tiles will be injected dynamically -->
+        </div>
+    </main>
+
+    <!-- 3. BOTTOM CONTROLS BAR -->
+    <div class="call-controls-wrapper">
+        <div class="controls-pill">
+            <!-- Mic Toggle -->
+            <button class="ctrl-btn" id="btnMic" onclick="toggleMicrophone()" title="Mute/Unmute Mic">
+                🎙️
+            </button>
+
+            <!-- Video Toggle -->
+            <button class="ctrl-btn" id="btnVideo" onclick="toggleCamera()" title="Turn Video On/Off">
+                📹
+            </button>
+
+            <!-- Flip Camera (Mobile) -->
+            <button class="ctrl-btn" id="btnFlip" onclick="switchCamera()" title="Flip Front/Rear Camera">
+                🔄
+            </button>
+
+            <!-- Studio Glow Beauty Boost -->
+            <button class="ctrl-btn" id="btnGlow" onclick="toggleGlow()" title="Studio Beauty Glow">
+                ✨
+            </button>
+
+            <!-- In-Call Chat -->
+            <button class="ctrl-btn" onclick="toggleChatDrawer()" title="In-Call Chat">
+                💬
+            </button>
+
+            <!-- Red End Call Button -->
+            <button class="ctrl-btn ctrl-btn-leave" onclick="leaveCall()" title="Leave Call">
+                📵
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. IN-CALL CHAT DRAWER -->
+    <aside class="chat-drawer" id="chatDrawer">
+        <div class="drawer-header">
+            <h3>💬 In-Call Messages</h3>
+            <button class="btn-close-drawer" onclick="toggleChatDrawer()">✕</button>
+        </div>
+        
+        <div class="drawer-messages-list" id="drawerMessagesList">
+            <div style="text-align: center; color: #8696a0; font-size: 12px; margin-top: 20px;">
+                Messages sent here are visible to everyone currently on the call.
+            </div>
+        </div>
+
+        <!-- Quick Floating Emoji Reactions -->
+        <div class="emoji-reaction-bar">
+            <button class="emoji-btn" onclick="sendReaction('❤️')">❤️</button>
+            <button class="emoji-btn" onclick="sendReaction('🔥')">🔥</button>
+            <button class="emoji-btn" onclick="sendReaction('😂')">😂</button>
+            <button class="emoji-btn" onclick="sendReaction('👏')">👏</button>
+            <button class="emoji-btn" onclick="sendReaction('🎉')">🎉</button>
+        </div>
+
+        <form class="drawer-input-bar" onsubmit="handleSendInCallMessage(event)">
+            <input type="text" id="inCallInput" class="drawer-input" placeholder="Type message..." autocomplete="off">
+            <button type="submit" class="drawer-send-btn">➤</button>
+        </form>
+    </aside>
+
+    <!-- 5. GROUP MEMBERS DRAWER (RING ABSENT MEMBERS) -->
+    <aside class="participants-drawer" id="participantsDrawer">
+        <div class="drawer-header">
+            <h3>👥 Group Members</h3>
+            <button class="btn-close-drawer" onclick="toggleParticipantsDrawer()">✕</button>
+        </div>
+
+        <div style="flex: 1; overflow-y: auto;">
+            <div style="padding: 12px 16px; font-size: 11px; text-transform: uppercase; color: #8696a0; font-weight: 800; letter-spacing: 0.5px;">
+                All Group Members ({{ members|length }})
+            </div>
+            
+            {% for m in members %}
+            <div class="participant-list-item" id="member-row-{{ m.id }}">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="{{ m.photo_url }}" alt="{{ m.name }}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                    <div>
+                        <div style="font-size: 13.5px; font-weight: 800; color: white;">
+                            {{ m.name }} {% if m.id == user_id %}(You){% endif %}
+                        </div>
+                        <div style="font-size: 11.5px; color: #8696a0;">
+                            <span id="member-status-{{ m.id }}">Offline</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if m.id != user_id %}
+                <button class="btn-ring-member" id="btn-ring-{{ m.id }}" onclick="ringMember('{{ m.id }}', '{{ m.name|replace('\'', '\\\'') }}')">
+                    📞 Ring
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Hidden Remote Audio Container -->
+    <div id="remoteAudiosContainer" style="display: none;"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <!-- WebRTC Mesh Engine -->
+    <script>
+        // ========================================================
+        // 1. CONFIG & PARAMETERS
+        // ========================================================
+        const firebaseConfig = {
+            apiKey: "{{ firebase_api_key }}",
+            authDomain: "mmust-dating-site.firebaseapp.com",
+            databaseURL: "{{ firebase_db_url or 'https://mmust-dating-site-default-rtdb.firebaseio.com' }}",
+            projectId: "mmust-dating-site",
+            storageBucket: "mmust-dating-site.firebasestorage.app",
+            messagingSenderId: "572096461211",
+            appId: "1:572096461211:web:e38b542343ac8e4eca893e"
+        };
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const fdb = firebase.database();
+
+        const GROUP_ID = "{{ group_id }}";
+        const CALL_ID = "{{ call_id }}";
+        const MY_ID = "{{ user_id }}";
+        const MY_NAME = "{{ user_name }}";
+        const MY_IMG = "{{ user_img }}";
+        const INITIAL_CALL_TYPE = "{{ call_type }}";
+
+        const callRoomRef = fdb.ref(`group_calls/${GROUP_ID}/${CALL_ID}`);
+        const participantsRef = callRoomRef.child('participants');
+        const signalsRef = callRoomRef.child('signals');
+        const candidatesRef = callRoomRef.child('candidates');
+        const messagesRef = callRoomRef.child('messages');
+        const reactionsRef = callRoomRef.child('reactions');
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: [
+                    'stun:stun.l.google.com:19302',
+                    'stun:stun1.l.google.com:19302',
+                    'stun:stun2.l.google.com:19302',
+                    'stun:stun3.l.google.com:19302',
+                    'stun:stun4.l.google.com:19302'
+                ]},
+                { urls: 'stun:stun.cloudflare.com:3478' }
+            ]
+        };
+
+        // State
+        let localStream = null;
+        let isMicMuted = false;
+        let isCameraOff = (INITIAL_CALL_TYPE === 'audio');
+        let currentFacingMode = 'user';
+        let isGlowActive = false;
+
+        // Peer connections map: peerId -> RTCPeerConnection
+        const peerConnections = {};
+        const remoteStreams = {};
+        const pendingCandidates = {}; // peerId -> array of candidates
+
+        // Timer
+        let callStartTime = null;
+        let callTimerInterval = null;
+
+        // Audio Synthesis Context
+        let audioCtx = null;
+        let outgoingRingOsc = null;
+
+        // ========================================================
+        // 2. SOUND EFFECTS (SYNTHESIZED WEB AUDIO API)
+        // ========================================================
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playJoinChime() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12); // E5
+                osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.24); // G5
+                gain.gain.setValueAtTime(0.18, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.45);
+            } catch(e) {}
+        }
+
+        function playLeaveChime() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(440, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(220, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+            } catch(e) {}
+        }
+
+        // ========================================================
+        // 3. MEDIA INITIALIZATION & HARDWARE ACCESS
+        // ========================================================
+        async function initializeLocalMedia() {
+            try {
+                const constraints = {
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: (INITIAL_CALL_TYPE === 'video') ? {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    } : false
+                };
+
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Route local video
+                const localVid = document.getElementById('localVideo');
+                if (localVid && INITIAL_CALL_TYPE === 'video') {
+                    localVid.srcObject = localStream;
+                    localVid.style.display = 'block';
+                    document.getElementById('localAvatarWrap').style.display = 'none';
+                }
+
+                // If user started as audio-only, disable camera track if present
+                if (isCameraOff) {
+                    localStream.getVideoTracks().forEach(t => t.enabled = false);
+                    document.getElementById('btnVideo').classList.add('active-off');
+                }
+
+                setupVoiceActivityDetection(localStream, MY_ID);
+
+            } catch (err) {
+                console.warn("Could not get requested camera/mic constraints. Falling back to audio only.", err);
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    isCameraOff = true;
+                    document.getElementById('btnVideo').classList.add('active-off');
+                    document.getElementById('localVideo').style.display = 'none';
+                    document.getElementById('localAvatarWrap').style.display = 'flex';
+                    setupVoiceActivityDetection(localStream, MY_ID);
+                } catch(audioErr) {
+                    alert("Please allow microphone access to participate in the call.");
+                }
+            }
+
+            // Register in Firebase Room
+            registerSelfInRoom();
+        }
+
+        // Register self in room
+        function registerSelfInRoom() {
+            const selfPayload = {
+                id: MY_ID,
+                name: MY_NAME,
+                img: MY_IMG,
+                video_off: isCameraOff,
+                audio_muted: isMicMuted,
+                joined_at: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            const myRef = participantsRef.child(MY_ID);
+            myRef.set(selfPayload);
+            myRef.onDisconnect().remove();
+
+            // Start listening for participants
+            setupParticipantsListener();
+            setupSignalsListener();
+            setupMessagesAndReactions();
+        }
+
+        // ========================================================
+        // 4. WEBRTC MESH SIGNALING & PEER CONNECTIONS
+        // ========================================================
+        function setupParticipantsListener() {
+            // New participant joined
+            participantsRef.on('child_added', snapshot => {
+                const peerId = snapshot.key;
+                const peerData = snapshot.val();
+                if (!peerData || peerId === MY_ID) return;
+
+                console.log(`[Mesh] Participant joined: ${peerData.name} (${peerId})`);
+                playJoinChime();
+
+                // Add tile to grid
+                addParticipantTile(peerId, peerData);
+                updateParticipantsLayout();
+
+                // Deterministic initiator: the one with smaller ID creates the offer
+                if (MY_ID < peerId) {
+                    initiatePeerConnection(peerId, true);
+                } else {
+                    initiatePeerConnection(peerId, false);
+                }
+            });
+
+            // Participant updated state (mute/video toggled)
+            participantsRef.on('child_changed', snapshot => {
+                const peerId = snapshot.key;
+                const peerData = snapshot.val();
+                if (!peerData) return;
+
+                updatePeerTileState(peerId, peerData);
+            });
+
+            // Participant left
+            participantsRef.on('child_removed', snapshot => {
+                const peerId = snapshot.key;
+                if (peerId === MY_ID) return;
+
+                console.log(`[Mesh] Participant left: ${peerId}`);
+                playLeaveChime();
+
+                // Close peer connection
+                if (peerConnections[peerId]) {
+                    peerConnections[peerId].close();
+                    delete peerConnections[peerId];
+                }
+
+                // Remove tile and audio
+                removeParticipantTile(peerId);
+                updateParticipantsLayout();
+            });
+        }
+
+        // Create or get peer connection
+        function initiatePeerConnection(peerId, isInitiator) {
+            if (peerConnections[peerId]) return peerConnections[peerId];
+
+            const pc = new RTCPeerConnection(rtcConfig);
+            peerConnections[peerId] = pc;
+
+            // Add local tracks
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+            }
+
+            // Handle incoming remote tracks
+            pc.ontrack = event => {
+                const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+                remoteStreams[peerId] = stream;
+
+                // Route to tile video
+                const remoteVid = document.getElementById(`video-${peerId}`);
+                if (remoteVid) {
+                    remoteVid.srcObject = stream;
+                    remoteVid.play().catch(() => {});
+                }
+
+                // Route to hidden audio
+                let remoteAudio = document.getElementById(`audio-${peerId}`);
+                if (!remoteAudio) {
+                    remoteAudio = document.createElement('audio');
+                    remoteAudio.id = `audio-${peerId}`;
+                    remoteAudio.autoplay = true;
+                    remoteAudio.playsInline = true;
+                    document.getElementById('remoteAudiosContainer').appendChild(remoteAudio);
+                }
+                remoteAudio.srcObject = stream;
+                remoteAudio.play().catch(() => {});
+
+                // Setup VAD for remote peer
+                setupVoiceActivityDetection(stream, peerId);
+            };
+
+            // Send local ICE candidates
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    candidatesRef.child(`${MY_ID}_${peerId}`).push(event.candidate.toJSON());
+                }
+            };
+
+            // Create offer if initiator
+            if (isInitiator) {
+                pc.createOffer()
+                    .then(offer => pc.setLocalDescription(offer))
+                    .then(() => {
+                        signalsRef.child(`${MY_ID}_${peerId}`).set({
+                            type: 'offer',
+                            sdp: pc.localDescription.sdp,
+                            from: MY_ID
+                        });
+                    })
+                    .catch(err => console.error("Error creating offer:", err));
+            }
+
+            return pc;
+        }
+
+        // Listen for SDP Offers and Answers
+        function setupSignalsListener() {
+            // Listen for signals sent TO me
+            signalsRef.on('child_added', handleSignalChange);
+            signalsRef.on('child_changed', handleSignalChange);
+
+            // Listen for ICE candidates sent TO me
+            candidatesRef.on('child_added', snapshot => {
+                const pairKey = snapshot.key; // format: fromId_toId
+                const parts = pairKey.split('_');
+                if (parts.length !== 2) return;
+                const fromId = parts[0];
+                const toId = parts[1];
+
+                if (toId === MY_ID) {
+                    snapshot.ref.on('child_added', candSnap => {
+                        const candData = candSnap.val();
+                        if (!candData) return;
+                        const candidate = new RTCIceCandidate(candData);
+                        const pc = peerConnections[fromId];
+
+                        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+                            pc.addIceCandidate(candidate).catch(e => console.warn("ICE error:", e));
+                        } else {
+                            if (!pendingCandidates[fromId]) pendingCandidates[fromId] = [];
+                            pendingCandidates[fromId].push(candidate);
+                        }
+                    });
+                }
+            });
+        }
+
+        function handleSignalChange(snapshot) {
+            const pairKey = snapshot.key; // fromId_toId
+            const parts = pairKey.split('_');
+            if (parts.length !== 2) return;
+            const fromId = parts[0];
+            const toId = parts[1];
+            const data = snapshot.val();
+            if (!data) return;
+
+            // Signal meant for me from remote peer
+            if (toId === MY_ID && data.from === fromId) {
+                const pc = initiatePeerConnection(fromId, false);
+
+                if (data.type === 'offer') {
+                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }))
+                        .then(() => {
+                            drainPendingCandidates(fromId);
+                            return pc.createAnswer();
+                        })
+                        .then(answer => pc.setLocalDescription(answer))
+                        .then(() => {
+                            signalsRef.child(`${MY_ID}_${fromId}`).set({
+                                type: 'answer',
+                                sdp: pc.localDescription.sdp,
+                                from: MY_ID
+                            });
+                        })
+                        .catch(err => console.error("Error handling offer:", err));
+                } else if (data.type === 'answer') {
+                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }))
+                        .then(() => {
+                            drainPendingCandidates(fromId);
+                        })
+                        .catch(err => console.error("Error handling answer:", err));
+                }
+            }
+        }
+
+        function drainPendingCandidates(peerId) {
+            const pc = peerConnections[peerId];
+            if (pc && pendingCandidates[peerId]) {
+                while (pendingCandidates[peerId].length > 0) {
+                    const c = pendingCandidates[peerId].shift();
+                    pc.addIceCandidate(c).catch(e => console.warn(e));
+                }
+            }
+        }
+
+        // ========================================================
+        // 5. DOM GRID & TILE MANAGEMENT
+        // ========================================================
+        function addParticipantTile(peerId, peerData) {
+            if (document.getElementById(`tile-${peerId}`)) return;
+
+            const grid = document.getElementById('participantsGrid');
+            const tile = document.createElement('div');
+            tile.className = 'participant-tile';
+            tile.id = `tile-${peerId}`;
+
+            const isVideoOff = peerData.video_off || false;
+            const isAudioMuted = peerData.audio_muted || false;
+
+            tile.innerHTML = `
+                <video id="video-${peerId}" class="video-feed" autoplay playsinline style="${isVideoOff ? 'display:none;' : 'display:block;'}"></video>
+                
+                <div class="voice-avatar-wrap" id="avatar-${peerId}" style="${isVideoOff ? 'display:flex;' : 'display:none;'}">
+                    <div class="avatar-circle-pulse">
+                        <img src="${peerData.img || '/static/img/placeholder.png'}" class="avatar-img" alt="${peerData.name}">
+                        <div class="speaking-ring"></div>
+                    </div>
+                </div>
+
+                <div class="tile-info-bar">
+                    <span class="tile-name-tag">${peerData.name}</span>
+                    <span class="tile-mic-status ${isAudioMuted ? 'muted' : ''}" id="mic-${peerId}">
+                        ${isAudioMuted ? '🎙️❌' : '🎙️'}
+                    </span>
+                </div>
+            `;
+
+            grid.appendChild(tile);
+        }
+
+        function removeParticipantTile(peerId) {
+            const tile = document.getElementById(`tile-${peerId}`);
+            if (tile) tile.remove();
+
+            const audio = document.getElementById(`audio-${peerId}`);
+            if (audio) audio.remove();
+        }
+
+        function updatePeerTileState(peerId, peerData) {
+            const tile = document.getElementById(`tile-${peerId}`);
+            if (!tile) return;
+
+            const video = document.getElementById(`video-${peerId}`);
+            const avatar = document.getElementById(`avatar-${peerId}`);
+            const micIcon = document.getElementById(`mic-${peerId}`);
+
+            if (peerData.video_off) {
+                if (video) video.style.display = 'none';
+                if (avatar) avatar.style.display = 'flex';
+            } else {
+                if (video) video.style.display = 'block';
+                if (avatar) avatar.style.display = 'none';
+            }
+
+            if (micIcon) {
+                if (peerData.audio_muted) {
+                    micIcon.className = 'tile-mic-status muted';
+                    micIcon.innerText = '🎙️❌';
+                } else {
+                    micIcon.className = 'tile-mic-status';
+                    micIcon.innerText = '🎙️';
+                }
+            }
+        }
+
+        function updateParticipantsLayout() {
+            const grid = document.getElementById('participantsGrid');
+            const total = grid.children.length;
+
+            grid.className = 'participants-grid';
+            if (total <= 1) {
+                grid.classList.add('grid-1');
+                document.getElementById('waitingBanner').style.display = 'flex';
+                document.getElementById('activeCountPill').innerText = '1 in call';
+            } else {
+                document.getElementById('waitingBanner').style.display = 'none';
+                document.getElementById('activeCountPill').innerText = `${total} in call`;
+                if (!callStartTime) startCallTimer();
+
+                if (total === 2) grid.classList.add('grid-2');
+                else if (total <= 4) grid.classList.add('grid-4');
+                else if (total <= 6) grid.classList.add('grid-6');
+                else grid.classList.add('grid-many');
+            }
+        }
+
+        // ========================================================
+        // 6. VOICE ACTIVITY DETECTION (VAD ACTIVE SPEAKER)
+        // ========================================================
+        function setupVoiceActivityDetection(stream, targetId) {
+            try {
+                const ctx = getAudioContext();
+                const audioTracks = stream.getAudioTracks();
+                if (!audioTracks.length) return;
+
+                const src = ctx.createMediaStreamSource(stream);
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 256;
+                src.connect(analyser);
+
+                const buffer = new Uint8Array(analyser.frequencyBinCount);
+                let speakingTimeout = null;
+
+                const checkAudioLevel = () => {
+                    analyser.getByteFrequencyData(buffer);
+                    let sum = 0;
+                    for (let i = 0; i < buffer.length; i++) sum += buffer[i];
+                    const avg = sum / buffer.length;
+
+                    const tile = document.getElementById(`tile-${targetId}`);
+                    if (avg > 18) { // threshold for active voice
+                        if (tile) tile.classList.add('speaking');
+                        clearTimeout(speakingTimeout);
+                        speakingTimeout = setTimeout(() => {
+                            if (tile) tile.classList.remove('speaking');
+                        }, 800);
+                    }
+                    requestAnimationFrame(checkAudioLevel);
+                };
+                requestAnimationFrame(checkAudioLevel);
+            } catch(e) {
+                console.warn("VAD notice:", e);
+            }
+        }
+
+        // ========================================================
+        // 7. USER CONTROLS (MIC, CAMERA, FLIP, GLOW, LEAVE)
+        // ========================================================
+        function toggleMicrophone() {
+            if (!localStream) return;
+            isMicMuted = !isMicMuted;
+            localStream.getAudioTracks().forEach(t => t.enabled = !isMicMuted);
+
+            const btn = document.getElementById('btnMic');
+            const icon = document.getElementById('localMicIcon');
+
+            if (isMicMuted) {
+                btn.classList.add('active-off');
+                btn.innerText = '🔇';
+                icon.className = 'tile-mic-status muted';
+                icon.innerText = '🎙️❌';
+            } else {
+                btn.classList.remove('active-off');
+                btn.innerText = '🎙️';
+                icon.className = 'tile-mic-status';
+                icon.innerText = '🎙️';
+            }
+
+            participantsRef.child(MY_ID).update({ audio_muted: isMicMuted });
+        }
+
+        async function toggleCamera() {
+            const btn = document.getElementById('btnVideo');
+            const localVid = document.getElementById('localVideo');
+            const localAvatar = document.getElementById('localAvatarWrap');
+
+            isCameraOff = !isCameraOff;
+
+            if (isCameraOff) {
+                // Turn off video tracks
+                if (localStream) {
+                    localStream.getVideoTracks().forEach(t => t.enabled = false);
+                }
+                btn.classList.add('active-off');
+                localVid.style.display = 'none';
+                localAvatar.style.display = 'flex';
+                participantsRef.child(MY_ID).update({ video_off: true });
+            } else {
+                // Turn on video
+                let videoTrack = localStream ? localStream.getVideoTracks()[0] : null;
+                if (!videoTrack) {
+                    try {
+                        const newVidStream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: currentFacingMode }
+                        });
+                        videoTrack = newVidStream.getVideoTracks()[0];
+                        localStream.addTrack(videoTrack);
+
+                        // Replace track on all existing peer connections
+                        Object.values(peerConnections).forEach(pc => {
+                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                            if (sender) sender.replaceTrack(videoTrack);
+                            else pc.addTrack(videoTrack, localStream);
+                        });
+                    } catch(e) {
+                        alert("Camera not accessible.");
+                        isCameraOff = true;
+                        return;
+                    }
+                } else {
+                    videoTrack.enabled = true;
+                }
+
+                btn.classList.remove('active-off');
+                localVid.srcObject = localStream;
+                localVid.style.display = 'block';
+                localAvatar.style.display = 'none';
+                participantsRef.child(MY_ID).update({ video_off: false });
+            }
+        }
+
+        async function switchCamera() {
+            if (isCameraOff) return;
+            currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode }
+                });
+                const newTrack = newStream.getVideoTracks()[0];
+                const oldTrack = localStream.getVideoTracks()[0];
+
+                if (oldTrack) {
+                    oldTrack.stop();
+                    localStream.removeTrack(oldTrack);
+                }
+                localStream.addTrack(newTrack);
+
+                const localVid = document.getElementById('localVideo');
+                localVid.srcObject = localStream;
+                if (currentFacingMode === 'environment') localVid.classList.remove('mirrored');
+                else localVid.classList.add('mirrored');
+
+                // Replace track on all peer connections
+                Object.values(peerConnections).forEach(pc => {
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) sender.replaceTrack(newTrack);
+                });
+            } catch(e) {
+                console.error("Camera flip error:", e);
+            }
+        }
+
+        function toggleGlow() {
+            isGlowActive = !isGlowActive;
+            const btn = document.getElementById('btnGlow');
+            const localVid = document.getElementById('localVideo');
+            if (isGlowActive) {
+                btn.style.background = '#8b5cf6';
+                localVid.classList.add('studio-glow');
+            } else {
+                btn.style.background = '#2a3942';
+                localVid.classList.remove('studio-glow');
+            }
+        }
+
+        function startCallTimer() {
+            callStartTime = Date.now();
+            callTimerInterval = setInterval(() => {
+                const sec = Math.floor((Date.now() - callStartTime) / 1000);
+                const m = String(Math.floor(sec / 60)).padStart(2, '0');
+                const s = String(sec % 60).padStart(2, '0');
+                document.getElementById('callDuration').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function leaveCall() {
+            // Remove self from room
+            participantsRef.child(MY_ID).remove();
+
+            // Stop all local tracks
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+            }
+
+            // Close all peer connections
+            Object.values(peerConnections).forEach(pc => pc.close());
+
+            // Inform server to clean up if empty
+            fetch(`/api/groups/end_call/${GROUP_ID}/${CALL_ID}`, { method: 'POST' }).catch(() => {});
+
+            // Route back to group chat
+            window.location.href = `/group/${GROUP_ID}`;
+        }
+
+        window.addEventListener('beforeunload', () => {
+            participantsRef.child(MY_ID).remove();
+        });
+
+        // ========================================================
+        // 8. IN-CALL REAL-TIME CHAT & FLOATING REACTIONS
+        // ========================================================
+        function toggleChatDrawer() {
+            const drawer = document.getElementById('chatDrawer');
+            drawer.classList.toggle('open');
+            document.getElementById('chatUnreadDot').style.display = 'none';
+        }
+
+        function toggleParticipantsDrawer() {
+            const drawer = document.getElementById('participantsDrawer');
+            drawer.classList.toggle('open');
+        }
+
+        function handleSendInCallMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('inCallInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            messagesRef.push({
+                sender_id: MY_ID,
+                sender_name: MY_NAME,
+                text: text,
+                timestamp: Date.now()
+            });
+
+            input.value = '';
+        }
+
+        function sendReaction(emoji) {
+            reactionsRef.push({
+                emoji: emoji,
+                sender_id: MY_ID,
+                timestamp: Date.now()
+            });
+        }
+
+        function setupMessagesAndReactions() {
+            // Messages
+            messagesRef.on('child_added', snapshot => {
+                const msg = snapshot.val();
+                if (!msg) return;
+
+                const isMine = msg.sender_id === MY_ID;
+                const list = document.getElementById('drawerMessagesList');
+
+                const msgEl = document.createElement('div');
+                msgEl.className = `in-call-msg ${isMine ? 'mine' : 'theirs'}`;
+                msgEl.innerHTML = `
+                    ${!isMine ? `<div class="msg-sender-name">${msg.sender_name}</div>` : ''}
+                    <div class="in-call-msg-bubble">${msg.text}</div>
+                `;
+                list.appendChild(msgEl);
+                list.scrollTop = list.scrollHeight;
+
+                const drawer = document.getElementById('chatDrawer');
+                if (!drawer.classList.contains('open') && !isMine) {
+                    document.getElementById('chatUnreadDot').style.display = 'block';
+                }
+            });
+
+            // Floating Reactions
+            reactionsRef.on('child_added', snapshot => {
+                const rec = snapshot.val();
+                if (!rec || !rec.emoji) return;
+
+                // Create floating emoji element
+                const span = document.createElement('span');
+                span.className = 'floating-emoji';
+                span.innerText = rec.emoji;
+                span.style.setProperty('--rand-x', `${(Math.random() - 0.5) * 120}px`);
+                document.body.appendChild(span);
+
+                setTimeout(() => span.remove(), 2600);
+            });
+        }
+
+        // ========================================================
+        // 9. RE-RING / PING GROUP MEMBERS
+        // ========================================================
+        function ringMember(memberId, memberName) {
+            const btn = document.getElementById(`btn-ring-${memberId}`);
+            if (btn) {
+                btn.innerText = 'Calling...';
+                btn.disabled = true;
+            }
+
+            fetch(`/api/groups/ring_member/${GROUP_ID}/${CALL_ID}/${memberId}`, {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (btn) {
+                    btn.innerText = 'Rung 🔔';
+                    setTimeout(() => {
+                        btn.innerText = '📞 Ring';
+                        btn.disabled = false;
+                    }, 4000);
+                }
+            })
+            .catch(() => {
+                if (btn) {
+                    btn.innerText = '📞 Ring';
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        function copyCallLink() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                alert("📋 Group Call Link copied! Share with comrades to join.");
+            }).catch(() => {
+                prompt("Copy this link to invite group members:", url);
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initializeLocalMedia();
+        });
+    </script>
+</body>
+</html>
