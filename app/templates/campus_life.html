@@ -926,7 +926,11 @@
         </div>
 
         <div class="fee-notice-box">
-            💡 <strong>100 KES Platform Maintenance Fee:</strong> All listed events include automated guest ticketing, email confirmations with Google Maps venue pin, and social share banners.
+            {% if event_creation_fee == 0 %}
+                🎉 <strong>Free Event Listing:</strong> Platform listing fee is currently WAIVED! Host your bash, party, or campus chill with automated ticketing, email passes, and shareable links for free.
+            {% else %}
+                💡 <strong>{{ event_creation_fee }} KES Platform Maintenance Fee:</strong> All listed events include automated guest ticketing, email confirmations with Google Maps venue pin, and social share banners.
+            {% endif %}
         </div>
 
         <form id="createEventForm" onsubmit="handleCreateEventSubmit(event)" enctype="multipart/form-data">

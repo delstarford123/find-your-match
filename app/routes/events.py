@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import uuid
 import csv
@@ -15,6 +16,24 @@ from app.payout_service import schedule_event_organizer_payout
 logger = logging.getLogger(__name__)
 
 events_bp = Blueprint('events_bp', __name__)
+
+def format_event_account_ref(event_title, event_id=None):
+    """
+    Formats Safaricom Daraja AccountReference for event registration STK push.
+    Safaricom strictly restricts AccountReference to max 12 alphanumeric characters.
+    - If event title is short enough (<= 12 chars), use the clean name for maximum legitimacy.
+    - If long, shorten it cleanly to 12 characters.
+    - If missing or invalid, fallback to EVT_<id[:8]>.
+    """
+    if not event_title:
+        return f"EVT_{event_id[:8]}" if event_id else "EventTicket"
+    
+    # Strip spaces and non-alphanumeric chars (preserving casing for readability)
+    clean = re.sub(r'[^a-zA-Z0-9]', '', str(event_title))
+    if not clean:
+        return f"EVT_{event_id[:8]}" if event_id else "EventTicket"
+    
+    return clean[:12]
 
 # Fallback curated Unsplash banners for event categories
 CATEGORY_DEFAULTS = {
@@ -131,6 +150,13 @@ def campus_life():
     # Sort events by created_at descending or date
     events.sort(key=lambda x: x.get('created_at', 0), reverse=True)
     
+    # Platform event creation fee (controlled dynamically by super admin)
+    system_settings = db.reference('system_settings').get() or {}
+    try:
+        event_creation_fee = max(0, int(system_settings.get('event_creation_fee', 100)))
+    except (ValueError, TypeError):
+        event_creation_fee = 100
+        
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     
     return render_template(
@@ -140,6 +166,7 @@ def campus_life():
         hotspots=hotspots,
         events=events,
         categories=CATEGORY_DEFAULTS,
+        event_creation_fee=event_creation_fee,
         base_url=base_url
     )
 
@@ -243,6 +270,13 @@ def create_event():
     except:
         capacity = 100
 
+    # Platform event creation fee set by super admin
+    system_settings = db.reference('system_settings').get() or {}
+    try:
+        event_creation_fee = max(0, int(system_settings.get('event_creation_fee', 100)))
+    except (ValueError, TypeError):
+        event_creation_fee = 100
+
     organizer_name = data.get('organizer_name', '').strip() or session.get('user_name', 'Campus Organizer')
     organizer_phone = data.get('organizer_phone', '').strip()
 
@@ -305,7 +339,8 @@ def create_event():
         "organizer_phone": organizer_phone,
         "created_by": user_id,
         "banner_img": banner_img,
-        "maintenance_fee_paid": True, # Platform 100 KES listing fee
+        "creation_fee": event_creation_fee,
+        "maintenance_fee_paid": True, # Platform listing fee recorded
         "created_at": int(time.time() * 1000)
     }
 
@@ -490,9 +525,10 @@ def rsvp_event():
             return jsonify({"success": False, "error": "Please provide a valid M-Pesa phone number (e.g. 07XXXXXXXX or 01XXXXXXXX)."}), 400
 
         callback_url = "https://www.findyourmatch.co.ke/api/mpesa/event_callback"
-        account_ref = f"EVT_{event_id[:8]}"
-        desc = f"Ticket {event_id[:5]}"
-        logger.info(f"Initiating STK push of KES {total_amount} to {formatted_phone} for event {event_id}...")
+        event_title = event.get('title', '').strip()
+        account_ref = format_event_account_ref(event_title, event_id)
+        desc = f"{account_ref[:8]} Pass" if account_ref else "Event Ticket"
+        logger.info(f"Initiating STK push of KES {total_amount} to {formatted_phone} for event '{event_title}' (AccountRef: '{account_ref}')...")
         res = initiate_stk_push(formatted_phone, total_amount, account_ref, callback_url, desc)
 
         if not res or 'error' in res:
@@ -506,6 +542,8 @@ def rsvp_event():
         db.reference(f'pending_event_payments/{checkout_id}').set({
             "checkout_id": checkout_id,
             "event_id": event_id,
+            "event_title": event_title,
+            "account_reference": account_ref,
             "amount": total_amount,
             "attendee_name": user_name,
             "name": user_name,

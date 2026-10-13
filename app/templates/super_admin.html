@@ -480,6 +480,7 @@ function toggleAmbassador(id) {
         <button class="module-btn" onclick="switchModule(this,'module-safety')">🛡️ Safety</button>
         <button class="module-btn" onclick="switchModule(this,'module-business')">🏪 Business</button>
         <button class="module-btn" onclick="switchModule(this,'module-content')">🎬 Content</button>
+        <button class="module-btn" onclick="switchModule(this,'module-events')">🎉 Events ({{ all_events|length }})</button>
         <button class="module-btn" onclick="switchModule(this,'module-survey')">📈 Analytics</button>
         <button class="module-btn" onclick="switchModule(this,'module-system')">⚙️ System</button>
     </div>
@@ -1699,6 +1700,212 @@ function toggleAmbassador(id) {
         </div>
     </div>
 
+    <!-- MODULE: CAMPUS EVENTS -->
+    <div id="module-events" class="module-content">
+        <div class="section-title">
+            <span>🎉 Campus Events & Parties Command Center</span>
+            <span class="badge badge-purple">{{ all_events|length }} Total Events</span>
+        </div>
+        <p style="color: #94a3b8; font-size: 14px; margin-top: -10px; margin-bottom: 24px;">
+            Full administrative control over campus events: waive or adjust organizer creation fees, regulate ticket prices, and remove event listings.
+        </p>
+
+        <!-- EVENT METRICS -->
+        <div class="metrics-grid" style="margin-bottom: 24px;">
+            <div class="metric-card highlight">
+                <div class="m-title">🎈 Total Listed Events</div>
+                <div class="m-value">{{ all_events|length }}</div>
+                <div class="m-sub">Campus parties & experiences</div>
+            </div>
+            <div class="metric-card green-card">
+                <div class="m-title">🎟️ Total Attendee RSVPs</div>
+                <div class="m-value">{{ all_events|sum(attribute='attendees_count') }}</div>
+                <div class="m-sub">Tickets registered & confirmed</div>
+            </div>
+            <div class="metric-card purple-card">
+                <div class="m-title">⚙️ Default Creation Fee</div>
+                <div class="m-value" style="font-size: 26px;">
+                    {% if default_event_creation_fee == 0 %}
+                        <span style="color: #10b981; font-size: 24px;">FREE (0 KES)</span>
+                    {% else %}
+                        <span>KES</span> {{ default_event_creation_fee }}
+                    {% endif %}
+                </div>
+                <div class="m-sub">Platform maintenance fee per new event</div>
+            </div>
+        </div>
+
+        <!-- GLOBAL EVENT CREATION FEE CONFIGURATION -->
+        <div class="admin-card" style="margin-bottom: 24px; border-left: 4px solid #38bdf8;">
+            <div style="flex: 1; min-width: min(100%, 280px);">
+                <div class="admin-card-header">
+                    <h3 class="admin-card-title" style="font-size: 17px;">⚙️ Global Event Creation Listing Fee</h3>
+                    {% if default_event_creation_fee == 0 %}
+                        <span class="badge badge-green">Currently Free Platform-Wide</span>
+                    {% else %}
+                        <span class="badge badge-blue">{{ default_event_creation_fee }} KES Active</span>
+                    {% endif %}
+                </div>
+                <p class="admin-card-text">
+                    This is the fee charged to event admins when listing a new event on Campus Life. Set to <strong>0 KES</strong> to waive the fee and allow all students to post events for free.
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <form method="POST" action="{{ url_for('admin_set_default_creation_fee') }}" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div style="display: flex; align-items: center; background: #0B1120; border: 1px solid #1E293B; border-radius: 10px; padding: 2px 10px;">
+                        <span style="color: #64748b; font-size: 13px; font-weight: 700; margin-right: 6px;">KES</span>
+                        <input type="number" name="default_fee" value="{{ default_event_creation_fee }}" min="0" step="10" required 
+                               style="background: transparent; border: none; color: white; width: 80px; padding: 8px 0; font-weight: 800; font-size: 14px; outline: none; font-family: inherit;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 10px 16px; font-size: 13px;">Save Fee</button>
+                </form>
+                {% if default_event_creation_fee != 0 %}
+                <form method="POST" action="{{ url_for('admin_set_default_creation_fee') }}" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="default_fee" value="0"/>
+                    <button type="submit" class="btn btn-success" style="padding: 10px 16px; font-size: 13px;">Make All Events Free 🎉</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- SEARCH / FILTER TOOLBAR -->
+        <div class="search-box">
+            <span style="font-size: 18px; margin-left: 5px;">🔍</span>
+            <input type="text" id="event-admin-search" placeholder="Search events by Title, Venue, Organizer, or Category..." oninput="filterEventsAdmin(this.value)">
+            <span id="event-search-count" style="color: #64748b; font-size: 13px; font-weight: 700; padding-right: 10px;">{{ all_events|length }} events</span>
+        </div>
+
+        <!-- EVENTS TABLE WRAPPER -->
+        <div class="tx-table-wrap">
+            <table class="tx-table" id="admin-events-table" style="min-width: 900px;">
+                <thead>
+                    <tr>
+                        <th style="width: 240px;">Event Info</th>
+                        <th style="width: 160px;">Date & Venue</th>
+                        <th style="width: 150px;">Organizer</th>
+                        <th style="width: 100px; text-align: center;">RSVPs</th>
+                        <th style="width: 170px;">Listing Fee (Organizer)</th>
+                        <th style="width: 170px;">Ticket Price (Admission)</th>
+                        <th style="width: 130px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if all_events %}
+                        {% for evt in all_events %}
+                        <tr class="event-admin-row" data-search="{{ evt.title|lower }} {{ evt.venue_name|lower }} {{ evt.organizer_name|lower }} {{ evt.category|lower }} {{ evt.id|lower }}">
+                            <td>
+                                <div style="display: flex; gap: 12px; align-items: center;">
+                                    {% if evt.banner_img %}
+                                    <img src="{{ evt.banner_img }}" alt="" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border: 1px solid rgba(56,189,248,0.2); flex-shrink: 0;">
+                                    {% else %}
+                                    <div style="width: 48px; height: 48px; border-radius: 10px; background: rgba(56,189,248,0.1); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">🎉</div>
+                                    {% endif %}
+                                    <div style="min-width: 0;">
+                                        <div style="font-weight: 800; color: #f8fafc; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">{{ evt.title }}</div>
+                                        <div style="display: flex; gap: 6px; align-items: center; margin-top: 3px;">
+                                            <span class="badge badge-purple" style="font-size: 10px; padding: 2px 6px;">{{ evt.category_label|default(evt.category|capitalize) }}</span>
+                                            <span style="color: #64748b; font-size: 10px; font-family: monospace;">{{ evt.id[:10] }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 13px; font-weight: 700; color: #e2e8f0;">{{ evt.date_str|default(evt.date) }}</div>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">{{ evt.time_str|default('TBA') }}</div>
+                                <div style="font-size: 11px; color: #38bdf8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+                                    📍 {{ evt.venue_name }}
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 13px; font-weight: 700; color: #e2e8f0;">{{ evt.organizer_name|default('Campus Organizer') }}</div>
+                                {% if evt.organizer_phone %}
+                                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">📞 {{ evt.organizer_phone }}</div>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="badge badge-blue" style="font-size: 12px; padding: 4px 8px;">
+                                    🎟️ {{ evt.attendees_count|default(0) }}
+                                </span>
+                            </td>
+                            <td>
+                                <div style="margin-bottom: 6px;">
+                                    {% if evt.creation_fee == 0 %}
+                                        <span class="badge badge-green" style="font-size: 11px;">FREE (Waived)</span>
+                                    {% else %}
+                                        <span class="badge badge-yellow" style="font-size: 11px;">{{ evt.creation_fee|default(100) }} KES</span>
+                                    {% endif %}
+                                </div>
+                                <form method="POST" action="{{ url_for('admin_update_event_fee', event_id=evt.id) }}" style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="number" name="creation_fee" value="{{ evt.creation_fee|default(100) }}" min="0" step="10" 
+                                           style="width: 65px; background: #0B1120; border: 1px solid #1E293B; color: white; padding: 5px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; outline: none;">
+                                    <button type="submit" class="btn btn-outline" style="padding: 5px 8px; font-size: 11px; border-radius: 6px;">Set</button>
+                                </form>
+                                {% if evt.creation_fee != 0 %}
+                                <form method="POST" action="{{ url_for('admin_update_event_fee', event_id=evt.id) }}" style="margin-top: 4px;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="creation_fee" value="0"/>
+                                    <button type="submit" style="background: none; border: none; color: #10b981; font-size: 11px; font-weight: 800; cursor: pointer; padding: 0; text-decoration: underline;">
+                                        Make Free (0 KES)
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="margin-bottom: 6px;">
+                                    {% if evt.price_type == 'free' or evt.price == 0 %}
+                                        <span class="badge badge-green" style="font-size: 11px;">Free Admission</span>
+                                    {% else %}
+                                        <span class="badge badge-purple" style="font-size: 11px;">{{ evt.price_display|default(evt.price ~ ' KES') }}</span>
+                                    {% endif %}
+                                </div>
+                                <form method="POST" action="{{ url_for('admin_update_event_ticket', event_id=evt.id) }}" style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="number" name="ticket_price" value="{{ evt.price|default(0) }}" min="0" step="50" 
+                                           style="width: 65px; background: #0B1120; border: 1px solid #1E293B; color: white; padding: 5px 6px; border-radius: 6px; font-size: 12px; font-weight: 700; outline: none;">
+                                    <button type="submit" class="btn btn-outline" style="padding: 5px 8px; font-size: 11px; border-radius: 6px;">Set</button>
+                                </form>
+                                {% if evt.price and evt.price > 0 %}
+                                <form method="POST" action="{{ url_for('admin_update_event_ticket', event_id=evt.id) }}" style="margin-top: 4px;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="ticket_price" value="0"/>
+                                    <button type="submit" style="background: none; border: none; color: #10b981; font-size: 11px; font-weight: 800; cursor: pointer; padding: 0; text-decoration: underline;">
+                                        Make Free Admission
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
+                                    <a href="/events/{{ evt.id }}" target="_blank" class="btn btn-outline" style="padding: 6px 10px; font-size: 12px; border-radius: 8px;" title="View Live Page">
+                                        🔗
+                                    </a>
+                                    <form method="POST" action="{{ url_for('admin_delete_event', event_id=evt.id) }}" onsubmit="return confirm('⚠️ Are you sure you want to permanently delete event \'{{ evt.title|replace('\'', '\\\'') }}\'? This will also wipe its RSVP list and ticket records.')" style="margin: 0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="btn btn-danger" style="padding: 6px 10px; font-size: 12px; border-radius: 8px;" title="Delete Event">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                                <div style="font-size: 36px; margin-bottom: 10px;">🎉</div>
+                                <div style="font-size: 16px; font-weight: 700; color: #94a3b8;">No campus events listed yet.</div>
+                                <p style="font-size: 13px; margin-top: 6px;">Organizers will see the event registration fee of {{ default_event_creation_fee }} KES upon submission.</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="auditModal">
         <div class="modal-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
@@ -2751,6 +2958,21 @@ function toggleAmbassador(id) {
             .catch(err => {
                 showToast("Error executing salary disbursal: " + err, true);
             });
+        }
+
+        function filterEventsAdmin(query) {
+            const q = (query || '').toLowerCase().trim();
+            let visibleCount = 0;
+            document.querySelectorAll('#admin-events-table .event-admin-row').forEach(row => {
+                const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+                const match = !q || searchData.includes(q);
+                row.style.display = match ? '' : 'none';
+                if (match) visibleCount++;
+            });
+            const counter = document.getElementById('event-search-count');
+            if (counter) {
+                counter.innerText = `${visibleCount} events`;
+            }
         }
     </script>
 {% endif %}

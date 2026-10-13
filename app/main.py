@@ -3446,6 +3446,35 @@ def super_admin():
                 'users': users_by_inst_data[k]
             })
         
+        # Process Campus Events for Super Admin Controls
+        events_data = db.reference('events').get() or {}
+        rsvps_all = db.reference('events_rsvps').get() or {}
+        all_events = []
+        if isinstance(events_data, dict):
+            for eid, edata in events_data.items():
+                if isinstance(edata, dict):
+                    edata['id'] = eid
+                    event_rsvps = rsvps_all.get(eid, {}) if isinstance(rsvps_all, dict) else {}
+                    real_att = sum(1 + int(r.get('plus_ones', 0) or 0) for r in event_rsvps.values() if isinstance(r, dict)) if isinstance(event_rsvps, dict) else 0
+                    edata['attendees_count'] = real_att
+                    all_events.append(edata)
+        elif isinstance(events_data, list):
+            for idx, edata in enumerate(events_data):
+                if isinstance(edata, dict):
+                    eid = edata.get('id', f'evt_{idx}')
+                    edata['id'] = eid
+                    event_rsvps = rsvps_all.get(eid, {}) if isinstance(rsvps_all, dict) else {}
+                    real_att = sum(1 + int(r.get('plus_ones', 0) or 0) for r in event_rsvps.values() if isinstance(r, dict)) if isinstance(event_rsvps, dict) else 0
+                    edata['attendees_count'] = real_att
+                    all_events.append(edata)
+        all_events.sort(key=lambda x: x.get('created_at', 0), reverse=True)
+
+        system_settings = db.reference('system_settings').get() or {}
+        try:
+            default_event_creation_fee = max(0, int(system_settings.get('event_creation_fee', 100)))
+        except (ValueError, TypeError):
+            default_event_creation_fee = 100
+        
         return render_template('super_admin.html',
                                manager_ledgers=manager_ledgers,
                                survey_responses=survey_responses,
@@ -3487,7 +3516,9 @@ def super_admin():
                                max_paid=max_paid,
                                min_paid=min_paid,
                                detailed_users=global_detailed_users,
-                               gender_stats=global_gender_stats)
+                               gender_stats=global_gender_stats,
+                               all_events=all_events,
+                               default_event_creation_fee=default_event_creation_fee)
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return f"Failed to load dashboard data: {e}", 500
@@ -3800,6 +3831,63 @@ def admin_action():
             new_fee = data.get('fee', 0)
             db.reference('system_settings/merchant_fee').set(int(new_fee))
             return jsonify({'success': True, 'message': f'Merchant fee updated to {new_fee}'})
+
+        elif action == 'delete_event':
+            event_ref = db.reference(f'events/{target_id}')
+            event = event_ref.get()
+            title = event.get('title', target_id) if isinstance(event, dict) else target_id
+            event_ref.delete()
+            db.reference(f'events_rsvps/{target_id}').delete()
+            db.reference(f'event_tickets/{target_id}').delete()
+            db.reference('admin_audit_logs').push({
+                'action': f"Deleted event '{title}' ({target_id})",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'message': f"Event '{title}' deleted."})
+
+        elif action == 'update_event_fee':
+            fee = max(0, int(data.get('creation_fee', 0)))
+            event_ref = db.reference(f'events/{target_id}')
+            event = event_ref.get()
+            title = event.get('title', target_id) if isinstance(event, dict) else target_id
+            event_ref.update({
+                'creation_fee': fee,
+                'maintenance_fee_paid': True
+            })
+            db.reference('admin_audit_logs').push({
+                'action': f"Updated creation fee for event '{title}' to {fee} KES {'(FREE)' if fee == 0 else ''}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'creation_fee': fee, 'is_free': (fee == 0)})
+
+        elif action == 'update_event_ticket':
+            ticket_price = max(0, int(data.get('ticket_price', 0)))
+            event_ref = db.reference(f'events/{target_id}')
+            event = event_ref.get()
+            title = event.get('title', target_id) if isinstance(event, dict) else target_id
+            if ticket_price == 0:
+                update_data = {'price': 0, 'price_type': 'free', 'price_display': 'Free Admission'}
+            else:
+                update_data = {'price': ticket_price, 'price_type': 'paid', 'price_display': f"{ticket_price} KES"}
+            event_ref.update(update_data)
+            db.reference('admin_audit_logs').push({
+                'action': f"Updated admission ticket price for event '{title}' to {update_data['price_display']}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'price_display': update_data['price_display'], 'is_free': (ticket_price == 0)})
+
+        elif action == 'set_default_creation_fee':
+            default_fee = max(0, int(data.get('fee', 0)))
+            db.reference('system_settings/event_creation_fee').set(default_fee)
+            db.reference('admin_audit_logs').push({
+                'action': f"Set global default event creation fee to {default_fee} KES {'(FREE)' if default_fee == 0 else ''}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'fee': default_fee, 'is_free': (default_fee == 0)})
             
         return jsonify({'success': True})
     except Exception as e:
@@ -4063,6 +4151,144 @@ def admin_delete_all_users():
         flash("System failed to execute full wipe.", "error")
         
     return redirect(url_for('super_admin'))
+
+
+# ==========================================
+# 🎉 EVENT MANAGEMENT & CONTROLS (SUPER ADMIN)
+# ==========================================
+
+@app.route('/admin/delete_event/<event_id>', methods=['POST'])
+def admin_delete_event(event_id):
+    """Permanently deletes an event along with RSVPs and ticket entries."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    try:
+        event_ref = db.reference(f'events/{event_id}')
+        event = event_ref.get()
+        title = event.get('title', event_id) if isinstance(event, dict) else event_id
+        
+        event_ref.delete()
+        db.reference(f'events_rsvps/{event_id}').delete()
+        db.reference(f'event_tickets/{event_id}').delete()
+        
+        db.reference('admin_audit_logs').push({
+            'action': f"Deleted event '{title}' ({event_id})",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        flash(f"Event '{title}' deleted successfully.", "success")
+    except Exception as e:
+        logger.error(f"Delete Event Error: {e}")
+        flash(f"Error deleting event: {str(e)}", "error")
+        
+    return redirect(url_for('super_admin'))
+
+
+@app.route('/admin/update_event_fee/<event_id>', methods=['POST'])
+def admin_update_event_fee(event_id):
+    """Controls the organizer creation/maintenance fee for an event (set 0 to make free)."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    try:
+        raw_fee = request.form.get('creation_fee', '0').strip()
+        fee = max(0, int(raw_fee))
+        
+        event_ref = db.reference(f'events/{event_id}')
+        event = event_ref.get()
+        title = event.get('title', event_id) if isinstance(event, dict) else event_id
+        
+        event_ref.update({
+            'creation_fee': fee,
+            'maintenance_fee_paid': True
+        })
+        
+        db.reference('admin_audit_logs').push({
+            'action': f"Updated creation fee for event '{title}' ({event_id}) to {fee} KES {'(FREE)' if fee == 0 else ''}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        
+        if fee == 0:
+            flash(f"Creation fee for '{title}' waived! Event is now FREE for the organizer.", "success")
+        else:
+            flash(f"Creation fee for '{title}' updated to {fee} KES.", "success")
+    except Exception as e:
+        logger.error(f"Update Event Fee Error: {e}")
+        flash(f"Failed to update creation fee: {e}", "error")
+        
+    return redirect(url_for('super_admin'))
+
+
+@app.route('/admin/update_event_ticket/<event_id>', methods=['POST'])
+def admin_update_event_ticket(event_id):
+    """Controls attendee admission ticket price for an event (set 0 for Free Admission)."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    try:
+        raw_price = request.form.get('ticket_price', '0').strip()
+        price = max(0, int(raw_price))
+        
+        event_ref = db.reference(f'events/{event_id}')
+        event = event_ref.get()
+        title = event.get('title', event_id) if isinstance(event, dict) else event_id
+        
+        if price == 0:
+            update_data = {
+                'price': 0,
+                'price_type': 'free',
+                'price_display': 'Free Admission'
+            }
+        else:
+            update_data = {
+                'price': price,
+                'price_type': 'paid',
+                'price_display': f"{price} KES"
+            }
+        event_ref.update(update_data)
+        
+        db.reference('admin_audit_logs').push({
+            'action': f"Updated ticket price for event '{title}' to {update_data['price_display']}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        flash(f"Ticket admission price for '{title}' set to {update_data['price_display']}.", "success")
+    except Exception as e:
+        logger.error(f"Update Event Ticket Error: {e}")
+        flash(f"Failed to update ticket price: {e}", "error")
+        
+    return redirect(url_for('super_admin'))
+
+
+@app.route('/admin/set_default_creation_fee', methods=['POST'])
+def admin_set_default_creation_fee():
+    """Sets global platform default event creation fee (set 0 to make all event creation free)."""
+    if not session.get('is_super_admin'):
+        return redirect(url_for('home'))
+        
+    try:
+        raw_fee = request.form.get('default_fee', '100').strip()
+        fee = max(0, int(raw_fee))
+        
+        db.reference('system_settings/event_creation_fee').set(fee)
+        
+        db.reference('admin_audit_logs').push({
+            'action': f"Set global default event creation fee to {fee} KES {'(FREE)' if fee == 0 else ''}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        if fee == 0:
+            flash("Global event creation fee is now WAIVED! Organizers can post events for free.", "success")
+        else:
+            flash(f"Global default event creation fee set to {fee} KES.", "success")
+    except Exception as e:
+        logger.error(f"Set Default Creation Fee Error: {e}")
+        flash(f"Failed to update global event fee: {e}", "error")
+        
+    return redirect(url_for('super_admin'))
+
 import io
 import csv
 from flask import Response
