@@ -1480,7 +1480,7 @@
         });
 
         /* === PWA & PUSH NOTIFICATIONS === */
-        const PUBLIC_VAPID_KEY = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpALO8QaYYjlrVifPH8A2yuIvoQoo';
+        const PUBLIC_VAPID_KEY = "{{ vapid_public_key or 'BKQCzvEGmGI5a1Ynzx_ANsriL6EKKL9gP-ncDrXhbR3Uqt9tqu94hLmzWafWx0ROucd6K8tJrsu3skzFwP2uIUk' }}";
 
         function urlBase64ToUint8Array(base64String) {
             const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -1493,32 +1493,69 @@
             return outputArray;
         }
 
+        async function syncPushSubscription(registration) {
+            try {
+                if (!registration || !('pushManager' in registration)) return;
+                let subscription = await registration.pushManager.getSubscription();
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                    });
+                }
+
+                if (subscription) {
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    await fetch('/api/save_subscription', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfMeta ? csrfMeta.content : ''
+                        },
+                        body: JSON.stringify(subscription)
+                    });
+                    console.log('✅ PWA Background WebPush subscription synced successfully.');
+                }
+            } catch (err) {
+                console.warn('PWA Push subscription sync notice:', err);
+            }
+        }
+
+        window.enablePwaPush = async function() {
+            if (!('serviceWorker' in navigator) || !window.Notification) return false;
+            try {
+                const perm = await Notification.requestPermission();
+                if (perm === 'granted') {
+                    const reg = await navigator.serviceWorker.ready;
+                    await syncPushSubscription(reg);
+                    return true;
+                }
+            } catch (e) {
+                console.error('enablePwaPush failed:', e);
+            }
+            return false;
+        };
+
         async function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
                 try {
-                    const registration = await navigator.serviceWorker.register('/sw.js');
-                    console.log('SW Registered:', registration.scope);
+                    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    console.log('SW Registered with root scope:', registration.scope);
 
                     {% if session.get('user_id') %}
-                    // Automatically request permission if logged in
-                    const permission = await Notification.requestPermission();
-                    if (permission === 'granted') {
-                        const registrationReady = await navigator.serviceWorker.ready;
-                        const subscription = await registrationReady.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                        });
-
-                        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-
-                        await fetch('/api/save_subscription', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': csrfToken
-                            },
-                            body: JSON.stringify(subscription)
-                        });
+                    if (window.Notification) {
+                        if (Notification.permission === 'granted') {
+                            await syncPushSubscription(registration);
+                        } else if (Notification.permission === 'default') {
+                            // User hasn't chosen yet: request permission so they never miss alerts
+                            setTimeout(() => {
+                                Notification.requestPermission().then(async (perm) => {
+                                    if (perm === 'granted') {
+                                        await syncPushSubscription(registration);
+                                    }
+                                });
+                            }, 3000);
+                        }
                     }
                     {% endif %}
                 } catch (error) {
@@ -2762,27 +2799,22 @@
                 }).catch(err => console.error("Error sending token to server:", err));
             }
 
-            // Register our WAF-friendly push-worker.js instead of the default firebase-messaging-sw.js
+            // Connect FCM to our unified Service Worker (/sw.js)
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/static/push-worker.js')
-                    .then(function(registration) {
-                        console.log('Push Worker registration successful with scope: ', registration.scope);
-                        
-                        Notification.requestPermission().then((permission) => {
-                            if (permission === 'granted') {
-                                messaging.getToken({ 
-                                    serviceWorkerRegistration: registration,
-                                    vapidKey: 'BEx52yM3Q0RjG5fL1_pXm6YcT_Q6wXp1XzK5H-Fw7R4_e8Z5j1Y0kO_W3b_Xk6P_q_J5y3Z5_X3k_Q6' // Assuming public VAPID key needs to be fetched or set, I will use a placeholder or leave it without if Firebase auto-fetches it. Actually, Firebase project requires a valid VAPID key. Wait, the guide says 'YOUR_PUBLIC_VAPID_KEY_HERE'. I'll keep the token request without vapidKey if it works or I'll look up the VAPID key. Wait, I'll remove vapidKey so it uses the default Firebase one if not provided, or provide the one from the original script if it had one.
-                                }).then((currentToken) => {
-                                    if (currentToken) sendTokenToServer(currentToken);
-                                }).catch((err) => {
-                                    console.log('An error occurred while retrieving token. ', err);
-                                });
-                            }
+                navigator.serviceWorker.ready.then(function(registration) {
+                    if (window.Notification && Notification.permission === 'granted') {
+                        messaging.getToken({ 
+                            serviceWorkerRegistration: registration,
+                            vapidKey: PUBLIC_VAPID_KEY
+                        }).then((currentToken) => {
+                            if (currentToken) sendTokenToServer(currentToken);
+                        }).catch((err) => {
+                            console.warn('[FCM] Token retrieve note:', err);
                         });
-                    }).catch(function(err) {
-                        console.log('Service worker registration failed:', err);
-                    });
+                    }
+                }).catch(function(err) {
+                    console.warn('[FCM] Service worker ready note:', err);
+                });
             }
 
             messaging.onMessage((payload) => {

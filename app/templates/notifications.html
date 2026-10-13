@@ -203,28 +203,61 @@
             if (permission === 'granted') {
                 statusText.innerText = "Registering device with server...";
                 
-                // Ensure service worker is ready
-                const registration = await navigator.serviceWorker.ready;
+                // Ensure service worker is registered and ready
+                let registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) {
+                    registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                }
+                const registrationReady = await navigator.serviceWorker.ready;
                 
-                // Subscribe to push
-                const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-                });
+                const vapidKey = window.PUBLIC_VAPID_KEY || "{{ vapid_public_key or 'BKQCzvEGmGI5a1Ynzx_ANsriL6EKKL9gP-ncDrXhbR3Uqt9tqu94hLmzWafWx0ROucd6K8tJrsu3skzFwP2uIUk' }}";
                 
-                // Send to your Flask backend to save in Firebase
+                // Subscribe to native Web Push
+                let subscription = await registrationReady.pushManager.getSubscription();
+                if (!subscription) {
+                    subscription = await registrationReady.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                    });
+                }
+                
+                // Send to Flask backend to save in Firebase
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const csrfToken = csrfMeta ? csrfMeta.content : '';
                 const response = await fetch('/api/save_subscription', {
                     method: 'POST',
                     body: JSON.stringify(subscription),
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
                 });
+
+                // Also retrieve FCM token if available
+                try {
+                    if (typeof firebase !== 'undefined' && firebase.messaging && firebase.messaging.isSupported()) {
+                        const messaging = firebase.messaging();
+                        messaging.getToken({ 
+                            serviceWorkerRegistration: registrationReady,
+                            vapidKey: vapidKey
+                        }).then(token => {
+                            if (token) {
+                                fetch('/api/user/device', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                                    body: JSON.stringify({ device_id: token })
+                                }).catch(() => {});
+                            }
+                        }).catch(() => {});
+                    }
+                } catch(e) {}
 
                 if (response.ok) {
                     btn.classList.add('disabled');
                     btn.style.background = '#dcfce7';
                     btn.style.color = '#059669';
                     btn.innerText = "Enabled Successfully! 🎉";
-                    statusText.innerText = "Awesome! We will alert you when you get a match.";
+                    statusText.innerText = "Awesome! You will now always get alerts even when your app is closed or offline.";
                     bellIcon.classList.remove('ringing');
                 } else {
                     throw new Error("Failed to save to database");

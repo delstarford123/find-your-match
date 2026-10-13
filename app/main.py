@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import ipaddress
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory
+from flask import Flask, render_template, session, redirect, url_for, flash, request, jsonify, send_from_directory, make_response
 try:
     from pywebpush import webpush, WebPushException
 except ImportError as e:
@@ -270,11 +270,26 @@ def is_safaricom_ip(ip_str):
     except ValueError:
         return False
 # VAPID Keys for Push Notifications
-# Using os.getenv so your personal email isn't hardcoded if you share the code
-mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
-app.config['VAPID_PRIVATE_KEY'] = os.path.abspath(os.path.join(os.path.dirname(__file__), '../private_key.pem'))
-app.config['VAPID_CLAIMS'] = {"sub": f"mailto:{mail_username}"}
-import os
+try:
+    from app.config import VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_CLAIMS
+    app.config['VAPID_PUBLIC_KEY'] = VAPID_PUBLIC_KEY
+    app.config['VAPID_PRIVATE_KEY'] = VAPID_PRIVATE_KEY
+    app.config['VAPID_CLAIMS'] = VAPID_CLAIMS
+except Exception as _vapid_err:
+    logger.warning(f"Error loading VAPID config: {_vapid_err}")
+    mail_username = os.getenv("MAIL_USERNAME", "delstarfordisaiah@gmail.com")
+    app.config['VAPID_PUBLIC_KEY'] = "BKQCzvEGmGI5a1Ynzx_ANsriL6EKKL9gP-ncDrXhbR3Uqt9tqu94hLmzWafWx0ROucd6K8tJrsu3skzFwP2uIUk"
+    app.config['VAPID_PRIVATE_KEY'] = os.path.abspath(os.path.join(os.path.dirname(__file__), '../private_key.pem'))
+    app.config['VAPID_CLAIMS'] = {"sub": f"mailto:{mail_username}"}
+
+@app.context_processor
+def inject_pwa_vapid_key():
+    return {
+        'vapid_public_key': app.config.get(
+            'VAPID_PUBLIC_KEY',
+            'BKQCzvEGmGI5a1Ynzx_ANsriL6EKKL9gP-ncDrXhbR3Uqt9tqu94hLmzWafWx0ROucd6K8tJrsu3skzFwP2uIUk'
+        )
+    }
 
 # Secure in production, False in development
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
@@ -831,8 +846,13 @@ def manifest():
     return send_from_directory('static', 'manifest.json')
 
 @app.route('/sw.js')
+@app.route('/firebase-messaging-sw.js')
+@app.route('/push-worker.js')
 def service_worker():
-    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+    response = make_response(send_from_directory('static', 'sw.js', mimetype='application/javascript'))
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 @app.route('/safety')
 def safety():
@@ -4530,15 +4550,22 @@ def ai_wingman_match_intro(user_id, partner_profile):
         logger.error(f"Wingman Match Intro Error: {e}")
         
 @app.route('/api/save_subscription', methods=['POST'])
+@csrf.exempt
 def save_subscription():
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    subscription_data = request.json
+    subscription_data = request.json or {}
     user_id = session.get('user_id')
 
+    if not subscription_data or 'endpoint' not in subscription_data:
+        return jsonify({"status": "error", "message": "Invalid subscription payload"}), 400
+
     try:
-        db.reference(f'push_subscriptions/{user_id}').set(subscription_data)
+        endpoint_hash = hashlib.sha256(str(subscription_data['endpoint']).encode('utf-8')).hexdigest()[:16]
+        subscription_data['updated_at'] = datetime.now(EAT).isoformat()
+        db.reference(f'push_subscriptions/{user_id}/{endpoint_hash}').set(subscription_data)
+        db.reference(f'push_subscriptions/{user_id}/current').set(subscription_data)
         return jsonify({"status": "success", "message": "Subscription saved to Firebase"})
     except Exception as e:
         logger.error(f"Error saving subscription: {e}")
@@ -5640,6 +5667,7 @@ def wingman_execute():
 from firebase_admin import messaging
 
 @app.route('/api/user/device', methods=['POST'])
+@csrf.exempt
 def save_device_token():
     """WAF-friendly endpoint for saving FCM tokens."""
     user_id = session.get('user_id')
@@ -5656,13 +5684,72 @@ def save_device_token():
     return jsonify({"error": "No token"}), 400
 
 
-def send_push_notification(receiver_id, title, body, click_url='/matches'):
-    """Sends a push notification to a specific user via FCM."""
+def send_push_notification(receiver_id, title, body, click_url='/matches', tag=None):
+    """
+    Sends background Push Notifications to a user device even when offline from the app.
+    Dispatches:
+    1. W3C Web Push (via pywebpush + VAPID) to push_subscriptions/{receiver_id}
+       Wakes up mobile/desktop devices via OS push service when app is closed / phone locked.
+    2. Firebase Cloud Messaging (FCM) to profiles/{receiver_id}/fcm_token
+    """
+    if not receiver_id:
+        return False
+
+    dispatched = False
+
+    # 1. W3C Web Push via pywebpush (Native PWA background wakeup)
+    try:
+        sub_record = db.reference(f'push_subscriptions/{receiver_id}').get()
+        if sub_record and webpush:
+            priv_key = app.config.get('VAPID_PRIVATE_KEY') or os.path.abspath(os.path.join(os.path.dirname(__file__), '../private_key.pem'))
+            claims = app.config.get('VAPID_CLAIMS') or {"sub": "mailto:delstarfordisaiah@gmail.com"}
+
+            push_payload = json.dumps({
+                "title": title,
+                "body": body,
+                "url": click_url,
+                "tag": tag or f"fym_{int(time.time())}"
+            })
+
+            subscriptions = []
+            if isinstance(sub_record, dict):
+                if 'endpoint' in sub_record:
+                    subscriptions.append((None, sub_record))
+                else:
+                    for k, v in sub_record.items():
+                        if isinstance(v, dict) and 'endpoint' in v:
+                            subscriptions.append((k, v))
+
+            for sub_key, sub_data in subscriptions:
+                try:
+                    webpush(
+                        subscription_info=sub_data,
+                        data=push_payload,
+                        vapid_private_key=priv_key,
+                        vapid_claims=claims,
+                        ttl=86400  # Queue for 24h if device temporarily disconnected from internet
+                    )
+                    dispatched = True
+                    logger.info(f"WebPush successfully dispatched to {receiver_id}")
+                except WebPushException as wpe:
+                    logger.warning(f"WebPush response for {receiver_id}: {wpe}")
+                    # Delete expired/unsubscribed endpoints (404/410)
+                    if hasattr(wpe, 'response') and wpe.response is not None and wpe.response.status_code in [404, 410]:
+                        if sub_key:
+                            db.reference(f'push_subscriptions/{receiver_id}/{sub_key}').delete()
+                        else:
+                            db.reference(f'push_subscriptions/{receiver_id}').delete()
+                except Exception as we:
+                    logger.error(f"WebPush error for {receiver_id}: {we}")
+    except Exception as e:
+        logger.error(f"Failed to query WebPush subscriptions for {receiver_id}: {e}")
+
+    # 2. Firebase Cloud Messaging (FCM)
     try:
         receiver_profile = db.reference(f'profiles/{receiver_id}').get() or {}
         fcm_token = receiver_profile.get('fcm_token')
-        
-        if fcm_token:
+
+        if fcm_token and messaging:
             fcm_msg = messaging.Message(
                 notification=messaging.Notification(
                     title=title,
@@ -5672,15 +5759,29 @@ def send_push_notification(receiver_id, title, body, click_url='/matches'):
                     "click_action": click_url,
                     "title": title,
                     "body": body,
-                    "url": click_url
+                    "url": click_url,
+                    "tag": tag or f"fym_{int(time.time())}"
                 },
+                webpush=messaging.WebpushConfig(
+                    notification=messaging.WebpushNotification(
+                        title=title,
+                        body=body,
+                        icon='/static/img/icon-192.png',
+                        badge='/static/img/badge-icon.png'
+                    ),
+                    fcm_options=messaging.WebpushFCMOptions(
+                        link=click_url
+                    )
+                ),
                 token=fcm_token
             )
             messaging.send(fcm_msg)
-            return True
+            dispatched = True
+            logger.info(f"FCM push successfully delivered to {receiver_id}")
     except Exception as e:
-        logger.error(f"Failed to send push notification to {receiver_id}: {e}")
-    return False
+        logger.error(f"Failed to send FCM push notification to {receiver_id}: {e}")
+
+    return dispatched
 
 import hashlib
 
@@ -9187,6 +9288,14 @@ def start_group_call(group_id):
                         call_type=call_type,
                         call_url=call_url
                     )
+
+                # 3. Native Background Push Notification (alerts even if app is closed / screen locked)
+                send_push_notification(
+                    receiver_id=m_id,
+                    title=f"📞 {caller_name} is calling ({group_name})",
+                    body=f"Incoming Group {call_type.title()} Call. Tap to join now!",
+                    click_url=f"/group/{group_id}/call/{call_id}"
+                )
             except Exception as notify_err:
                 logger.error(f"Error notifying member {m_id} for group call: {notify_err}")
 
@@ -9317,6 +9426,14 @@ def ring_group_member(group_id, call_id, target_user_id):
             args=(target_email, target_name, caller_name, caller_img, group_name, call_type, call_url),
             daemon=True
         ).start()
+
+    # Native Background Push Notification
+    send_push_notification(
+        receiver_id=target_user_id,
+        title=f"📞 {caller_name} is calling you to {group_name}!",
+        body=f"Incoming Group {call_type.title()} Call. Tap to join now!",
+        click_url=f"/group/{group_id}/call/{call_id}"
+    )
         
     return jsonify({'success': True, 'message': f"Ringing {target_name}..."})
 
