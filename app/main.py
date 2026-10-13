@@ -432,6 +432,7 @@ from app.routes.profiles import profiles_bp
 from app.routes.matches import matches_bp
 from app.routes.v3.matching import v3_matching_bp
 from app.routes.gamification import gamification_v4_bp
+from app.routes.events import events_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
@@ -441,6 +442,8 @@ app.register_blueprint(matches_bp)
 csrf.exempt(matches_bp)
 app.register_blueprint(v3_matching_bp)
 app.register_blueprint(gamification_v4_bp)
+app.register_blueprint(events_bp)
+csrf.exempt(events_bp)
 
 # ==========================================
 # 5. SECURITY DECORATORS & HELPERS
@@ -6998,53 +7001,9 @@ from datetime import datetime
 # 🤫 CAMPUS GOSSIP & MISSED CONNECTIONS
 # ==========================================
 
-@app.route('/campus-life')
-@login_required
-def campus_life():
-    """
-    FEATURE 13 & 14: Campus Hotspot Map & Offline Events RSVP
-    """
-    user_id = session.get('user_id')
-    user_name = session.get('user_name', 'Student').split(' ')[0]
-    
-    # Mock hotspots data
-    hotspots = [
-        {"name": "Library Cafe", "count": 14, "trend": "up", "icon": "☕"},
-        {"name": "Student Center", "count": 32, "trend": "up", "icon": "🍔"},
-        {"name": "Main Quad", "count": 8, "trend": "down", "icon": "🌳"},
-        {"name": "Sports Complex", "count": 21, "trend": "up", "icon": "🏀"}
-    ]
-    
-    # Mock events data
-    events = [
-        {"id": "evt1", "title": "Speed Dating @ Student Center", "date": "Friday, 7:00 PM", "attendees": 45, "img": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&q=80"},
-        {"id": "evt2", "title": "Game Night Mixer", "date": "Saturday, 8:30 PM", "attendees": 28, "img": "https://images.unsplash.com/photo-1533227260815-a56cf8af0d3c?w=500&q=80"},
-        {"id": "evt3", "title": "Karaoke Battle", "date": "Next Thursday, 9:00 PM", "attendees": 15, "img": "https://images.unsplash.com/photo-1516280440502-6c2e3919b52a?w=500&q=80"}
-    ]
-    
-    return render_template('campus_life.html', current_user=user_name, hotspots=hotspots, events=events)
-
-@app.route('/api/rsvp_event', methods=['POST'])
-@login_required
-@csrf.exempt
-def rsvp_event():
-    user_id = session.get('user_id')
-    data = request.json
-    event_id = data.get('event_id')
-    
-    if not event_id:
-        return jsonify({'success': False, 'error': 'No event specified.'}), 400
-        
-    try:
-        # Save to database
-        db.reference(f'events_rsvps/{event_id}/{user_id}').set({
-            'timestamp': int(time.time() * 1000),
-            'status': 'attending'
-        })
-        return jsonify({'success': True, 'message': 'You have successfully RSVP\'d to this event! See you there.'})
-    except Exception as e:
-        print(f"Error RSVPing to event: {e}")
-        return jsonify({'success': False, 'error': 'Failed to process RSVP.'}), 500
+@app.route('/pop-the-balloon')
+def pop_the_balloon_direct():
+    return redirect(url_for('gamification_v4.pop_the_balloon'))
 
 @app.route('/campus-gossip')
 @requires_subscription

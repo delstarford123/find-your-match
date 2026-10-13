@@ -301,6 +301,31 @@
       ".read": true,
       ".write": true,
       ".indexOn": ["timestamp"]
+    },
+    "events": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["created_at", "status", "category", "date"]
+    },
+    "events_rsvps": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp"]
+    },
+    "events_discussions": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp"]
+    },
+    "hotspots": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["name", "count"]
+    },
+    "hotspot_checkins": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["timestamp"]
     }
   }
 }

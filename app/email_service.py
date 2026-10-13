@@ -2585,3 +2585,161 @@ def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, i
     """)
 
     return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
+
+
+def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str):
+    """
+    Sends a rich, digital event ticket confirmation with embedded QR code,
+    Google Maps venue pin, dress code, and event details.
+    """
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    event_id = event_data.get("id", "")
+    event_title = event_data.get("title", "Campus Event")
+    category = event_data.get("category", "Event").upper()
+    venue = event_data.get("venue_name", "Campus Venue")
+    date_str = event_data.get("date_str", event_data.get("date", "Upcoming"))
+    time_str = event_data.get("time_str", "Doors Open 7:00 PM")
+    dress_code = event_data.get("dress_code", "Smart Casual")
+    price_str = event_data.get("price_display", "Free Admission")
+    maps_link = event_data.get("location_url") or f"https://maps.google.com/?q={venue}"
+    organizer_name = event_data.get("organizer_name", "Event Host")
+    organizer_phone = event_data.get("organizer_phone", "")
+    banner_img = event_data.get("banner_img") or f"{base_url}/static/img/icon-512.png"
+    event_url = f"{base_url}/events/{event_id}"
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={ticket_code}&color=72-0-0"
+
+    subject = f"🎟️ Ticket Confirmed: {event_title} | Pass #{ticket_code}"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {recipient_name}!
+
+        Your ticket for {event_title} has been confirmed!
+
+        ========================================
+        DIGITAL TICKET PASS
+        Ticket Code: {ticket_code}
+        Event: {event_title} ({category})
+        Date & Time: {date_str} @ {time_str}
+        Venue: {venue}
+        Dress Code: {dress_code}
+        Admission: {price_str}
+        ========================================
+
+        📍 Open Venue in Google Maps:
+        {maps_link}
+
+        View Event Page & Live Updates:
+        {event_url}
+
+        Host Contact: {organizer_name} ({organizer_phone})
+
+        Please present your digital pass or QR code at the entrance.
+
+        See you there,
+        The FindYourMatch Events Team
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin:0;padding:20px;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.35);">
+                
+                <!-- TOP BANNER IMAGE -->
+                <div style="position:relative;background:#1e1b4b;max-height:220px;overflow:hidden;text-align:center;">
+                    <img src="{banner_img}" alt="{event_title}" style="width:100%;max-height:220px;object-fit:cover;display:block;">
+                </div>
+
+                <!-- HEADER -->
+                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);padding:28px 24px;text-align:center;color:white;">
+                    <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
+                        ✨ {category} • TICKET CONFIRMED
+                    </div>
+                    <h1 style="margin:0 0 6px;font-size:24px;font-weight:900;line-height:1.2;">{event_title}</h1>
+                    <p style="margin:0;font-size:14px;opacity:0.9;">You're on the guest list, {recipient_name}!</p>
+                </div>
+
+                <!-- TICKET PASS CARD -->
+                <div style="padding:30px 25px;">
+                    
+                    <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:18px;padding:25px;text-align:center;margin-bottom:25px;">
+                        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
+                            Official Entrance Pass
+                        </div>
+                        
+                        <!-- QR Code -->
+                        <div style="background:white;display:inline-block;padding:12px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,0.06);margin-bottom:14px;">
+                            <img src="{qr_url}" alt="Ticket QR Code" width="160" height="160" style="display:block;">
+                        </div>
+
+                        <div style="font-size:20px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:4px;">
+                            {ticket_code}
+                        </div>
+                        <div style="font-size:12px;color:#64748b;">
+                            Show this QR code or Ticket ID at the entrance gate
+                        </div>
+                    </div>
+
+                    <!-- EVENT SPECS GRID -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:25px;font-size:14px;">
+                        <tr>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🗓️ Date & Time</td>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{date_str} @ {time_str}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">📍 Venue</td>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{venue}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">👗 Dress Code</td>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{dress_code}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">🎟️ Admission</td>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{price_str}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:10px 0;color:#64748b;">👤 Organizer</td>
+                            <td style="padding:10px 0;color:#0f172a;font-weight:700;">{organizer_name} {f'({organizer_phone})' if organizer_phone else ''}</td>
+                        </tr>
+                    </table>
+
+                    <!-- BUTTONS -->
+                    <div style="text-align:center;margin-bottom:25px;">
+                        <a href="{maps_link}" target="_blank" style="display:block;background:#0f172a;color:#ffffff;text-decoration:none;padding:15px;border-radius:14px;font-weight:800;font-size:15px;margin-bottom:10px;">
+                            📍 Open Venue Pin in Google Maps
+                        </a>
+                        <a href="{event_url}" target="_blank" style="display:block;background:#fee2e2;color:#991b1b;text-decoration:none;padding:13px;border-radius:14px;font-weight:700;font-size:14px;">
+                            🔗 View Event Page & Guest Wall
+                        </a>
+                    </div>
+
+                    <!-- FIND A DATE CALLOUT -->
+                    <div style="background:#fff1f2;border:1px solid #ffe4e6;border-radius:14px;padding:16px;text-align:center;">
+                        <div style="font-size:14px;font-weight:800;color:#9f1239;margin-bottom:4px;">
+                            💘 Want Someone to Accompany You?
+                        </div>
+                        <div style="font-size:12px;color:#be123c;line-height:1.5;">
+                            Connect with other students attending this event on FindYourMatch! Browse students nearby and invite a match.
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background:#f8fafc;padding:22px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;line-height:1.6;">
+                    FindYourMatch Events • Bringing Campus Social Life Together<br>
+                    &copy; {datetime.now().year} <a href="{base_url}" style="color:#64748b;text-decoration:none;">findyourmatch.co.ke</a>
+                </div>
+
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch Events")
+

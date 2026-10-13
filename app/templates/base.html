@@ -36,7 +36,8 @@
     <meta name="description"
         content="Connect with students across all institutions. We use AI to sync schedules, match aesthetics, and align vibes for verified campus social network in Kenya.">
 
-    <!-- Open Graph / Facebook -->
+    {% block meta %}
+    <!-- Default Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ request.url }}">
     <meta property="og:title" content="Find Your Match - Multi-Institution social site">
@@ -55,6 +56,7 @@
     <meta name="twitter:description"
         content="Join the most advanced social network for students in Kenya. AI-powered matching, schedule syncing, and more!">
     <meta name="twitter:image" content="{{ url_for('static', filename='img/icon-512.png', _external=True) }}">
+    {% endblock %}
 
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">

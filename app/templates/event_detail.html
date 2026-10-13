@@ -1,0 +1,821 @@
+{% extends "base.html" %}
+
+{% block title %}{{ event.title }} | Find Your Match Events{% endblock %}
+
+{% block meta %}
+<!-- Open Graph / WhatsApp Preview Meta Tags -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ event_url }}">
+<meta property="og:title" content="{{ event.title }} | Campus Event">
+<meta property="og:description" content="🗓️ {{ event.date_str }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
+<meta property="og:image" content="{{ event.banner_img }}">
+<meta property="og:image:secure_url" content="{{ event.banner_img }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="{{ event_url }}">
+<meta name="twitter:title" content="{{ event.title }} | Campus Event">
+<meta name="twitter:description" content="🗓️ {{ event.date_str }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
+<meta name="twitter:image" content="{{ event.banner_img }}">
+{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --fym-crimson: #720000;
+        --fym-rose: #E60026;
+        --fym-dark: #0f172a;
+        --fym-emerald: #10b981;
+    }
+
+    .event-page-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 15px 15px 70px;
+    }
+
+    .back-nav-bar {
+        margin-bottom: 16px;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #4b5563;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+        padding: 6px 12px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 50px;
+        transition: all 0.2s;
+    }
+    .back-link:hover {
+        background: #f3f4f6;
+        color: #111;
+    }
+
+    /* Main Flyer Hero Card */
+    .event-hero-card {
+        background: white;
+        border-radius: 28px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 20px 45px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+    }
+
+    .hero-banner-image-wrap {
+        position: relative;
+        width: 100%;
+        max-height: 420px;
+        background: #111;
+        overflow: hidden;
+    }
+
+    .hero-banner-image-wrap img {
+        width: 100%;
+        height: 100%;
+        max-height: 420px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .hero-banner-overlay-badges {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+    }
+
+    .badge-category {
+        background: rgba(0, 0, 0, 0.75);
+        color: white;
+        backdrop-filter: blur(8px);
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-price {
+        background: #10B981;
+        color: white;
+        padding: 8px 18px;
+        border-radius: 50px;
+        font-size: 14px;
+        font-weight: 900;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+    .badge-price.paid { background: #f59e0b; }
+
+    /* Event Info Body */
+    .event-hero-content {
+        padding: clamp(24px, 4vw, 40px);
+    }
+
+    .event-main-title {
+        font-size: clamp(26px, 5vw, 40px);
+        font-weight: 900;
+        color: #0f172a;
+        margin: 0 0 16px;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
+    }
+
+    /* Live Countdown */
+    .countdown-bar {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 18px;
+        display: flex;
+        justify-content: space-around;
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .countdown-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .countdown-number {
+        font-size: clamp(22px, 4vw, 32px);
+        font-weight: 900;
+        color: var(--fym-crimson);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .countdown-label {
+        font-size: 11px;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Two-column layout */
+    .event-grid-layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    @media (min-width: 850px) {
+        .event-grid-layout {
+            grid-template-columns: 1.2fr 0.8fr;
+        }
+    }
+
+    /* Specs Grid */
+    .specs-card {
+        background: white;
+        border-radius: 24px;
+        padding: 26px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        margin-bottom: 30px;
+    }
+
+    .specs-card h3 {
+        margin: 0 0 20px;
+        font-size: 18px;
+        font-weight: 900;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .spec-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .spec-row:last-child { border-bottom: none; }
+
+    .spec-icon {
+        font-size: 20px;
+        background: #f3f4f6;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .spec-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #6b7280;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+    }
+
+    .spec-val {
+        font-size: 15px;
+        font-weight: 800;
+        color: #1f2937;
+    }
+
+    .btn-maps-pin {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #0f172a;
+        color: white;
+        text-decoration: none;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 800;
+        margin-top: 6px;
+        transition: background 0.2s;
+    }
+    .btn-maps-pin:hover { background: #334155; }
+
+    /* RSVP & Ticket Box */
+    .ticket-action-box {
+        background: white;
+        border-radius: 24px;
+        padding: 26px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+        position: sticky;
+        top: 20px;
+    }
+
+    .ticket-header-title {
+        font-size: 20px;
+        font-weight: 900;
+        color: #111827;
+        margin: 0 0 8px;
+    }
+
+    .spots-gauge-wrap {
+        background: #f3f4f6;
+        height: 8px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 14px 0 6px;
+    }
+
+    .spots-gauge-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #10B981, #059669);
+        border-radius: 10px;
+    }
+
+    .spots-gauge-text {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 20px;
+    }
+
+    .form-field {
+        margin-bottom: 14px;
+    }
+
+    .form-field label {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: #374151;
+        margin-bottom: 5px;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        font-size: 14px;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .form-input:focus {
+        border-color: #E60026;
+        box-shadow: 0 0 0 3px rgba(230,0,38,0.1);
+    }
+
+    .btn-confirm-rsvp {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        width: 100%;
+        padding: 16px;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(230,0,38,0.3);
+        margin-top: 10px;
+        transition: transform 0.2s;
+    }
+    .btn-confirm-rsvp:hover { transform: translateY(-2px); }
+
+    /* DIGITAL PASS CONFIRMED VIEW */
+    .digital-ticket-card {
+        background: #faf5ff;
+        border: 2px dashed #a855f7;
+        border-radius: 20px;
+        padding: 24px;
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    .ticket-code-display {
+        font-family: monospace;
+        font-size: 22px;
+        font-weight: 900;
+        color: #720000;
+        letter-spacing: 2px;
+        margin: 8px 0;
+    }
+
+    /* Social Share Buttons */
+    .share-suite-box {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .btn-wa-share-big {
+        background: #25D366;
+        color: white;
+        text-decoration: none;
+        padding: 14px 20px;
+        border-radius: 14px;
+        font-weight: 800;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+    }
+
+    .btn-copy-link {
+        background: #f8fafc;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+        padding: 12px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 13px;
+        width: 100%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    /* Attendees / Who's Going */
+    .attendees-avatars-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .attendee-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 50px;
+        padding: 4px 12px 4px 4px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #334155;
+    }
+
+    .attendee-pill img {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    /* Discussion Wall */
+    .comment-item {
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 14px;
+        margin-bottom: 12px;
+        border: 1px solid #e2e8f0;
+    }
+</style>
+
+<div class="event-page-container">
+
+    <!-- Top Back Navigation -->
+    <div class="back-nav-bar">
+        <a href="/campus-life" class="back-link">
+            <span>&larr;</span> Back to Campus Events & Hotspots
+        </a>
+    </div>
+
+    <!-- MAIN EVENT HERO CARD -->
+    <div class="event-hero-card">
+        <div class="hero-banner-image-wrap">
+            <img src="{{ event.banner_img }}" alt="{{ event.title }}" onerror="this.src='/static/img/icon-512.png'">
+            <div class="hero-banner-overlay-badges">
+                <span class="badge-category">{{ event.category_label or event.category|title }}</span>
+                <span class="badge-price {% if event.price > 0 %}paid{% endif %}">
+                    {{ event.price_display }}
+                </span>
+            </div>
+        </div>
+
+        <div class="event-hero-content">
+            <h1 class="event-main-title">{{ event.title }}</h1>
+            <p style="font-size: 16px; color: #4b5563; line-height: 1.7; margin: 0 0 24px;">
+                {{ event.description }}
+            </p>
+
+            <!-- LIVE DYNAMIC COUNTDOWN TIMER -->
+            <div class="countdown-bar" id="countdownBar" data-date="{{ event.date }}">
+                <div class="countdown-item">
+                    <span class="countdown-number" id="cdDays">00</span>
+                    <span class="countdown-label">Days</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="cdHours">00</span>
+                    <span class="countdown-label">Hours</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="cdMins">00</span>
+                    <span class="countdown-label">Mins</span>
+                </div>
+                <div class="countdown-item">
+                    <span class="countdown-number" id="cdSecs">00</span>
+                    <span class="countdown-label">Secs</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TWO COLUMN DETAILS & REGISTRATION LAYOUT -->
+    <div class="event-grid-layout">
+        
+        <!-- LEFT: EVENT SPECS, AMENITIES, DISCUSSION -->
+        <div>
+            
+            <!-- SPECS CARD -->
+            <div class="specs-card">
+                <h3>📋 Event Details & Location</h3>
+                
+                <div class="spec-row">
+                    <div class="spec-icon">🗓️</div>
+                    <div>
+                        <div class="spec-label">Date & Time</div>
+                        <div class="spec-val">{{ event.date_str or event.date }} @ {{ event.time_str }}</div>
+                    </div>
+                </div>
+
+                <div class="spec-row">
+                    <div class="spec-icon">📍</div>
+                    <div style="flex: 1;">
+                        <div class="spec-label">Venue Location</div>
+                        <div class="spec-val">{{ event.venue_name }}</div>
+                        <a href="{{ event.location_url }}" target="_blank" class="btn-maps-pin">
+                            🗺️ Open Location Pin in Google Maps
+                        </a>
+                    </div>
+                </div>
+
+                <div class="spec-row">
+                    <div class="spec-icon">👗</div>
+                    <div>
+                        <div class="spec-label">Dress Code & Theme</div>
+                        <div class="spec-val">{{ event.dress_code or "Smart Casual & Friendly" }}</div>
+                    </div>
+                </div>
+
+                <div class="spec-row">
+                    <div class="spec-icon">👤</div>
+                    <div>
+                        <div class="spec-label">Event Organizer</div>
+                        <div class="spec-val">{{ event.organizer_name }}</div>
+                        {% if event.organizer_phone %}
+                        <a href="https://wa.me/{{ event.organizer_phone|replace('+', '')|replace(' ', '') }}" target="_blank" style="font-size: 13px; color: #25D366; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+                            💬 Chat with Organizer on WhatsApp
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="spec-row">
+                    <div class="spec-icon">🛡️</div>
+                    <div>
+                        <div class="spec-label">Platform Verification</div>
+                        <div class="spec-val" style="color: #10B981;">
+                            ✅ Verified FYM Campus Event & 100 KES Platform Maintenance Cleared
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WHO'S GOING ROSTER -->
+            <div class="specs-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0;">👥 Who's Going ({{ attendees_count }})</h3>
+                    {% if user_id and event.created_by == user_id %}
+                    <a href="/events/{{ event.id }}/export-attendees" style="font-size: 12px; color: #720000; font-weight: 800; text-decoration: none;">
+                        📥 Download Guestlist CSV
+                    </a>
+                    {% endif %}
+                </div>
+                
+                {% if attendees %}
+                <div class="attendees-avatars-row">
+                    {% for a in attendees %}
+                    <div class="attendee-pill">
+                        <img src="{{ a.avatar }}" alt="{{ a.name }}" onerror="this.src='/static/img/icon-192.png'">
+                        <span>{{ a.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p style="font-size: 14px; color: #6b7280; margin: 0;">Be the first comrade to RSVP for this event!</p>
+                {% endif %}
+
+                <!-- Matchmaking prompt -->
+                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 14px; padding: 14px; margin-top: 18px; text-align: center;">
+                    <div style="font-size: 13px; font-weight: 800; color: #9f1239; margin-bottom: 3px;">
+                        💘 Want Someone to Accompany You?
+                    </div>
+                    <div style="font-size: 12px; color: #be123c;">
+                        Browse verified students on Find Your Match and invite your match to join you!
+                    </div>
+                </div>
+            </div>
+
+            <!-- DISCUSSION / QA WALL -->
+            <div class="specs-card">
+                <h3>💬 Event Discussion & Q&A</h3>
+                
+                <div id="commentsContainer" style="margin-bottom: 16px;">
+                    {% if discussions %}
+                        {% for c in discussions %}
+                        <div class="comment-item">
+                            <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 3px;">
+                                {{ c.name }}
+                            </div>
+                            <div style="font-size: 14px; color: #475569;">
+                                {{ c.message }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p style="font-size: 13px; color: #94a3b8; margin: 0 0 10px;">No questions yet. Ask anything about music, entry, or timings!</p>
+                    {% endif %}
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="commentInput" class="form-input" placeholder="Ask a question or hype up the event..." onkeypress="if(event.key === 'Enter') postComment()">
+                    <button onclick="postComment()" style="background: var(--fym-crimson); color: white; border: none; padding: 0 18px; border-radius: 12px; font-weight: 800; cursor: pointer;">
+                        Send
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT: TICKET RESERVATION & GUEST PASS FORM -->
+        <div>
+            <div class="ticket-action-box">
+                <h3 class="ticket-header-title">🎟️ Reserve Your Ticket</h3>
+                <p style="font-size: 13px; color: #64748b; margin: 0 0 14px;">
+                    Available for both FYM members and outside guests. Instant QR code ticket sent to your email.
+                </p>
+
+                <!-- Spots Progress -->
+                <div class="spots-gauge-wrap">
+                    <div class="spots-gauge-fill" style="width: {{ capacity_percent }}%;"></div>
+                </div>
+                <div class="spots-gauge-text">
+                    <span>{{ attendees_count }} / {{ event.capacity }} booked</span>
+                    <span style="color: #059669;"><strong>{{ spots_remaining }} spots left</strong></span>
+                </div>
+
+                <!-- Registration Form -->
+                <form id="rsvpForm" onsubmit="handleRsvpSubmit(event)">
+                    <input type="hidden" name="event_id" value="{{ event.id }}">
+
+                    <div class="form-field">
+                        <label>Your Full Name *</label>
+                        <input type="text" name="name" class="form-input" value="{{ current_user.get('name', '') }}" placeholder="e.g. Delstarford Isaiah" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Email Address (Ticket Sent Here) *</label>
+                        <input type="email" name="email" class="form-input" value="{{ current_user.get('email', '') }}" placeholder="e.g. comrade@gmail.com" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Phone Number (M-Pesa / Verification) *</label>
+                        <input type="tel" name="phone" class="form-input" value="{{ current_user.get('phone', '') }}" placeholder="e.g. 0707605751" required>
+                    </div>
+
+                    <div class="form-field">
+                        <label>Plus Ones (Bringing Friends?)</label>
+                        <select name="plus_ones" class="form-input">
+                            <option value="0">Just Me (+0)</option>
+                            <option value="1">Me + 1 Friend (+1)</option>
+                            <option value="2">Me + 2 Friends (+2)</option>
+                            <option value="3">Me + 3 Friends (+3)</option>
+                        </select>
+                    </div>
+
+                    {% if event.price > 0 %}
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px; font-size: 13px; color: #92400e; margin-bottom: 14px;">
+                        💵 <strong>Ticket Fee:</strong> {{ event.price_display }} per attendee. You can pay via M-Pesa upon confirmation.
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn-confirm-rsvp" id="btnRsvpSubmit">
+                        🎟️ Confirm RSVP & Get Instant QR Pass
+                    </button>
+                </form>
+
+                <!-- Confirmed Ticket View (Hidden initially, reveals after RSVP) -->
+                <div id="confirmedTicketView" class="digital-ticket-card" style="display: none;">
+                    <div style="font-size: 32px; margin-bottom: 6px;">🎉</div>
+                    <h4 style="margin: 0 0 4px; font-size: 18px; font-weight: 900; color: #111;">You're On The Guestlist!</h4>
+                    <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px;">Your official ticket and Google Maps pin have been emailed to you.</p>
+                    
+                    <div id="ticketQrImageWrap" style="margin-bottom: 12px;"></div>
+
+                    <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Ticket ID:</div>
+                    <div class="ticket-code-display" id="confirmedTicketCode">FYM-XXXX</div>
+                    <div style="font-size: 12px; color: #10B981; font-weight: 800;">
+                        ✅ Present this QR code or Ticket ID at the entrance
+                    </div>
+                </div>
+
+                <!-- VIRAL SOCIAL SHARING SUITE -->
+                <div class="share-suite-box">
+                    <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">
+                        📢 Share This Event with Friends:
+                    </div>
+
+                    {% set wa_msg = "🎉 You're invited to *" ~ event.title ~ "* on Find Your Match!\n🗓️ " ~ event.date_str ~ " @ " ~ event.time_str ~ "\n📍 " ~ event.venue_name ~ "\n🎟️ " ~ event.price_display ~ "\n\n👉 Get your ticket / RSVP here: " ~ event_url %}
+                    
+                    <a href="https://api.whatsapp.com/send?text={{ wa_msg|urlencode }}" target="_blank" class="btn-wa-share-big">
+                        <span>💬</span> Share on WhatsApp (With Banner)
+                    </a>
+
+                    <button class="btn-copy-link" onclick="copyEventLink()">
+                        <span>🔗</span> <span id="copyLinkText">Copy Shareable Event Link</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    // Live Countdown Timer
+    function initCountdown() {
+        const bar = document.getElementById('countdownBar');
+        if (!bar) return;
+        const targetDateStr = bar.getAttribute('data-date');
+        const targetDate = new Date(targetDateStr + "T19:00:00").getTime();
+
+        function update() {
+            const now = new Date().getTime();
+            const diff = targetDate - now;
+
+            if (diff <= 0) {
+                document.getElementById('cdDays').innerText = "00";
+                document.getElementById('cdHours').innerText = "00";
+                document.getElementById('cdMins').innerText = "00";
+                document.getElementById('cdSecs').innerText = "00";
+                return;
+            }
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('cdDays').innerText = days.toString().padStart(2, '0');
+            document.getElementById('cdHours').innerText = hours.toString().padStart(2, '0');
+            document.getElementById('cdMins').innerText = mins.toString().padStart(2, '0');
+            document.getElementById('cdSecs').innerText = secs.toString().padStart(2, '0');
+        }
+
+        update();
+        setInterval(update, 1000);
+    }
+    initCountdown();
+
+    // Handle RSVP Submit
+    function handleRsvpSubmit(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnRsvpSubmit');
+        btn.innerHTML = "Generating ticket pass & emailing...";
+        btn.disabled = true;
+
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/events/rsvp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                document.getElementById('rsvpForm').style.display = 'none';
+                const ticketView = document.getElementById('confirmedTicketView');
+                ticketView.style.display = 'block';
+                document.getElementById('confirmedTicketCode').innerText = res.ticket_code;
+                document.getElementById('ticketQrImageWrap').innerHTML = `
+                    <img src="${res.qr_url}" alt="Ticket QR" width="160" height="160" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                `;
+                alert(res.message);
+            } else {
+                btn.innerHTML = "🎟️ Confirm RSVP & Get Instant QR Pass";
+                btn.disabled = false;
+                alert(res.error || "Failed to confirm RSVP.");
+            }
+        })
+        .catch(err => {
+            btn.innerHTML = "🎟️ Confirm RSVP & Get Instant QR Pass";
+            btn.disabled = false;
+            console.error(err);
+            alert("Error communicating with server.");
+        });
+    }
+
+    // Copy Event Link
+    function copyEventLink() {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            const txt = document.getElementById('copyLinkText');
+            txt.innerText = "Link Copied! ✅";
+            setTimeout(() => { txt.innerText = "Copy Shareable Event Link"; }, 2500);
+        });
+    }
+
+    // Post Event Comment
+    function postComment() {
+        const inp = document.getElementById('commentInput');
+        const msg = inp.value.trim();
+        if (!msg) return;
+
+        const eventId = "{{ event.id }}";
+        fetch(`/api/events/${eventId}/comment`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ message: msg })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                const box = document.getElementById('commentsContainer');
+                box.innerHTML += `
+                    <div class="comment-item">
+                        <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 3px;">
+                            ${res.comment.name}
+                        </div>
+                        <div style="font-size: 14px; color: #475569;">
+                            ${res.comment.message}
+                        </div>
+                    </div>
+                `;
+                inp.value = '';
+            }
+        });
+    }
+</script>
+{% endblock %}
