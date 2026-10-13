@@ -7005,6 +7005,11 @@ from datetime import datetime
 def pop_the_balloon_direct():
     return redirect(url_for('gamification_v4.pop_the_balloon'))
 
+@app.route('/campus-life')
+def campus_life():
+    from app.routes.events import campus_life as cl_view
+    return cl_view()
+
 @app.route('/campus-gossip')
 @requires_subscription
 def campus_gossip():
