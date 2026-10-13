@@ -12,23 +12,30 @@
         --fym-emerald: #10b981;
     }
 
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
     .campus-page-wrapper {
         max-width: 1200px;
         margin: 0 auto;
-        padding: 20px 15px 60px;
+        padding: clamp(14px, 3vw, 25px) clamp(12px, 3vw, 20px) 70px;
+        width: 100%;
+        overflow-x: hidden;
     }
 
-    /* Hero Banner */
+    /* 1. HERO BANNER */
     .campus-hero {
         background: linear-gradient(135deg, #720000 0%, #b91c1c 50%, #E60026 100%);
-        border-radius: 28px;
-        padding: clamp(30px, 5vw, 55px) clamp(20px, 4vw, 40px);
+        border-radius: clamp(20px, 4vw, 32px);
+        padding: clamp(28px, 6vw, 55px) clamp(16px, 5vw, 40px);
         color: white;
         text-align: center;
-        box-shadow: 0 20px 40px rgba(114, 0, 0, 0.20);
-        margin-bottom: 35px;
+        box-shadow: 0 20px 45px rgba(114, 0, 0, 0.22);
+        margin-bottom: clamp(25px, 4vw, 35px);
         position: relative;
         overflow: hidden;
+        width: 100%;
     }
 
     .campus-hero::before {
@@ -38,7 +45,7 @@
         left: -50%;
         width: 200%;
         height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 60%);
+        background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 60%);
         pointer-events: none;
     }
 
@@ -50,24 +57,24 @@
         backdrop-filter: blur(8px);
         padding: 6px 16px;
         border-radius: 50px;
-        font-size: 13px;
+        font-size: clamp(11px, 2.2vw, 13px);
         font-weight: 800;
         letter-spacing: 0.5px;
         text-transform: uppercase;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
     }
 
     .campus-hero h1 {
-        font-size: clamp(28px, 6vw, 46px);
+        font-size: clamp(24px, 5.5vw, 44px);
         font-weight: 900;
         margin: 0 0 12px;
-        letter-spacing: -1px;
-        line-height: 1.15;
+        letter-spacing: -0.8px;
+        line-height: 1.18;
     }
 
     .campus-hero p {
-        font-size: clamp(15px, 2.5vw, 18px);
-        margin: 0 auto 25px;
+        font-size: clamp(14px, 2.5vw, 17px);
+        margin: 0 auto 24px;
         max-width: 650px;
         opacity: 0.95;
         line-height: 1.6;
@@ -78,22 +85,25 @@
         justify-content: center;
         flex-wrap: wrap;
         gap: 12px;
+        width: 100%;
     }
 
     .btn-create-event {
         background: white;
         color: var(--fym-crimson);
-        padding: 14px 28px;
+        padding: 13px 26px;
         border-radius: 50px;
         font-weight: 800;
-        font-size: 15px;
+        font-size: clamp(13px, 2.5vw, 15px);
         border: none;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         transition: transform 0.2s, box-shadow 0.2s;
+        text-decoration: none;
     }
 
     .btn-create-event:hover {
@@ -104,14 +114,15 @@
     .btn-balloon-shortcut {
         background: rgba(0, 0, 0, 0.35);
         color: white;
-        padding: 14px 26px;
+        padding: 13px 24px;
         border-radius: 50px;
         font-weight: 800;
-        font-size: 15px;
+        font-size: clamp(13px, 2.5vw, 15px);
         text-decoration: none;
         border: 1px solid rgba(255,255,255,0.3);
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         backdrop-filter: blur(8px);
         transition: background 0.2s;
@@ -121,48 +132,51 @@
         background: rgba(0, 0, 0, 0.55);
     }
 
-    /* Section Headings */
+    /* 2. SECTION HEADINGS */
     .section-header-wrap {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         flex-wrap: wrap;
         gap: 10px;
     }
 
     .section-header-wrap h2 {
-        font-size: 24px;
+        font-size: clamp(20px, 4vw, 24px);
         font-weight: 900;
         color: #111827;
         margin: 0;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
+        letter-spacing: -0.3px;
     }
 
-    /* HOTSPOTS CAROUSEL / GRID */
+    /* 3. HOTSPOTS GRID */
     .hotspots-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-        gap: 18px;
-        margin-bottom: 50px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+        gap: clamp(14px, 2.5vw, 18px);
+        margin-bottom: clamp(35px, 5vw, 50px);
+        width: 100%;
     }
 
     .hotspot-card {
         background: white;
-        border-radius: 20px;
-        padding: 22px;
+        border-radius: clamp(16px, 3vw, 22px);
+        padding: clamp(16px, 3.5vw, 22px);
         border: 1px solid #e5e7eb;
         box-shadow: 0 8px 24px rgba(0,0,0,0.04);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        width: 100%;
     }
 
     .hotspot-card:hover {
-        transform: translateY(-4px);
+        transform: translateY(-3px);
         box-shadow: 0 16px 32px rgba(114,0,0,0.08);
         border-color: #fecdd3;
     }
@@ -170,43 +184,45 @@
     .hotspot-top {
         display: flex;
         align-items: center;
-        gap: 14px;
-        margin-bottom: 12px;
+        gap: 12px;
+        margin-bottom: 10px;
     }
 
     .hotspot-icon-circle {
-        width: 52px;
-        height: 52px;
-        border-radius: 16px;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
         background: #fff1f2;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 26px;
+        font-size: 24px;
         flex-shrink: 0;
     }
 
     .hotspot-title {
-        font-size: 16px;
+        font-size: clamp(15px, 2.5vw, 16px);
         font-weight: 800;
         color: #1f2937;
-        margin: 0 0 4px;
-        line-height: 1.3;
+        margin: 0 0 3px;
+        line-height: 1.25;
     }
 
     .hotspot-desc {
         font-size: 13px;
         color: #6b7280;
         margin: 0 0 16px;
-        line-height: 1.5;
+        line-height: 1.45;
     }
 
     .hotspot-bottom {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-top: 14px;
+        padding-top: 12px;
         border-top: 1px solid #f3f4f6;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .checkin-count-badge {
@@ -215,7 +231,7 @@
         color: #374151;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
     }
 
     .trend-pill {
@@ -225,6 +241,7 @@
         border-radius: 50px;
     }
     .trend-up { background: #dcfce7; color: #15803d; }
+    .trend-quiet { background: #fef3c7; color: #b45309; }
     .trend-down { background: #f3f4f6; color: #6b7280; }
 
     .btn-checkin {
@@ -233,10 +250,11 @@
         border: 1px solid #fbcfe8;
         padding: 8px 14px;
         border-radius: 10px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
         cursor: pointer;
         transition: all 0.2s;
+        white-space: nowrap;
     }
 
     .btn-checkin:hover {
@@ -245,28 +263,31 @@
         border-color: #E60026;
     }
 
-    /* EVENTS CATEGORY FILTER */
+    /* 4. EVENTS CATEGORY FILTER */
     .filter-pills-bar {
         display: flex;
-        gap: 10px;
+        gap: 8px;
         overflow-x: auto;
-        padding-bottom: 12px;
-        margin-bottom: 25px;
+        padding: 4px 2px 14px;
+        margin-bottom: 22px;
         scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
     }
     .filter-pills-bar::-webkit-scrollbar { display: none; }
 
     .filter-pill {
-        padding: 10px 18px;
+        padding: 9px 18px;
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 50px;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
         color: #4b5563;
         white-space: nowrap;
         cursor: pointer;
         transition: all 0.2s;
+        flex-shrink: 0;
     }
 
     .filter-pill.active, .filter-pill:hover {
@@ -276,32 +297,34 @@
         box-shadow: 0 4px 12px rgba(114,0,0,0.2);
     }
 
-    /* EVENTS GRID */
+    /* 5. EVENTS GRID */
     .events-cards-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 24px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr));
+        gap: clamp(16px, 3vw, 24px);
+        width: 100%;
     }
 
     .event-card {
         background: white;
-        border-radius: 24px;
+        border-radius: clamp(18px, 3.5vw, 24px);
         overflow: hidden;
         border: 1px solid #e5e7eb;
         box-shadow: 0 10px 30px rgba(0,0,0,0.05);
         display: flex;
         flex-direction: column;
         transition: transform 0.25s, box-shadow 0.25s;
+        width: 100%;
     }
 
     .event-card:hover {
-        transform: translateY(-6px);
+        transform: translateY(-5px);
         box-shadow: 0 20px 45px rgba(0,0,0,0.12);
     }
 
     .event-image-wrap {
         position: relative;
-        height: 190px;
+        height: clamp(170px, 32vw, 210px);
         width: 100%;
         overflow: hidden;
         background: #111;
@@ -312,6 +335,7 @@
         height: 100%;
         object-fit: cover;
         transition: transform 0.4s ease;
+        display: block;
     }
 
     .event-card:hover .event-image-wrap img {
@@ -320,29 +344,31 @@
 
     .event-category-badge {
         position: absolute;
-        top: 14px;
-        left: 14px;
-        background: rgba(0, 0, 0, 0.75);
+        top: 12px;
+        left: 12px;
+        background: rgba(0, 0, 0, 0.78);
         color: white;
         backdrop-filter: blur(8px);
-        padding: 6px 12px;
+        padding: 5px 12px;
         border-radius: 50px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
         letter-spacing: 0.3px;
+        z-index: 2;
     }
 
     .event-price-tag {
         position: absolute;
-        bottom: 14px;
-        right: 14px;
+        bottom: 12px;
+        right: 12px;
         background: #10B981;
         color: white;
-        padding: 6px 14px;
+        padding: 5px 12px;
         border-radius: 50px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
         box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+        z-index: 2;
     }
 
     .event-price-tag.paid {
@@ -350,15 +376,30 @@
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
     }
 
+    .fym-brand-tag {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        background: rgba(114, 0, 0, 0.90);
+        backdrop-filter: blur(6px);
+        color: white;
+        padding: 3px 9px;
+        border-radius: 50px;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        z-index: 2;
+    }
+
     .event-body {
-        padding: 22px;
+        padding: clamp(16px, 3.5vw, 22px);
         display: flex;
         flex-direction: column;
         flex: 1;
     }
 
     .event-title {
-        font-size: 19px;
+        font-size: clamp(17px, 3vw, 20px);
         font-weight: 900;
         color: #111827;
         margin: 0 0 10px;
@@ -368,7 +409,7 @@
     .event-meta-list {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 7px;
         font-size: 13px;
         color: #4b5563;
         margin-bottom: 16px;
@@ -378,6 +419,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        line-height: 1.35;
     }
 
     .event-spots-bar-wrap {
@@ -400,13 +442,13 @@
         font-size: 12px;
         color: #6b7280;
         font-weight: 600;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
     }
 
     .event-card-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        gap: 8px;
         margin-top: auto;
     }
 
@@ -414,11 +456,14 @@
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white;
         text-decoration: none;
-        padding: 12px;
+        padding: 11px 8px;
         border-radius: 12px;
         font-weight: 800;
-        font-size: 14px;
+        font-size: 13px;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: transform 0.2s, box-shadow 0.2s;
     }
 
@@ -431,15 +476,15 @@
         background: #25D366;
         color: white;
         text-decoration: none;
-        padding: 12px;
+        padding: 11px 8px;
         border-radius: 12px;
         font-weight: 800;
-        font-size: 14px;
+        font-size: 13px;
         text-align: center;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 5px;
         transition: background 0.2s;
     }
 
@@ -447,20 +492,108 @@
         background: #1eb857;
     }
 
-    /* MODAL: CREATE EVENT */
+    /* 6. REAL DATA EMPTY STATE */
+    .events-empty-state {
+        background: white;
+        border: 2px dashed #fca5a5;
+        border-radius: clamp(18px, 4vw, 26px);
+        padding: clamp(36px, 6vw, 60px) clamp(16px, 4vw, 40px);
+        text-align: center;
+        margin: 15px 0 35px;
+        box-shadow: 0 10px 30px rgba(114, 0, 0, 0.04);
+        width: 100%;
+    }
+
+    .empty-state-icon {
+        font-size: clamp(40px, 8vw, 54px);
+        margin-bottom: 12px;
+        display: inline-block;
+        animation: fymBounce 2.5s infinite ease-in-out;
+    }
+
+    @keyframes fymBounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+
+    .empty-state-title {
+        font-size: clamp(20px, 4vw, 26px);
+        font-weight: 900;
+        color: #111827;
+        margin: 0 0 10px;
+        letter-spacing: -0.5px;
+    }
+
+    .empty-state-desc {
+        font-size: clamp(13px, 2.5vw, 15px);
+        color: #64748b;
+        max-width: 600px;
+        margin: 0 auto 22px;
+        line-height: 1.6;
+    }
+
+    .btn-create-event-empty {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 13px 30px;
+        border-radius: 50px;
+        font-weight: 800;
+        font-size: clamp(13px, 2.5vw, 15px);
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(230,0,38,0.3);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-create-event-empty:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 30px rgba(230,0,38,0.4);
+    }
+
+    /* 7. PROMO CALLOUT */
+    .fym-promo-card {
+        background: linear-gradient(135deg, #720000 0%, #b91c1c 50%, #E60026 100%);
+        border-radius: clamp(20px, 4vw, 28px);
+        padding: clamp(28px, 5vw, 48px) clamp(16px, 4vw, 36px);
+        color: white;
+        text-align: center;
+        box-shadow: 0 20px 45px rgba(114, 0, 0, 0.22);
+        margin: clamp(35px, 5vw, 50px) 0 30px;
+        position: relative;
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .fym-promo-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        padding: 5px 16px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+
+    /* 8. MODAL: CREATE EVENT */
     .modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.7);
+        background: rgba(0,0,0,0.72);
         backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 99999;
-        padding: 15px;
+        padding: clamp(8px, 2vw, 16px);
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s ease;
+        transition: opacity 0.25s ease;
     }
 
     .modal-overlay.open {
@@ -470,42 +603,49 @@
 
     .modal-container {
         background: white;
-        border-radius: 24px;
+        border-radius: clamp(18px, 4vw, 26px);
         width: 100%;
         max-width: 650px;
-        max-height: 90vh;
+        max-height: 92vh;
         overflow-y: auto;
-        padding: 30px clamp(15px, 4vw, 35px);
+        -webkit-overflow-scrolling: touch;
+        padding: clamp(22px, 4vw, 32px) clamp(16px, 3.5vw, 30px);
         box-shadow: 0 25px 60px rgba(0,0,0,0.3);
         position: relative;
     }
 
     .modal-close-btn {
         position: absolute;
-        top: 20px;
-        right: 20px;
+        top: 14px;
+        right: 14px;
         background: #f3f4f6;
         border: none;
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         border-radius: 50%;
-        font-size: 18px;
+        font-size: 20px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
+        color: #374151;
+        transition: background 0.2s;
+    }
+
+    .modal-close-btn:hover {
+        background: #e5e7eb;
     }
 
     .form-group {
-        margin-bottom: 18px;
+        margin-bottom: 16px;
     }
 
     .form-group label {
         display: block;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
         color: #1f2937;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
     }
 
     .form-control {
@@ -513,10 +653,11 @@
         padding: 12px 14px;
         border: 1px solid #d1d5db;
         border-radius: 12px;
-        font-size: 14px;
+        font-size: 16px; /* 16px prevents iOS Safari auto-zoom */
         box-sizing: border-box;
         outline: none;
         transition: border-color 0.2s;
+        background: white;
     }
 
     .form-control:focus {
@@ -527,17 +668,17 @@
     .form-grid-2 {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 14px;
+        gap: 12px;
     }
 
     .fee-notice-box {
         background: #fffbeb;
         border: 1px solid #fde68a;
         border-radius: 12px;
-        padding: 14px;
+        padding: 12px 14px;
         font-size: 13px;
         color: #92400e;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
         line-height: 1.5;
     }
 
@@ -546,12 +687,53 @@
         color: white;
         border: none;
         width: 100%;
-        padding: 16px;
+        padding: 15px;
         border-radius: 14px;
-        font-size: 16px;
+        font-size: clamp(14px, 3vw, 16px);
         font-weight: 900;
         cursor: pointer;
         box-shadow: 0 8px 20px rgba(230,0,38,0.3);
+        transition: transform 0.15s;
+        min-height: 48px;
+    }
+
+    .btn-submit-create:active {
+        transform: scale(0.98);
+    }
+
+    /* RESPONSIVE MEDIA QUERIES */
+    @media (max-width: 640px) {
+        .form-grid-2 {
+            grid-template-columns: 1fr !important;
+            gap: 0 !important;
+        }
+        .hero-action-btns {
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+        .btn-create-event, .btn-balloon-shortcut {
+            width: 100% !important;
+        }
+        .hotspots-grid {
+            grid-template-columns: 1fr !important;
+        }
+        .events-cards-grid {
+            grid-template-columns: 1fr !important;
+        }
+    }
+
+    @media (max-width: 380px) {
+        .event-card-actions {
+            grid-template-columns: 1fr !important;
+        }
+        .hotspot-bottom {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+        .btn-checkin {
+            width: 100% !important;
+            text-align: center !important;
+        }
     }
 </style>
 
@@ -562,7 +744,7 @@
         <div class="hero-badge">📍 Campus Social Radar</div>
         <h1>Live Hotspots & Campus Events</h1>
         <p>
-            Discover where students are hanging out in real time, create your own campus bashes, pool parties, or house gatherings, and RSVP with instant digital QR passes!
+            Discover where MMUST students are hanging out in real time, create your own campus bashes, pool parties, or house gatherings, and RSVP with instant digital QR passes!
         </p>
         <div class="hero-action-btns">
             <button class="btn-create-event" onclick="openCreateModal()">
@@ -577,7 +759,7 @@
     <!-- 2. LIVE CAMPUS HOTSPOTS -->
     <div class="section-header-wrap">
         <h2>🔥 Live Campus Hotspots</h2>
-        <span style="font-size: 13px; color: #6b7280; font-weight: 600;">Updated in real time</span>
+        <span style="font-size: 13px; color: #6b7280; font-weight: 600;">Real student check-ins</span>
     </div>
 
     <div class="hotspots-grid">
@@ -588,8 +770,8 @@
                     <div class="hotspot-icon-circle">{{ spot.icon }}</div>
                     <div>
                         <h3 class="hotspot-title">{{ spot.name }}</h3>
-                        <span class="trend-pill {% if spot.trend == 'up' %}trend-up{% else %}trend-down{% endif %}">
-                            {% if spot.trend == 'up' %}🔥 Trending{% else %}Quiet{% endif %}
+                        <span class="trend-pill {% if spot.trend == 'up' %}trend-up{% else %}trend-quiet{% endif %}">
+                            {% if spot.trend == 'up' %}🔥 Active{% else %}🌿 Chill{% endif %}
                         </span>
                     </div>
                 </div>
@@ -628,7 +810,7 @@
         <button class="filter-pill" onclick="filterEvents('rave', this)">Club Raves 🎧</button>
     </div>
 
-    <!-- EVENTS GRID -->
+    <!-- EVENTS GRID (REAL DATA ONLY) -->
     <div class="events-cards-grid" id="events-grid">
         {% for evt in events %}
         <div class="event-card" data-category="{{ evt.category }}">
@@ -638,7 +820,7 @@
                 <div class="event-price-tag {% if evt.price > 0 %}paid{% endif %}">
                     {{ evt.price_display }}
                 </div>
-                <div style="position: absolute; bottom: 12px; left: 12px; background: rgba(114, 0, 0, 0.88); backdrop-filter: blur(6px); color: white; padding: 3px 9px; border-radius: 50px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; z-index: 2;">
+                <div class="fym-brand-tag">
                     ✨ MADE BY FINDYOURMATCH
                 </div>
             </div>
@@ -674,7 +856,7 @@
                     <a href="/events/{{ evt.id }}" class="btn-view-event">
                         Get Ticket / RSVP
                     </a>
-                    {% set share_text = "🎉 You're invited to " ~ evt.title ~ "!\n🗓️ " ~ evt.date_str ~ "\n📍 " ~ evt.venue_name ~ "\n🎟️ " ~ evt.price_display ~ "\n👉 RSVP / Get Ticket: " ~ base_url ~ "/events/" ~ evt.id %}
+                    {% set share_text = "🎉 You're invited to " ~ evt.title ~ "!\n🗓️ " ~ (evt.date_str or evt.date) ~ "\n📍 " ~ evt.venue_name ~ "\n🎟️ " ~ evt.price_display ~ "\n👉 RSVP / Get Ticket: " ~ base_url ~ "/events/" ~ evt.id %}
                     <a href="https://api.whatsapp.com/send?text={{ share_text|urlencode }}" target="_blank" class="btn-share-event-wa" title="Share with campus friends on WhatsApp">
                         <span>💬</span> Share
                     </a>
@@ -684,23 +866,46 @@
         {% endfor %}
     </div>
 
-    <!-- 3.5. MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
-    <div style="background: linear-gradient(135deg, #720000 0%, #b91c1c 50%, #E60026 100%); border-radius: 28px; padding: clamp(30px, 5vw, 50px) clamp(20px, 4vw, 35px); color: white; text-align: center; box-shadow: 0 20px 45px rgba(114, 0, 0, 0.22); margin: 50px 0 30px; position: relative; overflow: hidden;">
-        <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); padding: 5px 18px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px;">
+    <!-- REAL DATA EMPTY STATE (WHEN NO EVENTS ARE POSTED YET) -->
+    {% if not events %}
+    <div class="events-empty-state" id="emptyStateBanner">
+        <div class="empty-state-icon">🎉</div>
+        <h3 class="empty-state-title">No Campus Events Listed Yet</h3>
+        <p class="empty-state-desc">
+            Be the campus trailblazer! Host the semester's first party, pool bash, birthday celebration, or study mixer. All events receive instant digital ticket passes with QR & LOVI door codes, automated M-Pesa payouts, and viral WhatsApp share banners.
+        </p>
+        <button class="btn-create-event-empty" onclick="openCreateModal()">
+            <span>➕</span> Host The First Event Now
+        </button>
+    </div>
+    {% endif %}
+
+    <div id="categoryEmptyPrompt" class="events-empty-state" style="display: none; padding: 30px 20px;">
+        <div style="font-size: 36px; margin-bottom: 8px;">🎈</div>
+        <h4 style="margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #1f2937;">No events found in this category</h4>
+        <p style="margin: 0 0 16px; font-size: 13px; color: #64748b;">Be the first comrade to host an event under this category!</p>
+        <button class="btn-create-event-empty" onclick="openCreateModal()" style="padding: 10px 22px; font-size: 13px;">
+            <span>➕</span> Host This Event
+        </button>
+    </div>
+
+    <!-- 4. MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
+    <div class="fym-promo-card">
+        <div class="fym-promo-badge">
             ✨ MADE BY FINDYOURMATCH
         </div>
-        <h2 style="margin: 0 0 12px; font-size: clamp(24px, 4.5vw, 34px); font-weight: 900; letter-spacing: -0.5px;">
+        <h2 style="margin: 0 0 12px; font-size: clamp(22px, 4.5vw, 32px); font-weight: 900; letter-spacing: -0.5px;">
             Want to Join FindYourMatch? 💖
         </h2>
-        <p style="margin: 0 auto 24px; font-size: clamp(14px, 2.5vw, 16px); opacity: 0.95; line-height: 1.6; max-width: 580px;">
+        <p style="margin: 0 auto 22px; font-size: clamp(14px, 2.5vw, 16px); opacity: 0.95; line-height: 1.6; max-width: 580px;">
             The pulse of campus life! Discover who likes you, find your campus crush, sync class timetables, and attend exclusive student parties and mixers.
         </p>
         <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-            <a href="/signup" style="background: white; color: #720000; text-decoration: none; padding: 14px 34px; border-radius: 50px; font-weight: 900; font-size: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.2s;">
+            <a href="/signup" style="background: white; color: #720000; text-decoration: none; padding: 13px 30px; border-radius: 50px; font-weight: 900; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.2s;">
                 🚀 Create Free Profile & Join &rarr;
             </a>
             {% if not user_id %}
-            <a href="/login" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.4); text-decoration: none; padding: 14px 26px; border-radius: 50px; font-weight: 800; font-size: 15px; backdrop-filter: blur(8px);">
+            <a href="/login" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.4); text-decoration: none; padding: 13px 24px; border-radius: 50px; font-weight: 800; font-size: 14px; backdrop-filter: blur(8px);">
                 🔑 Already Have an Account? Log In
             </a>
             {% endif %}
@@ -709,15 +914,15 @@
 
 </div>
 
-<!-- 4. MODAL: CREATE EVENT -->
-<div class="modal-overlay" id="createEventModal">
+<!-- 5. MODAL: CREATE EVENT -->
+<div class="modal-overlay" id="createEventModal" onclick="if(event.target === this) closeCreateModal()">
     <div class="modal-container">
         <button class="modal-close-btn" onclick="closeCreateModal()">&times;</button>
         
-        <div style="text-align: center; margin-bottom: 24px;">
-            <div style="font-size: 36px; margin-bottom: 8px;">🎉</div>
-            <h2 style="margin: 0 0 6px; font-size: 24px; font-weight: 900; color: #111827;">Create a Campus Event</h2>
-            <p style="margin: 0; font-size: 14px; color: #6b7280;">Host a bash, pool party, birthday, or house chill with shareable link and ticket QR passes!</p>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 34px; margin-bottom: 6px;">🎉</div>
+            <h2 style="margin: 0 0 6px; font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #111827;">Create a Campus Event</h2>
+            <p style="margin: 0; font-size: 13px; color: #6b7280;">Host a bash, pool party, birthday, or house chill with shareable link and ticket QR passes!</p>
         </div>
 
         <div class="fee-notice-box">
@@ -728,7 +933,7 @@
             
             <div class="form-group">
                 <label>Event Title *</label>
-                <input type="text" name="title" class="form-control" placeholder="e.g. Neon Nights Pool Party 2026" required>
+                <input type="text" name="title" class="form-control" placeholder="e.g. Kakamega Sunset Pool Party 2026" required>
             </div>
 
             <div class="form-grid-2">
@@ -789,7 +994,7 @@
             <div class="form-grid-2">
                 <div class="form-group">
                     <label>Max Guest Capacity</label>
-                    <input type="number" name="capacity" class="form-control" placeholder="100" min="10">
+                    <input type="number" name="capacity" class="form-control" placeholder="100" min="5" value="100">
                 </div>
                 <div class="form-group">
                     <label>Organizer Phone / WhatsApp *</label>
@@ -801,7 +1006,7 @@
                 <label>Event Flyer / Poster Image</label>
                 <input type="file" name="banner_file" class="form-control" accept="image/*">
                 <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
-                    Uploaded to Firebase Cloud Storage. If left blank, a stylish party banner will be chosen automatically.
+                    Uploaded to Firebase Cloud Storage. If left blank, a stylish category banner will be assigned automatically.
                 </small>
             </div>
 
@@ -820,10 +1025,12 @@
 <script>
     function openCreateModal() {
         document.getElementById('createEventModal').classList.add('open');
+        document.body.style.overflow = 'hidden';
     }
 
     function closeCreateModal() {
         document.getElementById('createEventModal').classList.remove('open');
+        document.body.style.overflow = '';
     }
 
     function togglePriceInput(val) {
@@ -835,13 +1042,20 @@
         btn.classList.add('active');
 
         const cards = document.querySelectorAll('.event-card');
+        let visibleCount = 0;
         cards.forEach(card => {
             if (category === 'all' || card.getAttribute('data-category') === category) {
                 card.style.display = 'flex';
+                visibleCount++;
             } else {
                 card.style.display = 'none';
             }
         });
+
+        const prompt = document.getElementById('categoryEmptyPrompt');
+        if (prompt) {
+            prompt.style.display = (visibleCount === 0 && cards.length > 0) ? 'block' : 'none';
+        }
     }
 
     // Real-time Hotspot Check-in

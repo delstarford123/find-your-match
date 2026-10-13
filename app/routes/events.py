@@ -61,104 +61,24 @@ CATEGORY_DEFAULTS = {
 }
 
 DEFAULT_HOTSPOTS = [
-    {"id": "spot_lib", "name": "MMUST Library Cafe & Foyer", "count": 28, "trend": "up", "icon": "☕", "description": "Quiet study desks & casual catch-ups"},
-    {"id": "spot_sc", "name": "Student Center Main Hub", "count": 54, "trend": "up", "icon": "🍔", "description": "High campus traffic, fast food & banter"},
-    {"id": "spot_sig", "name": "Signature Lounge & Club", "count": 42, "trend": "up", "icon": "🍸", "description": "Evening cocktails, DJ beats & weekend vibes"},
-    {"id": "spot_sports", "name": "Sports Pavilion & Track", "count": 22, "trend": "up", "icon": "🏀", "description": "Afternoon basketball & outdoor fitness"},
-    {"id": "spot_boma", "name": "Boma Gardens & Grill", "count": 18, "trend": "down", "icon": "🌳", "description": "Chill weekend barbeque & open breeze"}
+    {"id": "spot_lib", "name": "MMUST Library Cafe & Foyer", "count": 0, "trend": "quiet", "icon": "☕", "description": "Quiet study desks & casual catch-ups"},
+    {"id": "spot_sc", "name": "Student Center Main Hub", "count": 0, "trend": "quiet", "icon": "🍔", "description": "High campus traffic, fast food & banter"},
+    {"id": "spot_sig", "name": "Signature Lounge & Club", "count": 0, "trend": "quiet", "icon": "🍸", "description": "Evening cocktails, DJ beats & weekend vibes"},
+    {"id": "spot_sports", "name": "Sports Pavilion & Track", "count": 0, "trend": "quiet", "icon": "🏀", "description": "Afternoon basketball & outdoor fitness"},
+    {"id": "spot_boma", "name": "Boma Gardens & Grill", "count": 0, "trend": "quiet", "icon": "🌳", "description": "Chill weekend barbeque & open breeze"}
 ]
 
 
 def ensure_seed_data():
-    """Populates initial sample hotspots and events if the database nodes are empty."""
+    """Ensures base campus hotspot locations exist in database with real baseline."""
     try:
         hotspots_ref = db.reference('hotspots')
         existing_hotspots = hotspots_ref.get()
         if not existing_hotspots:
             for spot in DEFAULT_HOTSPOTS:
                 hotspots_ref.child(spot['id']).set(spot)
-
-        events_ref = db.reference('events')
-        existing_events = events_ref.get()
-        if not existing_events:
-            seed_events = [
-                {
-                    "id": "evt_neon_pool_2026",
-                    "title": "Neon Nights Pool Party 2026",
-                    "category": "pool_party",
-                    "category_label": "Pool Party 🏊",
-                    "description": "The ultimate campus pool party! Glow sticks, live DJ set by DJ Flexx, poolside cocktails and barbecue. Bring your swimwear and good vibes.",
-                    "date": "2026-10-24",
-                    "date_str": "Saturday, Oct 24, 2026",
-                    "time_str": "3:00 PM - 11:00 PM",
-                    "venue_name": "Kakamega Forest Resort Villa",
-                    "location_url": "https://maps.google.com/?q=Kakamega+Forest+Resort",
-                    "dress_code": "Neon & Stylish Swimwear",
-                    "price_type": "free",
-                    "price": 0,
-                    "price_display": "Free Admission (Guestlist Required)",
-                    "capacity": 150,
-                    "attendees_count": 68,
-                    "organizer_name": "MMUST Entertainment Guild",
-                    "organizer_phone": "254707605751",
-                    "banner_img": "https://images.unsplash.com/photo-1533105079780-92b9be482077?w=1200&q=80",
-                    "maintenance_fee_paid": True,
-                    "created_at": int(time.time() * 1000),
-                    "amenities": ["Heated Pool", "Live DJ", "Free Glowsticks", "Security", "Cocktail Bar"]
-                },
-                {
-                    "id": "evt_all_white_bash",
-                    "title": "All-White Semester Opening Bash",
-                    "category": "bash",
-                    "category_label": "Campus Bash 🎉",
-                    "description": "Step into the new semester in pure style! An exclusive all-white party celebrating campus friendship and matches. Photo booth, red carpet entry.",
-                    "date": "2026-10-30",
-                    "date_str": "Friday, Oct 30, 2026",
-                    "time_str": "7:00 PM Till Late",
-                    "venue_name": "Signature VIP Club Kakamega",
-                    "location_url": "https://maps.google.com/?q=Signature+Club+Kakamega",
-                    "dress_code": "Strictly All-White Chic",
-                    "price_type": "paid",
-                    "price": 200,
-                    "price_display": "200 KES (Early Bird)",
-                    "capacity": 200,
-                    "attendees_count": 94,
-                    "organizer_name": "Delstarford Works & FYM",
-                    "organizer_phone": "254707605751",
-                    "banner_img": "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1200&q=80",
-                    "maintenance_fee_paid": True,
-                    "created_at": int(time.time() * 1000),
-                    "amenities": ["VIP Booths", "Red Carpet Photos", "Complimentary Welcome Drink", "Security Guaranteed"]
-                },
-                {
-                    "id": "evt_speed_dating_mixer",
-                    "title": "Speed Dating & Blind Match Mixer",
-                    "category": "speed_dating",
-                    "category_label": "Speed Dating 💘",
-                    "description": "5-minute mini dates, icebreaker games, and instant AI match syncing. Find your campus crush before the semester ends!",
-                    "date": "2026-11-06",
-                    "date_str": "Friday, Nov 06, 2026",
-                    "time_str": "6:00 PM - 9:30 PM",
-                    "venue_name": "MMUST Student Center Upper Terrace",
-                    "location_url": "https://maps.google.com/?q=MMUST+Student+Center",
-                    "dress_code": "Smart Casual & Confident",
-                    "price_type": "free",
-                    "price": 0,
-                    "price_display": "Free for FYM Verified Students",
-                    "capacity": 80,
-                    "attendees_count": 52,
-                    "organizer_name": "Find Your Match AI Campus Team",
-                    "organizer_phone": "254707605751",
-                    "banner_img": "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=1200&q=80",
-                    "maintenance_fee_paid": True,
-                    "created_at": int(time.time() * 1000),
-                    "amenities": ["AI Compatibility Cards", "Free Snacks & Mocktails", "Matchmaking Wingman"]
-                }
-            ]
-            for evt in seed_events:
-                events_ref.child(evt['id']).set(evt)
     except Exception as e:
-        print(f"Error seeding events/hotspots: {e}")
+        logger.warning(f"Error ensuring hotspots: {e}")
 
 
 # ========================================================
@@ -168,28 +88,44 @@ def ensure_seed_data():
 @events_bp.route('/events')
 def campus_life():
     """
-    Unified Campus Life Hub showing Live Hotspots & Interactive Campus Events.
+    Unified Campus Life Hub showing Live Hotspots & Real Campus Events.
     Accessible to both logged-in users and guests.
     """
     ensure_seed_data()
     user_id = session.get('user_id')
     user_name = session.get('user_name', 'Student').split(' ')[0] if session.get('user_name') else 'Guest'
     
-    # Fetch hotspots
+    # Fetch real hotspots and calculate real check-in counts
     hotspots_dict = db.reference('hotspots').get() or {}
-    hotspots = list(hotspots_dict.values()) if isinstance(hotspots_dict, dict) else DEFAULT_HOTSPOTS
+    checkins_dict = db.reference('hotspot_checkins').get() or {}
     
-    # Fetch events
+    hotspots = []
+    if isinstance(hotspots_dict, dict) and hotspots_dict:
+        for sid, sdata in hotspots_dict.items():
+            if isinstance(sdata, dict):
+                sdata['id'] = sid
+                spot_checkins = checkins_dict.get(sid, {}) if isinstance(checkins_dict, dict) else {}
+                real_count = len(spot_checkins) if isinstance(spot_checkins, dict) else int(sdata.get('count', 0) or 0)
+                sdata['count'] = real_count
+                sdata['trend'] = 'up' if real_count > 0 else 'quiet'
+                hotspots.append(sdata)
+    else:
+        hotspots = DEFAULT_HOTSPOTS
+    
+    # Fetch real events and compute accurate attendee numbers from real RSVPs
     events_dict = db.reference('events').get() or {}
+    rsvps_all = db.reference('events_rsvps').get() or {}
     events = []
     if isinstance(events_dict, dict):
         for eid, edata in events_dict.items():
             if isinstance(edata, dict):
                 edata['id'] = eid
-                # Calculate spots remaining
+                # Calculate real attendees count from actual RSVP records
+                event_rsvps = rsvps_all.get(eid, {}) if isinstance(rsvps_all, dict) else {}
+                real_att = sum(1 + int(r.get('plus_ones', 0) or 0) for r in event_rsvps.values() if isinstance(r, dict)) if isinstance(event_rsvps, dict) else 0
+                edata['attendees_count'] = real_att
                 cap = int(edata.get('capacity', 100) or 100)
-                att = int(edata.get('attendees_count', 0) or 0)
-                edata['spots_remaining'] = max(0, cap - att)
+                edata['spots_remaining'] = max(0, cap - real_att)
                 events.append(edata)
     
     # Sort events by created_at descending or date
@@ -241,10 +177,11 @@ def view_event(event_id):
                     "timestamp": a_data.get('timestamp')
                 })
     
-    attendees_count = len(attendees)
+    # Compute real attendees including registered plus ones
+    attendees_count = sum(1 + int(a_data.get('plus_ones', 0) or 0) for a_data in rsvps_dict.values() if isinstance(a_data, dict)) if isinstance(rsvps_dict, dict) else 0
     capacity = int(event.get('capacity', 100) or 100)
     spots_remaining = max(0, capacity - attendees_count)
-    capacity_percent = min(100, int((attendees_count / capacity) * 100)) if capacity > 0 else 50
+    capacity_percent = min(100, int((attendees_count / capacity) * 100)) if capacity > 0 else 0
     
     # Fetch discussion board messages
     discussions_dict = db.reference(f'events_discussions/{event_id}').get() or {}

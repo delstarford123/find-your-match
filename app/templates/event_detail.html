@@ -7,7 +7,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ event_url }}">
 <meta property="og:title" content="{{ event.title }} | Campus Event">
-<meta property="og:description" content="🗓️ {{ event.date_str }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
+<meta property="og:description" content="🗓️ {{ event.date_str or event.date }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
 <meta property="og:image" content="{{ event.banner_img }}">
 <meta property="og:image:secure_url" content="{{ event.banner_img }}">
 <meta property="og:image:width" content="1200">
@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="{{ event_url }}">
 <meta name="twitter:title" content="{{ event.title }} | Campus Event">
-<meta name="twitter:description" content="🗓️ {{ event.date_str }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
+<meta name="twitter:description" content="🗓️ {{ event.date_str or event.date }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
 <meta name="twitter:image" content="{{ event.banner_img }}">
 {% endblock %}
 
@@ -30,14 +30,26 @@
         --fym-emerald: #10b981;
     }
 
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
     .event-page-container {
-        max-width: 1000px;
+        max-width: 1040px;
         margin: 0 auto;
-        padding: 15px 15px 70px;
+        padding: clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 18px) 70px;
+        width: 100%;
+        overflow-x: hidden;
     }
 
     .back-nav-bar {
-        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+        width: 100%;
     }
 
     .back-link {
@@ -45,10 +57,10 @@
         align-items: center;
         gap: 6px;
         color: #4b5563;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
         text-decoration: none;
-        padding: 6px 12px;
+        padding: 7px 14px;
         background: white;
         border: 1px solid #e5e7eb;
         border-radius: 50px;
@@ -59,25 +71,40 @@
         color: #111;
     }
 
+    .fym-nav-badge {
+        background: rgba(114, 0, 0, 0.08);
+        color: #720000;
+        border: 1px solid rgba(114, 0, 0, 0.2);
+        padding: 7px 14px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     @keyframes fymSpin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
 
-    /* Main Flyer Hero Card */
+    /* 1. MAIN FLYER HERO CARD */
     .event-hero-card {
         background: white;
-        border-radius: 28px;
+        border-radius: clamp(18px, 4vw, 28px);
         overflow: hidden;
         border: 1px solid #e5e7eb;
-        box-shadow: 0 20px 45px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.07);
+        margin-bottom: clamp(20px, 3.5vw, 30px);
+        width: 100%;
     }
 
     .hero-banner-image-wrap {
         position: relative;
         width: 100%;
-        max-height: 420px;
+        height: clamp(200px, 42vw, 420px);
         background: #111;
         overflow: hidden;
     }
@@ -85,55 +112,70 @@
     .hero-banner-image-wrap img {
         width: 100%;
         height: 100%;
-        max-height: 420px;
         object-fit: cover;
         display: block;
     }
 
     .hero-banner-overlay-badges {
         position: absolute;
-        top: 20px;
-        left: 20px;
-        right: 20px;
+        top: 12px;
+        left: 12px;
+        right: 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
         pointer-events: none;
+        z-index: 2;
     }
 
     .badge-category {
-        background: rgba(0, 0, 0, 0.75);
+        background: rgba(0, 0, 0, 0.78);
         color: white;
         backdrop-filter: blur(8px);
-        padding: 8px 16px;
+        padding: 6px 14px;
         border-radius: 50px;
-        font-size: 13px;
+        font-size: clamp(11px, 2.2vw, 13px);
         font-weight: 800;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
     }
 
     .badge-price {
         background: #10B981;
         color: white;
-        padding: 8px 18px;
+        padding: 6px 16px;
         border-radius: 50px;
-        font-size: 14px;
+        font-size: clamp(12px, 2.4vw, 14px);
         font-weight: 900;
         box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
     }
     .badge-price.paid { background: #f59e0b; }
 
+    .badge-fym-tag {
+        background: rgba(114, 0, 0, 0.90);
+        backdrop-filter: blur(8px);
+        color: white;
+        padding: 5px 12px;
+        border-radius: 50px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+    }
+
     /* Event Info Body */
     .event-hero-content {
-        padding: clamp(24px, 4vw, 40px);
+        padding: clamp(18px, 4vw, 36px);
+        width: 100%;
     }
 
     .event-main-title {
-        font-size: clamp(26px, 5vw, 40px);
+        font-size: clamp(22px, 5vw, 36px);
         font-weight: 900;
         color: #0f172a;
-        margin: 0 0 16px;
-        line-height: 1.2;
+        margin: 0 0 12px;
+        line-height: 1.22;
         letter-spacing: -0.5px;
     }
 
@@ -141,60 +183,67 @@
     .countdown-bar {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
-        border-radius: 18px;
-        padding: 18px;
+        border-radius: clamp(14px, 3vw, 18px);
+        padding: clamp(12px, 2.5vw, 18px);
         display: flex;
         justify-content: space-around;
         text-align: center;
-        margin-bottom: 28px;
+        margin-bottom: 24px;
+        gap: 4px;
+        width: 100%;
     }
 
     .countdown-item {
         display: flex;
         flex-direction: column;
+        flex: 1;
     }
 
     .countdown-number {
-        font-size: clamp(22px, 4vw, 32px);
+        font-size: clamp(18px, 4.5vw, 30px);
         font-weight: 900;
         color: var(--fym-crimson);
         font-variant-numeric: tabular-nums;
+        line-height: 1.1;
     }
 
     .countdown-label {
-        font-size: 11px;
+        font-size: clamp(9px, 2vw, 11px);
         font-weight: 800;
         color: #64748b;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
+        margin-top: 2px;
     }
 
-    /* Two-column layout */
+    /* 2. TWO-COLUMN LAYOUT */
     .event-grid-layout {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 30px;
+        gap: clamp(20px, 3vw, 30px);
+        width: 100%;
     }
 
-    @media (min-width: 850px) {
+    @media (min-width: 992px) {
         .event-grid-layout {
-            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-columns: 1.15fr 0.85fr;
         }
     }
 
-    /* Specs Grid */
+    /* Specs Card */
     .specs-card {
         background: white;
-        border-radius: 24px;
-        padding: 26px;
+        border-radius: clamp(18px, 3.5vw, 24px);
+        padding: clamp(18px, 3.5vw, 26px);
         border: 1px solid #e5e7eb;
         box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-        margin-bottom: 30px;
+        margin-bottom: clamp(20px, 3vw, 28px);
+        width: 100%;
     }
 
     .specs-card h3 {
-        margin: 0 0 20px;
-        font-size: 18px;
+        margin: 0 0 16px;
+        font-size: clamp(16px, 3vw, 18px);
         font-weight: 900;
         color: #111827;
         display: flex;
@@ -205,17 +254,19 @@
     .spec-row {
         display: flex;
         align-items: flex-start;
-        gap: 14px;
+        gap: 12px;
         padding: 12px 0;
         border-bottom: 1px solid #f3f4f6;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
     .spec-row:last-child { border-bottom: none; }
 
     .spec-icon {
         font-size: 20px;
         background: #f3f4f6;
-        width: 42px;
-        height: 42px;
+        width: 40px;
+        height: 40px;
         border-radius: 12px;
         display: flex;
         align-items: center;
@@ -224,51 +275,61 @@
     }
 
     .spec-label {
-        font-size: 12px;
-        font-weight: 700;
+        font-size: 11px;
+        font-weight: 800;
         color: #6b7280;
         text-transform: uppercase;
         margin-bottom: 2px;
+        letter-spacing: 0.5px;
     }
 
     .spec-val {
-        font-size: 15px;
+        font-size: clamp(14px, 2.5vw, 15px);
         font-weight: 800;
         color: #1f2937;
+        line-height: 1.35;
     }
 
     .btn-maps-pin {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
         background: #0f172a;
         color: white;
         text-decoration: none;
-        padding: 8px 14px;
+        padding: 9px 14px;
         border-radius: 8px;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
-        margin-top: 6px;
+        margin-top: 8px;
         transition: background 0.2s;
+        width: 100%;
     }
     .btn-maps-pin:hover { background: #334155; }
 
-    /* RSVP & Ticket Box */
+    /* 3. TICKET ACTION BOX */
     .ticket-action-box {
         background: white;
-        border-radius: 24px;
-        padding: 26px;
+        border-radius: clamp(18px, 4vw, 24px);
+        padding: clamp(18px, 4vw, 28px);
         border: 1px solid #e5e7eb;
         box-shadow: 0 12px 30px rgba(0,0,0,0.06);
-        position: sticky;
-        top: 20px;
+        width: 100%;
+    }
+
+    @media (min-width: 992px) {
+        .ticket-action-box {
+            position: sticky;
+            top: 20px;
+        }
     }
 
     .ticket-header-title {
-        font-size: 20px;
+        font-size: clamp(18px, 3.5vw, 20px);
         font-weight: 900;
         color: #111827;
-        margin: 0 0 8px;
+        margin: 0 0 6px;
     }
 
     .spots-gauge-wrap {
@@ -291,7 +352,7 @@
         font-size: 12px;
         font-weight: 700;
         color: #64748b;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
     }
 
     .form-field {
@@ -311,10 +372,11 @@
         padding: 12px 14px;
         border: 1px solid #d1d5db;
         border-radius: 12px;
-        font-size: 14px;
+        font-size: 16px; /* 16px prevents iOS auto-zoom */
         box-sizing: border-box;
         outline: none;
         transition: border-color 0.2s;
+        background: white;
     }
     .form-input:focus {
         border-color: #E60026;
@@ -326,58 +388,63 @@
         color: white;
         border: none;
         width: 100%;
-        padding: 16px;
+        padding: 15px;
         border-radius: 14px;
-        font-size: 16px;
+        font-size: clamp(14px, 3vw, 16px);
         font-weight: 900;
         cursor: pointer;
         box-shadow: 0 8px 20px rgba(230,0,38,0.3);
-        margin-top: 10px;
+        margin-top: 8px;
         transition: transform 0.2s;
+        min-height: 48px;
     }
     .btn-confirm-rsvp:hover { transform: translateY(-2px); }
+    .btn-confirm-rsvp:active { transform: scale(0.98); }
 
     /* DIGITAL PASS CONFIRMED VIEW */
     .digital-ticket-card {
         background: #faf5ff;
         border: 2px dashed #a855f7;
-        border-radius: 20px;
-        padding: 24px;
+        border-radius: clamp(16px, 3.5vw, 20px);
+        padding: clamp(18px, 4vw, 24px);
         text-align: center;
         margin-top: 15px;
+        width: 100%;
     }
 
     .ticket-code-display {
         font-family: monospace;
-        font-size: 22px;
+        font-size: clamp(16px, 4.5vw, 22px);
         font-weight: 900;
         color: #720000;
-        letter-spacing: 2px;
-        margin: 8px 0;
+        letter-spacing: 1.5px;
+        margin: 6px 0;
+        word-break: break-all;
     }
 
     /* Social Share Buttons */
     .share-suite-box {
-        margin-top: 24px;
-        padding-top: 20px;
+        margin-top: 22px;
+        padding-top: 18px;
         border-top: 1px solid #f1f5f9;
+        width: 100%;
     }
 
     .btn-wa-share-big {
         background: #25D366;
         color: white;
         text-decoration: none;
-        padding: 14px 20px;
-        border-radius: 14px;
+        padding: 13px 18px;
+        border-radius: 12px;
         font-weight: 800;
-        font-size: 15px;
+        font-size: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         width: 100%;
         box-sizing: border-box;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
     }
 
@@ -385,7 +452,7 @@
         background: #f8fafc;
         color: #334155;
         border: 1px solid #cbd5e1;
-        padding: 12px;
+        padding: 11px;
         border-radius: 12px;
         font-weight: 700;
         font-size: 13px;
@@ -401,26 +468,26 @@
     .attendees-avatars-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
         margin-top: 12px;
     }
 
     .attendee-pill {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 7px;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 50px;
-        padding: 4px 12px 4px 4px;
-        font-size: 13px;
+        padding: 4px 11px 4px 4px;
+        font-size: 12px;
         font-weight: 700;
         color: #334155;
     }
 
     .attendee-pill img {
-        width: 28px;
-        height: 28px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         object-fit: cover;
     }
@@ -428,22 +495,24 @@
     /* Discussion Wall */
     .comment-item {
         background: #f8fafc;
-        border-radius: 14px;
-        padding: 14px;
-        margin-bottom: 12px;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
         border: 1px solid #e2e8f0;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 </style>
 
 <div class="event-page-container">
 
     <!-- Top Back Navigation -->
-    <div class="back-nav-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div class="back-nav-bar">
         <a href="/campus-life" class="back-link">
-            <span>&larr;</span> Back to Campus Events & Hotspots
+            <span>&larr;</span> Back to Campus Events
         </a>
-        <a href="/signup" style="background: rgba(114, 0, 0, 0.08); color: #720000; border: 1px solid rgba(114, 0, 0, 0.2); padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
-            <span>✨ Made by FINDYOURMATCH</span> • <span style="text-decoration: underline;">Want to Join?</span>
+        <a href="/signup" class="fym-nav-badge">
+            <span>✨ Made by FINDYOURMATCH</span> • <span style="text-decoration: underline;">Join Free</span>
         </a>
     </div>
 
@@ -456,15 +525,15 @@
                 <span class="badge-price {% if event.price > 0 %}paid{% endif %}">
                     {{ event.price_display }}
                 </span>
-                <span style="background: rgba(114, 0, 0, 0.9); backdrop-filter: blur(8px); color: white; padding: 6px 14px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
-                    ✨ MADE BY FINDYOURMATCH
+                <span class="badge-fym-tag">
+                    ✨ FINDYOURMATCH
                 </span>
             </div>
         </div>
 
         <div class="event-hero-content">
             <h1 class="event-main-title">{{ event.title }}</h1>
-            <p style="font-size: 16px; color: #4b5563; line-height: 1.7; margin: 0 0 24px;">
+            <p style="font-size: clamp(14px, 2.5vw, 16px); color: #4b5563; line-height: 1.65; margin: 0 0 20px;">
                 {{ event.description }}
             </p>
 
@@ -498,11 +567,11 @@
             
             <!-- SPECS CARD -->
             <div class="specs-card">
-                <h3>📋 Event Details & Location</h3>
+                <h3>📋 Event Details & Venue</h3>
                 
                 <div class="spec-row">
                     <div class="spec-icon">🗓️</div>
-                    <div>
+                    <div style="flex: 1;">
                         <div class="spec-label">Date & Time</div>
                         <div class="spec-val">{{ event.date_str or event.date }} @ {{ event.time_str }}</div>
                     </div>
@@ -514,14 +583,14 @@
                         <div class="spec-label">Venue Location</div>
                         <div class="spec-val">{{ event.venue_name }}</div>
                         <a href="{{ event.location_url }}" target="_blank" class="btn-maps-pin">
-                            🗺️ Open Location Pin in Google Maps
+                            🗺️ Open Location in Google Maps
                         </a>
                     </div>
                 </div>
 
                 <div class="spec-row">
                     <div class="spec-icon">👗</div>
-                    <div>
+                    <div style="flex: 1;">
                         <div class="spec-label">Dress Code & Theme</div>
                         <div class="spec-val">{{ event.dress_code or "Smart Casual & Friendly" }}</div>
                     </div>
@@ -529,7 +598,7 @@
 
                 <div class="spec-row">
                     <div class="spec-icon">👤</div>
-                    <div>
+                    <div style="flex: 1;">
                         <div class="spec-label">Event Organizer</div>
                         <div class="spec-val">{{ event.organizer_name }}</div>
                         {% if event.organizer_phone %}
@@ -542,7 +611,7 @@
 
                 <div class="spec-row">
                     <div class="spec-icon">🛡️</div>
-                    <div>
+                    <div style="flex: 1;">
                         <div class="spec-label">Platform Verification</div>
                         <div class="spec-val" style="color: #10B981;">
                             ✅ Verified FYM Campus Event & 100 KES Platform Maintenance Cleared
@@ -551,9 +620,9 @@
                 </div>
             </div>
 
-            <!-- WHO'S GOING ROSTER -->
+            <!-- WHO'S GOING ROSTER (REAL ATTENDEE DATA ONLY) -->
             <div class="specs-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <h3 style="margin: 0;">👥 Who's Going ({{ attendees_count }})</h3>
                     {% if user_id and event.created_by == user_id %}
                     <a href="/events/{{ event.id }}/export-attendees" style="font-size: 12px; color: #720000; font-weight: 800; text-decoration: none;">
@@ -572,12 +641,12 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p style="font-size: 14px; color: #6b7280; margin: 0;">Be the first comrade to RSVP for this event!</p>
+                <p style="font-size: 13px; color: #6b7280; margin: 0;">No comrades have RSVP'd yet. Be the first to grab a ticket!</p>
                 {% endif %}
 
                 <!-- Matchmaking prompt -->
-                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 14px; padding: 14px; margin-top: 18px; text-align: center;">
-                    <div style="font-size: 13px; font-weight: 800; color: #9f1239; margin-bottom: 3px;">
+                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; padding: 12px; margin-top: 16px; text-align: center;">
+                    <div style="font-size: 13px; font-weight: 800; color: #9f1239; margin-bottom: 2px;">
                         💘 Want Someone to Accompany You?
                     </div>
                     <div style="font-size: 12px; color: #be123c;">
@@ -586,53 +655,53 @@
                 </div>
             </div>
 
-            <!-- DISCUSSION / QA WALL -->
+            <!-- DISCUSSION / QA WALL (REAL DATA ONLY) -->
             <div class="specs-card">
                 <h3>💬 Event Discussion & Q&A</h3>
                 
-                <div id="commentsContainer" style="margin-bottom: 16px;">
+                <div id="commentsContainer" style="margin-bottom: 14px;">
                     {% if discussions %}
                         {% for c in discussions %}
                         <div class="comment-item">
-                            <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 3px;">
+                            <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 2px;">
                                 {{ c.name }}
                             </div>
-                            <div style="font-size: 14px; color: #475569;">
+                            <div style="font-size: 13px; color: #475569;">
                                 {{ c.message }}
                             </div>
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p style="font-size: 13px; color: #94a3b8; margin: 0 0 10px;">No questions yet. Ask anything about music, entry, or timings!</p>
+                        <p style="font-size: 13px; color: #94a3b8; margin: 0 0 10px;">No messages yet. Ask anything about music, entry, or timings!</p>
                     {% endif %}
                 </div>
 
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="commentInput" class="form-input" placeholder="Ask a question or hype up the event..." onkeypress="if(event.key === 'Enter') postComment()">
-                    <button onclick="postComment()" style="background: var(--fym-crimson); color: white; border: none; padding: 0 18px; border-radius: 12px; font-weight: 800; cursor: pointer;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input type="text" id="commentInput" class="form-input" style="flex: 1; min-width: 180px;" placeholder="Ask a question or hype up the event..." onkeypress="if(event.key === 'Enter') postComment()">
+                    <button onclick="postComment()" style="background: var(--fym-crimson); color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: 800; cursor: pointer; min-height: 44px;">
                         Send
                     </button>
                 </div>
             </div>
 
-            <!-- MADE BY FINDYOURMATCH & WANT TO JOIN CARD -->
-            <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); border-radius: 24px; padding: 32px 26px; color: white; text-align: center; box-shadow: 0 16px 36px rgba(114, 0, 0, 0.25); margin-bottom: 30px;">
-                <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); padding: 5px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
+            <!-- MADE BY FINDYOURMATCH PROMO CARD -->
+            <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); border-radius: clamp(18px, 4vw, 24px); padding: clamp(24px, 4vw, 32px) clamp(16px, 3.5vw, 26px); color: white; text-align: center; box-shadow: 0 16px 36px rgba(114, 0, 0, 0.22); margin-bottom: 25px;">
+                <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); padding: 5px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;">
                     ✨ MADE BY FINDYOURMATCH
                 </div>
-                <h2 style="margin: 0 0 10px; font-size: clamp(20px, 3.5vw, 26px); font-weight: 900; letter-spacing: -0.5px;">
+                <h2 style="margin: 0 0 10px; font-size: clamp(19px, 3.5vw, 24px); font-weight: 900; letter-spacing: -0.5px;">
                     Want to Join FindYourMatch? 💖
                 </h2>
-                <p style="margin: 0 auto 22px; font-size: 14px; opacity: 0.95; line-height: 1.6; max-width: 500px;">
+                <p style="margin: 0 auto 20px; font-size: 13px; opacity: 0.95; line-height: 1.6; max-width: 500px;">
                     Kenya's premier campus dating and connection platform! Connect with verified students, explore campus hotspots, host events, and find someone special.
                 </p>
-                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                    <a href="/signup" style="background: #ffffff; color: #720000; text-decoration: none; padding: 13px 30px; border-radius: 50px; font-weight: 900; font-size: 14px; box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: transform 0.15s;">
-                        🚀 Create Free Profile & Join &rarr;
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <a href="/signup" style="background: #ffffff; color: #720000; text-decoration: none; padding: 12px 28px; border-radius: 50px; font-weight: 900; font-size: 13px; box-shadow: 0 8px 20px rgba(0,0,0,0.25);">
+                        🚀 Create Free Profile &rarr;
                     </a>
                     {% if not user_id %}
-                    <a href="/login" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.4); text-decoration: none; padding: 13px 24px; border-radius: 50px; font-weight: 800; font-size: 14px;">
-                        🔑 Already a Member? Log In
+                    <a href="/login" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.4); text-decoration: none; padding: 12px 22px; border-radius: 50px; font-weight: 800; font-size: 13px;">
+                        🔑 Log In
                     </a>
                     {% endif %}
                 </div>
@@ -644,7 +713,7 @@
         <div>
             <div class="ticket-action-box">
                 <h3 class="ticket-header-title">🎟️ Reserve Your Ticket</h3>
-                <p style="font-size: 13px; color: #64748b; margin: 0 0 14px;">
+                <p style="font-size: 13px; color: #64748b; margin: 0 0 12px; line-height: 1.45;">
                     Available for both FYM members and outside guests. Instant QR code ticket sent to your email.
                 </p>
 
@@ -687,33 +756,33 @@
                     </div>
 
                     {% if event.price > 0 %}
-                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px; font-size: 13px; color: #92400e; margin-bottom: 14px;">
+                    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px; font-size: 13px; color: #92400e; margin-bottom: 12px;">
                         💵 <strong>Ticket Fee:</strong> {{ event.price_display }} per attendee. You can pay via M-Pesa upon confirmation.
                     </div>
                     {% endif %}
 
                     <button type="submit" class="btn-confirm-rsvp" id="btnRsvpSubmit">
                         {% if event.price > 0 %}
-                            🎟️ Pay {{ event.price_display }} via M-Pesa & Get Ticket
+                            🎟️ Pay {{ event.price_display }} via M-Pesa
                         {% else %}
-                            🎟️ Confirm Free RSVP & Get Instant QR Pass
+                            🎟️ Confirm Free RSVP & Get QR Pass
                         {% endif %}
                     </button>
                 </form>
 
                 <!-- M-Pesa STK Prompt Waiting View -->
                 <div id="mpesaPendingView" class="digital-ticket-card" style="display: none; background: #f0fdf4; border: 2px dashed #16a34a; text-align: center;">
-                    <div style="font-size: 38px; margin-bottom: 8px;">📱</div>
-                    <h4 style="margin: 0 0 6px; font-size: 18px; font-weight: 900; color: #166534;">Check Your Phone!</h4>
-                    <p style="font-size: 13px; color: #374151; margin: 0 0 14px;" id="mpesaPendingDesc">
+                    <div style="font-size: 36px; margin-bottom: 6px;">📱</div>
+                    <h4 style="margin: 0 0 6px; font-size: 17px; font-weight: 900; color: #166534;">Check Your Phone!</h4>
+                    <p style="font-size: 13px; color: #374151; margin: 0 0 12px;" id="mpesaPendingDesc">
                         An M-Pesa PIN prompt has been sent to your phone.
                     </p>
-                    <div style="background: white; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+                    <div style="background: white; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
                         <div style="font-size: 11px; font-weight: 800; color: #15803d; text-transform: uppercase;">Amount Due:</div>
                         <div style="font-size: 22px; font-weight: 900; color: #14532d;" id="mpesaPendingAmount">KES 0</div>
-                        <div style="font-size: 11px; color: #4b5563; margin-top: 4px;">Enter your M-Pesa PIN to complete ticket payment.</div>
+                        <div style="font-size: 11px; color: #4b5563; margin-top: 3px;">Enter your M-Pesa PIN to complete ticket payment.</div>
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #15803d; font-weight: 700; font-size: 13px;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #15803d; font-weight: 700; font-size: 12px;">
                         <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #16a34a; border-top-color: transparent; border-radius: 50%; animation: fymSpin 1s linear infinite;"></span>
                         <span>Waiting for payment confirmation from Safaricom...</span>
                     </div>
@@ -721,9 +790,9 @@
 
                 <!-- Confirmed Ticket View (Hidden initially, reveals after RSVP) -->
                 <div id="confirmedTicketView" class="digital-ticket-card" style="display: none;">
-                    <div style="font-size: 32px; margin-bottom: 6px;">🎉</div>
+                    <div style="font-size: 32px; margin-bottom: 4px;">🎉</div>
                     <h4 style="margin: 0 0 4px; font-size: 18px; font-weight: 900; color: #111;">You're On The Guestlist!</h4>
-                    <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px;">Your official ticket and Google Maps pin have been emailed to you.</p>
+                    <p style="font-size: 12px; color: #6b7280; margin: 0 0 12px;">Your ticket pass and Google Maps venue link have been emailed to you.</p>
                     
                     <div id="ticketQrImageWrap" style="margin-bottom: 12px;"></div>
 
@@ -731,31 +800,30 @@
                     <div class="ticket-code-display" id="confirmedTicketCode">FYM-XXXX</div>
 
                     <!-- DOOR BACKUP LOVI CODE -->
-                    <div style="background: #fff1f2; border: 2px solid #fda4af; border-radius: 14px; padding: 14px 10px; margin: 12px 0; text-align: center;">
-                        <div style="font-size: 10px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 3px;">
+                    <div style="background: #fff1f2; border: 2px solid #fda4af; border-radius: 14px; padding: 12px 10px; margin: 12px 0; text-align: center;">
+                        <div style="font-size: 10px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 2px;">
                             🔑 DOOR BACKUP: LOVI CODE
                         </div>
-                        <div style="font-size: 26px; font-weight: 900; color: #be123c; font-family: monospace; letter-spacing: 3px;" id="confirmedLoviCode">
+                        <div style="font-size: clamp(20px, 5.5vw, 26px); font-weight: 900; color: #be123c; font-family: monospace; letter-spacing: 2px;" id="confirmedLoviCode">
                             LOVI-XXXX
                         </div>
-                        <div style="font-size: 11px; color: #881337; margin-top: 4px; line-height: 1.4;">
-                            If the event admin cannot scan your QR code, tell them this <strong>LOVI Code</strong> to confirm and allow you in.
+                        <div style="font-size: 11px; color: #881337; margin-top: 4px; line-height: 1.35;">
+                            If the event admin cannot scan your QR code, show them this <strong>LOVI Code</strong> to confirm entry.
                         </div>
                     </div>
 
-                    <div style="font-size: 12px; color: #10B981; font-weight: 800; margin-bottom: 14px;">
+                    <div style="font-size: 12px; color: #10B981; font-weight: 800; margin-bottom: 12px;">
                         ✅ Present this QR code or LOVI Code at the entrance
                     </div>
 
-                    <!-- MADE BY FINDYOURMATCH VIRAL CALLOUT -->
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center; margin-top: 8px;">
-                        <div style="font-size: 11px; font-weight: 800; color: #720000; text-transform: uppercase; margin-bottom: 4px;">
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; text-align: center; margin-top: 6px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #720000; text-transform: uppercase; margin-bottom: 3px;">
                             ✨ MADE BY FINDYOURMATCH
                         </div>
-                        <div style="font-size: 12px; color: #475569; margin-bottom: 8px;">
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 6px;">
                             Want to meet verified students attending this event?
                         </div>
-                        <a href="/signup" target="_blank" style="display: inline-block; background: #720000; color: white; text-decoration: none; font-size: 12px; font-weight: 800; padding: 8px 18px; border-radius: 50px;">
+                        <a href="/signup" target="_blank" style="display: inline-block; background: #720000; color: white; text-decoration: none; font-size: 11px; font-weight: 800; padding: 7px 16px; border-radius: 50px;">
                             Join FindYourMatch Free &rarr;
                         </a>
                     </div>
@@ -763,14 +831,14 @@
 
                 <!-- VIRAL SOCIAL SHARING SUITE -->
                 <div class="share-suite-box">
-                    <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">
+                    <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 8px;">
                         📢 Share This Event with Friends:
                     </div>
 
-                    {% set wa_msg = "🎉 You're invited to *" ~ event.title ~ "* on Find Your Match!\n🗓️ " ~ event.date_str ~ " @ " ~ event.time_str ~ "\n📍 " ~ event.venue_name ~ "\n🎟️ " ~ event.price_display ~ "\n\n👉 Get your ticket / RSVP here: " ~ event_url %}
+                    {% set wa_msg = "🎉 You're invited to *" ~ event.title ~ "* on Find Your Match!\n🗓️ " ~ (event.date_str or event.date) ~ " @ " ~ event.time_str ~ "\n📍 " ~ event.venue_name ~ "\n🎟️ " ~ event.price_display ~ "\n\n👉 Get your ticket / RSVP here: " ~ event_url %}
                     
                     <a href="https://api.whatsapp.com/send?text={{ wa_msg|urlencode }}" target="_blank" class="btn-wa-share-big">
-                        <span>💬</span> Share on WhatsApp (With Banner)
+                        <span>💬</span> Share on WhatsApp
                     </a>
 
                     <button class="btn-copy-link" onclick="copyEventLink()">
@@ -791,6 +859,7 @@
         const bar = document.getElementById('countdownBar');
         if (!bar) return;
         const targetDateStr = bar.getAttribute('data-date');
+        if (!targetDateStr) return;
         const targetDate = new Date(targetDateStr + "T19:00:00").getTime();
 
         function update() {
@@ -841,14 +910,12 @@
         .then(res => {
             if (res.success) {
                 if (res.requires_payment) {
-                    // Show M-Pesa prompt waiting card and start polling Safaricom
                     document.getElementById('rsvpForm').style.display = 'none';
                     const pendingView = document.getElementById('mpesaPendingView');
                     pendingView.style.display = 'block';
                     document.getElementById('mpesaPendingAmount').innerText = "KES " + res.amount;
                     document.getElementById('mpesaPendingDesc').innerText = "An M-Pesa PIN prompt has been sent to " + res.phone + ". Please enter your PIN on your phone to complete your ticket purchase.";
 
-                    // Start real-time payment confirmation polling
                     pollPaymentStatus(res.checkout_id, origText);
                 } else {
                     showConfirmedTicket(res);
@@ -918,7 +985,7 @@
             document.getElementById('confirmedLoviCode').innerText = res.lovi_code || 'LOVI-PASS';
         }
         document.getElementById('ticketQrImageWrap').innerHTML = `
-            <img src="${res.qr_url}" alt="Ticket QR" width="170" height="170" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+            <img src="${res.qr_url}" alt="Ticket QR" width="160" height="160" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width: 100%; height: auto;">
         `;
         alert(res.message || "🎉 Ticket confirmed! An official ticket pass has been emailed to you.");
     }
@@ -950,10 +1017,10 @@
                 const box = document.getElementById('commentsContainer');
                 box.innerHTML += `
                     <div class="comment-item">
-                        <div style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 3px;">
+                        <div style="font-size: 12px; font-weight: 800; color: #1e293b; margin-bottom: 2px;">
                             ${res.comment.name}
                         </div>
-                        <div style="font-size: 14px; color: #475569;">
+                        <div style="font-size: 13px; color: #475569;">
                             ${res.comment.message}
                         </div>
                     </div>
