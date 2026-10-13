@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Verify Ticket Pass & Door LOVI Code | Find Your Match Events{% endblock %}
+{% block title %}Door Entrance Scanner & LOVI Code Verification | Find Your Match Events{% endblock %}
 
 {% block content %}
 <style>
@@ -13,22 +13,33 @@
     }
 
     .scanner-page-container {
-        max-width: 680px;
+        max-width: 880px;
         margin: 0 auto;
-        padding: 20px 16px 80px;
+        padding: 20px 16px 90px;
     }
 
     /* Admin Top Header */
     .admin-scanner-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #31102e 100%);
         border-radius: 24px;
         padding: 24px 20px;
         color: white;
         text-align: center;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.25);
         margin-bottom: 24px;
         position: relative;
         overflow: hidden;
+    }
+
+    .admin-scanner-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(230,0,38,0.15) 0%, transparent 60%);
+        pointer-events: none;
     }
 
     .admin-badge {
@@ -47,16 +58,73 @@
     }
 
     .admin-scanner-header h1 {
-        font-size: clamp(20px, 4vw, 26px);
+        font-size: clamp(20px, 4vw, 28px);
         font-weight: 900;
         margin: 0 0 6px;
         letter-spacing: -0.5px;
     }
 
     .admin-scanner-header p {
-        margin: 0;
-        font-size: 13px;
-        opacity: 0.85;
+        margin: 0 0 14px;
+        font-size: 13.5px;
+        opacity: 0.88;
+    }
+
+    /* Header Live Admission Counters Grid */
+    .scanner-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .scanner-stat-card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        padding: 10px 8px;
+        text-align: center;
+    }
+
+    .scanner-stat-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0.8;
+        margin-bottom: 2px;
+    }
+
+    .scanner-stat-value {
+        font-size: clamp(18px, 4vw, 24px);
+        font-weight: 900;
+        line-height: 1.1;
+    }
+
+    .event-switch-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        flex-wrap: wrap;
+    }
+
+    .event-select-dropdown {
+        background: rgba(15, 23, 42, 0.85);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        outline: none;
+        max-width: 260px;
     }
 
     /* Manual LOVI Code & Ticket Input Bar */
@@ -66,7 +134,7 @@
         padding: 20px;
         border: 1px solid #e2e8f0;
         box-shadow: 0 8px 24px rgba(0,0,0,0.05);
-        margin-bottom: 24px;
+        margin-bottom: 20px;
     }
 
     .door-search-title {
@@ -109,7 +177,7 @@
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white;
         border: none;
-        padding: 0 22px;
+        padding: 0 24px;
         border-radius: 14px;
         font-size: 14px;
         font-weight: 800;
@@ -123,6 +191,47 @@
 
     .btn-search-verify:active {
         transform: scale(0.97);
+    }
+
+    /* Camera Scanner Section */
+    .camera-scanner-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 24px;
+        text-align: center;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    }
+
+    .btn-toggle-cam {
+        background: #0f172a;
+        color: white;
+        border: none;
+        padding: 13px 26px;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s, transform 0.15s;
+    }
+
+    .btn-toggle-cam:hover {
+        background: #1e293b;
+    }
+
+    .btn-toggle-cam:active {
+        transform: scale(0.98);
+    }
+
+    #qrReaderBox {
+        margin-top: 16px;
+        border-radius: 14px;
+        overflow: hidden;
+        display: none;
     }
 
     /* Verification Status Cards */
@@ -140,7 +249,6 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Card Status Styles */
     .card-valid {
         background: #f0fdf4;
         border-color: #86efac;
@@ -186,7 +294,6 @@
         color: white;
     }
 
-    /* Attendee Info Grid */
     .attendee-name-hero {
         font-size: clamp(22px, 5vw, 30px);
         font-weight: 900;
@@ -214,10 +321,9 @@
         gap: 4px;
     }
 
-    /* Dual Code Box (Ticket & LOVI) */
     .codes-pill-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
         gap: 12px;
         margin-bottom: 20px;
     }
@@ -250,7 +356,6 @@
     .val-ticket { color: #0f172a; }
     .val-lovi { color: #be123c; }
 
-    /* Event Specs Table */
     .verify-details-table {
         width: 100%;
         font-size: 14px;
@@ -275,7 +380,6 @@
         text-align: right;
     }
 
-    /* Admit Action Button */
     .btn-admit-big {
         display: block;
         width: 100%;
@@ -302,46 +406,202 @@
         cursor: not-allowed;
     }
 
-    /* Camera Scanner Section */
-    .camera-scanner-card {
+    /* ========================================================
+       LIVE GUESTLIST ROSTER TABLE SECTION
+       ======================================================== */
+    .roster-card {
         background: white;
-        border-radius: 20px;
-        padding: 20px;
+        border-radius: 24px;
+        padding: 24px 20px;
         border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
         margin-bottom: 24px;
-        text-align: center;
     }
 
-    .btn-toggle-cam {
-        background: #0f172a;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 12px;
-        font-size: 14px;
-        font-weight: 800;
-        cursor: pointer;
-        display: inline-flex;
+    .roster-header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .roster-title {
+        font-size: clamp(16px, 3.5vw, 19px);
+        font-weight: 900;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
         align-items: center;
         gap: 8px;
     }
 
-    #qrReaderBox {
-        margin-top: 16px;
+    .roster-search-input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e2e8f0;
         border-radius: 14px;
-        overflow: hidden;
-        display: none;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        margin-bottom: 14px;
     }
 
-    /* Viral Branding & Want to Join FYM Box */
+    .roster-search-input:focus {
+        border-color: #0f172a;
+        box-shadow: 0 0 0 3px rgba(15,23,42,0.08);
+    }
+
+    .roster-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 14px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .roster-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        min-width: 620px;
+    }
+
+    .roster-table th {
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 800;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.8px;
+        padding: 12px 14px;
+        text-align: left;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .roster-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .roster-table tr:hover {
+        background: #f8fafc;
+    }
+
+    .roster-table tr.highlight-glow {
+        animation: rowGlow 1.8s ease-out;
+    }
+
+    @keyframes rowGlow {
+        0% { background: #dcfce7; }
+        100% { background: transparent; }
+    }
+
+    .roster-attendee-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .roster-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e2e8f0;
+        flex-shrink: 0;
+    }
+
+    .roster-attendee-name {
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .roster-attendee-meta {
+        font-size: 11.5px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+
+    .lovi-tag {
+        display: inline-block;
+        background: #ffe4e6;
+        color: #be123c;
+        font-weight: 900;
+        font-family: monospace;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        border: 1px solid #fecdd3;
+    }
+
+    .ticket-sub-code {
+        font-size: 11px;
+        color: #64748b;
+        font-family: monospace;
+        margin-top: 2px;
+    }
+
+    .status-badge-admitted {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #dcfce7;
+        color: #15803d;
+        padding: 5px 10px;
+        border-radius: 50px;
+        font-size: 11.5px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .status-badge-pending {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #fef3c7;
+        color: #b45309;
+        padding: 5px 10px;
+        border-radius: 50px;
+        font-size: 11.5px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .btn-roster-admit {
+        background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+        color: white;
+        border: none;
+        padding: 7px 14px;
+        border-radius: 10px;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform 0.15s;
+    }
+
+    .btn-roster-admit:hover {
+        transform: scale(1.04);
+    }
+
+    .btn-roster-admit:active {
+        transform: scale(0.96);
+    }
+
+    /* Viral Branding Banner */
     .viral-fym-banner {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         border-radius: 24px;
-        padding: 30px 24px;
+        padding: 28px 22px;
         color: white;
         text-align: center;
         box-shadow: 0 16px 36px rgba(114, 0, 0, 0.25);
-        margin-top: 30px;
+        margin-top: 24px;
     }
 
     .viral-pill-tag {
@@ -353,20 +613,20 @@
         font-weight: 800;
         letter-spacing: 1.5px;
         text-transform: uppercase;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
 
     .viral-fym-banner h2 {
-        margin: 0 0 10px;
-        font-size: 22px;
+        margin: 0 0 8px;
+        font-size: 20px;
         font-weight: 900;
     }
 
     .viral-fym-banner p {
-        margin: 0 0 20px;
-        font-size: 14px;
+        margin: 0 0 18px;
+        font-size: 13.5px;
         opacity: 0.95;
-        line-height: 1.6;
+        line-height: 1.5;
     }
 
     .btn-join-fym {
@@ -374,10 +634,10 @@
         background: white;
         color: #720000;
         text-decoration: none;
-        padding: 14px 32px;
+        padding: 12px 28px;
         border-radius: 50px;
         font-weight: 900;
-        font-size: 15px;
+        font-size: 14px;
         box-shadow: 0 8px 24px rgba(0,0,0,0.25);
         transition: transform 0.2s;
     }
@@ -414,6 +674,10 @@
         .verify-details-table td:first-child {
             width: 45% !important;
         }
+        .roster-card {
+            padding: 18px 14px !important;
+            border-radius: 18px !important;
+        }
     }
 </style>
 
@@ -424,8 +688,55 @@
         <div class="admin-badge">
             🛡️ Official Entrance Control
         </div>
-        <h1>Event Admission & Verification</h1>
-        <p>Scan attendee QR code or ask for their door <strong>LOVI Code</strong> to admit them.</p>
+        <h1>{{ event.title if event else "Event Admission & Door Verification" }}</h1>
+        <p>
+            {% if event %}
+            📍 <strong>{{ event.venue_name }}</strong> • 🗓️ {{ event.date_str or event.date }}
+            {% else %}
+            Scan attendee QR code or ask for their door <strong>LOVI Code</strong> to admit them.
+            {% endif %}
+        </p>
+
+        <!-- LIVE ADMISSION COUNTERS -->
+        <div class="scanner-stats-grid">
+            <div class="scanner-stat-card">
+                <div class="scanner-stat-label">👥 Total Registered</div>
+                <div class="scanner-stat-value" id="headerTotalCount">{{ total_registered if total_registered is defined else (attendees_list|length) }}</div>
+            </div>
+            <div class="scanner-stat-card" style="border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.15);">
+                <div class="scanner-stat-label" style="color: #86efac;">✅ Admitted</div>
+                <div class="scanner-stat-value" id="headerAdmittedCount" style="color: #86efac;">{{ admitted_count|default(0) }}</div>
+            </div>
+            <div class="scanner-stat-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.15);">
+                <div class="scanner-stat-label" style="color: #fde68a;">⏳ Awaiting</div>
+                <div class="scanner-stat-value" id="headerPendingCount" style="color: #fde68a;">{{ pending_count|default(0) }}</div>
+            </div>
+        </div>
+
+        <div class="event-switch-bar">
+            {% if active_event_id %}
+            <a href="/events/{{ active_event_id }}" style="color: #cbd5e1; font-size: 12px; text-decoration: underline; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                ← Back to Event Page & Full Guestlist
+            </a>
+            {% else %}
+            <a href="/campus-life" style="color: #cbd5e1; font-size: 12px; text-decoration: underline; font-weight: 700;">
+                ← Campus Life Board
+            </a>
+            {% endif %}
+
+            {% if admin_events and admin_events|length > 1 %}
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 11px; opacity: 0.8; font-weight: 700;">Switch Event:</span>
+                <select class="event-select-dropdown" onchange="window.location.href='/events/verify-ticket?event=' + this.value">
+                    {% for ae in admin_events %}
+                    <option value="{{ ae.id }}" {% if ae.id == active_event_id %}selected{% endif %}>
+                        {{ ae.title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- QUICK SEARCH BY LOVI CODE OR TICKET ID -->
@@ -438,7 +749,7 @@
                 type="text" 
                 id="manualCodeInput" 
                 class="door-search-input" 
-                placeholder="e.g. LOVI-A1B2 or FYM-XXXX" 
+                placeholder="e.g. LOVI-A1B2 or 61DC or FYM-XXXX" 
                 value="{{ query_code }}"
                 autocapitalize="characters"
                 autocomplete="off"
@@ -449,7 +760,7 @@
             </button>
         </form>
         <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
-            💡 <em>Tip: If the camera cannot scan, simply ask the attendee for the 4-digit LOVI code shown in their ticket email.</em>
+            💡 <em>Tip: Attendee doesn't have internet? Just ask for the 4-digit LOVI code from their confirmation email (e.g. 61DC).</em>
         </div>
     </div>
 
@@ -584,11 +895,11 @@
 
         {% elif status == 'PROMPT' %}
         <!-- INITIAL PROMPT (NO CODE SEARCHED YET) -->
-        <div class="verification-card card-invalid" style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 48px; margin-bottom: 12px;">📷</div>
+        <div class="verification-card card-invalid" style="text-align: center; padding: 36px 20px;">
+            <div style="font-size: 44px; margin-bottom: 12px;">📷</div>
             <h3 style="margin: 0 0 6px; font-size: 20px; font-weight: 800; color: #0f172a;">Door Entrance Ready</h3>
             <p style="font-size: 14px; color: #64748b; margin: 0 auto; max-width: 440px;">
-                Scan an attendee's QR pass with your phone camera, or enter their <strong>LOVI Code</strong> in the search bar above to verify and allow entry.
+                Scan an attendee's QR pass with your camera, enter their <strong>LOVI Code</strong> above, or click <strong>Admit</strong> in the guestlist table below.
             </p>
         </div>
         {% endif %}
@@ -607,7 +918,123 @@
         </div>
     </div>
 
-    <!-- VIRAL FINDYOURMATCH BANNER: MADE BY FINDYOURMATCH & WANT TO JOIN -->
+    <!-- LIVE GUESTLIST ROSTER & RAPID ADMISSION TABLE -->
+    <div class="roster-card" id="rosterSection">
+        <div class="roster-header-bar">
+            <div>
+                <h3 class="roster-title">
+                    <span>📋</span> Registered Guestlist & Rapid Door Check-in
+                </h3>
+                <div style="font-size: 12px; color: #64748b; margin-top: 2px;">
+                    Admit guests in 1 click or search by attendee name, phone, or LOVI code.
+                </div>
+            </div>
+            <span id="rosterCounterBadge" style="font-size: 12px; font-weight: 800; color: #475569; background: #f1f5f9; padding: 5px 12px; border-radius: 50px;">
+                {{ attendees_list|length }} Guests
+            </span>
+        </div>
+
+        <input 
+            type="text" 
+            id="rosterSearchInput" 
+            class="roster-search-input" 
+            placeholder="🔍 Search registered attendee by Name, Phone, or LOVI Code..." 
+            oninput="filterRoster(this.value)"
+        >
+
+        <div class="roster-table-wrap">
+            <table class="roster-table" id="rosterTable">
+                <thead>
+                    <tr>
+                        <th>Attendee</th>
+                        <th>Pass & LOVI</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Door Action</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterTableBody">
+                    {% if attendees_list %}
+                        {% for a in attendees_list %}
+                        <tr class="roster-row" id="roster-row-{{ a.attendee_id }}" data-search="{{ a.name|lower }} {{ a.phone|lower }} {{ a.email|lower }} {{ a.lovi_code|lower }} {{ a.ticket_code|lower }}">
+                            <td>
+                                <div class="roster-attendee-cell">
+                                    <img src="{{ a.avatar }}" alt="{{ a.name }}" class="roster-avatar" onerror="this.src='/static/img/icon-192.png'">
+                                    <div>
+                                        <div class="roster-attendee-name">{{ a.name }}</div>
+                                        <div class="roster-attendee-meta">
+                                            {% if a.plus_ones > 0 %}
+                                            +{{ a.plus_ones }} guest(s)
+                                            {% else %}
+                                            Single pass
+                                            {% endif %}
+                                            • {{ a.timestamp_str or 'Registered' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <span class="lovi-tag" title="Click to fill into search" onclick="fillAndSearchCode('{{ a.lovi_code }}')">
+                                        {{ a.lovi_code or 'NO LOVI' }}
+                                    </span>
+                                    <div class="ticket-sub-code">{{ a.ticket_code }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if a.phone %}
+                                <a href="tel:{{ a.phone }}" style="color: #0284c7; font-weight: 700; text-decoration: none; font-size: 12.5px; display: block;">
+                                    📞 {{ a.phone }}
+                                </a>
+                                <a href="https://wa.me/{{ a.phone|replace('+', '')|replace(' ', '') }}" target="_blank" style="color: #16a34a; font-weight: 700; text-decoration: none; font-size: 11.5px;">
+                                    💬 WhatsApp
+                                </a>
+                                {% else %}
+                                <span style="color: #94a3b8; font-size: 12px;">{{ a.email }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if a.checked_in %}
+                                <span class="status-badge-admitted" id="badge-{{ a.attendee_id }}">
+                                    ✅ Admitted ({{ a.checked_in_at_str or 'Door' }})
+                                </span>
+                                {% else %}
+                                <span class="status-badge-pending" id="badge-{{ a.attendee_id }}">
+                                    ⏳ Pending Entry
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                {% if a.checked_in %}
+                                <button class="btn-roster-admit" style="background: #94a3b8; cursor: default;" disabled>
+                                    ✅ Entered
+                                </button>
+                                {% else %}
+                                <button 
+                                    class="btn-roster-admit" 
+                                    id="btn-admit-{{ a.attendee_id }}" 
+                                    onclick="admitAttendeeDirect('{{ a.attendee_id }}', '{{ a.ticket_code }}', '{{ a.lovi_code }}', '{{ a.name|replace('\'', '\\\'') }}', this)"
+                                >
+                                    🎟️ Admit
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 30px; color: #64748b;">
+                                <div>🎟️</div>
+                                <div style="font-weight: 700; margin-top: 6px;">No registered attendees yet for this event.</div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VIRAL FINDYOURMATCH BANNER -->
     <div class="viral-fym-banner">
         <div class="viral-pill-tag">
             ✨ MADE BY FINDYOURMATCH
@@ -623,9 +1050,11 @@
 
 </div>
 
-<!-- Sound effects for entry approval -->
+<!-- Sound effects and Door Logic -->
 <script>
-    // Audio Chime Generator using Web Audio API (no external file dependencies)
+    const ACTIVE_EVENT_ID = "{{ active_event_id or '' }}";
+
+    // Audio Chime Generator using Web Audio API
     function playChime(isSuccess) {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -657,6 +1086,79 @@
         }
     }
 
+    // Quick fill LOVI Code into search input
+    function fillAndSearchCode(code) {
+        if (!code) return;
+        const input = document.getElementById('manualCodeInput');
+        input.value = code;
+        input.focus();
+        document.getElementById('btnSearchSubmit').click();
+    }
+
+    // Live search filter on roster table
+    function filterRoster(query) {
+        const q = (query || '').toLowerCase().trim();
+        const rows = document.querySelectorAll('#rosterTableBody .roster-row');
+        let visibleCount = 0;
+
+        rows.forEach(row => {
+            const searchData = row.getAttribute('data-search') || '';
+            if (!q || searchData.includes(q)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const counterBadge = document.getElementById('rosterCounterBadge');
+        if (counterBadge) {
+            counterBadge.innerText = `${visibleCount} of ${rows.length} Guests`;
+        }
+    }
+
+    // Update Header Counter Stats in Real Time
+    function bumpAdmittedCounters(newAdmittedCount) {
+        const admittedEl = document.getElementById('headerAdmittedCount');
+        const pendingEl = document.getElementById('headerPendingCount');
+        const totalEl = document.getElementById('headerTotalCount');
+
+        let total = parseInt(totalEl ? totalEl.innerText : '0') || 0;
+        let currentAdmitted = parseInt(admittedEl ? admittedEl.innerText : '0') || 0;
+
+        let finalAdmitted = (typeof newAdmittedCount === 'number') ? newAdmittedCount : currentAdmitted + 1;
+        if (admittedEl) admittedEl.innerText = finalAdmitted;
+        if (pendingEl) pendingEl.innerText = Math.max(0, total - finalAdmitted);
+    }
+
+    // Update specific row in roster table
+    function markRowAsAdmitted(attendeeId, ticketCode, loviCode) {
+        // Look up by attendeeId or ticket/lovi
+        let row = document.getElementById(`roster-row-${attendeeId}`);
+        if (!row && ticketCode) {
+            row = document.querySelector(`.roster-row[data-search*="${ticketCode.toLowerCase()}"]`);
+        }
+        if (!row && loviCode) {
+            row = document.querySelector(`.roster-row[data-search*="${loviCode.toLowerCase()}"]`);
+        }
+
+        if (row) {
+            row.classList.add('highlight-glow');
+            const badge = row.querySelector('.status-badge-pending') || row.querySelector('[id^="badge-"]');
+            if (badge) {
+                badge.className = 'status-badge-admitted';
+                badge.innerHTML = '✅ Admitted (Just now)';
+            }
+            const btn = row.querySelector('.btn-roster-admit');
+            if (btn) {
+                btn.style.background = '#94a3b8';
+                btn.style.cursor = 'default';
+                btn.disabled = true;
+                btn.innerText = '✅ Entered';
+            }
+        }
+    }
+
     // Manual LOVI / Ticket Code Verification via AJAX
     function handleManualSearch(e) {
         e.preventDefault();
@@ -671,7 +1173,7 @@
         fetch('/api/events/verify-ticket', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ code: code })
+            body: JSON.stringify({ code: code, event_id: ACTIVE_EVENT_ID })
         })
         .then(res => res.json())
         .then(data => {
@@ -763,6 +1265,7 @@
                 <div class="attendee-contact-sub">
                     <span>📧 ${t.email}</span>
                     ${t.phone ? `<span>•</span> <a href="tel:${t.phone}" class="contact-link">📞 ${t.phone}</a>` : ''}
+                    ${t.phone ? `<a href="https://wa.me/${t.phone.replace(/[^0-9]/g, '')}" target="_blank" class="contact-link" style="color: #16a34a;">💬 WhatsApp</a>` : ''}
                 </div>
 
                 <div class="codes-pill-grid">
@@ -787,7 +1290,7 @@
                     type="button" 
                     class="btn-admit-big" 
                     id="btnAdmitAction" 
-                    onclick="admitAttendee('${t.ticket_code}', '${t.lovi_code}')"
+                    onclick="admitAttendee('${t.ticket_code}', '${t.lovi_code}', '${t.attendee_id || ''}')"
                 >
                     🎟️ ADMIT ATTENDEE & ALLOW ENTRY
                 </button>
@@ -795,44 +1298,104 @@
         `;
     }
 
-    // Admit Attendee Action
-    function admitAttendee(ticketCode, loviCode) {
+    // Admit Attendee Action (From Verified Card)
+    function admitAttendee(ticketCode, loviCode, attendeeId) {
         const btn = document.getElementById('btnAdmitAction');
-        btn.innerHTML = "Admitting attendee...";
-        btn.disabled = true;
+        if (btn) {
+            btn.innerHTML = "Admitting attendee...";
+            btn.disabled = true;
+        }
 
         fetch('/api/events/checkin-ticket', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ ticket_code: ticketCode, lovi_code: loviCode })
+            body: JSON.stringify({ 
+                ticket_code: ticketCode, 
+                lovi_code: loviCode,
+                attendee_id: attendeeId,
+                event_id: ACTIVE_EVENT_ID
+            })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
                 playChime(true);
-                btn.innerHTML = "✅ ADMITTED & CONFIRMED";
-                btn.style.background = "#059669";
+                if (btn) {
+                    btn.innerHTML = "✅ ADMITTED & CONFIRMED";
+                    btn.style.background = "#059669";
+                }
                 const badge = document.getElementById('statusBadge');
                 if (badge) {
                     badge.innerHTML = "✅ ATTENDEE ENTERED (CHECKED IN)";
                 }
-                alert(data.message);
+
+                // Update roster row and stats
+                markRowAsAdmitted(attendeeId, ticketCode, loviCode);
+                bumpAdmittedCounters(data.admitted_count);
             } else {
                 playChime(false);
-                btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
-                btn.disabled = false;
+                if (btn) {
+                    btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
+                    btn.disabled = false;
+                }
                 alert(data.error || "Could not check in attendee.");
             }
         })
         .catch(err => {
-            btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
-            btn.disabled = false;
+            if (btn) {
+                btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
+                btn.disabled = false;
+            }
             console.error(err);
             alert("Network error.");
         });
     }
 
-    // Camera Barcode / QR Scanner using lightweight script
+    // 1-Click Direct Admission from Live Roster Table
+    function admitAttendeeDirect(attendeeId, ticketCode, loviCode, attendeeName, btnEl) {
+        if (!confirm(`Confirm admission for ${attendeeName} at the door?`)) return;
+
+        if (btnEl) {
+            btnEl.innerText = "Admitting...";
+            btnEl.disabled = true;
+        }
+
+        fetch('/api/events/checkin-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                attendee_id: attendeeId,
+                ticket_code: ticketCode,
+                lovi_code: loviCode,
+                event_id: ACTIVE_EVENT_ID
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                playChime(true);
+                markRowAsAdmitted(attendeeId, ticketCode, loviCode);
+                bumpAdmittedCounters(data.admitted_count);
+            } else {
+                playChime(false);
+                if (btnEl) {
+                    btnEl.innerText = "🎟️ Admit";
+                    btnEl.disabled = false;
+                }
+                alert(data.error || "Admission error.");
+            }
+        })
+        .catch(err => {
+            if (btnEl) {
+                btnEl.innerText = "🎟️ Admit";
+                btnEl.disabled = false;
+            }
+            console.error(err);
+            alert("Network error.");
+        });
+    }
+
+    // Camera Barcode / QR Scanner using Html5QrcodeScanner
     let html5QrScanner = null;
     function toggleCameraScanner() {
         const box = document.getElementById('qrReaderBox');
@@ -844,7 +1407,6 @@
         box.style.display = 'block';
         document.getElementById('btnToggleCam').innerText = "📷 Loading Camera...";
 
-        // Dynamically load html5-qrcode
         if (typeof Html5QrcodeScanner === 'undefined') {
             const script = document.createElement('script');
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js";
@@ -866,7 +1428,6 @@
     }
 
     function onScanSuccess(decodedText) {
-        // Scanned URL or raw ticket code
         let code = decodedText;
         if (decodedText.includes('/events/verify-ticket/')) {
             const parts = decodedText.split('/events/verify-ticket/');
@@ -880,7 +1441,7 @@
         fetch('/api/events/verify-ticket', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ code: code })
+            body: JSON.stringify({ code: code, event_id: ACTIVE_EVENT_ID })
         })
         .then(res => res.json())
         .then(data => {

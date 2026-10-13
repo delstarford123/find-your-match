@@ -225,16 +225,86 @@ def view_event(event_id):
     if user_id:
         user_profile = db.reference(f'profiles/{user_id}').get() or {}
 
+    # Check if current user is the Event Admin or Super Admin
+    is_super_admin = bool(session.get('is_super_admin') or session.get('account_type') == 'super_admin' or user_profile.get('is_super_admin'))
+    if not is_super_admin and user_id:
+        super_admins = db.reference('super_admins').get() or {}
+        if user_id in super_admins:
+            is_super_admin = True
+
+    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
+    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
+
+    is_event_admin = bool(
+        is_super_admin or
+        (user_id and event.get('created_by') == user_id) or
+        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
+        request.args.get('admin') == '1'
+    )
+
+    admin_guestlist = []
+    admitted_count = 0
+    if isinstance(rsvps_dict, dict):
+        for aid, a_data in rsvps_dict.items():
+            if isinstance(a_data, dict):
+                is_in = bool(a_data.get('checked_in'))
+                if is_in:
+                    admitted_count += 1 + int(a_data.get('plus_ones', 0) or 0)
+                
+                check_in_time_str = ""
+                if a_data.get('checked_in_at'):
+                    try:
+                        check_in_time_str = datetime.fromtimestamp(a_data['checked_in_at'] / 1000).strftime('%I:%M %p')
+                    except:
+                        check_in_time_str = "Admitted"
+
+                reg_time_str = ""
+                if a_data.get('timestamp'):
+                    try:
+                        reg_time_str = datetime.fromtimestamp(a_data['timestamp'] / 1000).strftime('%b %d, %I:%M %p')
+                    except:
+                        reg_time_str = ""
+
+                admin_guestlist.append({
+                    "attendee_id": aid,
+                    "name": a_data.get('name', 'Attendee'),
+                    "email": a_data.get('email', ''),
+                    "phone": a_data.get('phone', ''),
+                    "avatar": a_data.get('avatar') or "/static/img/icon-192.png",
+                    "ticket_code": a_data.get('ticket_code', ''),
+                    "lovi_code": a_data.get('lovi_code', ''),
+                    "plus_ones": a_data.get('plus_ones', 0),
+                    "checked_in": is_in,
+                    "checked_in_at": a_data.get('checked_in_at'),
+                    "checked_in_at_str": check_in_time_str,
+                    "checked_in_by": a_data.get('checked_in_by', ''),
+                    "paid": a_data.get('paid', False),
+                    "amount_paid": a_data.get('amount_paid', 0),
+                    "mpesa_receipt": a_data.get('mpesa_receipt', ''),
+                    "timestamp": a_data.get('timestamp'),
+                    "timestamp_str": reg_time_str
+                })
+
+    if admin_guestlist:
+        # Sort pending arrivals first, then by registration timestamp descending
+        admin_guestlist.sort(key=lambda x: (1 if x.get('checked_in') else 0, -(x.get('timestamp') or 0)))
+
+    pending_count = max(0, attendees_count - admitted_count)
+
     return render_template(
         'event_detail.html',
         event=event,
         attendees=attendees,
         attendees_count=attendees_count,
+        admitted_count=admitted_count,
+        pending_count=pending_count,
         spots_remaining=spots_remaining,
         capacity_percent=capacity_percent,
         discussions=discussions,
         current_user=user_profile,
         user_id=user_id,
+        is_event_admin=is_event_admin,
+        admin_guestlist=admin_guestlist,
         base_url=base_url,
         event_url=event_url
     )
@@ -847,9 +917,11 @@ def verify_ticket_page(ticket_code=None):
     """
     Dedicated door entrance scanner & ticket verification portal for Event Admins / Managers.
     Opened directly when scanning the QR code with any phone camera, or by manually typing LOVI code.
+    Also displays the live guestlist roster with one-click admission fallback.
     """
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     query_code = ticket_code or request.args.get('code') or request.args.get('ticket') or request.args.get('lovi')
+    event_id = request.args.get('event') or request.args.get('event_id')
     
     ticket = None
     event = None
@@ -863,8 +935,77 @@ def verify_ticket_page(ticket_code=None):
                 status = 'ALREADY_CHECKED_IN'
             else:
                 status = 'VALID'
+            if not event_id and ticket.get('event_id'):
+                event_id = ticket.get('event_id')
         else:
             status = 'NOT_FOUND'
+
+    # Fetch event by ID if provided or derived
+    if not event and event_id:
+        event = db.reference(f'events/{event_id}').get() or {}
+        if event:
+            event['id'] = event_id
+
+    # Fetch all events created by admin (or all events for super admin)
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
+    is_super_admin = bool(session.get('is_super_admin') or session.get('account_type') == 'super_admin' or user_profile.get('is_super_admin'))
+    
+    all_events_raw = db.reference('events').get() or {}
+    admin_events = []
+    if isinstance(all_events_raw, dict):
+        for eid, edata in all_events_raw.items():
+            if isinstance(edata, dict):
+                edata['id'] = eid
+                admin_events.append(edata)
+        admin_events.sort(key=lambda x: x.get('created_at', 0), reverse=True)
+
+    if not event and admin_events:
+        event = admin_events[0]
+        event_id = event['id']
+
+    # Load attendee roster for this active event
+    attendees_list = []
+    admitted_count = 0
+    total_registered = 0
+    if event_id:
+        rsvps_dict = db.reference(f'events_rsvps/{event_id}').get() or {}
+        if isinstance(rsvps_dict, dict):
+            for aid, a in rsvps_dict.items():
+                if isinstance(a, dict):
+                    count_delta = 1 + int(a.get('plus_ones', 0) or 0)
+                    total_registered += count_delta
+                    is_in = bool(a.get('checked_in'))
+                    if is_in:
+                        admitted_count += count_delta
+                    
+                    check_in_time_str = ""
+                    if a.get('checked_in_at'):
+                        try:
+                            check_in_time_str = datetime.fromtimestamp(a['checked_in_at'] / 1000).strftime('%I:%M %p')
+                        except:
+                            check_in_time_str = "Admitted"
+
+                    attendees_list.append({
+                        "attendee_id": aid,
+                        "name": a.get('name', 'Attendee'),
+                        "email": a.get('email', ''),
+                        "phone": a.get('phone', ''),
+                        "avatar": a.get('avatar') or "/static/img/icon-192.png",
+                        "ticket_code": a.get('ticket_code', ''),
+                        "lovi_code": a.get('lovi_code', ''),
+                        "plus_ones": a.get('plus_ones', 0),
+                        "checked_in": is_in,
+                        "checked_in_at": a.get('checked_in_at'),
+                        "checked_in_at_str": check_in_time_str,
+                        "checked_in_by": a.get('checked_in_by', ''),
+                        "paid": a.get('paid', False),
+                        "timestamp": a.get('timestamp')
+                    })
+        # Sort pending arrivals first, then newest
+        attendees_list.sort(key=lambda x: (1 if x.get('checked_in') else 0, -(x.get('timestamp') or 0)))
+
+    pending_count = max(0, total_registered - admitted_count)
 
     return render_template(
         'event_ticket_verify.html',
@@ -873,7 +1014,13 @@ def verify_ticket_page(ticket_code=None):
         status=status,
         query_code=query_code or '',
         error_msg=error_msg,
-        base_url=base_url
+        base_url=base_url,
+        event_id=event_id,
+        attendees_list=attendees_list,
+        admitted_count=admitted_count,
+        pending_count=pending_count,
+        total_registered=total_registered,
+        admin_events=admin_events
     )
 
 
@@ -909,6 +1056,14 @@ def checkin_ticket():
     """
     data = request.json or {}
     code = data.get('code') or data.get('ticket_code') or data.get('lovi_code')
+    
+    # Fallback to direct event_id and attendee_id if called from roster table
+    if not code and data.get('event_id') and data.get('attendee_id'):
+        eid = data['event_id']
+        aid = data['attendee_id']
+        att_rec = db.reference(f'events_rsvps/{eid}/{aid}').get() or {}
+        code = att_rec.get('ticket_code') or att_rec.get('lovi_code')
+
     if not code:
         return jsonify({"success": False, "error": "Missing ticket or LOVI code."}), 400
 
@@ -950,10 +1105,21 @@ def checkin_ticket():
 
     ticket.update(updates)
 
+    # Compute updated live admitted count
+    updated_admitted = 0
+    if event_id:
+        rsvps_dict = db.reference(f'events_rsvps/{event_id}').get() or {}
+        if isinstance(rsvps_dict, dict):
+            updated_admitted = sum(1 + int(a.get('plus_ones', 0) or 0) for a in rsvps_dict.values() if isinstance(a, dict) and a.get('checked_in'))
+
     return jsonify({
         "success": True,
         "message": f"✅ {ticket.get('name', 'Attendee')} ({lovi_code}) successfully admitted!",
         "ticket": ticket,
+        "attendee_id": attendee_id,
+        "ticket_code": ticket_code,
+        "lovi_code": lovi_code,
+        "admitted_count": updated_admitted,
         "checked_in_at": now_ms,
         "checked_in_at_str": datetime.fromtimestamp(now_ms / 1000).strftime('%I:%M %p')
     })

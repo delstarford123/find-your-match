@@ -617,8 +617,144 @@
                             ✅ Verified FYM Campus Event & 100 KES Platform Maintenance Cleared
                         </div>
                     </div>
-                </div>
             </div>
+
+            <!-- EVENT ADMIN & DOOR ENTRANCE CONTROL PANEL (VISIBLE TO ORGANIZER & SUPER ADMIN) -->
+            {% if is_event_admin %}
+            <div class="specs-card" style="border: 2px solid #720000; background: linear-gradient(180deg, #ffffff 0%, #fffbfa 100%); box-shadow: 0 10px 30px rgba(114,0,0,0.08); position: relative; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="background: #720000; color: white; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
+                            🛡️ Event Admin
+                        </span>
+                        <h3 style="margin: 0; font-size: 19px; color: #0f172a;">Door Entrance & Guestlist</h3>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <a href="/events/verify-ticket?event={{ event.id }}" class="btn-door-scanner-main" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(230,0,38,0.3); transition: transform 0.15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                            📱 Launch Door Scanner & LOVI Code
+                        </a>
+                        <a href="/events/{{ event.id }}/export-attendees" style="background: #f1f5f9; color: #334155; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                            📥 Export CSV
+                        </a>
+                    </div>
+                </div>
+
+                <!-- LIVE DOOR CHECK-IN COUNTERS -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px;">
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center;">
+                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Registered</div>
+                        <div style="font-size: 22px; font-weight: 900; color: #0f172a;" id="statTotalReg">{{ attendees_count }}</div>
+                    </div>
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 12px; text-align: center;">
+                        <div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase;">Admitted at Door</div>
+                        <div style="font-size: 22px; font-weight: 900; color: #15803d;" id="statAdmitted">{{ admitted_count }}</div>
+                    </div>
+                    <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 14px; padding: 12px; text-align: center;">
+                        <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">Awaiting Arrival</div>
+                        <div style="font-size: 22px; font-weight: 900; color: #be123c;" id="statPending">{{ pending_count }}</div>
+                    </div>
+                </div>
+
+                <!-- QUICK LOVI CODE INPUT DIRECTLY ON EVENT PAGE -->
+                <div style="background: #fff1f2; border: 1px solid #fda4af; border-radius: 16px; padding: 16px; margin-bottom: 20px;">
+                    <div style="font-size: 12px; font-weight: 800; color: #9f1239; text-transform: uppercase; margin-bottom: 8px;">
+                        🔑 Ask Attendee for LOVI Code or Enter Ticket Pass:
+                    </div>
+                    <form onsubmit="handleQuickAdmit(event)" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <input type="text" id="quickLoviInput" placeholder="e.g. LOVI-61DC or 61DC or FYM-XXXX" style="flex: 1; min-width: 200px; padding: 12px 14px; border: 2px solid #fda4af; border-radius: 12px; font-size: 15px; font-weight: 800; font-family: monospace; text-transform: uppercase; outline: none; background: white;">
+                        <button type="submit" id="btnQuickAdmit" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 12px 22px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; white-space: nowrap;">
+                            🎟️ Admit Attendee
+                        </button>
+                    </form>
+                    <div id="quickAdmitFeedback" style="font-size: 13px; font-weight: bold; margin-top: 8px; display: none;"></div>
+                </div>
+
+                <!-- REGISTERED ATTENDEES ROSTER -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <h4 style="margin: 0; font-size: 16px; color: #0f172a;">📋 Registered Guestlist & Pass Codes</h4>
+                    <input type="text" id="guestlistFilterInput" onkeyup="filterAdminGuestlist()" placeholder="🔍 Search name, phone, or LOVI code..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12px; outline: none; width: 220px;">
+                </div>
+
+                {% if admin_guestlist %}
+                <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1px solid #e2e8f0;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 620px;" id="adminGuestlistTable">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; text-align: left;">
+                                <th style="padding: 10px 12px;">Attendee</th>
+                                <th style="padding: 10px 12px;">Phone / WhatsApp</th>
+                                <th style="padding: 10px 12px;">Ticket Pass</th>
+                                <th style="padding: 10px 12px;">Door LOVI Code</th>
+                                <th style="padding: 10px 12px;">Status</th>
+                                <th style="padding: 10px 12px; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in admin_guestlist %}
+                            <tr class="guestlist-row" id="guestRow_{{ a.attendee_id }}" style="border-bottom: 1px solid #f1f5f9; background: white;" data-name="{{ a.name|lower }}" data-phone="{{ a.phone|lower }}" data-ticket="{{ a.ticket_code|lower }}" data-lovi="{{ a.lovi_code|lower }}">
+                                <td style="padding: 10px 12px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <img src="{{ a.avatar }}" alt="" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: #eee;" onerror="this.src='/static/img/icon-192.png'">
+                                        <div>
+                                            <strong style="color: #0f172a;">{{ a.name }}</strong>
+                                            {% if a.plus_ones > 0 %}
+                                            <span style="font-size: 11px; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 50px; font-weight: bold;">+{{ a.plus_ones }} guest</span>
+                                            {% endif %}
+                                            <div style="font-size: 11px; color: #64748b;">{{ a.email }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="padding: 10px 12px;">
+                                    {% if a.phone %}
+                                    <div style="font-weight: 600; color: #334155;">{{ a.phone }}</div>
+                                    <a href="https://wa.me/{{ a.phone|replace('+', '')|replace(' ', '') }}" target="_blank" style="font-size: 11px; color: #16a34a; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;">
+                                        💬 WhatsApp
+                                    </a>
+                                    {% else %}
+                                    <span style="color: #94a3b8; font-style: italic;">No phone</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 10px 12px;">
+                                    <span style="font-family: monospace; font-size: 12px; font-weight: 800; color: #0f172a; background: #f1f5f9; padding: 3px 6px; border-radius: 6px;">
+                                        {{ a.ticket_code }}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 12px;">
+                                    <span style="font-family: monospace; font-size: 13px; font-weight: 900; color: #be123c; background: #ffe4e6; padding: 4px 8px; border-radius: 6px; border: 1px solid #fecdd3; letter-spacing: 1px;">
+                                        {{ a.lovi_code }}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px 12px;" class="status-cell">
+                                    {% if a.checked_in %}
+                                    <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                                        ✅ In ({{ a.checked_in_at_str or 'Admitted' }})
+                                    </span>
+                                    {% else %}
+                                    <span style="background: #fff1f2; color: #be123c; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                                        ⏳ Pending
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 10px 12px; text-align: right;" class="action-cell">
+                                    {% if a.checked_in %}
+                                    <span style="color: #10b981; font-weight: 800; font-size: 12px;">Admitted</span>
+                                    {% else %}
+                                    <button type="button" onclick="admitAttendeeDirect('{{ a.ticket_code }}', '{{ a.lovi_code }}', '{{ a.attendee_id }}')" style="background: #15803d; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform 0.15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                        🎟️ Admit
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="font-size: 13px; color: #64748b; margin: 0; padding: 16px; background: #f8fafc; border-radius: 12px; text-align: center;">
+                    No attendees have registered for this event yet.
+                </p>
+                {% endif %}
+            </div>
+            {% endif %}
 
             <!-- WHO'S GOING ROSTER (REAL ATTENDEE DATA ONLY) -->
             <div class="specs-card">
@@ -1026,6 +1162,161 @@
                     </div>
                 `;
                 inp.value = '';
+            }
+        });
+    }
+
+    // --- EVENT ADMIN DOOR ENTRANCE & GUESTLIST FUNCTIONS ---
+    function playAdmitChime(isSuccess) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            if (isSuccess) {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            } else {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, ctx.currentTime);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.35);
+            }
+        } catch(e) {}
+    }
+
+    function handleQuickAdmit(e) {
+        e.preventDefault();
+        const inp = document.getElementById('quickLoviInput');
+        const code = inp.value.trim().toUpperCase();
+        const feedback = document.getElementById('quickAdmitFeedback');
+        const btn = document.getElementById('btnQuickAdmit');
+        if (!code) return;
+
+        btn.disabled = true;
+        btn.innerHTML = "Admitting...";
+
+        fetch('/api/events/checkin-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ code: code, event_id: "{{ event.id }}" })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = "🎟️ Admit Attendee";
+            feedback.style.display = 'block';
+
+            if (data.success) {
+                playAdmitChime(true);
+                feedback.style.color = '#15803d';
+                feedback.innerHTML = `✅ ${data.ticket.name} (${data.ticket.lovi_code}) successfully admitted at ${data.checked_in_at_str || 'now'}!`;
+                inp.value = '';
+
+                // Update row in table if present
+                updateGuestTableRow(data.attendee_id || data.ticket.attendee_id, data.checked_in_at_str);
+                updateDoorStats(data.admitted_count);
+            } else {
+                playAdmitChime(false);
+                feedback.style.color = '#be123c';
+                feedback.innerHTML = data.error || "Could not check in attendee.";
+            }
+            setTimeout(() => { feedback.style.display = 'none'; }, 6000);
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = "🎟️ Admit Attendee";
+            feedback.style.display = 'block';
+            feedback.style.color = '#be123c';
+            feedback.innerHTML = "Network error while checking ticket.";
+        });
+    }
+
+    function admitAttendeeDirect(ticketCode, loviCode, attendeeId) {
+        if (!confirm(`Confirm admission for pass ${loviCode || ticketCode}?`)) return;
+
+        fetch('/api/events/checkin-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                ticket_code: ticketCode, 
+                lovi_code: loviCode, 
+                attendee_id: attendeeId,
+                event_id: "{{ event.id }}" 
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                playAdmitChime(true);
+                updateGuestTableRow(attendeeId, data.checked_in_at_str);
+                updateDoorStats(data.admitted_count);
+                alert(data.message);
+            } else {
+                playAdmitChime(false);
+                alert(data.error || "Could not admit attendee.");
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Network error.");
+        });
+    }
+
+    function updateGuestTableRow(attendeeId, checkInTime) {
+        const row = document.getElementById(`guestRow_${attendeeId}`);
+        if (!row) return;
+
+        const statusCell = row.querySelector('.status-cell');
+        if (statusCell) {
+            statusCell.innerHTML = `
+                <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                    ✅ In (${checkInTime || 'Admitted'})
+                </span>
+            `;
+        }
+
+        const actionCell = row.querySelector('.action-cell');
+        if (actionCell) {
+            actionCell.innerHTML = `<span style="color: #10b981; font-weight: 800; font-size: 12px;">Admitted</span>`;
+        }
+    }
+
+    function updateDoorStats(newAdmittedCount) {
+        if (typeof newAdmittedCount !== 'number') return;
+        const admittedEl = document.getElementById('statAdmitted');
+        const pendingEl = document.getElementById('statPending');
+        const totalEl = document.getElementById('statTotalReg');
+
+        if (admittedEl) admittedEl.innerText = newAdmittedCount;
+        if (totalEl && pendingEl) {
+            const tot = parseInt(totalEl.innerText) || 0;
+            pendingEl.innerText = Math.max(0, tot - newAdmittedCount);
+        }
+    }
+
+    function filterAdminGuestlist() {
+        const query = (document.getElementById('guestlistFilterInput').value || '').trim().toLowerCase();
+        const rows = document.querySelectorAll('.guestlist-row');
+
+        rows.forEach(r => {
+            const name = r.getAttribute('data-name') || '';
+            const phone = r.getAttribute('data-phone') || '';
+            const ticket = r.getAttribute('data-ticket') || '';
+            const lovi = r.getAttribute('data-lovi') || '';
+
+            if (!query || name.includes(query) || phone.includes(query) || ticket.includes(query) || lovi.includes(query)) {
+                r.style.display = '';
+            } else {
+                r.style.display = 'none';
             }
         });
     }
