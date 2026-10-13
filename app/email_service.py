@@ -2587,11 +2587,12 @@ def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, i
     return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
 
 
-def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str):
+def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str, lovi_code: str = None):
     """
     Sends a rich, digital event ticket confirmation with embedded QR code,
-    Google Maps venue pin, dress code, and event details.
+    door backup LOVI code, Google Maps venue pin, dress code, and Made by FindYourMatch onboarding.
     """
+    import urllib.parse
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     event_id = event_data.get("id", "")
     event_title = event_data.get("title", "Campus Event")
@@ -2606,9 +2607,16 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     organizer_phone = event_data.get("organizer_phone", "")
     banner_img = event_data.get("banner_img") or f"{base_url}/static/img/icon-512.png"
     event_url = f"{base_url}/events/{event_id}"
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={ticket_code}&color=72-0-0"
+    
+    # LOVI Code for door backup verification
+    lovi_code = lovi_code or event_data.get("lovi_code") or f"LOVI-{ticket_code.split('-')[1]}"
+    
+    # Scannable QR code encodes the direct admin verification URL!
+    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
+    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
 
-    subject = f"🎟️ Ticket Confirmed: {event_title} | Pass #{ticket_code}"
+    subject = f"🎟️ Ticket Confirmed: {event_title} | Pass #{ticket_code} (LOVI: {lovi_code})"
 
     text_content = textwrap.dedent(f"""\
         Hello {recipient_name}!
@@ -2617,26 +2625,36 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
 
         ========================================
         DIGITAL TICKET PASS
-        Ticket Code: {ticket_code}
-        Event: {event_title} ({category})
-        Date & Time: {date_str} @ {time_str}
-        Venue: {venue}
-        Dress Code: {dress_code}
-        Admission: {price_str}
+        Ticket Code : {ticket_code}
+        LOVI Code   : {lovi_code} (Backup for door admin)
+        Event       : {event_title} ({category})
+        Date & Time : {date_str} @ {time_str}
+        Venue       : {venue}
+        Dress Code  : {dress_code}
+        Admission   : {price_str}
         ========================================
+
+        📷 Entrance Verification Link:
+        {verify_url}
 
         📍 Open Venue in Google Maps:
         {maps_link}
 
-        View Event Page & Live Updates:
+        View Event Page:
         {event_url}
 
         Host Contact: {organizer_name} ({organizer_phone})
 
-        Please present your digital pass or QR code at the entrance.
+        INSTRUCTIONS FOR ADMISSION:
+        1. Show the QR code to the event admin/manager to scan and confirm your entry.
+        2. If the admin does not scan the QR code, tell them your LOVI Code: {lovi_code} to confirm and allow you in.
 
-        See you there,
-        The FindYourMatch Events Team
+        ----------------------------------------
+        MADE BY FINDYOURMATCH 💖
+        Want to join FindYourMatch?
+        Connect with verified students across campus!
+        Join free here: {base_url}/signup
+        ----------------------------------------
     """)
 
     html_content = textwrap.dedent(f"""\
@@ -2666,22 +2684,38 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
                 <!-- TICKET PASS CARD -->
                 <div style="padding:30px 25px;">
                     
-                    <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:18px;padding:25px;text-align:center;margin-bottom:25px;">
+                    <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:20px;padding:25px;text-align:center;margin-bottom:25px;">
                         <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
                             Official Entrance Pass
                         </div>
                         
-                        <!-- QR Code -->
-                        <div style="background:white;display:inline-block;padding:12px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,0.06);margin-bottom:14px;">
-                            <img src="{qr_url}" alt="Ticket QR Code" width="160" height="160" style="display:block;">
+                        <!-- SCANNABLE QR CODE FOR ADMINS -->
+                        <div style="background:white;display:inline-block;padding:12px;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,0.08);margin-bottom:12px;">
+                            <a href="{verify_url}" target="_blank">
+                                <img src="{qr_url}" alt="Ticket QR Code" width="180" height="180" style="display:block;border-radius:8px;">
+                            </a>
+                        </div>
+                        <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">
+                            📷 SCANNABLE BY EVENT ADMIN AT ENTRANCE
                         </div>
 
-                        <div style="font-size:20px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:4px;">
-                            {ticket_code}
+                        <div style="font-size:18px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:14px;">
+                            TICKET ID: {ticket_code}
                         </div>
-                        <div style="font-size:12px;color:#64748b;">
-                            Show this QR code or Ticket ID at the entrance gate
+
+                        <!-- LOVI BACKUP SECURITY PASSPHRASE -->
+                        <div style="background:#fff1f2;border:2px solid #fda4af;border-radius:14px;padding:14px;margin-top:10px;text-align:center;">
+                            <div style="font-size:11px;font-weight:800;color:#9f1239;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;">
+                                🔑 DOOR BACKUP: LOVI CODE
+                            </div>
+                            <div style="font-size:26px;font-weight:900;color:#be123c;letter-spacing:3px;font-family:monospace;">
+                                {lovi_code}
+                            </div>
+                            <div style="font-size:12px;color:#881337;margin-top:4px;line-height:1.4;">
+                                If the event admin cannot scan your QR code, tell them this <strong>LOVI Code</strong> to verify and allow you in.
+                            </div>
                         </div>
+
                     </div>
 
                     <!-- EVENT SPECS GRID -->
@@ -2713,19 +2747,25 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
                         <a href="{maps_link}" target="_blank" style="display:block;background:#0f172a;color:#ffffff;text-decoration:none;padding:15px;border-radius:14px;font-weight:800;font-size:15px;margin-bottom:10px;">
                             📍 Open Venue Pin in Google Maps
                         </a>
-                        <a href="{event_url}" target="_blank" style="display:block;background:#fee2e2;color:#991b1b;text-decoration:none;padding:13px;border-radius:14px;font-weight:700;font-size:14px;">
-                            🔗 View Event Page & Guest Wall
+                        <a href="{verify_url}" target="_blank" style="display:block;background:#f1f5f9;color:#334155;text-decoration:none;padding:12px;border-radius:14px;font-weight:700;font-size:13px;margin-bottom:10px;">
+                            🔍 View Live Verification Status Page
                         </a>
                     </div>
 
-                    <!-- FIND A DATE CALLOUT -->
-                    <div style="background:#fff1f2;border:1px solid #ffe4e6;border-radius:14px;padding:16px;text-align:center;">
-                        <div style="font-size:14px;font-weight:800;color:#9f1239;margin-bottom:4px;">
-                            💘 Want Someone to Accompany You?
+                    <!-- MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
+                    <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);border-radius:20px;padding:30px 24px;text-align:center;color:white;margin:30px 0 10px;">
+                        <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
+                            ✨ MADE BY FINDYOURMATCH
                         </div>
-                        <div style="font-size:12px;color:#be123c;line-height:1.5;">
-                            Connect with other students attending this event on FindYourMatch! Browse students nearby and invite a match.
-                        </div>
+                        <h2 style="margin:0 0 10px;font-size:22px;font-weight:900;letter-spacing:-0.5px;">
+                            Want to Join FindYourMatch? 💖
+                        </h2>
+                        <p style="margin:0 0 20px;font-size:14px;opacity:0.95;line-height:1.6;max-width:460px;margin-left:auto;margin-right:auto;">
+                            Connect with verified students across campus! Experience AI matchmaking, schedule syncing, campus hotspots, and exclusive student events.
+                        </p>
+                        <a href="{base_url}/signup" target="_blank" style="display:inline-block;background:#ffffff;color:#720000;text-decoration:none;padding:14px 34px;border-radius:50px;font-weight:900;font-size:15px;box-shadow:0 8px 25px rgba(0,0,0,0.3);">
+                            🚀 Create Free Profile & Join &rarr;
+                        </a>
                     </div>
 
                 </div>
@@ -2742,4 +2782,5 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     """)
 
     return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch Events")
+
 

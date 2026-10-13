@@ -638,6 +638,9 @@
                 <div class="event-price-tag {% if evt.price > 0 %}paid{% endif %}">
                     {{ evt.price_display }}
                 </div>
+                <div style="position: absolute; bottom: 12px; left: 12px; background: rgba(114, 0, 0, 0.88); backdrop-filter: blur(6px); color: white; padding: 3px 9px; border-radius: 50px; font-size: 10px; font-weight: 800; letter-spacing: 0.5px; z-index: 2;">
+                    ✨ MADE BY FINDYOURMATCH
+                </div>
             </div>
 
             <div class="event-body">
@@ -679,6 +682,29 @@
             </div>
         </div>
         {% endfor %}
+    </div>
+
+    <!-- 3.5. MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
+    <div style="background: linear-gradient(135deg, #720000 0%, #b91c1c 50%, #E60026 100%); border-radius: 28px; padding: clamp(30px, 5vw, 50px) clamp(20px, 4vw, 35px); color: white; text-align: center; box-shadow: 0 20px 45px rgba(114, 0, 0, 0.22); margin: 50px 0 30px; position: relative; overflow: hidden;">
+        <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); padding: 5px 18px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px;">
+            ✨ MADE BY FINDYOURMATCH
+        </div>
+        <h2 style="margin: 0 0 12px; font-size: clamp(24px, 4.5vw, 34px); font-weight: 900; letter-spacing: -0.5px;">
+            Want to Join FindYourMatch? 💖
+        </h2>
+        <p style="margin: 0 auto 24px; font-size: clamp(14px, 2.5vw, 16px); opacity: 0.95; line-height: 1.6; max-width: 580px;">
+            The pulse of campus life! Discover who likes you, find your campus crush, sync class timetables, and attend exclusive student parties and mixers.
+        </p>
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <a href="/signup" style="background: white; color: #720000; text-decoration: none; padding: 14px 34px; border-radius: 50px; font-weight: 900; font-size: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.2s;">
+                🚀 Create Free Profile & Join &rarr;
+            </a>
+            {% if not user_id %}
+            <a href="/login" style="background: rgba(255, 255, 255, 0.15); color: white; border: 1px solid rgba(255, 255, 255, 0.4); text-decoration: none; padding: 14px 26px; border-radius: 50px; font-weight: 800; font-size: 15px; backdrop-filter: blur(8px);">
+                🔑 Already Have an Account? Log In
+            </a>
+            {% endif %}
+        </div>
     </div>
 
 </div>

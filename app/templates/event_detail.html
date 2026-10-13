@@ -433,9 +433,12 @@
 <div class="event-page-container">
 
     <!-- Top Back Navigation -->
-    <div class="back-nav-bar">
+    <div class="back-nav-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <a href="/campus-life" class="back-link">
             <span>&larr;</span> Back to Campus Events & Hotspots
+        </a>
+        <a href="/signup" style="background: rgba(114, 0, 0, 0.08); color: #720000; border: 1px solid rgba(114, 0, 0, 0.2); padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+            <span>✨ Made by FINDYOURMATCH</span> • <span style="text-decoration: underline;">Want to Join?</span>
         </a>
     </div>
 
@@ -447,6 +450,9 @@
                 <span class="badge-category">{{ event.category_label or event.category|title }}</span>
                 <span class="badge-price {% if event.price > 0 %}paid{% endif %}">
                     {{ event.price_display }}
+                </span>
+                <span style="background: rgba(114, 0, 0, 0.9); backdrop-filter: blur(8px); color: white; padding: 6px 14px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
+                    ✨ MADE BY FINDYOURMATCH
                 </span>
             </div>
         </div>
@@ -604,6 +610,29 @@
                 </div>
             </div>
 
+            <!-- MADE BY FINDYOURMATCH & WANT TO JOIN CARD -->
+            <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); border-radius: 24px; padding: 32px 26px; color: white; text-align: center; box-shadow: 0 16px 36px rgba(114, 0, 0, 0.25); margin-bottom: 30px;">
+                <div style="display: inline-block; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); padding: 5px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
+                    ✨ MADE BY FINDYOURMATCH
+                </div>
+                <h2 style="margin: 0 0 10px; font-size: clamp(20px, 3.5vw, 26px); font-weight: 900; letter-spacing: -0.5px;">
+                    Want to Join FindYourMatch? 💖
+                </h2>
+                <p style="margin: 0 auto 22px; font-size: 14px; opacity: 0.95; line-height: 1.6; max-width: 500px;">
+                    Kenya's premier campus dating and connection platform! Connect with verified students, explore campus hotspots, host events, and find someone special.
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <a href="/signup" style="background: #ffffff; color: #720000; text-decoration: none; padding: 13px 30px; border-radius: 50px; font-weight: 900; font-size: 14px; box-shadow: 0 8px 20px rgba(0,0,0,0.25); transition: transform 0.15s;">
+                        🚀 Create Free Profile & Join &rarr;
+                    </a>
+                    {% if not user_id %}
+                    <a href="/login" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.4); text-decoration: none; padding: 13px 24px; border-radius: 50px; font-weight: 800; font-size: 14px;">
+                        🔑 Already a Member? Log In
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
         </div>
 
         <!-- RIGHT: TICKET RESERVATION & GUEST PASS FORM -->
@@ -673,8 +702,35 @@
 
                     <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Ticket ID:</div>
                     <div class="ticket-code-display" id="confirmedTicketCode">FYM-XXXX</div>
-                    <div style="font-size: 12px; color: #10B981; font-weight: 800;">
-                        ✅ Present this QR code or Ticket ID at the entrance
+
+                    <!-- DOOR BACKUP LOVI CODE -->
+                    <div style="background: #fff1f2; border: 2px solid #fda4af; border-radius: 14px; padding: 14px 10px; margin: 12px 0; text-align: center;">
+                        <div style="font-size: 10px; font-weight: 800; color: #9f1239; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 3px;">
+                            🔑 DOOR BACKUP: LOVI CODE
+                        </div>
+                        <div style="font-size: 26px; font-weight: 900; color: #be123c; font-family: monospace; letter-spacing: 3px;" id="confirmedLoviCode">
+                            LOVI-XXXX
+                        </div>
+                        <div style="font-size: 11px; color: #881337; margin-top: 4px; line-height: 1.4;">
+                            If the event admin cannot scan your QR code, tell them this <strong>LOVI Code</strong> to confirm and allow you in.
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; color: #10B981; font-weight: 800; margin-bottom: 14px;">
+                        ✅ Present this QR code or LOVI Code at the entrance
+                    </div>
+
+                    <!-- MADE BY FINDYOURMATCH VIRAL CALLOUT -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center; margin-top: 8px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #720000; text-transform: uppercase; margin-bottom: 4px;">
+                            ✨ MADE BY FINDYOURMATCH
+                        </div>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 8px;">
+                            Want to meet verified students attending this event?
+                        </div>
+                        <a href="/signup" target="_blank" style="display: inline-block; background: #720000; color: white; text-decoration: none; font-size: 12px; font-weight: 800; padding: 8px 18px; border-radius: 50px;">
+                            Join FindYourMatch Free &rarr;
+                        </a>
                     </div>
                 </div>
 
@@ -760,8 +816,11 @@
                 const ticketView = document.getElementById('confirmedTicketView');
                 ticketView.style.display = 'block';
                 document.getElementById('confirmedTicketCode').innerText = res.ticket_code;
+                if (document.getElementById('confirmedLoviCode')) {
+                    document.getElementById('confirmedLoviCode').innerText = res.lovi_code || 'LOVI-PASS';
+                }
                 document.getElementById('ticketQrImageWrap').innerHTML = `
-                    <img src="${res.qr_url}" alt="Ticket QR" width="160" height="160" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                    <img src="${res.qr_url}" alt="Ticket QR" width="170" height="170" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
                 `;
                 alert(res.message);
             } else {

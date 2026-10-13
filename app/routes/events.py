@@ -3,6 +3,7 @@ import time
 import uuid
 import csv
 import io
+import threading
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response, current_app
 from app.database import db, initialize_firebase
@@ -411,6 +412,7 @@ def rsvp_event():
 
     attendee_id = user_id or f"guest_{uuid.uuid4().hex[:8]}"
     ticket_code = f"FYM-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
+    lovi_code = f"LOVI-{uuid.uuid4().hex[:4].upper()}"
 
     # Get avatar if member
     avatar = "/static/img/icon-192.png"
@@ -427,37 +429,65 @@ def rsvp_event():
         "avatar": avatar,
         "plus_ones": plus_ones,
         "ticket_code": ticket_code,
+        "lovi_code": lovi_code,
+        "checked_in": False,
+        "checked_in_at": None,
         "is_guest": not bool(user_id),
         "timestamp": int(time.time() * 1000)
     }
 
     db.reference(f'events_rsvps/{event_id}/{attendee_id}').set(rsvp_entry)
+
+    # Save lookup records for instant O(1) QR scanning and door LOVI confirmation
+    lookup_record = {
+        "ticket_code": ticket_code,
+        "lovi_code": lovi_code,
+        "event_id": event_id,
+        "attendee_id": attendee_id,
+        "name": user_name,
+        "email": email,
+        "phone": phone,
+        "plus_ones": plus_ones,
+        "checked_in": False,
+        "checked_in_at": None,
+        "timestamp": int(time.time() * 1000)
+    }
+    db.reference(f'tickets_lookup/{ticket_code}').set(lookup_record)
+    db.reference(f'lovi_lookup/{lovi_code}').set(lookup_record)
     
     # Increment attendees count
     curr_count = int(event.get('attendees_count', 0) or 0)
     new_count = curr_count + 1 + plus_ones
     event_ref.child('attendees_count').set(new_count)
 
-    # Dispatch Ticket Email Confirmation in Background
+    # Dispatch Ticket Email Confirmation in Background Thread
     event['id'] = event_id
     try:
-        send_event_ticket_confirmation_email(
-            recipient_email=email,
-            recipient_name=user_name,
-            event_data=event,
-            ticket_code=ticket_code
-        )
+        email_kwargs = {
+            "recipient_email": email,
+            "recipient_name": user_name,
+            "event_data": dict(event),
+            "ticket_code": ticket_code,
+            "lovi_code": lovi_code
+        }
+        threading.Thread(target=send_event_ticket_confirmation_email, kwargs=email_kwargs, daemon=True).start()
     except Exception as mail_err:
-        print(f"Warning: Could not send ticket email: {mail_err}")
+        print(f"Warning: Could not launch email thread: {mail_err}")
 
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={ticket_code}&color=72-0-0"
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
+    import urllib.parse
+    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={encoded_verify_url}&color=72-0-0"
 
     return jsonify({
         "success": True,
         "ticket_code": ticket_code,
+        "lovi_code": lovi_code,
         "qr_url": qr_url,
+        "verify_url": verify_url,
         "attendees_count": new_count,
-        "message": f"🎉 Ticket confirmed! An official ticket pass has been sent to {email}."
+        "message": f"🎉 Ticket confirmed! An official ticket pass with QR Code & LOVI Code has been emailed to {email}."
     })
 
 
@@ -531,29 +561,221 @@ def post_event_comment(event_id):
 
 
 # ========================================================
-# 7. EXPORT ATTENDEES (CSV FOR DOOR ENTRANCE SCANNER)
+# 7. TICKET & LOVI CODE VERIFICATION (DOOR ADMIN PORTAL)
+# ========================================================
+def find_ticket_record(code: str):
+    """
+    Looks up a ticket by either Ticket Code (FYM-XXXX-YYYY) or Door LOVI Code (LOVI-XXXX).
+    Case-insensitive, trims whitespace, handles leading/trailing spaces.
+    Returns (ticket_record, event_data, error_msg)
+    """
+    if not code:
+        return None, None, "No ticket or LOVI code provided."
+    
+    clean_code = code.strip().upper()
+    
+    # 1. Direct tickets_lookup
+    ticket_record = db.reference(f'tickets_lookup/{clean_code}').get()
+    
+    # 2. Direct lovi_lookup
+    if not ticket_record:
+        ticket_record = db.reference(f'lovi_lookup/{clean_code}').get()
+        
+    # 3. Check if user typed code without 'LOVI-' prefix (e.g. 4 hex characters)
+    if not ticket_record and not clean_code.startswith("LOVI-") and len(clean_code) == 4:
+        ticket_record = db.reference(f'lovi_lookup/LOVI-{clean_code}').get()
+
+    # 4. Fallback search across events_rsvps in case index is missing
+    if not ticket_record:
+        events_dict = db.reference('events_rsvps').get() or {}
+        if isinstance(events_dict, dict):
+            for eid, attendees in events_dict.items():
+                if isinstance(attendees, dict):
+                    for aid, a in attendees.items():
+                        if isinstance(a, dict):
+                            t_code = (a.get('ticket_code') or '').strip().upper()
+                            l_code = (a.get('lovi_code') or '').strip().upper()
+                            if clean_code in (t_code, l_code) or clean_code == f"LOVI-{l_code}":
+                                ticket_record = {
+                                    "ticket_code": t_code or clean_code,
+                                    "lovi_code": l_code or f"LOVI-{clean_code[-4:]}",
+                                    "event_id": eid,
+                                    "attendee_id": aid,
+                                    "name": a.get('name', 'Attendee'),
+                                    "email": a.get('email', ''),
+                                    "phone": a.get('phone', ''),
+                                    "plus_ones": a.get('plus_ones', 0),
+                                    "checked_in": a.get('checked_in', False),
+                                    "checked_in_at": a.get('checked_in_at'),
+                                    "timestamp": a.get('timestamp')
+                                }
+                                break
+                    if ticket_record:
+                        break
+
+    if not ticket_record:
+        return None, None, f"No ticket or registration found matching code '{code}'."
+
+    # Fetch event details
+    event_id = ticket_record.get('event_id')
+    event_data = {}
+    if event_id:
+        event_data = db.reference(f'events/{event_id}').get() or {}
+        event_data['id'] = event_id
+        
+    return ticket_record, event_data, None
+
+
+@events_bp.route('/events/verify-ticket/<ticket_code>', methods=['GET'])
+@events_bp.route('/events/verify-ticket', methods=['GET'])
+def verify_ticket_page(ticket_code=None):
+    """
+    Dedicated door entrance scanner & ticket verification portal for Event Admins / Managers.
+    Opened directly when scanning the QR code with any phone camera, or by manually typing LOVI code.
+    """
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    query_code = ticket_code or request.args.get('code') or request.args.get('ticket') or request.args.get('lovi')
+    
+    ticket = None
+    event = None
+    status = 'PROMPT' # Default state if no code provided yet
+    error_msg = None
+    
+    if query_code:
+        ticket, event, error_msg = find_ticket_record(query_code)
+        if ticket:
+            if ticket.get('checked_in'):
+                status = 'ALREADY_CHECKED_IN'
+            else:
+                status = 'VALID'
+        else:
+            status = 'NOT_FOUND'
+
+    return render_template(
+        'event_ticket_verify.html',
+        ticket=ticket,
+        event=event,
+        status=status,
+        query_code=query_code or '',
+        error_msg=error_msg,
+        base_url=base_url
+    )
+
+
+@events_bp.route('/api/events/verify-ticket', methods=['POST'])
+def api_verify_ticket():
+    """
+    Real-time AJAX endpoint to verify a Ticket Code or LOVI Code instantly without full page reload.
+    """
+    data = request.json or {}
+    code = data.get('code', '').strip()
+    if not code:
+        return jsonify({"success": False, "error": "Please provide a ticket code or LOVI code."}), 400
+        
+    ticket, event, error_msg = find_ticket_record(code)
+    if not ticket:
+        return jsonify({"success": False, "status": "NOT_FOUND", "error": error_msg or "Ticket not found."}), 404
+        
+    status = "ALREADY_CHECKED_IN" if ticket.get('checked_in') else "VALID"
+    return jsonify({
+        "success": True,
+        "status": status,
+        "ticket": ticket,
+        "event": event
+    })
+
+
+@events_bp.route('/api/events/checkin-ticket', methods=['POST'])
+def checkin_ticket():
+    """
+    Door Entrance Check-in Action:
+    Marks attendee as admitted/checked in, sets timestamp, records admin,
+    and updates tickets_lookup, lovi_lookup, and events_rsvps.
+    """
+    data = request.json or {}
+    code = data.get('code') or data.get('ticket_code') or data.get('lovi_code')
+    if not code:
+        return jsonify({"success": False, "error": "Missing ticket or LOVI code."}), 400
+
+    ticket, event, err = find_ticket_record(code)
+    if not ticket:
+        return jsonify({"success": False, "error": err or "Ticket not found."}), 404
+
+    ticket_code = ticket.get('ticket_code')
+    lovi_code = ticket.get('lovi_code')
+    event_id = ticket.get('event_id')
+    attendee_id = ticket.get('attendee_id')
+
+    if ticket.get('checked_in'):
+        check_time_str = "earlier"
+        if ticket.get('checked_in_at'):
+            check_time_str = datetime.fromtimestamp(ticket['checked_in_at'] / 1000).strftime('%I:%M %p')
+        return jsonify({
+            "success": False,
+            "already_checked_in": True,
+            "error": f"⚠️ Attendee was already admitted at {check_time_str}! Do not allow duplicate entry.",
+            "ticket": ticket
+        }), 409
+
+    now_ms = int(time.time() * 1000)
+    admin_name = session.get('user_name', 'Event Admin / Door Manager')
+
+    updates = {
+        "checked_in": True,
+        "checked_in_at": now_ms,
+        "checked_in_by": admin_name
+    }
+
+    if ticket_code:
+        db.reference(f'tickets_lookup/{ticket_code}').update(updates)
+    if lovi_code:
+        db.reference(f'lovi_lookup/{lovi_code}').update(updates)
+    if event_id and attendee_id:
+        db.reference(f'events_rsvps/{event_id}/{attendee_id}').update(updates)
+
+    ticket.update(updates)
+
+    return jsonify({
+        "success": True,
+        "message": f"✅ {ticket.get('name', 'Attendee')} ({lovi_code}) successfully admitted!",
+        "ticket": ticket,
+        "checked_in_at": now_ms,
+        "checked_in_at_str": datetime.fromtimestamp(now_ms / 1000).strftime('%I:%M %p')
+    })
+
+
+# ========================================================
+# 8. EXPORT ATTENDEES (CSV FOR DOOR ENTRANCE SCANNER)
 # ========================================================
 @events_bp.route('/events/<event_id>/export-attendees')
 def export_attendees(event_id):
     """
     Exports attendee guestlist as a clean CSV for the event organizer to check tickets at the door.
+    Includes both Ticket Code and Door LOVI Code.
     """
     rsvps_dict = db.reference(f'events_rsvps/{event_id}').get() or {}
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Ticket Code", "Name", "Email", "Phone", "Plus Ones", "Registration Time"])
+    writer.writerow([
+        "Ticket Code", "LOVI Code", "Name", "Email", "Phone",
+        "Plus Ones", "Checked In", "Check-in Time", "Registration Time"
+    ])
     
     if isinstance(rsvps_dict, dict):
         for uid, a in rsvps_dict.items():
             if isinstance(a, dict):
                 reg_time = datetime.fromtimestamp(a.get('timestamp', 0) / 1000).strftime('%Y-%m-%d %H:%M') if a.get('timestamp') else 'N/A'
+                checked_time = datetime.fromtimestamp(a.get('checked_in_at', 0) / 1000).strftime('%Y-%m-%d %H:%M') if a.get('checked_in_at') else '-'
                 writer.writerow([
                     a.get('ticket_code', ''),
+                    a.get('lovi_code', ''),
                     a.get('name', ''),
                     a.get('email', ''),
                     a.get('phone', ''),
                     a.get('plus_ones', 0),
+                    'YES' if a.get('checked_in') else 'NO',
+                    checked_time,
                     reg_time
                 ])
                 
@@ -563,3 +785,4 @@ def export_attendees(event_id):
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment;filename=attendees_{event_id}.csv"}
     )
+

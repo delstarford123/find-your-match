@@ -326,6 +326,16 @@
       ".read": true,
       ".write": true,
       ".indexOn": ["timestamp"]
+    },
+    "tickets_lookup": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["ticket_code", "event_id", "timestamp"]
+    },
+    "lovi_lookup": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["lovi_code", "ticket_code", "event_id"]
     }
   }
 }

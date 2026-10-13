@@ -1,0 +1,867 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Ticket Pass & Door LOVI Code | Find Your Match Events{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --fym-crimson: #720000;
+        --fym-rose: #E60026;
+        --fym-dark: #0f172a;
+        --fym-emerald: #10b981;
+        --fym-amber: #f59e0b;
+    }
+
+    .scanner-page-container {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 20px 16px 80px;
+    }
+
+    /* Admin Top Header */
+    .admin-scanner-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border-radius: 24px;
+        padding: 24px 20px;
+        color: white;
+        text-align: center;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .admin-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        padding: 5px 14px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+
+    .admin-scanner-header h1 {
+        font-size: clamp(20px, 4vw, 26px);
+        font-weight: 900;
+        margin: 0 0 6px;
+        letter-spacing: -0.5px;
+    }
+
+    .admin-scanner-header p {
+        margin: 0;
+        font-size: 13px;
+        opacity: 0.85;
+    }
+
+    /* Manual LOVI Code & Ticket Input Bar */
+    .door-search-box {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+        margin-bottom: 24px;
+    }
+
+    .door-search-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: #334155;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .search-input-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .door-search-input {
+        flex: 1;
+        padding: 14px 16px;
+        border: 2px solid #cbd5e1;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 800;
+        font-family: monospace;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .door-search-input:focus {
+        border-color: var(--fym-rose);
+        box-shadow: 0 0 0 4px rgba(230,0,38,0.1);
+    }
+
+    .btn-search-verify {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 0 22px;
+        border-radius: 14px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+        transition: transform 0.15s;
+    }
+
+    .btn-search-verify:active {
+        transform: scale(0.97);
+    }
+
+    /* Verification Status Cards */
+    .verification-card {
+        border-radius: 24px;
+        padding: 28px 22px;
+        margin-bottom: 24px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        border: 2px solid transparent;
+        animation: fadeInSlide 0.3s ease;
+    }
+
+    @keyframes fadeInSlide {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Card Status Styles */
+    .card-valid {
+        background: #f0fdf4;
+        border-color: #86efac;
+    }
+
+    .card-already {
+        background: #fff1f2;
+        border-color: #fda4af;
+    }
+
+    .card-invalid {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
+    .status-badge-big {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
+        border-radius: 50px;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+    }
+
+    .badge-valid {
+        background: #22c55e;
+        color: white;
+        box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+    }
+
+    .badge-already {
+        background: #e11d48;
+        color: white;
+        box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+    }
+
+    .badge-invalid {
+        background: #64748b;
+        color: white;
+    }
+
+    /* Attendee Info Grid */
+    .attendee-name-hero {
+        font-size: clamp(22px, 5vw, 30px);
+        font-weight: 900;
+        color: #0f172a;
+        margin: 0 0 6px;
+        line-height: 1.2;
+    }
+
+    .attendee-contact-sub {
+        font-size: 14px;
+        color: #475569;
+        margin-bottom: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .contact-link {
+        color: #0284c7;
+        text-decoration: none;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    /* Dual Code Box (Ticket & LOVI) */
+    .codes-pill-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .code-pill-item {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 12px 14px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+
+    .code-pill-label {
+        font-size: 10px;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .code-pill-value {
+        font-size: clamp(15px, 3.5vw, 19px);
+        font-weight: 900;
+        font-family: monospace;
+        letter-spacing: 1.5px;
+    }
+
+    .val-ticket { color: #0f172a; }
+    .val-lovi { color: #be123c; }
+
+    /* Event Specs Table */
+    .verify-details-table {
+        width: 100%;
+        font-size: 14px;
+        margin-bottom: 22px;
+        border-collapse: collapse;
+    }
+
+    .verify-details-table td {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .verify-details-table td:first-child {
+        color: #64748b;
+        width: 38%;
+        font-weight: 600;
+    }
+
+    .verify-details-table td:last-child {
+        color: #0f172a;
+        font-weight: 800;
+        text-align: right;
+    }
+
+    /* Admit Action Button */
+    .btn-admit-big {
+        display: block;
+        width: 100%;
+        background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+        color: white;
+        border: none;
+        padding: 18px 24px;
+        border-radius: 16px;
+        font-size: 17px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        box-shadow: 0 8px 25px rgba(22, 163, 74, 0.4);
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn-admit-big:active {
+        transform: scale(0.98);
+    }
+
+    .btn-admit-big:disabled {
+        background: #94a3b8;
+        box-shadow: none;
+        cursor: not-allowed;
+    }
+
+    /* Camera Scanner Section */
+    .camera-scanner-card {
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .btn-toggle-cam {
+        background: #0f172a;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #qrReaderBox {
+        margin-top: 16px;
+        border-radius: 14px;
+        overflow: hidden;
+        display: none;
+    }
+
+    /* Viral Branding & Want to Join FYM Box */
+    .viral-fym-banner {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        border-radius: 24px;
+        padding: 30px 24px;
+        color: white;
+        text-align: center;
+        box-shadow: 0 16px 36px rgba(114, 0, 0, 0.25);
+        margin-top: 30px;
+    }
+
+    .viral-pill-tag {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 4px 14px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+    }
+
+    .viral-fym-banner h2 {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 900;
+    }
+
+    .viral-fym-banner p {
+        margin: 0 0 20px;
+        font-size: 14px;
+        opacity: 0.95;
+        line-height: 1.6;
+    }
+
+    .btn-join-fym {
+        display: inline-block;
+        background: white;
+        color: #720000;
+        text-decoration: none;
+        padding: 14px 32px;
+        border-radius: 50px;
+        font-weight: 900;
+        font-size: 15px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        transition: transform 0.2s;
+    }
+    .btn-join-fym:hover { transform: scale(1.03); }
+</style>
+
+<div class="scanner-page-container">
+
+    <!-- ADMIN SCANNER HEADER -->
+    <div class="admin-scanner-header">
+        <div class="admin-badge">
+            🛡️ Official Entrance Control
+        </div>
+        <h1>Event Admission & Verification</h1>
+        <p>Scan attendee QR code or ask for their door <strong>LOVI Code</strong> to admit them.</p>
+    </div>
+
+    <!-- QUICK SEARCH BY LOVI CODE OR TICKET ID -->
+    <div class="door-search-box">
+        <div class="door-search-title">
+            🔑 Ask Attendee for LOVI Code or Enter Ticket ID:
+        </div>
+        <form onsubmit="handleManualSearch(event)" class="search-input-group">
+            <input 
+                type="text" 
+                id="manualCodeInput" 
+                class="door-search-input" 
+                placeholder="e.g. LOVI-A1B2 or FYM-XXXX" 
+                value="{{ query_code }}"
+                autocapitalize="characters"
+                autocomplete="off"
+                required
+            >
+            <button type="submit" class="btn-search-verify" id="btnSearchSubmit">
+                🔍 Verify
+            </button>
+        </form>
+        <div style="font-size: 12px; color: #64748b; margin-top: 8px;">
+            💡 <em>Tip: If the camera cannot scan, simply ask the attendee for the 4-digit LOVI code shown in their ticket email.</em>
+        </div>
+    </div>
+
+    <!-- ACTIVE VERIFICATION RESULT CARD -->
+    <div id="resultCardContainer">
+        {% if status == 'VALID' and ticket %}
+        <!-- STATUS 1: VALID TICKET -->
+        <div class="verification-card card-valid" id="activeStatusCard">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                <div class="status-badge-big badge-valid" id="statusBadge">
+                    ✅ VALID TICKET • READY FOR ENTRY
+                </div>
+                <div style="font-size: 12px; font-weight: 800; color: #15803d; padding-top: 4px;">
+                    PAID / REGISTERED
+                </div>
+            </div>
+
+            <div class="attendee-name-hero" id="cardAttendeeName">
+                {{ ticket.name }}
+            </div>
+
+            <div class="attendee-contact-sub">
+                <span>📧 {{ ticket.email }}</span>
+                {% if ticket.phone %}
+                <span>•</span>
+                <a href="tel:{{ ticket.phone }}" class="contact-link">📞 {{ ticket.phone }}</a>
+                <a href="https://wa.me/{{ ticket.phone|replace('+', '')|replace(' ', '') }}" target="_blank" class="contact-link" style="color: #16a34a;">
+                    💬 WhatsApp
+                </a>
+                {% endif %}
+            </div>
+
+            <!-- TICKET ID & LOVI CODE BOXES -->
+            <div class="codes-pill-grid">
+                <div class="code-pill-item">
+                    <div class="code-pill-label">Ticket ID</div>
+                    <div class="code-pill-value val-ticket">{{ ticket.ticket_code }}</div>
+                </div>
+                <div class="code-pill-item" style="border-color: #fda4af; background: #fff1f2;">
+                    <div class="code-pill-label" style="color: #9f1239;">Door LOVI Code</div>
+                    <div class="code-pill-value val-lovi">{{ ticket.lovi_code }}</div>
+                </div>
+            </div>
+
+            <!-- EVENT DETAILS -->
+            <table class="verify-details-table">
+                <tr>
+                    <td>🎉 Event</td>
+                    <td>{{ event.title or "Campus Event" }}</td>
+                </tr>
+                <tr>
+                    <td>📍 Venue</td>
+                    <td>{{ event.venue_name or "Campus Location" }}</td>
+                </tr>
+                <tr>
+                    <td>👥 Admitted Count</td>
+                    <td>1 Attendee {% if ticket.plus_ones > 0 %}+ {{ ticket.plus_ones }} Friends (Total {{ ticket.plus_ones + 1 }}){% endif %}</td>
+                </tr>
+                <tr>
+                    <td>💵 Admission</td>
+                    <td>{{ event.price_display or "Free Admission" }}</td>
+                </tr>
+            </table>
+
+            <!-- ADMIT BUTTON -->
+            <button 
+                type="button" 
+                class="btn-admit-big" 
+                id="btnAdmitAction" 
+                onclick="admitAttendee('{{ ticket.ticket_code }}', '{{ ticket.lovi_code }}')"
+            >
+                🎟️ ADMIT ATTENDEE & ALLOW ENTRY
+            </button>
+        </div>
+
+        {% elif status == 'ALREADY_CHECKED_IN' and ticket %}
+        <!-- STATUS 2: ALREADY CHECKED IN -->
+        <div class="verification-card card-already" id="activeStatusCard">
+            <div class="status-badge-big badge-already">
+                ⚠️ ALREADY ADMITTED / USED PASS
+            </div>
+
+            <div class="attendee-name-hero" style="color: #9f1239;">
+                {{ ticket.name }}
+            </div>
+
+            <p style="font-size: 14px; color: #881337; margin: 0 0 16px; line-height: 1.5;">
+                This pass has <strong>already been checked in</strong> at the entrance! Do not admit duplicate attendees without checking with head security.
+            </p>
+
+            <div class="codes-pill-grid">
+                <div class="code-pill-item">
+                    <div class="code-pill-label">Ticket ID</div>
+                    <div class="code-pill-value val-ticket">{{ ticket.ticket_code }}</div>
+                </div>
+                <div class="code-pill-item">
+                    <div class="code-pill-label">Door LOVI Code</div>
+                    <div class="code-pill-value val-lovi">{{ ticket.lovi_code }}</div>
+                </div>
+            </div>
+
+            <table class="verify-details-table">
+                <tr>
+                    <td>🎉 Event</td>
+                    <td>{{ event.title or "Campus Event" }}</td>
+                </tr>
+                <tr>
+                    <td>⏰ Admitted At</td>
+                    <td style="color: #be123c;">Checked In Previously</td>
+                </tr>
+                <tr>
+                    <td>👤 Admitted By</td>
+                    <td>{{ ticket.checked_in_by or "Event Admin" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        {% elif status == 'NOT_FOUND' %}
+        <!-- STATUS 3: NOT FOUND -->
+        <div class="verification-card card-invalid">
+            <div class="status-badge-big badge-invalid">
+                ❌ INVALID TICKET OR LOVI CODE
+            </div>
+            <h3 style="margin: 0 0 8px; font-size: 20px; color: #0f172a;">No Registration Found</h3>
+            <p style="font-size: 14px; color: #64748b; margin: 0 0 14px;">
+                Code <strong>"{{ query_code }}"</strong> does not match any registered attendee or payment record for this event.
+            </p>
+            <div style="font-size: 13px; color: #475569;">
+                Please ask the attendee to open their confirmation email from <em>FindYourMatch Events</em> or check the LOVI code spelling.
+            </div>
+        </div>
+
+        {% elif status == 'PROMPT' %}
+        <!-- INITIAL PROMPT (NO CODE SEARCHED YET) -->
+        <div class="verification-card card-invalid" style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">📷</div>
+            <h3 style="margin: 0 0 6px; font-size: 20px; font-weight: 800; color: #0f172a;">Door Entrance Ready</h3>
+            <p style="font-size: 14px; color: #64748b; margin: 0 auto; max-width: 440px;">
+                Scan an attendee's QR pass with your phone camera, or enter their <strong>LOVI Code</strong> in the search bar above to verify and allow entry.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- BUILT-IN CAMERA SCANNER OPTION -->
+    <div class="camera-scanner-card">
+        <button class="btn-toggle-cam" onclick="toggleCameraScanner()" id="btnToggleCam">
+            📷 Open Phone Camera Scanner
+        </button>
+        <div id="qrReaderBox">
+            <div id="interactiveScanner" style="width: 100%; max-width: 450px; margin: 0 auto; border-radius: 12px; overflow: hidden;"></div>
+            <button onclick="stopCameraScanner()" style="margin-top: 10px; background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; cursor: pointer;">
+                ✕ Stop Camera
+            </button>
+        </div>
+    </div>
+
+    <!-- VIRAL FINDYOURMATCH BANNER: MADE BY FINDYOURMATCH & WANT TO JOIN -->
+    <div class="viral-fym-banner">
+        <div class="viral-pill-tag">
+            ✨ MADE BY FINDYOURMATCH
+        </div>
+        <h2>Want to Join FindYourMatch? 💖</h2>
+        <p>
+            The #1 student connection and campus lifestyle platform. Meet verified students, discover parties, host your own events, and sync schedules!
+        </p>
+        <a href="/signup" class="btn-join-fym">
+            🚀 Create Free Profile & Join FindYourMatch &rarr;
+        </a>
+    </div>
+
+</div>
+
+<!-- Sound effects for entry approval -->
+<script>
+    // Audio Chime Generator using Web Audio API (no external file dependencies)
+    function playChime(isSuccess) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (isSuccess) {
+                // High cheerful double ding
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            } else {
+                // Low warning buzz
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, ctx.currentTime);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.35);
+            }
+        } catch(e) {
+            console.log("Audio not supported or user gesture needed");
+        }
+    }
+
+    // Manual LOVI / Ticket Code Verification via AJAX
+    function handleManualSearch(e) {
+        e.preventDefault();
+        const codeInput = document.getElementById('manualCodeInput');
+        const code = codeInput.value.trim().toUpperCase();
+        if (!code) return;
+
+        const btn = document.getElementById('btnSearchSubmit');
+        btn.innerHTML = "Verifying...";
+        btn.disabled = true;
+
+        fetch('/api/events/verify-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ code: code })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.innerHTML = "🔍 Verify";
+            btn.disabled = false;
+            renderVerificationResult(data, code);
+        })
+        .catch(err => {
+            btn.innerHTML = "🔍 Verify";
+            btn.disabled = false;
+            console.error(err);
+            alert("Network error while verifying code.");
+        });
+    }
+
+    // Render verification state card
+    function renderVerificationResult(data, queryCode) {
+        const container = document.getElementById('resultCardContainer');
+
+        if (!data.success || data.status === 'NOT_FOUND') {
+            playChime(false);
+            container.innerHTML = `
+                <div class="verification-card card-invalid">
+                    <div class="status-badge-big badge-invalid">
+                        ❌ INVALID TICKET OR LOVI CODE
+                    </div>
+                    <h3 style="margin: 0 0 8px; font-size: 20px; color: #0f172a;">No Registration Found</h3>
+                    <p style="font-size: 14px; color: #64748b; margin: 0 0 14px;">
+                        Code <strong>"${queryCode}"</strong> does not match any registered attendee or payment record for this event.
+                    </p>
+                    <div style="font-size: 13px; color: #475569;">
+                        Please ask the attendee to open their confirmation email from <em>FindYourMatch Events</em> or check the LOVI code spelling.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const t = data.ticket;
+        const ev = data.event || {};
+
+        if (data.status === 'ALREADY_CHECKED_IN') {
+            playChime(false);
+            container.innerHTML = `
+                <div class="verification-card card-already">
+                    <div class="status-badge-big badge-already">
+                        ⚠️ ALREADY ADMITTED / USED PASS
+                    </div>
+                    <div class="attendee-name-hero" style="color: #9f1239;">${t.name}</div>
+                    <p style="font-size: 14px; color: #881337; margin: 0 0 16px; line-height: 1.5;">
+                        This pass has <strong>already been checked in</strong> at the entrance! Do not admit duplicate attendees without checking with head security.
+                    </p>
+                    <div class="codes-pill-grid">
+                        <div class="code-pill-item">
+                            <div class="code-pill-label">Ticket ID</div>
+                            <div class="code-pill-value val-ticket">${t.ticket_code}</div>
+                        </div>
+                        <div class="code-pill-item">
+                            <div class="code-pill-label">Door LOVI Code</div>
+                            <div class="code-pill-value val-lovi">${t.lovi_code}</div>
+                        </div>
+                    </div>
+                    <table class="verify-details-table">
+                        <tr><td>🎉 Event</td><td>${ev.title || "Campus Event"}</td></tr>
+                        <tr><td>⏰ Admitted At</td><td style="color: #be123c;">Checked In Previously</td></tr>
+                        <tr><td>👤 Admitted By</td><td>${t.checked_in_by || "Event Admin"}</td></tr>
+                    </table>
+                </div>
+            `;
+            return;
+        }
+
+        // VALID
+        playChime(true);
+        const plusStr = (t.plus_ones > 0) ? `+ ${t.plus_ones} Friends (Total ${t.plus_ones + 1})` : `1 Attendee`;
+        container.innerHTML = `
+            <div class="verification-card card-valid" id="activeStatusCard">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                    <div class="status-badge-big badge-valid" id="statusBadge">
+                        ✅ VALID TICKET • READY FOR ENTRY
+                    </div>
+                    <div style="font-size: 12px; font-weight: 800; color: #15803d; padding-top: 4px;">
+                        PAID / REGISTERED
+                    </div>
+                </div>
+
+                <div class="attendee-name-hero">${t.name}</div>
+
+                <div class="attendee-contact-sub">
+                    <span>📧 ${t.email}</span>
+                    ${t.phone ? `<span>•</span> <a href="tel:${t.phone}" class="contact-link">📞 ${t.phone}</a>` : ''}
+                </div>
+
+                <div class="codes-pill-grid">
+                    <div class="code-pill-item">
+                        <div class="code-pill-label">Ticket ID</div>
+                        <div class="code-pill-value val-ticket">${t.ticket_code}</div>
+                    </div>
+                    <div class="code-pill-item" style="border-color: #fda4af; background: #fff1f2;">
+                        <div class="code-pill-label" style="color: #9f1239;">Door LOVI Code</div>
+                        <div class="code-pill-value val-lovi">${t.lovi_code}</div>
+                    </div>
+                </div>
+
+                <table class="verify-details-table">
+                    <tr><td>🎉 Event</td><td>${ev.title || "Campus Event"}</td></tr>
+                    <tr><td>📍 Venue</td><td>${ev.venue_name || "Campus Location"}</td></tr>
+                    <tr><td>👥 Admitted Count</td><td>${plusStr}</td></tr>
+                    <tr><td>💵 Admission</td><td>${ev.price_display || "Free Admission"}</td></tr>
+                </table>
+
+                <button 
+                    type="button" 
+                    class="btn-admit-big" 
+                    id="btnAdmitAction" 
+                    onclick="admitAttendee('${t.ticket_code}', '${t.lovi_code}')"
+                >
+                    🎟️ ADMIT ATTENDEE & ALLOW ENTRY
+                </button>
+            </div>
+        `;
+    }
+
+    // Admit Attendee Action
+    function admitAttendee(ticketCode, loviCode) {
+        const btn = document.getElementById('btnAdmitAction');
+        btn.innerHTML = "Admitting attendee...";
+        btn.disabled = true;
+
+        fetch('/api/events/checkin-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ticket_code: ticketCode, lovi_code: loviCode })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                playChime(true);
+                btn.innerHTML = "✅ ADMITTED & CONFIRMED";
+                btn.style.background = "#059669";
+                const badge = document.getElementById('statusBadge');
+                if (badge) {
+                    badge.innerHTML = "✅ ATTENDEE ENTERED (CHECKED IN)";
+                }
+                alert(data.message);
+            } else {
+                playChime(false);
+                btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
+                btn.disabled = false;
+                alert(data.error || "Could not check in attendee.");
+            }
+        })
+        .catch(err => {
+            btn.innerHTML = "🎟️ ADMIT ATTENDEE & ALLOW ENTRY";
+            btn.disabled = false;
+            console.error(err);
+            alert("Network error.");
+        });
+    }
+
+    // Camera Barcode / QR Scanner using lightweight script
+    let html5QrScanner = null;
+    function toggleCameraScanner() {
+        const box = document.getElementById('qrReaderBox');
+        if (box.style.display === 'block') {
+            stopCameraScanner();
+            return;
+        }
+
+        box.style.display = 'block';
+        document.getElementById('btnToggleCam').innerText = "📷 Loading Camera...";
+
+        // Dynamically load html5-qrcode
+        if (typeof Html5QrcodeScanner === 'undefined') {
+            const script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js";
+            script.onload = startScanning;
+            document.head.appendChild(script);
+        } else {
+            startScanning();
+        }
+    }
+
+    function startScanning() {
+        try {
+            html5QrScanner = new Html5QrcodeScanner("interactiveScanner", { fps: 10, qrbox: 250 });
+            html5QrScanner.render(onScanSuccess);
+            document.getElementById('btnToggleCam').innerText = "📷 Camera Active (Scan Pass)";
+        } catch(e) {
+            console.error("Camera scanner error:", e);
+        }
+    }
+
+    function onScanSuccess(decodedText) {
+        // Scanned URL or raw ticket code
+        let code = decodedText;
+        if (decodedText.includes('/events/verify-ticket/')) {
+            const parts = decodedText.split('/events/verify-ticket/');
+            code = parts[1].split('?')[0];
+        }
+
+        document.getElementById('manualCodeInput').value = code;
+        stopCameraScanner();
+
+        // Perform instant verification
+        fetch('/api/events/verify-ticket', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ code: code })
+        })
+        .then(res => res.json())
+        .then(data => {
+            renderVerificationResult(data, code);
+        });
+    }
+
+    function stopCameraScanner() {
+        if (html5QrScanner) {
+            html5QrScanner.clear().catch(e => console.error(e));
+        }
+        document.getElementById('qrReaderBox').style.display = 'none';
+        document.getElementById('btnToggleCam').innerText = "📷 Open Phone Camera Scanner";
+    }
+</script>
+
+{% endblock %}
