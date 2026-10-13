@@ -534,6 +534,79 @@ def send_group_invite_email(to_email, user_name, group_name, admin_name):
     return _send_email(to_email, subject, text_content, html_content)
 
 
+def send_group_approved_email(to_email, user_name, group_name, group_id):
+    """
+    Sends an instant notification when a user is granted access to a group chat,
+    with a direct link straight into the group chat.
+    """
+    subject = f"🎉 You're In! Welcome to {group_name}"
+    base_url = os.getenv('BASE_URL', 'https://findyourmatch.co.ke').rstrip('/')
+    chat_url = f"{base_url}/group/{group_id}"
+    user_first = (user_name or 'Comrade').strip().split()[0] if user_name else 'Comrade'
+    
+    text_content = textwrap.dedent(f"""\
+        Hi {user_first},
+
+        Great news! You now have direct access to the group chat: "{group_name}".
+
+        Jump right in to chat with other students, vibe, and connect:
+        {chat_url}
+
+        Happy matching!
+        Find Your Match Team
+    """)
+    
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 20px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+            <div style="max-width: 580px; margin: 0 auto; background: white; padding: 32px 28px; border-radius: 20px; border-top: 6px solid #720000; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <span style="display: inline-block; background: #fff1f2; color: #be123c; padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+                        👥 Group Chat Access
+                    </span>
+                    <h2 style="color: #0f172a; margin: 14px 0 6px; font-size: 24px; font-weight: 900;">
+                        You're In! Welcome to {group_name} 🎉
+                    </h2>
+                    <p style="color: #64748b; font-size: 15px; margin: 0;">
+                        Hi <strong>{user_first}</strong>, your access has been granted!
+                    </p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid #fecdd3; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
+                    <div style="font-size: 18px; font-weight: 800; color: #881337;">{group_name}</div>
+                    <div style="font-size: 13px; color: #9f1239; margin-top: 6px;">
+                        Connect, mingle, shoot your shot, and chat with comrades.
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 26px;">
+                    <a href="{chat_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 50px; font-weight: 900; font-size: 16px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
+                        🚀 Enter Group Chat Now &rarr;
+                    </a>
+                </div>
+
+                <div style="background: #f8fafc; border-radius: 14px; padding: 16px; font-size: 12px; color: #64748b; line-height: 1.6;">
+                    💡 <strong>Quick Reminder:</strong> Be respectful, maintain good vibes, and shoot your shot respectfully!
+                </div>
+
+                <div style="text-align: center; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+                    FindYourMatch • Campus Dating & Socials<br>
+                    <a href="{base_url}" style="color: #64748b; text-decoration: none;">findyourmatch.co.ke</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+    return _send_email(to_email, subject, text_content, html_content, sender_name="FindYourMatch Groups")
+
+
+
 def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
     """Sends a professional confirmation email to a student when a date is approved."""
     subject = f"Your Date at {restaurant_name} is Confirmed!"

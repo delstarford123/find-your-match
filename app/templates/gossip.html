@@ -6,7 +6,10 @@
     .gossip-page {
         max-width: 650px;
         margin: 0 auto;
-        padding: 20px 15px 120px;
+        padding: clamp(14px, 3vw, 24px) clamp(10px, 3vw, 16px) 120px;
+        box-sizing: border-box;
+        width: 100%;
+        overflow-x: hidden;
     }
 
     /* The Viral Engine Banner */
@@ -16,16 +19,18 @@
         -webkit-backdrop-filter: blur(15px);
         border: 1px solid rgba(230, 0, 38, 0.4);
         border-radius: 20px;
-        padding: 25px 20px;
-        margin-bottom: 35px;
+        padding: clamp(18px, 4vw, 25px) clamp(14px, 3vw, 20px);
+        margin-bottom: 25px;
         display: flex;
         flex-direction: column;
         align-items: center;
         text-align: center;
-        gap: 12px;
+        gap: 10px;
         box-shadow: 0 15px 35px rgba(0,0,0,0.25);
         position: relative;
         overflow: hidden;
+        box-sizing: border-box;
+        width: 100%;
     }
 
     .referral-viral-card::after {
@@ -38,36 +43,33 @@
         pointer-events: none;
     }
 
-    .referral-viral-card h3 { color: #fff; font-size: 20px; font-weight: 900; margin: 0; letter-spacing: -0.5px; }
-    .referral-viral-card p { color: #cbd5e1; font-size: 14px; margin: 0; line-height: 1.5; }
+    .referral-viral-card h3 { color: #fff; font-size: clamp(17px, 4vw, 20px); font-weight: 900; margin: 0; letter-spacing: -0.5px; }
+    .referral-viral-card p { color: #cbd5e1; font-size: clamp(13px, 2.5vw, 14px); margin: 0; line-height: 1.5; }
     
     .ref-code-box {
         background: rgba(0,0,0,0.4);
-        padding: 12px 25px;
+        padding: 10px 18px;
         border-radius: 12px;
         border: 2px dashed #E60026;
         color: #ff4d6d;
         font-family: 'Courier New', monospace;
         font-weight: 900;
-        font-size: 20px;
-        letter-spacing: 3px;
-        margin: 10px 0;
+        font-size: clamp(16px, 4vw, 20px);
+        letter-spacing: 2px;
+        margin: 8px 0;
         cursor: pointer;
         transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-    .ref-code-box:hover { transform: scale(1.05); background: rgba(230, 0, 38, 0.1); }
-    .ref-code-box:active { transform: scale(0.95); }
-    
-    .referral-viral-card p, .ref-code-box {
-        word-wrap: break-word;
-        white-space: normal;
         max-width: 100%;
-        overflow-wrap: break-word;
+        box-sizing: border-box;
+        word-break: break-all;
     }
+    .ref-code-box:hover { transform: scale(1.03); background: rgba(230, 0, 38, 0.1); }
+    .ref-code-box:active { transform: scale(0.97); }
 
     /* Feed Controls */
     .feed-controls {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        box-sizing: border-box; width: 100%;
     }
 
     /* V2 Gossip Cards */
@@ -76,11 +78,14 @@
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 24px;
-        padding: 25px;
-        margin-bottom: 20px;
+        border-radius: 22px;
+        padding: clamp(16px, 4vw, 24px);
+        margin-bottom: 18px;
         position: relative;
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-sizing: border-box;
+        width: 100%;
+        overflow: hidden;
     }
 
     /* "Hot" state for popular gossip */
@@ -92,7 +97,7 @@
     .gossip-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #E60026; border-radius: 24px 0 0 24px; }
     .gossip-card:hover { transform: translateY(-3px); }
 
-    .gossip-text { color: #f8fafc; font-size: 17px; line-height: 1.6; font-weight: 500; margin-bottom: 20px; white-space: pre-wrap; word-break: break-word; }
+    .gossip-text { color: #f8fafc; font-size: clamp(15px, 3.5vw, 17px); line-height: 1.6; font-weight: 500; margin-bottom: 16px; white-space: pre-wrap; word-break: break-word; overflow-wrap: break-word; }
 
     /* Blur for non-users */
     .blurred-content {
@@ -108,147 +113,134 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        background: rgba(11, 18, 25, 0.4);
+        background: rgba(11, 18, 25, 0.6);
         z-index: 10;
-        border-radius: 24px;
+        border-radius: 22px;
         text-align: center;
-        padding: 20px;
+        padding: 16px;
+        box-sizing: border-box;
     }
 
-    .gossip-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
-    .gossip-stats { display: flex; gap: 15px; align-items: center; }
+    .gossip-footer { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-top: 1px solid rgba(255,255,255,0.06); 
+        padding-top: 14px; 
+        flex-wrap: wrap; 
+        gap: 10px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .gossip-stats { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     
     .stat-btn {
-        background: rgba(255,255,255,0.05); border: none; color: #94a3b8;
-        padding: 8px 16px; border-radius: 12px; font-size: 14px; font-weight: 700;
+        background: rgba(255,255,255,0.06); border: none; color: #94a3b8;
+        padding: 7px 14px; border-radius: 12px; font-size: 13px; font-weight: 700;
         cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+        box-sizing: border-box;
     }
     .stat-btn.upvoted { color: #E60026; background: rgba(230, 0, 38, 0.15); }
     @media (hover: hover) { .stat-btn:hover { background: rgba(255,255,255,0.15); color: #fff; } }
     .stat-btn:active { transform: scale(0.9); }
 
-    .time-ago { color: #475569; font-size: 13px; font-weight: 600; }
+    .time-ago { color: #64748b; font-size: 12px; font-weight: 600; white-space: nowrap; }
 
     .share-btn {
         background: transparent; color: #ff4d6d; border: 1.5px solid #E60026;
-        padding: 8px 18px; border-radius: 30px; font-size: 13px; font-weight: 800;
-        cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px;
+        padding: 7px 16px; border-radius: 30px; font-size: 13px; font-weight: 800;
+        cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        white-space: nowrap; box-sizing: border-box;
     }
     .share-btn:hover { background: #E60026; color: white; }
 
     /* Comment Section */
     .comments-section {
-        margin-top: 15px;
-        padding-top: 15px;
+        margin-top: 14px;
+        padding-top: 14px;
         border-top: 1px solid rgba(255,255,255,0.05);
+        width: 100%;
+        box-sizing: border-box;
     }
     .comment-item {
         background: rgba(255,255,255,0.03);
         border-radius: 12px;
-        padding: 10px 15px;
+        padding: 10px 14px;
         margin-bottom: 8px;
-        font-size: 14px;
+        font-size: 13px;
         color: #cbd5e1;
+        word-break: break-word;
+        line-height: 1.4;
     }
     .comment-input-area {
         display: flex;
-        gap: 10px;
-        margin-top: 15px;
+        gap: 8px;
+        margin-top: 12px;
+        width: 100%;
+        box-sizing: border-box;
     }
     .comment-input-area input {
         flex: 1;
+        min-width: 0;
         background: rgba(255,255,255,0.05);
         border: 1px solid rgba(255,255,255,0.1);
         border-radius: 10px;
-        padding: 10px 15px;
+        padding: 10px 14px;
         color: white;
-        font-size: 16px;
+        font-size: 14px;
         outline: none;
+        box-sizing: border-box;
     }
     .comment-input-area button {
         background: #E60026;
         color: white;
         border: none;
-        padding: 8px 15px;
+        padding: 10px 18px;
         border-radius: 10px;
-        font-weight: bold;
+        font-weight: 800;
+        font-size: 13px;
         cursor: pointer;
+        flex-shrink: 0;
+        box-sizing: border-box;
     }
 
     /* Floating Action Button */
     .fab-post {
-        position: fixed; bottom: max(90px, var(--safe-bottom)); right: max(25px, var(--safe-right));
-        width: 65px; height: 65px; background: linear-gradient(135deg, #E60026 0%, #720000 100%);
+        position: fixed; 
+        bottom: clamp(75px, 12vh, 95px); 
+        right: clamp(16px, 4vw, 25px);
+        width: clamp(52px, 12vw, 62px); 
+        height: clamp(52px, 12vw, 62px); 
+        background: linear-gradient(135deg, #E60026 0%, #720000 100%);
         color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center;
-        font-size: 32px; border: none; box-shadow: 0 10px 25px rgba(114, 0, 0, 0.5);
-        cursor: pointer; z-index: 100; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        border: none; box-shadow: 0 10px 25px rgba(114, 0, 0, 0.5);
+        cursor: pointer; z-index: 100; transition: transform 0.25s ease;
     }
-    .fab-post:hover { transform: scale(1.1) rotate(90deg); }
+    .fab-post:hover { transform: scale(1.08) rotate(90deg); }
 
     /* Glass Modal Styling */
     .modal-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; animation: fadeInModal 0.3s ease;
+        display: none; justify-content: center; align-items: center; z-index: 1000; padding: 16px; animation: fadeInModal 0.3s ease;
+        box-sizing: border-box;
     }
-    .modal-card { background: #0B1219; border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 450px; border-radius: 28px; padding: 30px; position: relative; }
+    .modal-card { 
+        background: #0B1219; border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 440px; 
+        border-radius: 24px; padding: clamp(20px, 5vw, 30px); position: relative; box-sizing: border-box; 
+    }
     
     .modal-card textarea {
-        width: 100%; height: 160px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 16px; color: white; padding: 18px; font-size: 16px; outline: none; margin: 15px 0 5px; resize: none; font-family: inherit; line-height: 1.5;
+        width: 100%; height: 140px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 14px; color: white; padding: 14px; font-size: 15px; outline: none; margin: 12px 0 5px; resize: none; font-family: inherit; line-height: 1.5;
+        box-sizing: border-box;
     }
     .modal-card textarea:focus { border-color: #E60026; background: rgba(0,0,0,0.2); }
     
-    .char-count { text-align: right; color: #64748b; font-size: 12px; font-weight: 600; margin-bottom: 20px; }
+    .char-count { text-align: right; color: #64748b; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
     .char-count.limit-near { color: #f59e0b; }
     .char-count.limit-hit { color: #ef4444; }
 
     @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
-    /* === MOBILE RESPONSIVENESS === */
-    @media (max-width: 768px) {
-        .gossip-page {
-            padding: 10px 10px 100px;
-        }
-        .referral-viral-card {
-            padding: 15px 10px;
-            margin-bottom: 20px;
-        }
-        .referral-viral-card h3 {
-            font-size: 18px;
-        }
-        .ref-code-box {
-            font-size: 14px;
-            padding: 10px;
-            word-wrap: break-word;
-        }
-        .gossip-card {
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        .gossip-text {
-            font-size: 15px;
-        }
-        .gossip-meta {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        .meta-actions {
-            width: 100%;
-            justify-content: space-between;
-        }
-        .fab-btn {
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
-            bottom: 80px;
-            right: 15px;
-        }
-        .composer-modal .composer-content {
-            padding: 20px 15px;
-            width: 95%;
-        }
-    }
 </style>
 
 <div class="gossip-page">

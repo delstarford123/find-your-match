@@ -549,38 +549,38 @@
 
 <!-- FEATURE 10: Photo Prompt Stories (24hr) -->
 {% if matches %}
-<div class="stories-container" style="display: flex; gap: 15px; overflow-x: auto; padding: 10px 20px 20px; white-space: nowrap; align-items: center;">
+<div class="stories-container" style="display: flex; gap: 15px; overflow-x: auto; padding: 10px 16px 20px; white-space: nowrap; align-items: center; -webkit-overflow-scrolling: touch; scrollbar-width: none;">
     <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer; min-width: 70px;">
-        <div style="width: 60px; height: 60px; border-radius: 50%; border: 3px dashed #ccc; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #888;">
+        <div style="width: 60px; height: 60px; border-radius: 50%; border: 3px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #64748b; background: rgba(0,0,0,0.02);">
             +
         </div>
-        <span style="font-size: 11px; margin-top: 5px; color: #555; font-weight: bold;">Add Story</span>
+        <span style="font-size: 11px; margin-top: 5px; color: #64748b; font-weight: 700;">Add Story</span>
     </div>
-    {% for match in matches[:5] %}
-    <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer; min-width: 70px;">
-        <div style="width: 60px; height: 60px; border-radius: 50%; border: 3px solid #ff4b4b; padding: 2px; position: relative;">
-            <img src="{{ match.img }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-            <div style="position: absolute; bottom: 0; right: 0; background: white; border-radius: 50%; padding: 2px; font-size: 10px;">📸</div>
+    {% for match in matches[:8] %}
+    <a href="{{ url_for('view_student', target_id=match.id) }}" style="display: flex; flex-direction: column; align-items: center; text-decoration: none; cursor: pointer; min-width: 70px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.06)'" onmouseout="this.style.transform='scale(1)'">
+        <div style="width: 60px; height: 60px; border-radius: 50%; border: 3px solid #ff4b4b; padding: 2px; position: relative; box-shadow: 0 4px 10px rgba(255, 75, 75, 0.2);">
+            <img src="{{ match.img }}" alt="{{ match.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <div style="position: absolute; bottom: 0; right: 0; background: white; border-radius: 50%; padding: 2px 3px; font-size: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">📸</div>
         </div>
-        <span style="font-size: 11px; margin-top: 5px; color: #333; font-weight: bold;">{{ match.name[:8] }}</span>
-    </div>
+        <span style="font-size: 11px; margin-top: 5px; color: #1e293b; font-weight: 800; max-width: 65px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ match.name }}</span>
+    </a>
     {% endfor %}
 </div>
 {% endif %}
 
 <!-- FEATURE 4: Fresh Faces Daily Reveal -->
 {% if daily_picks %}
-<h2 class="section-title" style="color: #6366F1;">⭐ Daily Curated Picks</h2>
+<h2 class="section-title" style="color: #6366F1; font-weight: 900; margin-top: 15px;">⭐ Daily Curated Picks</h2>
 <div class="matches-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-bottom: 30px;">
     {% for pick in daily_picks %}
-    <div class="match-card" style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.15);">
+    <div class="match-card" style="border-radius: 14px; overflow: hidden; box-shadow: 0 6px 16px rgba(99, 102, 241, 0.18); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
         <a href="{{ url_for('view_student', target_id=pick.id) }}" style="text-decoration: none; display: block;">
-            <div class="match-img-wrapper" style="height: 160px; border-radius: 0;">
-                <img src="{{ pick.img }}" alt="{{ pick.name }}" loading="lazy" style="height: 100%; border-radius: 0;">
-                <div class="compat-badge" style="background: rgba(99, 102, 241, 0.9); font-size: 10px; padding: 4px 8px;">✨ {{ pick.compatibility }}% Match</div>
+            <div class="match-img-wrapper" style="height: 165px; border-radius: 0; position: relative;">
+                <img src="{{ pick.img }}" alt="{{ pick.name }}" loading="lazy" style="height: 100%; width: 100%; object-fit: cover; border-radius: 0;">
+                <div class="compat-badge" style="background: rgba(99, 102, 241, 0.95); font-size: 10px; padding: 4px 8px; border-radius: 8px; font-weight: 800;">✨ {{ pick.compatibility }}% Match</div>
             </div>
-            <div class="match-info" style="padding: 10px; text-align: center;">
-                <h3 style="font-size: 14px; margin: 0; color: #1E1B4B;">{{ pick.name }}</h3>
+            <div class="match-info" style="padding: 10px; text-align: center; background: white;">
+                <h3 style="font-size: 14px; margin: 0; color: #1E1B4B; font-weight: 800;">{{ pick.name }}</h3>
             </div>
         </a>
     </div>
@@ -588,18 +588,25 @@
 </div>
 {% endif %}
 
-<!-- SPONSORS ROOM BANNER -->
-<div class="mb-8 p-6 bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-3xl shadow-xl text-center text-white relative overflow-hidden">
-    <div class="relative z-10">
-        <h2 class="text-2xl font-black mb-2">🏠 Enter the Sponsors Room</h2>
-        <p class="font-medium text-purple-100 mb-4">Connect with verified sponsors off-campus.</p>
-        <a href="{{ url_for('sponsors.sponsors_room') }}" class="inline-block bg-white text-purple-700 font-bold px-8 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-md">
-            Enter Room
+<!-- SPONSORS ROOM PROMINENT BANNER -->
+<div class="sponsors-room-cta-banner" style="background: linear-gradient(135deg, #4c1d95 0%, #7e22ce 50%, #c026d3 100%); border-radius: 26px; padding: clamp(26px, 6vw, 40px) clamp(18px, 5vw, 36px); text-align: center; color: white; margin: 0 0 36px 0; box-shadow: 0 16px 40px rgba(126, 34, 206, 0.35); position: relative; overflow: hidden; border: 2px solid rgba(240, 171, 252, 0.35); box-sizing: border-box; width: 100%;">
+    <div style="position: relative; z-index: 2;">
+        <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.35);">
+            ✨ Exclusive VIP Lounge
+        </div>
+        <h2 style="font-size: clamp(22px, 5.5vw, 32px); font-weight: 900; margin: 0 0 8px 0; letter-spacing: -0.5px; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); line-height: 1.2;">
+            👑 Enter the Sponsors Room
+        </h2>
+        <p style="font-size: clamp(14px, 3.2vw, 16px); font-weight: 500; color: #f5d0fe; max-width: 480px; margin: 0 auto 22px auto; line-height: 1.5;">
+            Connect with verified off-campus sponsors looking for university companionship.
+        </p>
+        <a href="{{ url_for('sponsors.sponsors_room') }}" class="btn-enter-sponsors-room" style="display: inline-flex; align-items: center; justify-content: center; gap: 10px; background: #ffffff; color: #6b21a8; font-weight: 900; font-size: clamp(15px, 3.8vw, 17px); padding: 15px 36px; border-radius: 50px; text-decoration: none; box-shadow: 0 10px 25px rgba(0,0,0,0.3), 0 0 0 4px rgba(255,255,255,0.25); transition: transform 0.2s, box-shadow 0.2s; letter-spacing: 0.3px;" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 14px 30px rgba(0,0,0,0.35), 0 0 0 6px rgba(255,255,255,0.35)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 10px 25px rgba(0,0,0,0.3), 0 0 0 4px rgba(255,255,255,0.25)'">
+            <span>🚪</span> Enter Room
         </a>
     </div>
-    <!-- Decorative background elements -->
-    <div class="absolute -top-12 -right-12 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
-    <div class="absolute -bottom-12 -left-12 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+    <!-- Decorative background glow elements -->
+    <div style="position: absolute; top: -30px; right: -30px; width: 140px; height: 140px; background: radial-gradient(circle, rgba(255,255,255,0.22) 0%, transparent 70%); border-radius: 50%; pointer-events: none;"></div>
+    <div style="position: absolute; bottom: -40px; left: -40px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%); border-radius: 50%; pointer-events: none;"></div>
 </div>
 
 <h2 class="section-title">Discover Students</h2>

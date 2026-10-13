@@ -632,7 +632,7 @@
                     <source src="https://stream.zeno.fm/f3wvbbqmdg8uv" type="audio/mpeg">
                 </audio>
                 
-                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center;">
                     <!-- Room Switcher -->
                     <select id="roomSwitcher" onchange="switchRoom(this.value)" style="background: rgba(0,0,0,0.6); color: #0ff; border: 1px solid #0ff; padding: 8px 15px; border-radius: 20px; font-weight: bold; outline: none; cursor: pointer; backdrop-filter: blur(5px);">
                         <option value="main" style="color:black">🌐 Main Lounge</option>
@@ -644,6 +644,11 @@
                     
                     <!-- Vibe Input -->
                     <input type="text" id="myVibeInput" placeholder="Set Status (e.g. Studying 🎧)" onblur="updateMyVibe(this.value)" style="background: rgba(0,0,0,0.6); color: #f0f; border: 1px solid #f0f; padding: 8px 15px; border-radius: 20px; outline: none; width: 180px; text-align:center; font-weight: bold; backdrop-filter: blur(5px);">
+
+                    <!-- Ping Online Comrades Button -->
+                    <button id="btnInviteOnline" onclick="inviteOnlineComrades()" style="background: linear-gradient(135deg, #f0f 0%, #0ff 100%); color: #000; border: none; padding: 8px 18px; border-radius: 20px; font-weight: 900; font-size: 13px; cursor: pointer; box-shadow: 0 0 15px rgba(255,0,255,0.4); display: flex; align-items: center; gap: 6px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        📢 Ping Online Comrades
+                    </button>
                 </div>
             </div>
 
@@ -971,6 +976,43 @@
         });
         
         chatListener = { room: room, fn: fn };
+    }
+
+    function inviteOnlineComrades() {
+        const btn = document.getElementById('btnInviteOnline');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Inviting...';
+        }
+        fetch('/api/party/notify_online', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (btn) btn.innerHTML = '✅ Pings Sent!';
+            } else {
+                alert(data.message || 'Notification cooldown active');
+                if (btn) btn.innerHTML = '📢 Ping Online Comrades';
+            }
+            setTimeout(() => {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '📢 Ping Online Comrades';
+                }
+            }, 30000);
+        })
+        .catch(e => {
+            console.error('Error inviting comrades:', e);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '📢 Ping Online Comrades';
+            }
+        });
     }
 </script>
 {% endblock %}

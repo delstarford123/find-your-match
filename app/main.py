@@ -755,7 +755,8 @@ def get_current_party_theme():
 @app.route('/party')
 @requires_subscription
 def party():
-    """Renders the Virtual Club Room."""
+    """Renders the Virtual Club Room and notifies online users to join."""
+    global _last_party_notif_time
     user_id = session.get('user_id')
     user_data = db.reference(f'profiles/{user_id}').get() or {}
     
@@ -771,10 +772,46 @@ def party():
         'shape_seed': random.randint(1, 8) # Used for dynamic CSS shapes
     })
     
+    # Notify online users that someone entered the virtual club (2 min cooldown)
+    current_time = time.time()
+    if current_time - _last_party_notif_time > 120:
+        _last_party_notif_time = current_time
+        first_name = (user_data.get('name') or 'A comrade').strip().split()[0]
+        user_img = user_data.get('img') or '/static/img/icon-192.png'
+        title = "🪩 Virtual Club is POPPING!"
+        message = f"🔥 {first_name} is in the Virtual Club right now! Tap to join the vibe."
+        threading.Thread(
+            target=broadcast_notification_to_online,
+            args=(title, message, '/party', f"{first_name} @ Club", user_img, user_id, 'party')
+        ).start()
+    
     return render_template('party.html', 
                            current_user=session.get('user_name'),
                            user_id=user_id,
                            theme=theme)
+
+@app.route('/api/party/notify_online', methods=['POST'])
+@requires_subscription
+def api_party_notify_online():
+    """Allows comrades in the club to invite online users with cooldown."""
+    global _last_party_notif_time
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    first_name = (user_data.get('name') or 'A comrade').strip().split()[0]
+    user_img = user_data.get('img') or '/static/img/icon-192.png'
+    
+    current_time = time.time()
+    if current_time - _last_party_notif_time > 60:
+        _last_party_notif_time = current_time
+        title = "🪩 Virtual Club is POPPING!"
+        message = f"🔥 {first_name} invited everyone to join the Virtual Club! Tap to vibe."
+        threading.Thread(
+            target=broadcast_notification_to_online,
+            args=(title, message, '/party', f"{first_name} @ Club", user_img, user_id, 'party')
+        ).start()
+        return jsonify({'success': True, 'message': 'Invitation sent to online comrades!'})
+    return jsonify({'success': False, 'message': 'An invitation was recently sent. Please wait a moment.'})
+
 
 # ==========================================
 # CORE B2C PAGES (STUDENTS)
@@ -7273,43 +7310,145 @@ from datetime import datetime
 import pytz
 
 # ==========================================
-# 🔦 FRIDAY NIGHT "LIGHTS OUT" ENGINE
+# 🔦 "LIGHTS OUT" ENGINE & REAL-TIME BROADCASTS
 # ==========================================
 
-# Temporary in-memory queue for matchmaking
-lights_out_queue = {
-    'male': [],
-    'female': []
-}
+_last_lights_out_notif_time = 0
+_last_party_notif_time = 0
+
+def broadcast_notification_to_online(title, message, link, sender_name="FindYourMatch", sender_img=None, exclude_user_id=None, notif_type='announcement'):
+    """Broadcasts in-app toast and bell notifications to all currently online users."""
+    try:
+        now = datetime.now(EAT).isoformat()
+        online_users = db.reference('profiles').order_by_child('is_online').equal_to(True).get() or {}
+        
+        for uid in online_users.keys():
+            if exclude_user_id and str(uid) == str(exclude_user_id):
+                continue
+            try:
+                # Bell notification
+                db.reference(f'notifications/{uid}').push({
+                    'sender_id': exclude_user_id or 'SYSTEM',
+                    'sender_name': sender_name,
+                    'sender_img': sender_img or '/static/img/placeholder.png',
+                    'type': notif_type,
+                    'title': title,
+                    'message': message,
+                    'timestamp': now,
+                    'link': link,
+                    'status': 'unread'
+                })
+                # In-app toast notification
+                db.reference(f'chat_notifications/{uid}').push({
+                    'sender_id': exclude_user_id or 'SYSTEM',
+                    'sender_name': sender_name,
+                    'sender_img': sender_img or '/static/img/placeholder.png',
+                    'type': notif_type,
+                    'title': title,
+                    'message': message,
+                    'timestamp': now,
+                    'link': link
+                })
+            except Exception as e:
+                logger.error(f"Error sending broadcast to {uid}: {e}")
+    except Exception as err:
+        logger.error(f"Error in broadcast_notification_to_online: {err}")
 
 @app.route('/lights-out')
 @requires_diamond_subscription
 def lights_out():
     """Renders the Lights Out lobby."""
-    # Optional: You can enforce the Friday 9 PM rule here.
-    # eat_tz = pytz.timezone('Africa/Nairobi')
-    # now = datetime.now(eat_tz)
-    # if now.weekday() != 4 or not (21 <= now.hour < 22):
-    #     flash("Lights Out is only active on Fridays between 9 PM and 10 PM!", "warning")
-    #     return redirect(url_for('dashboard'))
-        
     return render_template('lights_out.html')
 
-@app.route('/api/lights-out/join', methods=['POST'])
-def handle_join_lights_out():
-    """Placeholder for Lights Out matching while migrating to Firebase"""
-    return jsonify({
-        "success": False, 
-        "message": "Lights Out blind dating is currently being upgraded to support thousands of concurrent students. Check back soon!"
-    }), 503
+@app.route('/api/lights-out/notify_lobby', methods=['POST'])
+@requires_diamond_subscription
+def notify_lights_out_lobby():
+    """Notifies online users that someone is waiting in Lights Out."""
+    global _last_lights_out_notif_time
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    first_name = user_data.get('name', 'A comrade').strip().split()[0]
+    
+    current_time = time.time()
+    # 60-second cooldown to prevent spam
+    if current_time - _last_lights_out_notif_time > 60:
+        _last_lights_out_notif_time = current_time
+        title = "🌑 Stranger in LIGHTS OUT!"
+        message = f"🔥 Someone is waiting in the dark! 3 minutes of pure mystery dating. Tap to enter!"
+        threading.Thread(
+            target=broadcast_notification_to_online,
+            args=(title, message, '/lights-out', 'Lights Out 🌑', '/static/img/icon-192.png', user_id, 'lights_out')
+        ).start()
+        return jsonify({'success': True, 'broadcast': True})
+    return jsonify({'success': True, 'broadcast': False, 'message': 'Cooldown active'})
 
-@app.route('/api/lights-out/message', methods=['POST'])
-def handle_lights_out_message():
-    return jsonify({"success": False}), 503
-
+@app.route('/api/lights-out/reveal_match', methods=['POST'])
 @app.route('/api/lights-out/reveal', methods=['POST'])
-def handle_reveal_vote():
-    return jsonify({"success": False}), 503 
+@requires_diamond_subscription
+def handle_lights_out_reveal_match():
+    """Creates a mutual match and returns profile details when both users vote reveal."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    partner_id = data.get('partner_id')
+    room_id = data.get('room_id')
+    
+    if not partner_id and room_id and room_id.startswith('lights_out_'):
+        parts = room_id.replace('lights_out_', '').split('_')
+        for p in parts:
+            if str(p) != str(user_id):
+                partner_id = p
+                break
+                
+    if not partner_id:
+        return jsonify({'success': False, 'message': 'Partner not identified'}), 400
+        
+    partner_profile = db.reference(f'profiles/{partner_id}').get() or {}
+    user_profile = db.reference(f'profiles/{user_id}').get() or {}
+    
+    sorted_uids = sorted([str(user_id), str(partner_id)])
+    match_id = f"match_{sorted_uids[0]}_{sorted_uids[1]}"
+    now = datetime.now(EAT).isoformat()
+    
+    match_data = {
+        'match_id': match_id,
+        'users': [user_id, partner_id],
+        'user1': sorted_uids[0],
+        'user2': sorted_uids[1],
+        'timestamp': now,
+        'matched_via': 'lights_out',
+        'status': 'matched'
+    }
+    
+    db.reference(f'matches/{match_id}').update(match_data)
+    
+    try:
+        db.reference(f'notifications/{partner_id}').push({
+            'sender_id': user_id,
+            'sender_name': user_profile.get('name', 'Stranger'),
+            'sender_img': user_profile.get('img', '/static/img/placeholder.png'),
+            'type': 'match',
+            'title': '💖 Mutual Reveal in Lights Out!',
+            'message': f"You and {user_profile.get('name', 'someone')} both revealed! Tap to view your new match.",
+            'timestamp': now,
+            'link': f'/chat/{match_id}',
+            'status': 'unread'
+        })
+    except Exception as e:
+        logger.error(f"Error notifying partner in reveal: {e}")
+        
+    return jsonify({
+        'success': True,
+        'match_id': match_id,
+        'chat_url': f'/chat/{match_id}',
+        'partner': {
+            'id': partner_id,
+            'name': partner_profile.get('name', 'Mystery Match'),
+            'img': partner_profile.get('img', '/static/img/placeholder.png'),
+            'course': partner_profile.get('course', 'MMUST Student'),
+            'bio': partner_profile.get('bio', '')
+        }
+    })
+ 
 from datetime import datetime
 
 # ==========================================
@@ -8441,14 +8580,31 @@ def join_group(group_id):
     user_id = session['user_id']
     user_data = db.reference(f"profiles/{user_id}").get() or {}
     group_ref = db.reference(f"groups/{group_id}")
+    group_data = group_ref.get() or {}
+    group_name = group_data.get('name', 'the group')
+    
+    # Instant auto-join: directly grant membership
+    group_ref.child(f'members/{user_id}').set('member')
+    group_ref.child(f'join_requests/{user_id}').delete()
+    
     now = datetime.now(EAT).isoformat()
-    group_ref.child(f'join_requests/{user_id}').set({
-        'name': user_data.get('name', 'Someone'),
-        'profile_img': user_data.get('img', '/static/img/placeholder.png'),
-        'timestamp': now
-    })
-    flash("Request to join sent! Please wait for admin approval.")
-    return redirect(url_for('groups'))
+    try:
+        db.reference(f'chat_notifications/{user_id}').push({
+            'sender_id': 'SYSTEM',
+            'sender_name': group_name,
+            'sender_img': group_data.get('icon') or '/static/img/placeholder.png',
+            'type': 'group',
+            'title': 'Joined Group! 🎉',
+            'message': f"Welcome to {group_name}! You're in.",
+            'timestamp': now,
+            'match_id': f'group_invite_{group_id}',
+            'link': f'/group/{group_id}'
+        })
+    except Exception as e:
+        logger.error(f"Error adding join notification: {e}")
+        
+    flash(f"🎉 Welcome to {group_name}! You're in.")
+    return redirect(url_for('group_chat', group_id=group_id))
 
 @app.route('/api/groups/add_user/<group_id>', methods=['POST'])
 @requires_subscription
@@ -8802,13 +8958,7 @@ def group_invite(group_id):
         
     members = group_data.get('members', {})
     if user_id in members:
-        flash("You are already in this group!")
         return redirect(url_for('group_chat', group_id=group_id))
-        
-    requests = group_data.get('join_requests', {})
-    if user_id in requests:
-        flash("You have already requested to join this group. Please wait for the admin to approve.")
-        return redirect(url_for('groups'))
         
     return render_template('group_invite.html', group=group_data, group_id=group_id)
 
@@ -8816,7 +8966,9 @@ def group_invite(group_id):
 @requires_subscription
 def request_join_group(group_id):
     user_id = session.get('user_id')
-    user_data = db.reference(f"profiles/{user_id}").get() or {}
+    if not user_id:
+        return redirect(url_for('login'))
+        
     group_ref = db.reference(f"groups/{group_id}")
     group_data = group_ref.get()
     
@@ -8824,44 +8976,28 @@ def request_join_group(group_id):
         flash("Group not found")
         return redirect(url_for('groups'))
         
-    if user_id in group_data.get('members', {}):
-        return redirect(url_for('group_chat', group_id=group_id))
-        
-    now = datetime.now(EAT).isoformat()
-    group_ref.child(f'join_requests/{user_id}').set({
-        'name': user_data.get('name', 'Someone'),
-        'profile_img': user_data.get('img', '/static/img/placeholder.png'),
-        'timestamp': now
-    })
+    # Instant access: grant membership directly
+    group_ref.child(f'members/{user_id}').set('member')
+    group_ref.child(f'join_requests/{user_id}').delete()
     
-    admin_id = group_data.get('created_by')
-    if admin_id:
-        try:
-            db.reference(f'notifications/{admin_id}').push({
-                'sender_id': user_id,
-                'sender_name': user_data.get('name', 'Someone'),
-                'sender_img': user_data.get('img', '/static/img/placeholder.png'),
-                'type': 'group',
-                'title': '👥 Group Join Request',
-                'message': f"{user_data.get('name', 'Someone').split(' ')[0]} requested to join {group_data.get('name')}! Tap to view.",
-                'timestamp': now,
-                'match_id': f'group_invite_{group_id}',
-                'link': f'/group/{group_id}',
-                'status': 'unread'
-            })
-            
-            # Send Email Notification to Admin
-            admin_data = db.reference(f'profiles/{admin_id}').get() or {}
-            admin_email = admin_data.get('email')
-            if admin_email:
-                from email_service import send_group_join_request_email
-                threading.Thread(target=send_group_join_request_email, args=(
-                    admin_email, admin_data.get('name', 'Admin'), user_data.get('name', 'Someone'), group_data.get('name', 'Group')
-                )).start()
-        except: pass
+    now = datetime.now(EAT).isoformat()
+    try:
+        db.reference(f'chat_notifications/{user_id}').push({
+            'sender_id': 'SYSTEM',
+            'sender_name': group_data.get('name', 'Group'),
+            'sender_img': group_data.get('icon') or '/static/img/placeholder.png',
+            'type': 'group',
+            'title': 'Joined Group! 🎉',
+            'message': f"Welcome to {group_data.get('name', 'the group')}! You're in.",
+            'timestamp': now,
+            'match_id': f'group_invite_{group_id}',
+            'link': f'/group/{group_id}'
+        })
+    except Exception as e:
+        logger.error(f"Error adding join notification: {e}")
         
-    flash("Request sent to the group admin! You will be notified when approved.")
-    return redirect(url_for('groups'))
+    flash(f"🎉 Welcome! You have joined {group_data.get('name', 'the group')}.")
+    return redirect(url_for('group_chat', group_id=group_id))
 
 @app.route('/api/groups/approve_join/<group_id>/<target_user_id>', methods=['POST'])
 @requires_subscription

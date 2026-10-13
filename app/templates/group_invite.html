@@ -91,7 +91,7 @@
     
     <form action="{{ url_for('request_join_group', group_id=group_id) }}" method="POST">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-        <button type="submit" class="btn-join">Request Access</button>
+        <button type="submit" class="btn-join">Join Group Instantly 💬</button>
     </form>
     
     <a href="{{ url_for('groups') }}" class="btn-cancel">No thanks, take me back</a>
