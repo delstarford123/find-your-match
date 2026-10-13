@@ -255,6 +255,89 @@
         </div>
     </div>
 
+    <!-- MONTHLY AUTOMATED SALARY & M-PESA PAYOUT CARD (31ST OF EVERY MONTH) -->
+    <div class="section-wrapper" style="padding-top: 15px;">
+        <div class="card-panel" style="border: 2px solid #0284c7; background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <div style="display: inline-flex; align-items: center; gap: 6px; background: #0284c7; color: white; padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                        ⚡ AUTOMATED 31ST DISBURSAL ENGINE
+                    </div>
+                    <h3 style="font-size: 18px; margin: 0 0 4px; color: #0f172a;">
+                        💳 Monthly Salary & Payout Settings &bull; {{ current_month_name or 'October 2026' }}
+                    </h3>
+                    <p style="margin: 0; font-size: 13px; color: #475569;">
+                        Salaries are automatically disbursed on the <strong>31st of every month</strong> via Safaricom M-Pesa B2C. Payouts are calculated strictly on active paid subscriptions for {{ current_month_name or 'October 2026' }}.
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0369a1; font-size: 13px; font-weight: 800; padding: 6px 14px;">
+                        🗓️ Next Disbursal: 31st {{ current_month_name or 'October 2026' }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Active Month Live Stats -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <div style="background: white; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">Active Subs (This Month)</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #0f172a; margin-top: 4px;">{{ active_month_subs or 0 }}</div>
+                    <div style="font-size: 11px; color: #64748b;">Paid subscriptions in {{ current_month_name or 'October 2026' }}</div>
+                </div>
+
+                <div style="background: white; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #0284c7; text-transform: uppercase;">Commission Tier</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #0f172a; margin-top: 4px;">{{ comm_rate_pct or 30 }}%</div>
+                    <div style="font-size: 11px; color: #64748b;">{{ 'Campus Manager' if session.manager_role == 'manager' else 'Ambassador' }} Revenue Share</div>
+                </div>
+
+                <div style="background: white; border: 1px solid #86efac; border-radius: 10px; padding: 12px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: #16a34a; text-transform: uppercase;">Month Earnings to Disburse</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #15803d; margin-top: 4px;">KES {{ "%.2f"|format(month_salary or 0) }}</div>
+                    <div style="font-size: 11px; color: #64748b;">Calculated salary for {{ current_month_name or 'October 2026' }}</div>
+                </div>
+
+                <div style="background: white; border: 1px solid {% if current_payout_phone %}#86efac{% else %}#fca5a5{% endif %}; border-radius: 10px; padding: 12px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; color: {% if current_payout_phone %}#16a34a{% else %}#dc2626{% endif %}; text-transform: uppercase;">Payout Phone Status</div>
+                    <div style="font-size: 15px; font-weight: 800; color: {% if current_payout_phone %}#15803d{% else %}#b91c1c{% endif %}; margin-top: 6px;">
+                        {% if current_payout_phone %}
+                            ✅ Locked: {{ current_payout_phone }}
+                        {% else %}
+                            ⚠️ Missing Payout Phone
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b;">Required before 31st disbursal</div>
+                </div>
+            </div>
+
+            <!-- M-Pesa Payout Phone Input Section -->
+            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 18px 20px;">
+                <h4 style="margin: 0 0 6px; font-size: 14px; font-weight: 800; color: #0f172a;">
+                    📱 Your M-Pesa Payout Phone Number for {{ current_month_name or 'October 2026' }}
+                </h4>
+                <p style="margin: 0 0 14px; font-size: 12px; color: #64748b;">
+                    You must specify the active M-Pesa registered phone number where your salary will be sent on October 31st. You can update this number at any time before the 31st.
+                </p>
+
+                <form method="POST" action="{{ url_for('manager_dashboard') }}" id="payoutPhoneForm" onsubmit="handlePayoutPhoneSubmit(event)" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="update_payout_phone">
+                    <input type="hidden" name="month" value="{{ current_month_key or '2026-10' }}">
+
+                    <div style="flex: 1; min-width: 260px;">
+                        <input type="tel" id="payoutPhoneInput" name="payout_phone" value="{{ current_payout_phone or '' }}" placeholder="Enter M-Pesa Number (e.g. 0707605751 or 254707605751)" class="form-input" style="padding: 12px 14px; font-weight: 700; font-size: 14px;" required>
+                    </div>
+
+                    <button type="submit" id="btnSavePayoutPhone" class="btn-primary" style="padding: 12px 24px; font-size: 13px; font-weight: 800; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                        <span>💾</span> Save Payout Number for {{ current_month_name or 'October 2026' }}
+                    </button>
+                </form>
+
+                <div id="payoutPhoneFeedback" style="margin-top: 10px; font-size: 13px; font-weight: 700; display: none;"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- MAIN FEATURES -->
     <div class="section-wrapper features-grid">
         
@@ -648,6 +731,56 @@
                 }
             });
         }
-    });
+    function handlePayoutPhoneSubmit(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnSavePayoutPhone');
+        const input = document.getElementById('payoutPhoneInput');
+        const feedback = document.getElementById('payoutPhoneFeedback');
+        const phone = input.value.trim();
+
+        if (!phone) {
+            alert("Please enter a valid phone number.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> Saving...';
+        feedback.style.display = 'none';
+
+        const csrfToken = document.querySelector('input[name="csrf_token"]') ? document.querySelector('input[name="csrf_token"]').value : '';
+
+        fetch('/api/manager/payout-phone', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                phone: phone,
+                month: '{{ current_month_key or "2026-10" }}'
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<span>💾</span> Save Payout Number for {{ current_month_name or "October 2026" }}';
+            feedback.style.display = 'block';
+            if (data.success) {
+                feedback.style.color = '#15803d';
+                feedback.innerText = '✅ ' + data.message;
+                setTimeout(() => { window.location.reload(); }, 1200);
+            } else {
+                feedback.style.color = '#dc2626';
+                feedback.innerText = '❌ ' + (data.message || data.error || 'Failed to update phone.');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<span>💾</span> Save Payout Number for {{ current_month_name or "October 2026" }}';
+            feedback.style.display = 'block';
+            feedback.style.color = '#dc2626';
+            feedback.innerText = '❌ Network error saving phone.';
+        });
+    }
 </script>
 {% endblock %}

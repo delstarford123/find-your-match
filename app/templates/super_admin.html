@@ -786,6 +786,7 @@ function toggleAmbassador(id) {
                         {% endfor %}
                     </select>
                     <button class="btn btn-success" onclick="addCampusManager()" style="width: auto;">➕ Add Manager</button>
+                    <button class="btn btn-primary" onclick="triggerOctoberSalaryPayout()" style="width: auto; background: #0284c7; margin-left: 10px;">⚡ Disburse October 2026 Salaries (B2C)</button>
                 </div>
                 
                 <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
@@ -796,6 +797,7 @@ function toggleAmbassador(id) {
                             <th style="padding: 15px 20px;">Role</th>
                             <th style="padding: 15px 20px;">Institution</th>
                             <th style="padding: 15px 20px;">Referral Code</th>
+                            <th style="padding: 15px 20px;">Oct 2026 Payout Phone</th>
                             <th style="padding: 15px 20px;">Est. Sub Revenue (KSH)</th>
                             <th style="padding: 15px 20px;">Est. 30% Payout (KSH)</th>
                             <th style="padding: 15px 20px;">Payment Status</th>
@@ -823,6 +825,14 @@ function toggleAmbassador(id) {
                             </td>
                             <td style="padding: 15px 20px;">{{ mgr.institution }}</td>
                             <td style="padding: 15px 20px;"><span class="badge badge-purple">{{ mgr.referral_code }}</span></td>
+                            <td style="padding: 15px 20px; font-family: monospace; font-size: 12px; color: #38bdf8;">
+                                {% set oct_phone = (mgr.payout_settings.get('2026-10', {}).get('phone') if mgr.payout_settings else (mgr.payout_phone or mgr.phone)) %}
+                                {% if oct_phone %}
+                                    <span style="color: #10b981; font-weight: 700;">✅ {{ oct_phone }}</span>
+                                {% else %}
+                                    <span style="color: #f87171; font-style: italic;">⚠️ Not Set</span>
+                                {% endif %}
+                            </td>
                             <td style="padding: 15px 20px; color: #38bdf8;">{{ inst_rev }}</td>
                             <td style="padding: 15px 20px; color: #10b981; font-weight: 900;">{{ (inst_rev * 0.3)|round(0) }}</td>
                             <td style="padding: 15px 20px;">
@@ -2716,6 +2726,27 @@ function toggleAmbassador(id) {
                 } else {
                     showToast("Failed to delete manager", true);
                 }
+            });
+        }
+
+        function triggerOctoberSalaryPayout() {
+            if(!confirm("Are you sure you want to disburse October 2026 salaries via Safaricom M-Pesa B2C to all Managers & Ambassadors right now?")) return;
+            showToast("Disbursing October 2026 salaries via Safaricom M-Pesa B2C...");
+            fetch('/api/cron/monthly-payouts?force=true&month=2026-10')
+            .then(res => res.json())
+            .then(data => {
+                showToast("Salary payout operation completed!");
+                let summary = "Processed: " + (data.results ? data.results.length : 0) + " staff.\n\n";
+                if (data.results) {
+                    data.results.forEach(r => {
+                        summary += `• ${r.name} (${r.role}): KES ${r.amount} -> ${r.phone || 'No Phone'} [${r.status}]\n`;
+                    });
+                }
+                alert("October 2026 Salary Disbursal Report:\n\n" + summary);
+                location.reload();
+            })
+            .catch(err => {
+                showToast("Error executing salary disbursal: " + err, true);
             });
         }
     </script>

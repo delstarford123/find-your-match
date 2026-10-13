@@ -336,6 +336,21 @@
       ".read": true,
       ".write": true,
       ".indexOn": ["lovi_code", "ticket_code", "event_id"]
+    },
+    "pending_organizer_payouts": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["scheduled_at", "status", "event_id"]
+    },
+    "pending_event_payments": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["status", "event_id"]
+    },
+    "b2c_payout_results": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["result_code", "received_at"]
     }
   }
 }

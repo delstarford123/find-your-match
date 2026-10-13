@@ -211,4 +211,101 @@ def check_payment_status(checkout_request_id):
                 pass  # Daraja returned HTML instead of JSON
 
         # Any HTTP error from Safaricom = still processing
-        return {"status": "PENDING"}
+        return {"status": "PENDING"}
+
+
+# ==========================================
+# M-PESA B2C PAYOUT SERVICE (AUTOMATED DISBURSALS)
+# ==========================================
+def initiate_b2c_payout(
+    phone_number: str,
+    amount: float or int,
+    command_id: str = "BusinessPayment",
+    remarks: str = "FindYourMatch Payout",
+    occasion: str = "Disbursal"
+):
+    """
+    Dispatches an automated B2C payout from Shortcode 4050545 to an individual M-Pesa phone number.
+    Supports:
+    - command_id="BusinessPayment" (for 2-minute event organizer ticket payouts)
+    - command_id="SalaryPayment" (for monthly manager & ambassador salary on the 31st)
+    - command_id="PromotionPayment"
+    """
+    token = get_access_token()
+    if not token:
+        logger.error("❌ B2C Payout failed: Could not obtain M-Pesa access token.")
+        return {"success": False, "error": "Failed to authenticate with M-Pesa."}
+
+    initiator = os.getenv("DARAJA_INITIATOR_NAME", "Delstarford Api")
+    credential = os.getenv("DARAJA_SECURITY_CREDENTIAL")
+    shortcode = os.getenv("BUSINESS_SHORT_CODE") or os.getenv("MPESA_SHORTCODE", "4050545")
+    timeout_url = os.getenv("DARAJA_B2C_TIMEOUT_URL", "https://www.findyourmatch.co.ke/mpesa/b2c/timeout")
+    result_url = os.getenv("DARAJA_B2C_RESULT_URL", "https://www.findyourmatch.co.ke/mpesa/b2c/result")
+
+    if not credential:
+        logger.error("❌ B2C Payout failed: Missing DARAJA_SECURITY_CREDENTIAL in environment.")
+        return {"success": False, "error": "Missing Daraja security credential."}
+
+    formatted_phone = format_phone_number(phone_number)
+    if not formatted_phone or len(formatted_phone) != 12 or not formatted_phone.startswith("254"):
+        return {"success": False, "error": f"Invalid recipient phone number: '{phone_number}' (Must be 254XXXXXXXXX)."}
+
+    try:
+        clean_amount = int(round(float(amount)))
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"Invalid payout amount: {amount}"}
+
+    if clean_amount <= 0:
+        return {"success": False, "error": "Payout amount must be greater than zero."}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "InitiatorName": initiator,
+        "SecurityCredential": credential,
+        "CommandID": command_id,
+        "Amount": clean_amount,
+        "PartyA": shortcode,
+        "PartyB": formatted_phone,
+        "Remarks": str(remarks)[:95],
+        "QueueTimeOutURL": timeout_url,
+        "ResultURL": result_url,
+        "Occasion": str(occasion)[:95]
+    }
+
+    # Try v3 first, then v1
+    urls = [
+        f"{BASE_URL}/mpesa/b2c/v3/paymentrequest",
+        f"{BASE_URL}/mpesa/b2c/v1/paymentrequest"
+    ]
+
+    last_error = None
+    for b2c_url in urls:
+        try:
+            logger.info(f"📤 Sending B2C Payout: KES {clean_amount} to {formatted_phone} via {b2c_url}...")
+            res = requests.post(b2c_url, json=payload, headers=headers, timeout=25)
+            data = res.json()
+            
+            if res.status_code in [200, 201] and (data.get('ResponseCode') == '0' or 'ConversationID' in data):
+                logger.info(f"✅ B2C Disbursed Successfully: ConversationID={data.get('ConversationID')}")
+                return {
+                    "success": True,
+                    "ConversationID": data.get('ConversationID'),
+                    "OriginatorConversationID": data.get('OriginatorConversationID'),
+                    "ResponseDescription": data.get('ResponseDescription', 'Accepted'),
+                    "data": data
+                }
+            else:
+                err_msg = data.get('errorMessage') or data.get('ResponseDescription') or str(data)
+                logger.warning(f"⚠️ B2C from {b2c_url}: {err_msg}")
+                last_error = err_msg
+
+        except Exception as e:
+            logger.error(f"❌ B2C request exception on {b2c_url}: {e}")
+            last_error = str(e)
+
+    return {"success": False, "error": last_error or "B2C request failed."}
+

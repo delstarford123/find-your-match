@@ -4608,6 +4608,95 @@ def mpesa_b2b_callback():
 
 
 # ==========================================
+# M-PESA B2C & B2B DISBURSAL WEBHOOKS
+# ==========================================
+@app.route('/api/mpesa/event_callback', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def main_mpesa_event_callback():
+    """Event registration ticket payment callback."""
+    try:
+        from app.routes.events import mpesa_event_callback
+        return mpesa_event_callback()
+    except Exception as e:
+        logger.error(f"Error forwarding event callback: {e}")
+        return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+@app.route('/mpesa/b2c/result', methods=['POST'])
+@app.route('//mpesa/b2c/result', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def mpesa_b2c_result():
+    """Receiver for Safaricom Daraja B2C payout result."""
+    data = request.get_json(silent=True) or {}
+    logger.info(f"📥 M-Pesa B2C Result Webhook received: {data}")
+    try:
+        res = data.get('Result', {})
+        conv_id = res.get('ConversationID')
+        originator_id = res.get('OriginatorConversationID')
+        result_code = res.get('ResultCode')
+        result_desc = res.get('ResultDesc')
+        tx_id = res.get('TransactionID')
+
+        if conv_id:
+            db.reference(f'b2c_payout_results/{conv_id}').set({
+                "conversation_id": conv_id,
+                "originator_id": originator_id,
+                "transaction_id": tx_id,
+                "result_code": result_code,
+                "result_desc": result_desc,
+                "payload": data,
+                "received_at": datetime.now(EAT).isoformat()
+            })
+    except Exception as e:
+        logger.error(f"Error handling B2C Result: {e}")
+
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+@app.route('/mpesa/b2c/timeout', methods=['POST'])
+@app.route('//mpesa/b2c/timeout', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def mpesa_b2c_timeout():
+    """Receiver for Safaricom Daraja B2C queue timeout."""
+    data = request.get_json(silent=True) or {}
+    logger.warning(f"⚠️ M-Pesa B2C Timeout Webhook received: {data}")
+    try:
+        db.reference('b2c_payout_timeouts').push({
+            "payload": data,
+            "received_at": datetime.now(EAT).isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error handling B2C Timeout: {e}")
+
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+@app.route('/mpesa/b2b/result', methods=['POST'])
+@app.route('//mpesa/b2b/result', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def mpesa_b2b_result():
+    """Receiver for Safaricom Daraja B2B result."""
+    data = request.get_json(silent=True) or {}
+    logger.info(f"📥 M-Pesa B2B Result Webhook received: {data}")
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+@app.route('/mpesa/b2b/timeout', methods=['POST'])
+@app.route('//mpesa/b2b/timeout', methods=['POST'])
+@csrf.exempt
+@limiter.exempt
+def mpesa_b2b_timeout():
+    """Receiver for Safaricom Daraja B2B timeout."""
+    data = request.get_json(silent=True) or {}
+    logger.warning(f"⚠️ M-Pesa B2B Timeout Webhook received: {data}")
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+
+# ==========================================
 # ==========================================
 # FIREBASE REST API ENDPOINTS (REPLACED WEBSOCKETS)
 # ==========================================
@@ -7575,6 +7664,43 @@ def cron_hourly_check():
         except Exception as ag_err:
             logger.error(f"Anti-ghosting error: {ag_err}")
 
+        # =========================================================================
+        # 1. EVENT ORGANIZER 2-MINUTE PAYOUT SWEEPER (Runs hourly to catch delayed payouts)
+        # =========================================================================
+        try:
+            from app.payout_service import sweep_pending_organizer_payouts
+            swept_payouts = sweep_pending_organizer_payouts()
+            if swept_payouts > 0:
+                results.append(f"Swept & disbursed {swept_payouts} delayed event organizer payouts.")
+        except Exception as sw_err:
+            logger.error(f"Event organizer payout sweeper error: {sw_err}")
+
+        # =========================================================================
+        # 2. CAMPUS MANAGERS & AMBASSADORS MONTHLY SALARIES (Runs on the 31st)
+        # =========================================================================
+        try:
+            from app.payout_service import disburse_monthly_salaries, get_current_month_keys
+            month_key, month_name = get_current_month_keys()
+
+            # Disburse on 31st (or last day of February)
+            is_payout_day = (now.day == 31 or (now.month == 2 and now.day in [28, 29]))
+            if is_payout_day:
+                dispatched_node = f'system_settings/last_monthly_payout_dispatch/{month_key}'
+                already_dispatched = db.reference(dispatched_node).get()
+                if not already_dispatched:
+                    logger.info(f"🚀 31st of {month_name}: Triggering automated monthly salary payouts for Managers & Ambassadors...")
+                    payout_res = disburse_monthly_salaries(month_key=month_key, force=False)
+                    db.reference(dispatched_node).set({
+                        "dispatched_at": now.isoformat(),
+                        "month": month_name,
+                        "summary": payout_res.get('results', [])
+                    })
+                    results.append(f"Monthly salaries disbursed for {month_name}: {len(payout_res.get('results', []))} processed.")
+                else:
+                    results.append(f"Monthly salaries for {month_name} already dispatched on {already_dispatched.get('dispatched_at')}.")
+        except Exception as sal_err:
+            logger.error(f"Monthly salary disbursal error: {sal_err}")
+
         return jsonify({
             "success": True, 
             "message": "Cron check completed.", 
@@ -7584,6 +7710,36 @@ def cron_hourly_check():
         
     except Exception as e:
         logger.error(f"Error in CRON scheduler: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/cron/monthly-payouts', methods=['GET', 'POST'])
+@csrf.exempt
+def api_cron_monthly_payouts():
+    """
+    Dedicated endpoint to disburse monthly salaries to Campus Managers & Ambassadors.
+    Can be invoked by external cron, GitHub action, or Super Admin testing.
+    Accepts:
+      - ?force=true: Bypasses 31st day check to disburse test or manual salary
+      - ?month=2026-10: Target specific month
+    """
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    
+    is_admin = session.get('role') == 'admin' or session.get('super_admin')
+    if cron_key != secret and not is_admin:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    force = request.args.get('force', '').lower() in ['true', '1', 'yes'] or bool(request.json and request.json.get('force'))
+    month_key = request.args.get('month') or (request.json and request.json.get('month'))
+
+    from app.payout_service import disburse_monthly_salaries, sweep_pending_organizer_payouts
+    swept = sweep_pending_organizer_payouts()
+    res = disburse_monthly_salaries(month_key=month_key, force=force)
+    res['swept_organizer_payouts'] = swept
+    return jsonify(res)
 
 @app.route('/api/institutions', methods=['GET'])
 def api_institutions():
@@ -7779,7 +7935,14 @@ def manager_dashboard():
             message = request.form.get('message')
             if message:
                 flash("Broadcast queued for delivery.", "success")
-        
+        elif request.form.get('action') == 'update_payout_phone':
+            mid = session.get('manager_id')
+            phone = request.form.get('payout_phone')
+            month = request.form.get('month')
+            from app.payout_service import save_manager_payout_phone
+            success, msg = save_manager_payout_phone(mid, phone, month)
+            flash(msg, "success" if success else "error")
+
         return redirect(url_for('manager_dashboard'))
         
     # Fetch institution stats
@@ -7945,6 +8108,12 @@ def manager_dashboard():
             'users': users_by_inst_data[k]
         })
 
+    # Calculate Active Specific Month Commission & Payout Phone
+    from app.payout_service import get_current_month_keys, calculate_active_month_commission
+    current_month_key, current_month_name = get_current_month_keys()
+    active_month_subs, comm_rate, month_salary, current_payout_phone = calculate_active_month_commission(mid, current_month_key)
+    comm_rate_pct = int(round(comm_rate * 100))
+
     return render_template('manager_dashboard.html',
                            institution=inst,
                            name=session.get('manager_name'),
@@ -7960,7 +8129,29 @@ def manager_dashboard():
                            detailed_users=sorted_users_by_inst,
                            gender_stats=gender_stats,
                            max_paid=max_paid,
-                           min_paid=min_paid)
+                           min_paid=min_paid,
+                           current_month_key=current_month_key,
+                           current_month_name=current_month_name,
+                           active_month_subs=active_month_subs,
+                           comm_rate_pct=comm_rate_pct,
+                           month_salary=month_salary,
+                           current_payout_phone=current_payout_phone)
+
+
+@app.route('/api/manager/payout-phone', methods=['POST'])
+def api_manager_payout_phone():
+    """AJAX endpoint for manager or ambassador to set payout phone for active month."""
+    if not session.get('manager_logged_in'):
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    mid = session.get('manager_id')
+    data = request.json or request.form.to_dict()
+    phone = data.get('phone') or data.get('payout_phone')
+    month = data.get('month')
+    from app.payout_service import save_manager_payout_phone
+    success, msg = save_manager_payout_phone(mid, phone, month)
+    return jsonify({"success": success, "message": msg, "phone": phone})
+
 
 # ==========================================
 # GROUP CHAT ROUTES

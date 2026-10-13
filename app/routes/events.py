@@ -4,10 +4,15 @@ import uuid
 import csv
 import io
 import threading
+import logging
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response, current_app
 from app.database import db, initialize_firebase
 from app.email_service import send_event_ticket_confirmation_email
+from app.payments import initiate_stk_push, check_payment_status, format_phone_number
+from app.payout_service import schedule_event_organizer_payout
+
+logger = logging.getLogger(__name__)
 
 events_bp = Blueprint('events_bp', __name__)
 
@@ -383,44 +388,34 @@ def create_event():
 # ========================================================
 # 4. EVENT RSVP & TICKET REGISTRATION (WITH EMAIL CONFIRMATION)
 # ========================================================
-@events_bp.route('/api/events/rsvp', methods=['POST'])
-def rsvp_event():
+def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = None, amount: int = 0):
     """
-    Registers an attendee (logged in user or guest).
-    Generates unique digital ticket code, live QR code,
-    and sends rich confirmation email with location pin.
+    Finalizes an event registration:
+    1. Generates unique ticket_code and door lovi_code
+    2. Writes to events_rsvps, tickets_lookup, and lovi_lookup
+    3. Increments event attendees_count
+    4. Dispatches confirmation email with QR and LOVI Code
+    5. If amount > 0, schedules 2-MINUTE AUTOMATIC PAYOUT to the event admin's phone number!
     """
-    data = request.json or request.form.to_dict()
-    event_id = data.get('event_id')
-    
-    if not event_id:
-        return jsonify({"success": False, "error": "Missing event ID."}), 400
-
     event_ref = db.reference(f'events/{event_id}')
-    event = event_ref.get()
-    if not event:
-        return jsonify({"success": False, "error": "Event not found."}), 404
+    event = event_ref.get() or {}
+    event['id'] = event_id
 
-    user_id = session.get('user_id')
-    user_name = data.get('name') or session.get('user_name', 'Comrade')
-    email = data.get('email') or session.get('user_email', '')
-    phone = data.get('phone') or ''
-    plus_ones = int(data.get('plus_ones', 0) or 0)
-    
-    if not email or '@' not in email:
-        return jsonify({"success": False, "error": "A valid email address is required to receive your ticket."}), 400
-
+    user_name = attendee_data.get('name') or attendee_data.get('attendee_name') or 'Comrade'
+    email = attendee_data.get('email', '')
+    phone = attendee_data.get('phone', '')
+    plus_ones = int(attendee_data.get('plus_ones', 0) or 0)
+    user_id = attendee_data.get('user_id')
     attendee_id = user_id or f"guest_{uuid.uuid4().hex[:8]}"
+
     ticket_code = f"FYM-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
     lovi_code = f"LOVI-{uuid.uuid4().hex[:4].upper()}"
 
-    # Get avatar if member
     avatar = "/static/img/icon-192.png"
     if user_id:
         u_prof = db.reference(f'profiles/{user_id}').get() or {}
         avatar = u_prof.get('img') or avatar
 
-    # Save to events_rsvps
     rsvp_entry = {
         "attendee_id": attendee_id,
         "name": user_name,
@@ -433,12 +428,14 @@ def rsvp_event():
         "checked_in": False,
         "checked_in_at": None,
         "is_guest": not bool(user_id),
+        "paid": bool(amount > 0),
+        "amount_paid": amount,
+        "mpesa_receipt": receipt,
         "timestamp": int(time.time() * 1000)
     }
 
     db.reference(f'events_rsvps/{event_id}/{attendee_id}').set(rsvp_entry)
 
-    # Save lookup records for instant O(1) QR scanning and door LOVI confirmation
     lookup_record = {
         "ticket_code": ticket_code,
         "lovi_code": lovi_code,
@@ -448,20 +445,22 @@ def rsvp_event():
         "email": email,
         "phone": phone,
         "plus_ones": plus_ones,
+        "paid": bool(amount > 0),
+        "amount_paid": amount,
+        "mpesa_receipt": receipt,
         "checked_in": False,
         "checked_in_at": None,
         "timestamp": int(time.time() * 1000)
     }
     db.reference(f'tickets_lookup/{ticket_code}').set(lookup_record)
     db.reference(f'lovi_lookup/{lovi_code}').set(lookup_record)
-    
+
     # Increment attendees count
     curr_count = int(event.get('attendees_count', 0) or 0)
     new_count = curr_count + 1 + plus_ones
     event_ref.child('attendees_count').set(new_count)
 
-    # Dispatch Ticket Email Confirmation in Background Thread
-    event['id'] = event_id
+    # Dispatch Ticket Email in Background Thread
     try:
         email_kwargs = {
             "recipient_email": email,
@@ -472,23 +471,264 @@ def rsvp_event():
         }
         threading.Thread(target=send_event_ticket_confirmation_email, kwargs=email_kwargs, daemon=True).start()
     except Exception as mail_err:
-        print(f"Warning: Could not launch email thread: {mail_err}")
+        logger.warning(f"Could not launch email thread: {mail_err}")
 
+    # Build QR and verification URLs
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
     import urllib.parse
     encoded_verify_url = urllib.parse.quote(verify_url, safe='')
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={encoded_verify_url}&color=72-0-0"
 
-    return jsonify({
-        "success": True,
+    # =========================================================================
+    # 2-MINUTE AUTOMATIC PAYOUT TO EVENT ORGANIZER/ADMIN NUMBER
+    # =========================================================================
+    if amount > 0:
+        organizer_phone = event.get('organizer_phone')
+        logger.info(f"💰 Ticket fee of KES {amount} received! Scheduling payout to organizer {organizer_phone} in 2 minutes (120s)...")
+        schedule_event_organizer_payout(
+            event_id=event_id,
+            ticket_code=ticket_code,
+            amount=amount,
+            organizer_phone=organizer_phone,
+            delay_seconds=120
+        )
+
+    return {
         "ticket_code": ticket_code,
         "lovi_code": lovi_code,
         "qr_url": qr_url,
         "verify_url": verify_url,
-        "attendees_count": new_count,
+        "attendees_count": new_count
+    }
+
+
+@events_bp.route('/api/events/rsvp', methods=['POST'])
+def rsvp_event():
+    """
+    Registers an attendee for an event.
+    - If event is free: instantly confirms and issues ticket pass with QR and LOVI code.
+    - If event is paid: initiates M-Pesa STK push. Once paid, funds are directed to event admin
+      number 2 minutes later automatically via M-Pesa B2C.
+    """
+    data = request.json or request.form.to_dict()
+    event_id = data.get('event_id')
+
+    if not event_id:
+        return jsonify({"success": False, "error": "Missing event ID."}), 400
+
+    event_ref = db.reference(f'events/{event_id}')
+    event = event_ref.get()
+    if not event or not isinstance(event, dict):
+        return jsonify({"success": False, "error": "Event not found."}), 404
+
+    user_id = session.get('user_id')
+    user_name = (data.get('name') or session.get('user_name', 'Comrade')).strip()
+    email = (data.get('email') or session.get('user_email', '')).strip()
+    phone = (data.get('phone') or '').strip()
+    plus_ones = int(data.get('plus_ones', 0) or 0)
+
+    if not email or '@' not in email:
+        return jsonify({"success": False, "error": "A valid email address is required to receive your ticket."}), 400
+
+    # Check capacity
+    capacity = int(event.get('capacity', 100) or 100)
+    current_attendees = int(event.get('attendees_count', 0) or 0)
+    if current_attendees + 1 + plus_ones > capacity:
+        return jsonify({"success": False, "error": "Sorry, this event is at maximum capacity!"}), 400
+
+    price_type = str(event.get('price_type', 'free')).lower()
+    try:
+        price = int(event.get('price', 0) or 0)
+    except:
+        price = 0
+
+    total_tickets = 1 + plus_ones
+    total_amount = price * total_tickets
+
+    # If PAID event, initiate STK Push
+    if price > 0 and price_type != 'free':
+        formatted_phone = format_phone_number(phone)
+        if not formatted_phone or len(formatted_phone) != 12:
+            return jsonify({"success": False, "error": "Please provide a valid M-Pesa phone number (e.g. 07XXXXXXXX or 01XXXXXXXX)."}), 400
+
+        callback_url = "https://www.findyourmatch.co.ke/api/mpesa/event_callback"
+        account_ref = f"EVT_{event_id[:8]}"
+        desc = f"Ticket {event_id[:5]}"
+        logger.info(f"Initiating STK push of KES {total_amount} to {formatted_phone} for event {event_id}...")
+        res = initiate_stk_push(formatted_phone, total_amount, account_ref, callback_url, desc)
+
+        if not res or 'error' in res:
+            err_msg = res.get('error', 'Failed to initiate M-Pesa prompt.') if res else 'Payment gateway error.'
+            return jsonify({"success": False, "error": f"M-Pesa Error: {err_msg}"}), 400
+
+        checkout_id = res.get('CheckoutRequestID')
+        if not checkout_id:
+            return jsonify({"success": False, "error": "Did not receive valid CheckoutRequestID from Safaricom."}), 400
+
+        db.reference(f'pending_event_payments/{checkout_id}').set({
+            "checkout_id": checkout_id,
+            "event_id": event_id,
+            "amount": total_amount,
+            "attendee_name": user_name,
+            "name": user_name,
+            "email": email,
+            "phone": formatted_phone,
+            "plus_ones": plus_ones,
+            "user_id": user_id,
+            "organizer_phone": event.get('organizer_phone'),
+            "status": "pending",
+            "created_at": int(time.time() * 1000)
+        })
+
+        return jsonify({
+            "success": True,
+            "requires_payment": True,
+            "checkout_id": checkout_id,
+            "amount": total_amount,
+            "phone": formatted_phone,
+            "message": f"📱 M-Pesa prompt of KES {total_amount} sent to {formatted_phone}. Enter your M-Pesa PIN on your phone to complete your ticket reservation."
+        })
+
+    # Otherwise FREE event
+    attendee_data = {
+        "name": user_name,
+        "email": email,
+        "phone": phone,
+        "plus_ones": plus_ones,
+        "user_id": user_id
+    }
+    ticket_info = finalize_event_ticket(event_id, attendee_data, receipt="FREE_ADMISSION", amount=0)
+
+    return jsonify({
+        "success": True,
+        "requires_payment": False,
+        "ticket_code": ticket_info['ticket_code'],
+        "lovi_code": ticket_info['lovi_code'],
+        "qr_url": ticket_info['qr_url'],
+        "verify_url": ticket_info['verify_url'],
+        "attendees_count": ticket_info['attendees_count'],
         "message": f"🎉 Ticket confirmed! An official ticket pass with QR Code & LOVI Code has been emailed to {email}."
     })
+
+
+@events_bp.route('/api/events/check-payment/<checkout_id>', methods=['GET'])
+def check_event_payment_status(checkout_id):
+    """
+    Real-time status poller for event ticket payment.
+    Queries pending_event_payments and falls back to Safaricom query API if webhook is pending.
+    """
+    pending_ref = db.reference(f'pending_event_payments/{checkout_id}')
+    payment_record = pending_ref.get()
+    if not payment_record or not isinstance(payment_record, dict):
+        return jsonify({"success": False, "status": "NOT_FOUND", "error": "Payment record not found."}), 404
+
+    status = payment_record.get('status')
+    if status == 'success':
+        return jsonify({
+            "success": True,
+            "status": "COMPLETED",
+            "ticket_code": payment_record.get('ticket_code'),
+            "lovi_code": payment_record.get('lovi_code'),
+            "qr_url": payment_record.get('qr_url'),
+            "verify_url": payment_record.get('verify_url'),
+            "message": "Payment confirmed! Your ticket pass is ready."
+        })
+    elif status == 'failed':
+        return jsonify({
+            "success": False,
+            "status": "FAILED",
+            "error": payment_record.get('reason') or "Payment was not completed."
+        })
+
+    # If still pending, query Safaricom directly to catch dropped webhooks
+    query_res = check_payment_status(checkout_id)
+    if query_res.get('status') == 'SUCCESS':
+        event_id = payment_record.get('event_id')
+        amount = payment_record.get('amount', 0)
+        receipt = query_res.get('receipt') or "QUERY_SUCCESS"
+        ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=amount)
+
+        pending_ref.update({
+            "status": "success",
+            "receipt": receipt,
+            "ticket_code": ticket_info['ticket_code'],
+            "lovi_code": ticket_info['lovi_code'],
+            "qr_url": ticket_info['qr_url'],
+            "verify_url": ticket_info['verify_url'],
+            "completed_at": int(time.time() * 1000)
+        })
+        return jsonify({
+            "success": True,
+            "status": "COMPLETED",
+            "ticket_code": ticket_info['ticket_code'],
+            "lovi_code": ticket_info['lovi_code'],
+            "qr_url": ticket_info['qr_url'],
+            "verify_url": ticket_info['verify_url'],
+            "message": "Payment verified! Your ticket pass is ready."
+        })
+    elif query_res.get('status') in ['CANCELED', 'FAILED']:
+        reason = query_res.get('reason', 'Payment cancelled')
+        pending_ref.update({"status": "failed", "reason": reason})
+        return jsonify({"success": False, "status": "FAILED", "error": reason})
+
+    return jsonify({"success": True, "status": "PENDING", "message": "Waiting for PIN entry..."})
+
+
+@events_bp.route('/api/mpesa/event_callback', methods=['POST'])
+def mpesa_event_callback():
+    """
+    Webhook called by Safaricom when attendee enters PIN for an event ticket.
+    Finalizes ticket pass and schedules 2-minute organizer payout.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        body = data.get('Body', {})
+        stk_callback = body.get('stkCallback', {})
+        if not stk_callback:
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        result_code = stk_callback.get('ResultCode')
+        checkout_id = stk_callback.get('CheckoutRequestID')
+
+        pending_ref = db.reference(f'pending_event_payments/{checkout_id}')
+        payment_record = pending_ref.get()
+        if not payment_record or not isinstance(payment_record, dict):
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        if payment_record.get('status') == 'success':
+            return jsonify({"ResultCode": 0, "ResultDesc": "Already processed"})
+
+        if result_code == 0:
+            metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
+            receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
+            amount = next((item['Value'] for item in metadata if item['Name'] == 'Amount'), payment_record.get('amount', 0))
+
+            event_id = payment_record.get('event_id')
+            ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=amount)
+
+            pending_ref.update({
+                "status": "success",
+                "receipt": receipt,
+                "ticket_code": ticket_info['ticket_code'],
+                "lovi_code": ticket_info['lovi_code'],
+                "qr_url": ticket_info['qr_url'],
+                "verify_url": ticket_info['verify_url'],
+                "completed_at": int(time.time() * 1000)
+            })
+            logger.info(f"✅ EVENT TICKET ISSUED via callback: {ticket_info['ticket_code']} receipt={receipt}")
+        else:
+            fail_desc = stk_callback.get('ResultDesc', 'Payment failed')
+            pending_ref.update({
+                "status": "failed",
+                "reason": fail_desc,
+                "result_code": result_code
+            })
+    except Exception as e:
+        logger.error(f"Error in mpesa_event_callback: {e}")
+
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
 
 
 # ========================================================

@@ -59,6 +59,11 @@
         color: #111;
     }
 
+    @keyframes fymSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
     /* Main Flyer Hero Card */
     .event-hero-card {
         background: white;
@@ -688,9 +693,31 @@
                     {% endif %}
 
                     <button type="submit" class="btn-confirm-rsvp" id="btnRsvpSubmit">
-                        🎟️ Confirm RSVP & Get Instant QR Pass
+                        {% if event.price > 0 %}
+                            🎟️ Pay {{ event.price_display }} via M-Pesa & Get Ticket
+                        {% else %}
+                            🎟️ Confirm Free RSVP & Get Instant QR Pass
+                        {% endif %}
                     </button>
                 </form>
+
+                <!-- M-Pesa STK Prompt Waiting View -->
+                <div id="mpesaPendingView" class="digital-ticket-card" style="display: none; background: #f0fdf4; border: 2px dashed #16a34a; text-align: center;">
+                    <div style="font-size: 38px; margin-bottom: 8px;">📱</div>
+                    <h4 style="margin: 0 0 6px; font-size: 18px; font-weight: 900; color: #166534;">Check Your Phone!</h4>
+                    <p style="font-size: 13px; color: #374151; margin: 0 0 14px;" id="mpesaPendingDesc">
+                        An M-Pesa PIN prompt has been sent to your phone.
+                    </p>
+                    <div style="background: white; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #15803d; text-transform: uppercase;">Amount Due:</div>
+                        <div style="font-size: 22px; font-weight: 900; color: #14532d;" id="mpesaPendingAmount">KES 0</div>
+                        <div style="font-size: 11px; color: #4b5563; margin-top: 4px;">Enter your M-Pesa PIN to complete ticket payment.</div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #15803d; font-weight: 700; font-size: 13px;">
+                        <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #16a34a; border-top-color: transparent; border-radius: 50%; animation: fymSpin 1s linear infinite;"></span>
+                        <span>Waiting for payment confirmation from Safaricom...</span>
+                    </div>
+                </div>
 
                 <!-- Confirmed Ticket View (Hidden initially, reveals after RSVP) -->
                 <div id="confirmedTicketView" class="digital-ticket-card" style="display: none;">
@@ -798,7 +825,8 @@
     function handleRsvpSubmit(e) {
         e.preventDefault();
         const btn = document.getElementById('btnRsvpSubmit');
-        btn.innerHTML = "Generating ticket pass & emailing...";
+        const origText = btn.innerHTML;
+        btn.innerHTML = "Processing reservation...";
         btn.disabled = true;
 
         const formData = new FormData(e.target);
@@ -812,29 +840,87 @@
         .then(res => res.json())
         .then(res => {
             if (res.success) {
-                document.getElementById('rsvpForm').style.display = 'none';
-                const ticketView = document.getElementById('confirmedTicketView');
-                ticketView.style.display = 'block';
-                document.getElementById('confirmedTicketCode').innerText = res.ticket_code;
-                if (document.getElementById('confirmedLoviCode')) {
-                    document.getElementById('confirmedLoviCode').innerText = res.lovi_code || 'LOVI-PASS';
+                if (res.requires_payment) {
+                    // Show M-Pesa prompt waiting card and start polling Safaricom
+                    document.getElementById('rsvpForm').style.display = 'none';
+                    const pendingView = document.getElementById('mpesaPendingView');
+                    pendingView.style.display = 'block';
+                    document.getElementById('mpesaPendingAmount').innerText = "KES " + res.amount;
+                    document.getElementById('mpesaPendingDesc').innerText = "An M-Pesa PIN prompt has been sent to " + res.phone + ". Please enter your PIN on your phone to complete your ticket purchase.";
+
+                    // Start real-time payment confirmation polling
+                    pollPaymentStatus(res.checkout_id, origText);
+                } else {
+                    showConfirmedTicket(res);
                 }
-                document.getElementById('ticketQrImageWrap').innerHTML = `
-                    <img src="${res.qr_url}" alt="Ticket QR" width="170" height="170" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
-                `;
-                alert(res.message);
             } else {
-                btn.innerHTML = "🎟️ Confirm RSVP & Get Instant QR Pass";
+                btn.innerHTML = origText;
                 btn.disabled = false;
                 alert(res.error || "Failed to confirm RSVP.");
             }
         })
         .catch(err => {
-            btn.innerHTML = "🎟️ Confirm RSVP & Get Instant QR Pass";
+            btn.innerHTML = origText;
             btn.disabled = false;
             console.error(err);
             alert("Error communicating with server.");
         });
+    }
+
+    // Polling function for M-Pesa STK Push
+    function pollPaymentStatus(checkoutId, origBtnText) {
+        let attempts = 0;
+        const maxAttempts = 36; // 90 seconds
+        const interval = setInterval(() => {
+            attempts++;
+            if (attempts > maxAttempts) {
+                clearInterval(interval);
+                alert("Payment confirmation timed out. If you already completed payment, your ticket will be confirmed and emailed to you shortly.");
+                document.getElementById('mpesaPendingView').style.display = 'none';
+                document.getElementById('rsvpForm').style.display = 'block';
+                const btn = document.getElementById('btnRsvpSubmit');
+                btn.innerHTML = origBtnText;
+                btn.disabled = false;
+                return;
+            }
+
+            fetch(`/api/events/check-payment/${checkoutId}`)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'COMPLETED') {
+                    clearInterval(interval);
+                    document.getElementById('mpesaPendingView').style.display = 'none';
+                    showConfirmedTicket(res);
+                } else if (res.status === 'FAILED') {
+                    clearInterval(interval);
+                    alert("⚠️ Payment failed or was cancelled: " + (res.error || "Please try again."));
+                    document.getElementById('mpesaPendingView').style.display = 'none';
+                    document.getElementById('rsvpForm').style.display = 'block';
+                    const btn = document.getElementById('btnRsvpSubmit');
+                    btn.innerHTML = origBtnText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => console.log("Status query:", err));
+        }, 2500);
+    }
+
+    // Display Confirmed Ticket Pass
+    function showConfirmedTicket(res) {
+        document.getElementById('rsvpForm').style.display = 'none';
+        if (document.getElementById('mpesaPendingView')) {
+            document.getElementById('mpesaPendingView').style.display = 'none';
+        }
+        const ticketView = document.getElementById('confirmedTicketView');
+        ticketView.style.display = 'block';
+        document.getElementById('confirmedTicketCode').innerText = res.ticket_code;
+        if (document.getElementById('confirmedLoviCode')) {
+            document.getElementById('confirmedLoviCode').innerText = res.lovi_code || 'LOVI-PASS';
+        }
+        document.getElementById('ticketQrImageWrap').innerHTML = `
+            <img src="${res.qr_url}" alt="Ticket QR" width="170" height="170" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+        `;
+        alert(res.message || "🎉 Ticket confirmed! An official ticket pass has been emailed to you.");
     }
 
     // Copy Event Link
