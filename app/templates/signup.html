@@ -238,6 +238,23 @@
         .flex-row .input-group { margin-bottom: 20px; }
     }
 
+    @media (max-width: 480px) {
+        .auth-card {
+            padding: 24px 15px !important;
+            border-radius: 20px !important;
+        }
+        .v3-indicator-banner {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 10px !important;
+            padding: 12px 14px !important;
+        }
+        .v3-indicator-banner button {
+            align-self: flex-start !important;
+            padding: 4px 8px !important;
+        }
+    }
+
     /* === CHECKBOXES === */
     .checkbox-group {
         display: flex; align-items: center; gap: 15px; margin-bottom: 30px;
@@ -310,7 +327,7 @@
         <div id="api-error" class="flash-msg" style="display: none;"></div>
 
         <!-- ── v3 / legacy mode indicator ── -->
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 30px; background: rgba(16, 185, 129, 0.08); padding: 14px 20px; border-radius: 14px; border: 1px solid rgba(16, 185, 129, 0.15);">
+        <div class="v3-indicator-banner" style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 30px; background: rgba(16, 185, 129, 0.08); padding: 14px 20px; border-radius: 14px; border: 1px solid rgba(16, 185, 129, 0.15); flex-wrap: wrap; gap: 10px;">
             <div style="font-size:14px; color:#10b981; font-weight:800; display:flex; align-items:center; gap:8px;">
                 ✅ <span>New System — No Reg Number Needed!</span>
             </div>

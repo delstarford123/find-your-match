@@ -74,6 +74,11 @@
     .status-matched { background: #dcfce7; color: #059669; animation: pulse-green 2s infinite; }
     @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); } 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); } }
 
+    @media (max-width: 360px) {
+        .sent-card { flex-wrap: wrap; gap: 10px; }
+        .status-badge { align-self: flex-start; }
+        .sent-avatar { width: 45px; height: 45px; }
+    }
 </style>
 
 <div class="crush-wrapper">

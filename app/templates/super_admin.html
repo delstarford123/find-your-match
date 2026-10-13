@@ -295,7 +295,7 @@
     .user-result-card h4 span, .user-card h4 span { color: #94a3b8; font-weight: 500; font-size: 14px; }
     .user-result-card .email, .user-card .email { color: #38bdf8; font-size: 14px; margin-bottom: 12px; font-weight: 600; word-break: break-all;}
 
-    .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 15px; margin-bottom: 20px; }
     .load-more-btn { width: 100%; background: transparent; border: 2px dashed #1E293B; color: #94a3b8; padding: 15px; border-radius: 14px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-bottom: 30px; font-family: inherit;}
     .load-more-btn:hover { border-color: #38bdf8; color: #38bdf8; }
 
@@ -705,7 +705,7 @@ function toggleAmbassador(id) {
                     <div class="m-value format-num">{{ inst.total }} <span>Users</span></div>
                     <div style="font-size: 11px; color: #94a3b8; margin-top: 8px; font-weight: 600;">
                         Premium: <span class="format-num" style="color: #10b981;">{{ inst.premium }}</span> | 
-                        Rev: <span style="color: #38bdf8;">KSH {{ inst.revenue|toLocaleString }}</span>
+                        Rev: <span style="color: #38bdf8;">KSH <span class="format-num">{{ inst.revenue }}</span></span>
                     </div>
                 </div>
                 {% endfor %}
@@ -722,7 +722,8 @@ function toggleAmbassador(id) {
                     </div>
                 </div>
                 
-                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;" id="institutions-table">
+                <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 600px;" id="institutions-table">
                     <thead style="background: #1E293B; color: #94a3b8; text-transform: uppercase; font-weight: 800; font-size: 11px;">
                         <tr>
                             <th style="padding: 15px 20px;">Institution Name</th>
@@ -748,8 +749,9 @@ function toggleAmbassador(id) {
                                     0%
                                 {% endif %}
                             </td>
-                            <td style="padding: 15px 20px; color: #38bdf8; font-weight: 900;">KSH {{ inst.revenue|toLocaleString }}</td>
-                            <td style="padding: 15px 20px; text-align: right;">                                <span style="color: #10b981; font-weight: 800;">↑ {{ range(2, 15)|random }}%</span>
+                            <td style="padding: 15px 20px; color: #38bdf8; font-weight: 900;">KSH <span class="format-num">{{ inst.revenue }}</span></td>
+                            <td style="padding: 15px 20px; text-align: right;">
+                                <span style="color: #10b981; font-weight: 800;">↑ {{ range(2, 15)|random }}%</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -760,6 +762,7 @@ function toggleAmbassador(id) {
                         {% endif %}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     </div>

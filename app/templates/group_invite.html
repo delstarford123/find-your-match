@@ -3,23 +3,25 @@
 {% block content %}
 <style>
     .invite-container {
+        width: calc(100% - 32px);
         max-width: 500px;
-        margin: 60px auto;
+        margin: clamp(20px, 6vw, 60px) auto;
         background: white;
         border-radius: 24px;
-        padding: 40px 30px;
+        padding: clamp(28px, 6vw, 40px) clamp(18px, 5vw, 30px);
         text-align: center;
         box-shadow: 0 15px 40px rgba(114, 0, 0, 0.1);
         border: 1px solid #FFD6DD;
+        box-sizing: border-box;
     }
     
     .group-icon {
-        width: 100px;
-        height: 100px;
+        width: 90px;
+        height: 90px;
         border-radius: 50%;
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white;
-        font-size: 45px;
+        font-size: 40px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -28,10 +30,11 @@
     }
     
     .group-name {
-        font-size: 26px;
+        font-size: clamp(20px, 5vw, 26px);
         font-weight: 900;
         color: #111;
         margin-bottom: 10px;
+        line-height: 1.25;
     }
     
     .group-desc {
@@ -47,7 +50,7 @@
         border: none;
         padding: 16px 30px;
         border-radius: 50px;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 900;
         cursor: pointer;
         transition: 0.3s;
@@ -55,6 +58,7 @@
         width: 100%;
         display: block;
         text-decoration: none;
+        box-sizing: border-box;
     }
     
     .btn-join:hover {

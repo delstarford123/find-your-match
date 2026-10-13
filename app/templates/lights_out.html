@@ -6,15 +6,16 @@
     .lights-out-container {
         max-width: 600px;
         margin: 0 auto;
-        padding: 40px 20px 100px;
+        padding: clamp(20px, 5vw, 40px) 16px 100px;
         color: #fff;
         text-align: center;
         position: relative;
         z-index: 10;
+        box-sizing: border-box;
     }
 
     .neon-title {
-        font-size: 36px;
+        font-size: clamp(26px, 7vw, 36px);
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 2px;
@@ -131,6 +132,8 @@
         padding: 15px;
         border-radius: 30px;
         outline: none;
+        font-size: 16px;
+        box-sizing: border-box;
     }
 
     .chat-input-area button {

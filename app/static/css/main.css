@@ -282,6 +282,7 @@
 
         @media (max-width: 900px) {
             .mobile-bottom-nav { display: flex; }
+            main.container { padding-bottom: calc(85px + var(--safe-bottom)) !important; }
             footer { padding-bottom: calc(90px + var(--safe-bottom)) !important; }
             .support-trigger-btn { bottom: calc(85px + var(--safe-bottom)) !important; }
         }

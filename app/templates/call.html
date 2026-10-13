@@ -156,6 +156,34 @@
             50% { transform: translateY(-200px) scale(1) translateX(15px); opacity: 1; }
             100% { transform: translateY(-400px) scale(1.5) translateX(-20px); opacity: 0; }
         }
+
+        @media (max-width: 480px) {
+            .controls {
+                gap: 8px;
+                padding: 8px 12px;
+                max-width: calc(100vw - 20px);
+            }
+            .btn {
+                width: 46px;
+                height: 46px;
+                font-size: 18px;
+            }
+            .btn-hangup {
+                width: 52px;
+                height: 52px;
+                font-size: 22px;
+            }
+            .video-pip {
+                width: 90px;
+                height: 130px;
+                bottom: 110px;
+                right: 12px;
+            }
+            .avatar {
+                width: 120px;
+                height: 120px;
+            }
+        }
     </style>
 </head>
 <body>

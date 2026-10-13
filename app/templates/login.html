@@ -64,6 +64,22 @@
     #tabStaff.active {
         background: #0F172A; color: white;
     }
+    @media (max-width: 480px) {
+        .login-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 6px;
+        }
+        .login-tab {
+            padding: 9px 6px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .auth-card {
+            padding: 24px 16px;
+        }
+    }
 
     /* ── Legacy upgrade banner ── */
     .upgrade-banner {

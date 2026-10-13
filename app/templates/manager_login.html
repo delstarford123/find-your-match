@@ -4,16 +4,24 @@
 
 {% block content %}
 <style>
-    body { background: #f0f9ff; color: #0f172a; font-family: 'Outfit', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .manager-login-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100dvh - 160px);
+        padding: clamp(20px, 5vw, 40px) 16px;
+        box-sizing: border-box;
+    }
     .manager-login-box {
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        padding: 40px;
-        border-radius: 20px;
+        padding: clamp(28px, 6vw, 40px) clamp(18px, 5vw, 32px);
+        border-radius: 24px;
         width: 100%;
-        max-width: 400px;
+        max-width: 420px;
         text-align: center;
-        box-shadow: 0 10px 40px rgba(14, 165, 233, 0.1);
+        box-shadow: 0 10px 40px rgba(14, 165, 233, 0.12);
+        box-sizing: border-box;
     }
     .manager-input {
         width: 100%;
@@ -21,7 +29,8 @@
         background: #f8fafc;
         border: 1px solid #cbd5e1;
         color: #0f172a;
-        border-radius: 12px;
+        border-radius: 14px;
+        font-size: 16px;
         margin-bottom: 20px;
         box-sizing: border-box;
         font-family: inherit;
@@ -35,12 +44,12 @@
     }
     .btn-manager-login {
         width: 100%;
-        padding: 15px;
+        padding: 16px;
         background: linear-gradient(135deg, #0284c7, #0ea5e9);
         border: none;
         color: #ffffff;
         font-weight: 900;
-        border-radius: 12px;
+        border-radius: 14px;
         cursor: pointer;
         font-size: 16px;
         transition: transform 0.2s, box-shadow 0.2s;
@@ -55,6 +64,7 @@
     }
 </style>
 
+<div class="manager-login-wrapper">
 <div class="manager-login-box">
     <div style="font-size: 50px; margin-bottom: 15px;">👔</div>
     <h2 style="margin: 0 0 10px 0; color: #0f172a;">Manager Portal</h2>
@@ -96,5 +106,6 @@
                 <button type="submit" class="btn-manager-login">Access Portal</button>
             </form>
         {% endif %}
+</div>
 </div>
 {% endblock %}

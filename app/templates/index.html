@@ -370,10 +370,10 @@
         .hero-section { 
             flex-direction: column; 
             text-align: center; 
-            padding-top: 50px;
+            padding-top: 40px;
             justify-content: center;
         }
-        .hero-tag { margin: 0 auto 25px auto; }
+        .hero-tag { margin: 0 auto 20px auto; }
         .hero-buttons {
             justify-content: center;
             flex-direction: column;
@@ -385,6 +385,33 @@
         }
         .hero-visual { margin-top: 20px; }
         .floating-card.bg { display: none; }
+    }
+
+    @media (max-width: 480px) {
+        .hero-section {
+            padding: 30px 12px;
+            min-height: auto;
+        }
+        .hero-text h1 {
+            font-size: clamp(28px, 8.5vw, 40px);
+        }
+        .btn-hero-primary, .btn-hero-secondary {
+            max-width: 100%;
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 15px;
+        }
+        .pricing-banner {
+            padding: 35px 16px;
+            margin: 25px 8px 60px 8px;
+            border-radius: 20px;
+        }
+        .btn-white {
+            width: 100%;
+            max-width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+        }
     }
 </style>
 
@@ -620,6 +647,5 @@
         </div>
 
     </div>
-</section>
 </section>
 {% endblock %}

@@ -1,51 +1,184 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-3xl shadow-xl overflow-hidden mt-10">
-    <div class="bg-gradient-to-r from-purple-600 to-fuchsia-600 p-8 text-center text-white">
-        <div class="text-4xl mb-4">🔓</div>
-        <h2 class="text-3xl font-black mb-2">Unlock Sponsors Room</h2>
-        <p class="text-purple-100 font-medium">Access premium sponsor profiles for 30 days.</p>
-    </div>
+<style>
+    .hidden {
+        display: none !important;
+    }
+    .sr-paywall-container {
+        max-width: 460px;
+        margin: clamp(20px, 5vw, 50px) auto 80px;
+        padding: 0 16px;
+        box-sizing: border-box;
+    }
+    .sr-paywall-card {
+        background: white;
+        border-radius: 28px;
+        box-shadow: 0 20px 45px rgba(126, 34, 206, 0.12);
+        border: 1px solid #f1f5f9;
+        overflow: hidden;
+    }
+    .sr-paywall-header {
+        background: linear-gradient(135deg, #7e22ce 0%, #c026d3 100%);
+        padding: clamp(28px, 6vw, 36px) 20px;
+        text-align: center;
+        color: white;
+    }
+    .sr-header-icon {
+        font-size: 44px;
+        margin-bottom: 12px;
+    }
+    .sr-header-title {
+        font-size: clamp(22px, 5vw, 28px);
+        font-weight: 900;
+        margin: 0 0 6px;
+        letter-spacing: -0.5px;
+    }
+    .sr-header-desc {
+        color: #f3e8ff;
+        font-size: 14px;
+        font-weight: 500;
+        margin: 0;
+    }
+    .sr-body-padding {
+        padding: clamp(22px, 5vw, 32px) clamp(16px, 4vw, 24px);
+    }
+    .sr-fee-box {
+        background: #faf5ff;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid #e9d5ff;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+    .sr-fee-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        font-weight: 800;
+        letter-spacing: 1px;
+        color: #7e22ce;
+        margin-bottom: 4px;
+    }
+    .sr-fee-amount {
+        font-size: clamp(28px, 6vw, 36px);
+        font-weight: 900;
+        color: #581c87;
+        margin: 0;
+    }
+    .sr-fee-sub {
+        font-size: 12px;
+        color: #9333ea;
+        margin-top: 4px;
+        font-weight: 600;
+    }
+    .sr-input-group {
+        margin-bottom: 20px;
+    }
+    .sr-input-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
+    }
+    .sr-phone-input {
+        width: 100%;
+        padding: 16px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #0f172a;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    .sr-phone-input:focus {
+        border-color: #7e22ce;
+        background: white;
+    }
+    .btn-sr-pay {
+        width: 100%;
+        background: linear-gradient(135deg, #7e22ce 0%, #c026d3 100%);
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 16px;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(126, 34, 206, 0.25);
+        transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn-sr-pay:active {
+        transform: scale(0.98);
+    }
+    .btn-sr-pay:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .sr-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3e8ff;
+        border-top-color: #7e22ce;
+        border-radius: 50%;
+        animation: srSpin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    @keyframes srSpin {
+        to { transform: rotate(360deg); }
+    }
+</style>
 
-    <div class="p-8 text-center" id="payment-form-container">
-        <div class="bg-purple-50 rounded-2xl p-6 border border-purple-100 mb-6">
-            <p class="text-sm text-purple-800 font-bold mb-1">Access Fee</p>
-            <p class="text-4xl font-black text-purple-900">KES {{ fee }}</p>
-            <p class="text-xs text-purple-600 mt-2">Valid for 30 days</p>
+<div class="sr-paywall-container">
+    <div class="sr-paywall-card">
+        <div class="sr-paywall-header">
+            <div class="sr-header-icon">🔓</div>
+            <h2 class="sr-header-title">Unlock Sponsors Room</h2>
+            <p class="sr-header-desc">Access premium sponsor profiles for 30 days.</p>
         </div>
 
-        <form id="stk-push-form" class="space-y-4 text-left">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-2">M-Pesa Phone Number</label>
-                <input type="tel" id="phone" name="phone" placeholder="e.g. 0712345678" required
-                       class="w-full px-5 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-purple-500 focus:ring-0 transition-colors font-medium">
+        <div class="sr-body-padding" id="payment-form-container">
+            <div class="sr-fee-box">
+                <p class="sr-fee-label">Access Fee</p>
+                <p class="sr-fee-amount">KES {{ fee }}</p>
+                <p class="sr-fee-sub">Valid for 30 days</p>
             </div>
-            
-            <button type="submit" id="pay-btn"
-                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-200">
-                Pay Now via M-Pesa
+
+            <form id="stk-push-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <div class="sr-input-group">
+                    <label class="sr-input-label">M-Pesa Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="e.g. 0712345678" required class="sr-phone-input">
+                </div>
+                
+                <button type="submit" id="pay-btn" class="btn-sr-pay">
+                    Pay Now via M-Pesa
+                </button>
+            </form>
+        </div>
+        
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden sr-body-padding" style="text-align: center;">
+            <div class="sr-spinner"></div>
+            <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0 0 8px;">Check your phone...</h3>
+            <p style="color: #64748b; font-size: 14px; margin: 0 0 16px;">Enter your M-Pesa PIN to complete the payment of KES {{ fee }}.</p>
+            <p style="font-size: 13px; font-weight: 800; color: #7e22ce;">Waiting for confirmation...</p>
+        </div>
+        
+        <!-- Success State -->
+        <div id="success-state" class="hidden sr-body-padding" style="text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 12px;">🎉</div>
+            <h3 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 0 0 8px;">Payment Successful!</h3>
+            <p style="color: #64748b; font-size: 14px; margin: 0 0 20px;">The Sponsors Room is now unlocked.</p>
+            <button onclick="window.location.reload()" class="btn-sr-pay">
+                Enter Room
             </button>
-        </form>
-    </div>
-    
-    <!-- Loading State -->
-    <div id="loading-state" class="hidden p-8 text-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mx-auto mb-6"></div>
-        <h3 class="text-xl font-bold text-gray-900 mb-2">Check your phone...</h3>
-        <p class="text-gray-500 mb-4">Enter your M-Pesa PIN to complete the payment of KES {{ fee }}.</p>
-        <p class="text-sm font-bold text-purple-600 animate-pulse">Waiting for confirmation...</p>
-    </div>
-    
-    <!-- Success State -->
-    <div id="success-state" class="hidden p-8 text-center">
-        <div class="text-5xl mb-4">🎉</div>
-        <h3 class="text-2xl font-black text-gray-900 mb-2">Payment Successful!</h3>
-        <p class="text-gray-500 mb-6">The Sponsors Room is now unlocked.</p>
-        <button onclick="window.location.reload()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 shadow-lg shadow-purple-200">
-            Enter Room
-        </button>
+        </div>
     </div>
 </div>
 

@@ -168,6 +168,11 @@
     }
     
     .btn-back:active, .btn-chat-primary:active { transform: scale(0.96); }
+
+    @media (max-width: 360px) {
+        .action-bar { flex-direction: column; gap: 10px; }
+        .btn-back, .btn-chat-primary { width: 100%; min-width: 0; flex: none; }
+    }
 </style>
 
 <div class="profile-wrapper">

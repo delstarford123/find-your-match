@@ -162,6 +162,14 @@
     /* Custom Checkbox */
     .toggle-lbl { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #334155; cursor: pointer; }
     .toggle-lbl input { width: 18px; height: 18px; accent-color: #2563eb; cursor: pointer; }
+
+    @media (max-width: 600px) {
+        .sponsor-header { padding: 20px 16px; border-radius: 18px; }
+        .sponsor-header > div { flex-direction: column; gap: 10px; }
+        .matches-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; }
+        .match-info { padding: 12px; }
+        .match-name { font-size: 16px; }
+    }
 </style>
 
 <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 15px; margin-top: 20px;">

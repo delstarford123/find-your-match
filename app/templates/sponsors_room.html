@@ -1,45 +1,184 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto mt-8">
+<style>
+    .sponsors-page-wrapper {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: clamp(16px, 4vw, 40px) 16px clamp(40px, 6vw, 80px);
+        box-sizing: border-box;
+    }
+    .sponsors-hero {
+        background: linear-gradient(135deg, #7e22ce 0%, #c026d3 100%);
+        border-radius: clamp(20px, 4vw, 32px);
+        padding: clamp(28px, 6vw, 48px) clamp(16px, 4vw, 32px);
+        color: white;
+        text-align: center;
+        box-shadow: 0 16px 40px rgba(126, 34, 206, 0.25);
+        margin-bottom: clamp(24px, 4vw, 40px);
+        position: relative;
+        overflow: hidden;
+    }
+    .sponsors-hero-title {
+        font-size: clamp(24px, 5vw, 36px);
+        font-weight: 900;
+        margin: 0 0 10px;
+        letter-spacing: -0.5px;
+    }
+    .sponsors-hero-desc {
+        color: #f3e8ff;
+        font-size: clamp(14px, 2.5vw, 17px);
+        font-weight: 500;
+        margin: 0;
+    }
+    .sponsors-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+        gap: clamp(16px, 3vw, 24px);
+    }
+    .sponsor-card {
+        background: white;
+        border-radius: 24px;
+        border: 1px solid #f1f5f9;
+        overflow: hidden;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+        transition: transform 0.2s, box-shadow 0.2s;
+        display: flex;
+        flex-direction: column;
+    }
+    .sponsor-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 14px 30px rgba(126, 34, 206, 0.12);
+    }
+    .sponsor-badge-tag {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        background: #7e22ce;
+        color: white;
+        font-size: 11px;
+        font-weight: 800;
+        padding: 5px 12px;
+        border-radius: 50px;
+        z-index: 2;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .sponsor-photo-wrap {
+        height: 220px;
+        background: #e2e8f0;
+        position: relative;
+        background-size: cover;
+        background-position: center;
+    }
+    .sponsor-photo-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%);
+    }
+    .sponsor-name-overlay {
+        position: absolute;
+        bottom: 14px;
+        left: 16px;
+        right: 16px;
+        color: white;
+        z-index: 1;
+    }
+    .sponsor-name-text {
+        font-size: clamp(18px, 4vw, 21px);
+        font-weight: 900;
+        margin: 0 0 2px;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .sponsor-loc-text {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e2e8f0;
+        margin: 0;
+    }
+    .sponsor-card-body {
+        padding: 18px 16px 20px;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    .sponsor-bio-text {
+        font-size: 14px;
+        color: #475569;
+        font-style: italic;
+        line-height: 1.5;
+        margin: 0 0 16px;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        flex-grow: 1;
+    }
+    .btn-say-hello {
+        display: block;
+        width: 100%;
+        text-align: center;
+        padding: 14px 16px;
+        background: #faf5ff;
+        color: #7e22ce;
+        border: 1px solid #e9d5ff;
+        font-weight: 800;
+        font-size: 15px;
+        border-radius: 16px;
+        text-decoration: none;
+        transition: background 0.2s, transform 0.15s;
+        box-sizing: border-box;
+    }
+    .btn-say-hello:hover {
+        background: #f3e8ff;
+        color: #6b21a8;
+        transform: scale(1.02);
+    }
+    .btn-say-hello:active {
+        transform: scale(0.98);
+    }
+    .sponsors-empty-box {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: clamp(40px, 8vw, 70px) 20px;
+        background: white;
+        border-radius: 28px;
+        border: 2px dashed #cbd5e1;
+    }
+</style>
+
+<div class="sponsors-page-wrapper">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-3xl p-8 text-white shadow-xl mb-8 text-center relative overflow-hidden">
-        <div class="relative z-10">
-            <div class="text-5xl mb-4">🏠✨</div>
-            <h1 class="text-3xl font-black mb-2">The Sponsors Room</h1>
-            <p class="text-purple-100 font-medium text-lg">Connect with verified sponsors outside campus.</p>
-        </div>
-        <!-- Decorative background elements -->
-        <div class="absolute -top-12 -right-12 w-48 h-48 bg-white opacity-10 rounded-full blur-2xl"></div>
-        <div class="absolute -bottom-12 -left-12 w-48 h-48 bg-white opacity-10 rounded-full blur-2xl"></div>
+    <div class="sponsors-hero">
+        <div style="font-size: 44px; margin-bottom: 12px;">🏠✨</div>
+        <h1 class="sponsors-hero-title">The Sponsors Room</h1>
+        <p class="sponsors-hero-desc">Connect with verified sponsors outside campus.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="sponsors-grid">
         {% for sponsor in sponsors %}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative">
-            <div class="absolute top-3 right-3 bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-full z-10 shadow-sm">
-                Sponsor
-            </div>
-            <div class="h-48 bg-gray-200 relative" style="background: url('{{ sponsor.photo_url or '/static/img/placeholder.png' }}') center/cover;">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                <div class="absolute bottom-4 left-4 text-white">
-                    <h3 class="text-xl font-black">{{ sponsor.name.split()[0] }}, {{ sponsor.age }}</h3>
-                    <p class="text-sm font-medium text-gray-200">📍 {{ sponsor.county }}</p>
+        <div class="sponsor-card">
+            <div style="position: relative;">
+                <div class="sponsor-badge-tag">Sponsor</div>
+                <div class="sponsor-photo-wrap" style="background-image: url('{{ sponsor.photo_url or '/static/img/placeholder.png' }}');">
+                    <div class="sponsor-photo-overlay"></div>
+                    <div class="sponsor-name-overlay">
+                        <h3 class="sponsor-name-text">{{ sponsor.name.split()[0] }}, {{ sponsor.age }}</h3>
+                        <p class="sponsor-loc-text">📍 {{ sponsor.county }}</p>
+                    </div>
                 </div>
             </div>
-            <div class="p-5">
-                <p class="text-sm text-gray-600 line-clamp-3 mb-4 italic">"{{ sponsor.bio }}"</p>
-                <!-- Reuse existing chat logic but point to sponsor -->
-                <a href="{{ url_for('chat', partner_id=sponsor.id) }}" class="block w-full text-center py-3 bg-purple-50 text-purple-700 font-bold rounded-xl hover:bg-purple-100 transition-colors">
+            <div class="sponsor-card-body">
+                <p class="sponsor-bio-text">"{{ sponsor.bio }}"</p>
+                <a href="{{ url_for('chat', partner_id=sponsor.id) }}" class="btn-say-hello">
                     💬 Say Hello
                 </a>
             </div>
         </div>
         {% else %}
-        <div class="col-span-full text-center py-16 bg-white rounded-2xl border border-dashed border-gray-300">
-            <div class="text-5xl mb-4">🌟</div>
-            <h3 class="text-xl font-bold text-gray-900 mb-2">No Sponsors Yet</h3>
-            <p class="text-gray-500">The first sponsors are being verified right now.<br>Check back soon!</p>
+        <div class="sponsors-empty-box">
+            <div style="font-size: 48px; margin-bottom: 16px;">🌟</div>
+            <h3 style="font-size: 20px; font-weight: 900; color: #0f172a; margin: 0 0 8px;">No Sponsors Yet</h3>
+            <p style="color: #64748b; font-size: 15px; margin: 0;">The first sponsors are being verified right now.<br>Check back soon!</p>
         </div>
         {% endfor %}
     </div>

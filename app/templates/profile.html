@@ -22,9 +22,10 @@
     /* Left Column: Edit Form */
     .edit-section {
         flex: 1 1 60%;
-        min-width: 300px;
+        min-width: 0;
+        width: 100%;
         background: white;
-        padding: clamp(25px, 5vw, 40px);
+        padding: clamp(20px, 5vw, 40px);
         border-radius: 24px;
         box-shadow: 0 15px 35px rgba(114, 0, 0, 0.05);
         border: 1px solid #FFD6DD;
@@ -197,7 +198,7 @@
 
     /* === RIGHT COLUMN: PREVIEW CARD === */
     .preview-section {
-        flex: 1 1 35%; min-width: 300px; display: flex; flex-direction: column; align-items: center; 
+        flex: 1 1 35%; min-width: 0; width: 100%; display: flex; flex-direction: column; align-items: center; 
         position: sticky; top: calc(var(--nav-height, 70px) + 20px);
     }
 

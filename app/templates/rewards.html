@@ -77,7 +77,7 @@
         backdrop-filter: var(--glass-backdrop);
         -webkit-backdrop-filter: var(--glass-backdrop);
         border-radius: 28px;
-        padding: 30px;
+        padding: clamp(16px, 4vw, 30px);
         box-shadow: var(--shadow-lg);
         text-align: left;
     }
@@ -92,7 +92,7 @@
     .streak-tracker {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 8px;
+        gap: clamp(4px, 1.5vw, 8px);
         margin: 25px 0;
     }
 

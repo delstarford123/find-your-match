@@ -1,37 +1,144 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-16">
-    <div class="text-center mb-12">
-        <h1 class="text-4xl font-black text-red-900 mb-4">How do you want to join?</h1>
-        <p class="text-lg text-gray-600 font-medium max-w-xl mx-auto">Select your account type to proceed to the correct registration portal.</p>
+<style>
+    .join-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: clamp(24px, 5vw, 60px) 16px clamp(40px, 6vw, 80px);
+        box-sizing: border-box;
+    }
+    .join-header {
+        text-align: center;
+        margin-bottom: clamp(28px, 5vw, 48px);
+    }
+    .join-title {
+        font-size: clamp(26px, 6vw, 40px);
+        font-weight: 900;
+        color: #720000;
+        margin: 0 0 12px;
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+    }
+    .join-subtitle {
+        font-size: clamp(14px, 2.5vw, 17px);
+        color: #64748b;
+        font-weight: 500;
+        max-width: 540px;
+        margin: 0 auto;
+        line-height: 1.5;
+    }
+    .join-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+        gap: clamp(18px, 4vw, 32px);
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .join-card {
+        display: flex;
+        flex-direction: column;
+        background: white;
+        border-radius: 28px;
+        padding: clamp(24px, 5vw, 36px) clamp(18px, 4vw, 28px);
+        border: 2px solid #fee2e2;
+        box-shadow: 0 15px 35px rgba(114, 0, 0, 0.06);
+        text-decoration: none;
+        transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s, border-color 0.25s;
+        box-sizing: border-box;
+    }
+    .join-card:hover {
+        transform: translateY(-6px);
+        border-color: #ef4444;
+        box-shadow: 0 20px 45px rgba(230, 0, 38, 0.15);
+    }
+    .join-card.card-sponsor {
+        border-color: #dbeafe;
+    }
+    .join-card.card-sponsor:hover {
+        border-color: #3b82f6;
+        box-shadow: 0 20px 45px rgba(59, 130, 246, 0.15);
+    }
+    .join-icon-box {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+        margin: 0 auto 20px;
+        transition: transform 0.25s ease;
+    }
+    .join-card:hover .join-icon-box {
+        transform: scale(1.1);
+    }
+    .icon-student {
+        background: #fef2f2;
+    }
+    .icon-sponsor {
+        background: #eff6ff;
+    }
+    .card-title {
+        font-size: clamp(20px, 4.5vw, 24px);
+        font-weight: 900;
+        color: #0f172a;
+        text-align: center;
+        margin: 0 0 12px;
+    }
+    .card-desc {
+        color: #64748b;
+        text-align: center;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0 0 24px;
+        flex-grow: 1;
+    }
+    .card-action {
+        text-align: center;
+        font-weight: 800;
+        font-size: 15px;
+        color: #e60026;
+        margin-top: auto;
+        padding-top: 12px;
+    }
+    .card-sponsor .card-action {
+        color: #2563eb;
+    }
+</style>
+
+<div class="join-container">
+    <div class="join-header">
+        <h1 class="join-title">How do you want to join?</h1>
+        <p class="join-subtitle">Select your account type to proceed to the correct registration portal.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+    <div class="join-grid">
         <!-- Student Option -->
-        <a href="{{ url_for('auth.signup') }}" class="group block bg-white rounded-3xl p-8 border-2 border-red-100 shadow-xl hover:border-red-500 hover:shadow-2xl transition-all transform hover:-translate-y-2">
-            <div class="w-20 h-20 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center text-4xl mb-6 mx-auto group-hover:scale-110 transition-transform">
+        <a href="{{ url_for('auth.signup') }}" class="join-card">
+            <div class="join-icon-box icon-student">
                 🎓
             </div>
-            <h2 class="text-2xl font-black text-gray-900 text-center mb-3">I am a Student</h2>
-            <p class="text-gray-500 text-center font-medium leading-relaxed">
+            <h2 class="card-title">I am a Student</h2>
+            <p class="card-desc">
                 I want to meet other students on campus, swipe on profiles, and join the anonymous gossip board.
             </p>
-            <div class="mt-8 text-center text-red-600 font-bold group-hover:text-red-700">
+            <div class="card-action">
                 Continue as Student &rarr;
             </div>
         </a>
 
         <!-- Sponsor Option -->
-        <a href="{{ url_for('sponsors.sponsor_register') }}" class="group block bg-white rounded-3xl p-8 border-2 border-blue-100 shadow-xl hover:border-blue-600 hover:shadow-2xl transition-all transform hover:-translate-y-2">
-            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-4xl mb-6 mx-auto group-hover:scale-110 transition-transform">
+        <a href="{{ url_for('sponsors.sponsor_register') }}" class="join-card card-sponsor">
+            <div class="join-icon-box icon-sponsor">
                 🌟
             </div>
-            <h2 class="text-2xl font-black text-gray-900 text-center mb-3">I am Not a Student</h2>
-            <p class="text-gray-500 text-center font-medium leading-relaxed">
+            <h2 class="card-title">I am Not a Student</h2>
+            <p class="card-desc">
                 I want to join the exclusive Sponsors Room to connect with students and meet my perfect match.
             </p>
-            <div class="mt-8 text-center text-blue-600 font-bold group-hover:text-blue-800">
+            <div class="card-action">
                 Continue to Sponsors Room &rarr;
             </div>
         </a>
