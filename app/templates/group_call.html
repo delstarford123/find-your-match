@@ -641,6 +641,33 @@
         .studio-glow {
             filter: brightness(1.1) contrast(1.05) saturate(1.2) sepia(0.08);
         }
+
+        /* Audio Unlock Banner (Autoplay policy helper) */
+        .audio-unlock-banner {
+            position: fixed;
+            top: 72px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 800;
+            padding: 9px 20px;
+            border-radius: 50px;
+            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.45);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            animation: bannerBounce 2s infinite ease-in-out;
+            pointer-events: auto;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        @keyframes bannerBounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-4px); }
+        }
     </style>
 </head>
 <body>
@@ -679,6 +706,11 @@
             </button>
         </div>
     </header>
+
+    <!-- Audio Unlock Banner (for iOS/Android Safari Autoplay Policy) -->
+    <div id="audioUnlockPrompt" class="audio-unlock-banner" onclick="unlockAudioPlayback()">
+        <span>🔊 Tap here to enable audio & hear everyone</span>
+    </div>
 
     <!-- 2. CALL STAGE (DYNAMIC TILE GRID) -->
     <main class="call-stage" id="callStage">
@@ -809,8 +841,8 @@
         </div>
     </aside>
 
-    <!-- Hidden Remote Audio Container -->
-    <div id="remoteAudiosContainer" style="display: none;"></div>
+    <!-- Active Remote Audio Container (kept active in DOM with opacity 0 so browsers decode and route audio to speakers) -->
+    <div id="remoteAudiosContainer" style="position: absolute; width: 1px; height: 1px; opacity: 0.001; pointer-events: none; overflow: hidden;" aria-hidden="true"></div>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -859,7 +891,8 @@
                     'stun:stun4.l.google.com:19302'
                 ]},
                 { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
+            ],
+            iceCandidatePoolSize: 10
         };
 
         // State
@@ -873,6 +906,7 @@
         const peerConnections = {};
         const remoteStreams = {};
         const pendingCandidates = {}; // peerId -> array of candidates
+        const activeVadNodes = {}; // peerId -> { analyser, rafId }
 
         // Timer
         let callStartTime = null;
@@ -883,17 +917,46 @@
         let outgoingRingOsc = null;
 
         // ========================================================
-        // 2. SOUND EFFECTS (SYNTHESIZED WEB AUDIO API)
+        // 2. SOUND EFFECTS & AUDIO PLAYBACK UNLOCK
         // ========================================================
         function getAudioContext() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
             if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
+                audioCtx.resume().catch(() => {});
             }
             return audioCtx;
         }
+
+        function unlockAudioPlayback() {
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                }
+            } catch(e) {}
+
+            const container = document.getElementById('remoteAudiosContainer');
+            if (container) {
+                const audios = container.querySelectorAll('audio');
+                audios.forEach(audio => {
+                    audio.play().catch(e => console.warn("Audio unlock notice:", e));
+                });
+            }
+
+            const banner = document.getElementById('audioUnlockPrompt');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function showAudioUnlockPrompt() {
+            const banner = document.getElementById('audioUnlockPrompt');
+            if (banner) banner.style.display = 'flex';
+        }
+
+        // Auto-unlock audio on any user gesture on mobile
+        window.addEventListener('click', unlockAudioPlayback, { once: true });
+        window.addEventListener('touchstart', unlockAudioPlayback, { once: true });
 
         function playJoinChime() {
             try {
@@ -932,6 +995,19 @@
         // 3. MEDIA INITIALIZATION & HARDWARE ACCESS
         // ========================================================
         async function initializeLocalMedia() {
+            // 1. Fetch high-speed TURN/STUN configuration to bypass firewalls
+            try {
+                const turnRes = await fetch('/api/turn-credentials');
+                const turnData = await turnRes.json();
+                if (turnData && turnData.iceServers && turnData.iceServers.length > 0) {
+                    rtcConfig.iceServers = turnData.iceServers;
+                    console.log("[WebRTC] Loaded high-speed TURN/STUN relay servers:", rtcConfig.iceServers.length);
+                }
+            } catch(e) {
+                console.warn("[WebRTC] Could not load TURN credentials, fallback to default STUN:", e);
+            }
+
+            // 2. Acquire local audio and video
             try {
                 const constraints = {
                     audio: {
@@ -965,9 +1041,11 @@
                 setupVoiceActivityDetection(localStream, MY_ID);
 
             } catch (err) {
-                console.warn("Could not get requested camera/mic constraints. Falling back to audio only.", err);
+                console.warn("[WebRTC] Could not get requested camera/mic constraints. Falling back to audio only.", err);
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+                    });
                     isCameraOff = true;
                     document.getElementById('btnVideo').classList.add('active-off');
                     document.getElementById('localVideo').style.display = 'none';
@@ -997,7 +1075,13 @@
             myRef.set(selfPayload);
             myRef.onDisconnect().remove();
 
-            // Start listening for participants
+            // Clear any stale inboxes from previous sessions
+            signalsRef.child(MY_ID).remove();
+            candidatesRef.child(MY_ID).remove();
+            signalsRef.child(MY_ID).onDisconnect().remove();
+            candidatesRef.child(MY_ID).onDisconnect().remove();
+
+            // Start listening for participants & signals
             setupParticipantsListener();
             setupSignalsListener();
             setupMessagesAndReactions();
@@ -1021,11 +1105,8 @@
                 updateParticipantsLayout();
 
                 // Deterministic initiator: the one with smaller ID creates the offer
-                if (MY_ID < peerId) {
-                    initiatePeerConnection(peerId, true);
-                } else {
-                    initiatePeerConnection(peerId, false);
-                }
+                const isInitiator = (MY_ID < peerId);
+                getOrCreatePeerConnection(peerId, isInitiator);
             });
 
             // Participant updated state (mute/video toggled)
@@ -1047,9 +1128,11 @@
 
                 // Close peer connection
                 if (peerConnections[peerId]) {
-                    peerConnections[peerId].close();
+                    try { peerConnections[peerId].close(); } catch(e) {}
                     delete peerConnections[peerId];
                 }
+                delete remoteStreams[peerId];
+                delete pendingCandidates[peerId];
 
                 // Remove tile and audio
                 removeParticipantTile(peerId);
@@ -1058,32 +1141,59 @@
         }
 
         // Create or get peer connection
-        function initiatePeerConnection(peerId, isInitiator) {
+        function getOrCreatePeerConnection(peerId, isInitiator) {
             if (peerConnections[peerId]) return peerConnections[peerId];
 
+            console.log(`[WebRTC] Creating RTCPeerConnection for ${peerId} (isInitiator=${isInitiator})`);
             const pc = new RTCPeerConnection(rtcConfig);
             peerConnections[peerId] = pc;
 
-            // Add local tracks
+            // 1. Add local audio and video tracks
             if (localStream) {
                 localStream.getTracks().forEach(track => {
                     pc.addTrack(track, localStream);
                 });
             }
 
-            // Handle incoming remote tracks
-            pc.ontrack = event => {
-                const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-                remoteStreams[peerId] = stream;
+            // 2. Ensure transceiver exists for video so audio-only users can receive remote video
+            // and later send video without renegotiation
+            const senders = pc.getSenders();
+            const hasVideoSender = senders.some(s => s.track && s.track.kind === 'video');
+            if (!hasVideoSender) {
+                try {
+                    pc.addTransceiver('video', { direction: 'sendrecv' });
+                } catch(e) {}
+            }
 
-                // Route to tile video
+            // 3. Handle incoming remote tracks (Unified Plan)
+            pc.ontrack = event => {
+                console.log(`[WebRTC] Received remote track (${event.track.kind}) from ${peerId}`);
+
+                // Maintain persistent composite MediaStream for this peer
+                if (!remoteStreams[peerId]) {
+                    remoteStreams[peerId] = new MediaStream();
+                }
+                const peerStream = remoteStreams[peerId];
+
+                // Remove existing track of same kind and add new one
+                peerStream.getTracks().forEach(t => {
+                    if (t.kind === event.track.kind) {
+                        peerStream.removeTrack(t);
+                    }
+                });
+                peerStream.addTrack(event.track);
+
+                // Target video feed in tile
                 const remoteVid = document.getElementById(`video-${peerId}`);
                 if (remoteVid) {
-                    remoteVid.srcObject = stream;
-                    remoteVid.play().catch(() => {});
+                    if (remoteVid.srcObject !== peerStream) {
+                        remoteVid.srcObject = peerStream;
+                    }
+                    remoteVid.muted = true; // MUST be muted for mobile browsers to allow autoplay
+                    remoteVid.play().catch(e => console.warn(`[WebRTC] Remote video autoplay note:`, e));
                 }
 
-                // Route to hidden audio
+                // Dedicated voice audio element
                 let remoteAudio = document.getElementById(`audio-${peerId}`);
                 if (!remoteAudio) {
                     remoteAudio = document.createElement('audio');
@@ -1092,113 +1202,164 @@
                     remoteAudio.playsInline = true;
                     document.getElementById('remoteAudiosContainer').appendChild(remoteAudio);
                 }
-                remoteAudio.srcObject = stream;
-                remoteAudio.play().catch(() => {});
+                if (remoteAudio.srcObject !== peerStream) {
+                    remoteAudio.srcObject = peerStream;
+                }
+                const playPromise = remoteAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        console.warn(`[WebRTC] Remote audio autoplay blocked for ${peerId}:`, err);
+                        showAudioUnlockPrompt();
+                    });
+                }
 
-                // Setup VAD for remote peer
-                setupVoiceActivityDetection(stream, peerId);
-            };
-
-            // Send local ICE candidates
-            pc.onicecandidate = event => {
-                if (event.candidate) {
-                    candidatesRef.child(`${MY_ID}_${peerId}`).push(event.candidate.toJSON());
+                // If audio track received, attach voice activity detection to light up speaking ring
+                if (event.track.kind === 'audio') {
+                    setupVoiceActivityDetection(peerStream, peerId);
                 }
             };
 
-            // Create offer if initiator
+            // 4. Send local ICE candidates directly to remote peer's inbox
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    candidatesRef.child(peerId).child(MY_ID).push(event.candidate.toJSON());
+                }
+            };
+
+            // 5. ICE connection state monitoring & auto restart
+            pc.oniceconnectionstatechange = () => {
+                console.log(`[WebRTC] ICE state with ${peerId}: ${pc.iceConnectionState}`);
+                if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                    console.log(`[WebRTC] P2P connected with ${peerId}!`);
+                } else if (pc.iceConnectionState === 'failed') {
+                    console.warn(`[WebRTC] ICE failed with ${peerId}, attempting ICE restart...`);
+                    if (isInitiator) {
+                        pc.restartIce();
+                        pc.createOffer({ iceRestart: true })
+                            .then(offer => pc.setLocalDescription(offer))
+                            .then(() => {
+                                signalsRef.child(peerId).child(MY_ID).set({
+                                    type: 'offer',
+                                    sdp: pc.localDescription.sdp,
+                                    from: MY_ID,
+                                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                                });
+                            })
+                            .catch(err => console.error("ICE restart error:", err));
+                    }
+                }
+            };
+
+            // 6. If initiator, create and dispatch SDP offer
             if (isInitiator) {
                 pc.createOffer()
                     .then(offer => pc.setLocalDescription(offer))
                     .then(() => {
-                        signalsRef.child(`${MY_ID}_${peerId}`).set({
+                        signalsRef.child(peerId).child(MY_ID).set({
                             type: 'offer',
                             sdp: pc.localDescription.sdp,
-                            from: MY_ID
+                            from: MY_ID,
+                            timestamp: firebase.database.ServerValue.TIMESTAMP
                         });
+                        console.log(`[WebRTC] Sent initial offer to ${peerId}`);
                     })
-                    .catch(err => console.error("Error creating offer:", err));
+                    .catch(err => console.error(`[WebRTC] Error creating offer for ${peerId}:`, err));
             }
 
             return pc;
         }
 
-        // Listen for SDP Offers and Answers
+        // Listen for SDP Offers and Answers via hierarchical inbox
         function setupSignalsListener() {
-            // Listen for signals sent TO me
-            signalsRef.on('child_added', handleSignalChange);
-            signalsRef.on('child_changed', handleSignalChange);
+            // Listen for signals sent directly to MY inbox
+            signalsRef.child(MY_ID).on('child_added', snapshot => {
+                const fromId = snapshot.key;
+                const data = snapshot.val();
+                handleIncomingSignal(fromId, data);
+            });
 
-            // Listen for ICE candidates sent TO me
-            candidatesRef.on('child_added', snapshot => {
-                const pairKey = snapshot.key; // format: fromId_toId
-                const parts = pairKey.split('_');
-                if (parts.length !== 2) return;
-                const fromId = parts[0];
-                const toId = parts[1];
+            signalsRef.child(MY_ID).on('child_changed', snapshot => {
+                const fromId = snapshot.key;
+                const data = snapshot.val();
+                handleIncomingSignal(fromId, data);
+            });
 
-                if (toId === MY_ID) {
-                    snapshot.ref.on('child_added', candSnap => {
-                        const candData = candSnap.val();
-                        if (!candData) return;
-                        const candidate = new RTCIceCandidate(candData);
-                        const pc = peerConnections[fromId];
-
-                        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
-                            pc.addIceCandidate(candidate).catch(e => console.warn("ICE error:", e));
-                        } else {
-                            if (!pendingCandidates[fromId]) pendingCandidates[fromId] = [];
-                            pendingCandidates[fromId].push(candidate);
-                        }
-                    });
-                }
+            // Listen for ICE candidates sent directly to MY inbox
+            candidatesRef.child(MY_ID).on('child_added', senderSnap => {
+                const fromId = senderSnap.key;
+                senderSnap.ref.on('child_added', candSnap => {
+                    const candData = candSnap.val();
+                    if (!candData) return;
+                    handleIncomingCandidate(fromId, candData);
+                });
             });
         }
 
-        function handleSignalChange(snapshot) {
-            const pairKey = snapshot.key; // fromId_toId
-            const parts = pairKey.split('_');
-            if (parts.length !== 2) return;
-            const fromId = parts[0];
-            const toId = parts[1];
-            const data = snapshot.val();
-            if (!data) return;
+        async function handleIncomingSignal(fromId, data) {
+            if (!data || !data.type || fromId === MY_ID) return;
 
-            // Signal meant for me from remote peer
-            if (toId === MY_ID && data.from === fromId) {
-                const pc = initiatePeerConnection(fromId, false);
+            console.log(`[WebRTC] Received ${data.type} from ${fromId}`);
+            const pc = getOrCreatePeerConnection(fromId, false);
 
+            try {
                 if (data.type === 'offer') {
-                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }))
-                        .then(() => {
-                            drainPendingCandidates(fromId);
-                            return pc.createAnswer();
-                        })
-                        .then(answer => pc.setLocalDescription(answer))
-                        .then(() => {
-                            signalsRef.child(`${MY_ID}_${fromId}`).set({
-                                type: 'answer',
-                                sdp: pc.localDescription.sdp,
-                                from: MY_ID
-                            });
-                        })
-                        .catch(err => console.error("Error handling offer:", err));
+                    if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+                        console.warn(`[WebRTC] Skipping offer from ${fromId} in state ${pc.signalingState}`);
+                    }
+                    await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: data.sdp }));
+                    await drainPendingCandidates(fromId);
+
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+
+                    await signalsRef.child(fromId).child(MY_ID).set({
+                        type: 'answer',
+                        sdp: pc.localDescription.sdp,
+                        from: MY_ID,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                    console.log(`[WebRTC] Sent answer to ${fromId}`);
                 } else if (data.type === 'answer') {
-                    pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }))
-                        .then(() => {
-                            drainPendingCandidates(fromId);
-                        })
-                        .catch(err => console.error("Error handling answer:", err));
+                    if (pc.signalingState === 'have-local-offer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
+                        await drainPendingCandidates(fromId);
+                        console.log(`[WebRTC] Applied answer from ${fromId}`);
+                    } else {
+                        console.warn(`[WebRTC] Answer from ${fromId} received but signalingState is ${pc.signalingState}`);
+                    }
                 }
+            } catch (err) {
+                console.error(`[WebRTC] Error processing ${data.type} from ${fromId}:`, err);
             }
         }
 
-        function drainPendingCandidates(peerId) {
+        function handleIncomingCandidate(fromId, candData) {
+            try {
+                const candidate = new RTCIceCandidate(candData);
+                const pc = peerConnections[fromId];
+
+                if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+                    pc.addIceCandidate(candidate).catch(e => console.warn(`[WebRTC] Candidate error from ${fromId}:`, e));
+                } else {
+                    if (!pendingCandidates[fromId]) pendingCandidates[fromId] = [];
+                    pendingCandidates[fromId].push(candidate);
+                }
+            } catch(e) {
+                console.warn(`[WebRTC] Malformed candidate from ${fromId}:`, e);
+            }
+        }
+
+        async function drainPendingCandidates(peerId) {
             const pc = peerConnections[peerId];
-            if (pc && pendingCandidates[peerId]) {
-                while (pendingCandidates[peerId].length > 0) {
-                    const c = pendingCandidates[peerId].shift();
-                    pc.addIceCandidate(c).catch(e => console.warn(e));
+            if (pc && pendingCandidates[peerId] && pendingCandidates[peerId].length > 0) {
+                const queued = [...pendingCandidates[peerId]];
+                pendingCandidates[peerId] = [];
+                for (const cand of queued) {
+                    try {
+                        await pc.addIceCandidate(cand);
+                    } catch(e) {
+                        console.warn(`[WebRTC] Error draining candidate for ${peerId}:`, e);
+                    }
                 }
             }
         }
@@ -1218,17 +1379,17 @@
             const isAudioMuted = peerData.audio_muted || false;
 
             tile.innerHTML = `
-                <video id="video-${peerId}" class="video-feed" autoplay playsinline style="${isVideoOff ? 'display:none;' : 'display:block;'}"></video>
+                <video id="video-${peerId}" class="video-feed" autoplay playsinline muted style="${isVideoOff ? 'display:none;' : 'display:block;'}"></video>
                 
                 <div class="voice-avatar-wrap" id="avatar-${peerId}" style="${isVideoOff ? 'display:flex;' : 'display:none;'}">
                     <div class="avatar-circle-pulse">
-                        <img src="${peerData.img || '/static/img/placeholder.png'}" class="avatar-img" alt="${peerData.name}">
+                        <img src="${peerData.img || '/static/img/placeholder.png'}" class="avatar-img" alt="${escapeHtml(peerData.name)}">
                         <div class="speaking-ring"></div>
                     </div>
                 </div>
 
                 <div class="tile-info-bar">
-                    <span class="tile-name-tag">${peerData.name}</span>
+                    <span class="tile-name-tag">${escapeHtml(peerData.name)}</span>
                     <span class="tile-mic-status ${isAudioMuted ? 'muted' : ''}" id="mic-${peerId}">
                         ${isAudioMuted ? '🎙️❌' : '🎙️'}
                     </span>
@@ -1236,6 +1397,16 @@
             `;
 
             grid.appendChild(tile);
+
+            // If stream is already available, attach it immediately
+            if (remoteStreams[peerId]) {
+                const vid = tile.querySelector('video');
+                if (vid) {
+                    vid.srcObject = remoteStreams[peerId];
+                    vid.muted = true;
+                    vid.play().catch(() => {});
+                }
+            }
         }
 
         function removeParticipantTile(peerId) {
@@ -1244,6 +1415,13 @@
 
             const audio = document.getElementById(`audio-${peerId}`);
             if (audio) audio.remove();
+
+            if (activeVadNodes[peerId]) {
+                if (activeVadNodes[peerId].rafId) {
+                    cancelAnimationFrame(activeVadNodes[peerId].rafId);
+                }
+                delete activeVadNodes[peerId];
+            }
         }
 
         function updatePeerTileState(peerId, peerData) {
@@ -1299,37 +1477,49 @@
         // ========================================================
         function setupVoiceActivityDetection(stream, targetId) {
             try {
-                const ctx = getAudioContext();
+                if (activeVadNodes[targetId]) return; // already active
+
                 const audioTracks = stream.getAudioTracks();
-                if (!audioTracks.length) return;
+                if (!audioTracks || audioTracks.length === 0) return;
+
+                const ctx = getAudioContext();
+                if (!ctx) return;
 
                 const src = ctx.createMediaStreamSource(stream);
                 const analyser = ctx.createAnalyser();
                 analyser.fftSize = 256;
+                analyser.smoothingTimeConstant = 0.5;
                 src.connect(analyser);
 
                 const buffer = new Uint8Array(analyser.frequencyBinCount);
                 let speakingTimeout = null;
 
+                activeVadNodes[targetId] = { analyser, rafId: null };
+
                 const checkAudioLevel = () => {
+                    if (!activeVadNodes[targetId]) return;
+
                     analyser.getByteFrequencyData(buffer);
                     let sum = 0;
                     for (let i = 0; i < buffer.length; i++) sum += buffer[i];
                     const avg = sum / buffer.length;
 
                     const tile = document.getElementById(`tile-${targetId}`);
-                    if (avg > 18) { // threshold for active voice
-                        if (tile) tile.classList.add('speaking');
-                        clearTimeout(speakingTimeout);
-                        speakingTimeout = setTimeout(() => {
-                            if (tile) tile.classList.remove('speaking');
-                        }, 800);
+                    if (tile) {
+                        if (avg > 16) { // speech threshold
+                            tile.classList.add('speaking');
+                            clearTimeout(speakingTimeout);
+                            speakingTimeout = setTimeout(() => {
+                                if (tile) tile.classList.remove('speaking');
+                            }, 500);
+                        }
                     }
-                    requestAnimationFrame(checkAudioLevel);
+                    activeVadNodes[targetId].rafId = requestAnimationFrame(checkAudioLevel);
                 };
-                requestAnimationFrame(checkAudioLevel);
+
+                activeVadNodes[targetId].rafId = requestAnimationFrame(checkAudioLevel);
             } catch(e) {
-                console.warn("VAD notice:", e);
+                console.warn("[VAD] Audio analysis notice:", e);
             }
         }
 
@@ -1347,13 +1537,17 @@
             if (isMicMuted) {
                 btn.classList.add('active-off');
                 btn.innerText = '🔇';
-                icon.className = 'tile-mic-status muted';
-                icon.innerText = '🎙️❌';
+                if (icon) {
+                    icon.className = 'tile-mic-status muted';
+                    icon.innerText = '🎙️❌';
+                }
             } else {
                 btn.classList.remove('active-off');
                 btn.innerText = '🎙️';
-                icon.className = 'tile-mic-status';
-                icon.innerText = '🎙️';
+                if (icon) {
+                    icon.className = 'tile-mic-status';
+                    icon.innerText = '🎙️';
+                }
             }
 
             participantsRef.child(MY_ID).update({ audio_muted: isMicMuted });
@@ -1381,16 +1575,20 @@
                 if (!videoTrack) {
                     try {
                         const newVidStream = await navigator.mediaDevices.getUserMedia({
-                            video: { facingMode: currentFacingMode }
+                            video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                         });
                         videoTrack = newVidStream.getVideoTracks()[0];
-                        localStream.addTrack(videoTrack);
+                        if (localStream) localStream.addTrack(videoTrack);
 
                         // Replace track on all existing peer connections
                         Object.values(peerConnections).forEach(pc => {
-                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                            if (sender) sender.replaceTrack(videoTrack);
-                            else pc.addTrack(videoTrack, localStream);
+                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video') ||
+                                           pc.getTransceivers().find(t => t.receiver.track.kind === 'video')?.sender;
+                            if (sender) {
+                                sender.replaceTrack(videoTrack);
+                            } else {
+                                try { pc.addTrack(videoTrack, localStream); } catch(e) {}
+                            }
                         });
                     } catch(e) {
                         alert("Camera not accessible.");
@@ -1410,12 +1608,12 @@
         }
 
         async function switchCamera() {
-            if (isCameraOff) return;
+            if (isCameraOff || !localStream) return;
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
 
             try {
                 const newStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode }
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
                 const newTrack = newStream.getVideoTracks()[0];
                 const oldTrack = localStream.getVideoTracks()[0];
@@ -1433,7 +1631,8 @@
 
                 // Replace track on all peer connections
                 Object.values(peerConnections).forEach(pc => {
-                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video') ||
+                                   pc.getTransceivers().find(t => t.receiver.track.kind === 'video')?.sender;
                     if (sender) sender.replaceTrack(newTrack);
                 });
             } catch(e) {
@@ -1465,8 +1664,12 @@
         }
 
         function leaveCall() {
-            // Remove self from room
-            participantsRef.child(MY_ID).remove();
+            // Remove self from room and cleanup inboxes
+            try {
+                participantsRef.child(MY_ID).remove();
+                signalsRef.child(MY_ID).remove();
+                candidatesRef.child(MY_ID).remove();
+            } catch(e) {}
 
             // Stop all local tracks
             if (localStream) {
@@ -1474,7 +1677,14 @@
             }
 
             // Close all peer connections
-            Object.values(peerConnections).forEach(pc => pc.close());
+            Object.values(peerConnections).forEach(pc => {
+                try { pc.close(); } catch(e) {}
+            });
+
+            // Clean up VAD loops
+            Object.keys(activeVadNodes).forEach(id => {
+                if (activeVadNodes[id].rafId) cancelAnimationFrame(activeVadNodes[id].rafId);
+            });
 
             // Inform server to clean up if empty
             fetch(`/api/groups/end_call/${GROUP_ID}/${CALL_ID}`, { method: 'POST' }).catch(() => {});
@@ -1484,7 +1694,11 @@
         }
 
         window.addEventListener('beforeunload', () => {
-            participantsRef.child(MY_ID).remove();
+            try {
+                participantsRef.child(MY_ID).remove();
+                signalsRef.child(MY_ID).remove();
+                candidatesRef.child(MY_ID).remove();
+            } catch(e) {}
         });
 
         // ========================================================
