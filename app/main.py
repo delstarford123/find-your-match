@@ -7180,6 +7180,202 @@ def admin_apply_female_promo():
     })
 
 
+# ─────────────────────────────────────────────────────────────
+#  ADMIN: 48-HOUR COMPLIMENTARY DIAMOND VIP CAMPAIGN
+#  Grants 2 days free Diamond VIP access to all registered users 
+#  without an active subscription, and dispatches executive emails
+#  with direct jump links for video call, voice call, group chat,
+#  group calls, and sponsor meet.
+# ─────────────────────────────────────────────────────────────
+@app.route('/api/admin/campaign/grant-2day-access', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_campaign_grant_2day_access():
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key == secret) or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized. Admin credentials or cron key required.'}), 401
+
+    now_eat = datetime.now(EAT)
+    two_days_later = now_eat + timedelta(days=2)
+    expiry_iso = two_days_later.isoformat()
+    now_iso = now_eat.isoformat()
+
+    all_profiles = db.reference('profiles').get() or {}
+    updates = {}
+    granted_count = 0
+    skipped_active = 0
+    skipped_no_email = 0
+
+    for uid, profile in all_profiles.items():
+        if not isinstance(profile, dict):
+            continue
+
+        email = str(profile.get('email', '')).strip()
+        if not email or '@' not in email:
+            skipped_no_email += 1
+            continue
+
+        # Check if user already has an active paid subscription
+        is_paid = profile.get('is_paid', False)
+        expiry_str = profile.get('subscription_expiry')
+        has_active = False
+
+        if is_paid and expiry_str:
+            try:
+                dt = datetime.fromisoformat(str(expiry_str).replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=EAT)
+                if now_eat < dt:
+                    has_active = True
+            except Exception:
+                pass
+
+        if has_active:
+            skipped_active += 1
+            continue
+
+        updates[f'{uid}/is_paid'] = True
+        updates[f'{uid}/subscription_expiry'] = expiry_iso
+        updates[f'{uid}/subscription_package'] = 'diamond'
+        updates[f'{uid}/sponsor_room_access_until'] = expiry_iso
+        updates[f'{uid}/free_trial_granted_at'] = now_iso
+        updates[f'{uid}/free_trial_email_sent'] = False
+        updates[f'{uid}/last_payment_receipt'] = f'PROMO_2DAY_GIFT_{now_eat.strftime("%Y%m%d")}'
+        granted_count += 1
+
+    if updates:
+        db.reference('profiles').update(updates)
+        clear_profiles_cache()
+
+    logger.info('admin_campaign_grant_2day_access: granted=%d skipped_active=%d', granted_count, skipped_active)
+    return jsonify({
+        'status': 'success',
+        'granted': granted_count,
+        'skipped_active_paid': skipped_active,
+        'skipped_no_email': skipped_no_email,
+        'expiry': two_days_later.strftime('%A, %B %d, %Y at %I:%M %p EAT'),
+        'message': f'Successfully granted 48 hours Diamond VIP access to {granted_count} inactive users.'
+    })
+
+
+@app.route('/api/admin/campaign/send-free-trial-batch', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_campaign_send_free_trial_batch():
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key == secret) or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized.'}), 401
+
+    try:
+        batch_size = int(request.args.get('batch_size', 20))
+    except (ValueError, TypeError):
+        batch_size = 20
+
+    from app.email_service import send_free_trial_announcement_email
+    all_profiles = db.reference('profiles').get() or {}
+    now_eat = datetime.now(EAT)
+
+    pending_users = []
+    for uid, profile in all_profiles.items():
+        if not isinstance(profile, dict):
+            continue
+
+        email = str(profile.get('email', '')).strip()
+        if not email or '@' not in email:
+            continue
+
+        # Target users who have free trial granted but haven't received email
+        if profile.get('free_trial_granted_at') and not profile.get('free_trial_email_sent'):
+            exp_str = profile.get('subscription_expiry')
+            exp_display = "48 Hours"
+            if exp_str:
+                try:
+                    dt = datetime.fromisoformat(str(exp_str).replace('Z', '+00:00'))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=EAT)
+                    exp_display = dt.strftime('%A, %B %d, %Y at %I:%M %p EAT')
+                except Exception:
+                    pass
+
+            pending_users.append({
+                'uid': uid,
+                'name': profile.get('name', 'Student'),
+                'email': email,
+                'expiry_display': exp_display
+            })
+
+    total_pending = len(pending_users)
+    current_batch = pending_users[:batch_size]
+
+    sent_count = 0
+    failed_count = 0
+    updates = {}
+
+    for u in current_batch:
+        ok = send_free_trial_announcement_email(
+            recipient_email=u['email'],
+            recipient_name=u['name'],
+            expiry_date_str=u['expiry_display']
+        )
+        if ok:
+            sent_count += 1
+            updates[f"{u['uid']}/free_trial_email_sent"] = True
+            updates[f"{u['uid']}/free_trial_email_sent_at"] = now_eat.isoformat()
+        else:
+            failed_count += 1
+
+    if updates:
+        db.reference('profiles').update(updates)
+
+    remaining_count = total_pending - len(current_batch)
+    return jsonify({
+        'status': 'success',
+        'batch_processed': len(current_batch),
+        'sent': sent_count,
+        'failed': failed_count,
+        'remaining_pending': remaining_count,
+        'has_more': remaining_count > 0
+    })
+
+
+@app.route('/api/admin/campaign/test-email', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_campaign_test_email():
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key == secret) or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized.'}), 401
+
+    target_email = request.args.get('email') or request.form.get('email', 'delstarfordisaiah@gmail.com')
+    from app.email_service import send_free_trial_announcement_email
+    now_eat = datetime.now(EAT)
+    two_days_later = now_eat + timedelta(days=2)
+    exp_display = two_days_later.strftime('%A, %B %d, %Y at %I:%M %p EAT')
+
+    ok = send_free_trial_announcement_email(
+        recipient_email=target_email,
+        recipient_name="Delstaford (Admin Test)",
+        expiry_date_str=exp_display
+    )
+    return jsonify({
+        'status': 'success' if ok else 'failed',
+        'delivered': ok,
+        'recipient': target_email
+    })
+
+
 @app.route('/call-review/<partner_id>')
 @requires_subscription
 def call_review(partner_id):

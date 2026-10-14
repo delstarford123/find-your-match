@@ -2927,3 +2927,370 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch Events")
 
 
+def build_free_trial_email_content(recipient_name: str, expiry_date_str: str):
+    """
+    Constructs both plain text and executive, responsive HTML email content
+    announcing the 48-Hour Complimentary Diamond Access.
+    """
+    first_name = recipient_name.strip().split()[0].title() if recipient_name else "there"
+    full_display_name = recipient_name.strip().title() if recipient_name else "Valued Member"
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    support_email = "support@findyourmatch.co.ke"
+
+    talk_url = f"{base_url}/talk"
+    groups_url = f"{base_url}/groups"
+    sponsors_room_url = f"{base_url}/sponsors-room"
+    dashboard_url = f"{base_url}/dashboard"
+
+    subject = f"🎁 {first_name}, enjoy 48 Hours of Free VIP Diamond Access on Find Your Match!"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {full_display_name},
+
+        We have exciting news! We have just upgraded your Find Your Match account with 48 Hours of Complimentary VIP Diamond Access — completely on us (Valid until: {expiry_date_str}).
+
+        Over the past few weeks, our engineering team has rolled out major real-time communication upgrades. This complimentary gift gives you 100% unrestricted access to experience every single new feature:
+
+        1. 📹 1-on-1 Live Voice & Video Calls:
+           Experience crystal-clear, private face-to-face video and voice calling directly in your browser with mutual campus matches.
+           👉 Jump to Live Calling: {talk_url}
+
+        2. 👥 Interactive Campus Group Chats:
+           Join vibrant university group chats, talk campus buzz, share stories, and connect with fellow students.
+           👉 Jump to Group Chats: {groups_url}
+
+        3. 🎙️ Group Voice & Video Hangout Rooms:
+           Enter multi-peer live audio and video hangout rooms inside any campus group.
+           👉 Join a Group Call: {groups_url}
+
+        4. 💼 Sponsor Meet (Sponsors Room):
+           Unlock exclusive access to connect directly with verified, distinguished sponsors and benefactors for mentorship and companionship.
+           👉 Enter Sponsors Room: {sponsors_room_url}
+
+        5. ⚡ AI Smart Match Feed & Instant Swiping:
+           Discover verified students matched to your exact personality and campus interests with unlimited likes.
+           👉 Open Match Feed: {dashboard_url}
+
+        YOUR 48-HOUR PASS DETAILS:
+        ---------------------------------------------
+        - Status   : ACTIVE (COMPLIMENTARY PASS)
+        - Package  : Diamond VIP Tier (All Features Unlocked)
+        - Cost     : KSh 0.00 (No payment or card required)
+        - Valid To : {expiry_date_str}
+        ---------------------------------------------
+
+        Log in now and explore everything before your complimentary access expires:
+        {dashboard_url}
+
+        Warm regards,
+        The {SENDER_NAME_DEFAULT} Team
+        Website: {base_url}
+        Support: {support_email}
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{subject}</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #f3f4f6;">
+            
+            <!-- OUTER WRAPPER -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #0b0f19; padding: 30px 10px;">
+                <tr>
+                    <td align="center">
+                        
+                        <!-- MAIN CONTAINER -->
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 620px; background-color: #111827; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid #1f2937;">
+                            
+                            <!-- LOGO HEADER -->
+                            <tr>
+                                <td align="center" style="padding: 28px 24px 22px; background-color: #111827; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                                    <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" width="130" style="width: 130px; max-width: 130px; height: auto; display: block; margin: 0 auto; border-radius: 14px;">
+                                </td>
+                            </tr>
+
+                            <!-- HERO BANNER -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, #4c0519 0%, #881337 40%, #be123c 100%); padding: 46px 36px; text-align: center;">
+                                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.18); backdrop-filter: blur(8px); color: #fecdd3; padding: 7px 18px; border-radius: 50px; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px; border: 1px solid rgba(255, 255, 255, 0.25);">
+                                        👑 48-Hour Complimentary VIP Pass
+                                    </div>
+                                    <h1 style="color: #ffffff; margin: 0; font-size: 27px; font-weight: 900; line-height: 1.25; letter-spacing: -0.6px;">
+                                        Full Diamond Access Unlocked!
+                                    </h1>
+                                    <p style="color: rgba(255, 255, 255, 0.92); margin: 14px auto 0; font-size: 15px; line-height: 1.6; max-width: 500px;">
+                                        We're giving you <strong>2 full days of free VIP access</strong> to test-drive all our brand new video, voice, group, and sponsor features.
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <!-- MAIN BODY -->
+                            <tr>
+                                <td style="padding: 38px 34px 28px;">
+                                    
+                                    <p style="font-size: 18px; color: #f9fafb; line-height: 1.5; margin: 0 0 16px; font-weight: 700;">
+                                        Hello <span style="color: #fb7185;">{full_display_name}</span>,
+                                    </p>
+
+                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 24px;">
+                                        Over the past few weeks, we've rolled out massive upgrades to make <strong>Find Your Match</strong> the most thrilling, real-time campus dating and social platform in Kenya.
+                                    </p>
+                                    
+                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 28px;">
+                                        To make sure you experience the best of these features firsthand, your account has been automatically upgraded to <strong style="color: #f43f5e;">Diamond VIP Tier</strong> for the next <strong>48 Hours</strong>. No card, no M-Pesa prompt, no commitment — just jump in and enjoy!
+                                    </p>
+
+                                    <!-- VIP SUMMARY CALLOUT TICKET -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(145deg, #18181b 0%, #1f1f23 100%); border: 1px solid #f43f5e; border-radius: 16px; margin-bottom: 34px; box-shadow: 0 10px 25px rgba(244, 63, 94, 0.15);">
+                                        <tr>
+                                            <td style="padding: 22px 24px;">
+                                                <div style="font-size: 11px; font-weight: 800; color: #fb7185; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
+                                                    ✦ Your VIP Pass Details
+                                                </div>
+                                                <div style="font-size: 18px; font-weight: 800; color: #ffffff; margin-bottom: 12px;">
+                                                    💎 2-Day Diamond Membership (Free Gift)
+                                                </div>
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size: 13px; color: #d1d5db; line-height: 1.8;">
+                                                    <tr>
+                                                        <td width="35%" style="color: #9ca3af;">Status:</td>
+                                                        <td style="color: #34d399; font-weight: 700;">● Active (Complimentary)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="color: #9ca3af;">Valid Until:</td>
+                                                        <td style="color: #fef08a; font-weight: 700;">{expiry_date_str}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="color: #9ca3af;">Cost:</td>
+                                                        <td style="color: #ffffff; font-weight: 700;">KSh 0.00 (Gift from Find Your Match)</td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- SECTION TITLE -->
+                                    <h2 style="font-size: 16px; color: #ffffff; margin: 0 0 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; border-left: 3px solid #f43f5e; padding-left: 12px;">
+                                        Explore Your New Features (Click to Jump In):
+                                    </h2>
+
+                                    <!-- FEATURE 1: 1-on-1 VIDEO & VOICE -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+                                                            📹
+                                                        </td>
+                                                        <td style="padding-left: 14px;">
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                                                                1-on-1 Live Voice & Video Calls
+                                                            </div>
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+                                                                Connect instantly with mutual campus matches. Crisp HD WebRTC video, smooth audio, and private calling directly in your browser.
+                                                            </div>
+                                                            <a href="{talk_url}" target="_blank" style="display: inline-block; background-color: #be123c; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+                                                                Start a Call &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- FEATURE 2: GROUP CHATS -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+                                                            👥
+                                                        </td>
+                                                        <td style="padding-left: 14px;">
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                                                                Campus Group Chats
+                                                            </div>
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+                                                                Jump into lively university interest groups, debate campus topics, share laughs, and find comrades who match your frequency.
+                                                            </div>
+                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+                                                                Join Group Chats &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- FEATURE 3: GROUP CALLS -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+                                                            🎙️
+                                                        </td>
+                                                        <td style="padding-left: 14px;">
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                                                                Multi-Peer Group Video & Voice Rooms
+                                                            </div>
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+                                                                Host or join live audio lounges and multi-camera video hangouts with friends and group members in real time.
+                                                            </div>
+                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #8b5cf6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+                                                                Explore Group Rooms &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- FEATURE 4: SPONSOR MEET -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+                                                            💼
+                                                        </td>
+                                                        <td style="padding-left: 14px;">
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                                                                Sponsors Room (Sponsor Meet)
+                                                            </div>
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+                                                                Direct, VIP access to verified, established professionals and benefactors offering meaningful support, mentorship, and dates.
+                                                            </div>
+                                                            <a href="{sponsors_room_url}" target="_blank" style="display: inline-block; background-color: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+                                                                Enter Sponsors Room &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- FEATURE 5: AI MATCH FEED -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 30px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+                                                            ⚡
+                                                        </td>
+                                                        <td style="padding-left: 14px;">
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+                                                                AI Smart Match Feed & Instant Swiping
+                                                            </div>
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+                                                                Unlimited likes, personality compatibility matching, and instant connection with verified campus students.
+                                                            </div>
+                                                            <a href="{dashboard_url}" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+                                                                Open Match Feed &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- BIG CTA BUTTON -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 20px;">
+                                        <tr>
+                                            <td align="center">
+                                                <a href="{dashboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #be123c 0%, #e11d48 50%, #f43f5e 100%); color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-weight: 800; font-size: 16px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(225, 29, 72, 0.4); text-align: center;">
+                                                    🚀 Launch Find Your Match Now &rarr;
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- QUICK LINKS FALLBACK -->
+                                    <div style="background-color: #171d29; border-radius: 14px; padding: 18px 20px; margin-top: 24px; border: 1px solid #232b3e;">
+                                        <div style="font-size: 12px; font-weight: 700; color: #e5e7eb; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Direct Quick Links:
+                                        </div>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="4" border="0" style="font-size: 12px;">
+                                            <tr>
+                                                <td style="color: #9ca3af;" width="40%">Live Calls:</td>
+                                                <td><a href="{talk_url}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{talk_url}</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #9ca3af;">Group Chats:</td>
+                                                <td><a href="{groups_url}" style="color: #60a5fa; text-decoration: none; font-weight: 600;">{groups_url}</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #9ca3af;">Sponsors Room:</td>
+                                                <td><a href="{sponsors_room_url}" style="color: #fbbf24; text-decoration: none; font-weight: 600;">{sponsors_room_url}</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color: #9ca3af;">Main Dashboard:</td>
+                                                <td><a href="{dashboard_url}" style="color: #34d399; text-decoration: none; font-weight: 600;">{dashboard_url}</a></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+
+                                </td>
+                            </tr>
+
+                            <!-- FOOTER -->
+                            <tr>
+                                <td style="background-color: #0b0f19; padding: 32px 34px; border-top: 1px solid #1f2937; text-align: center;">
+                                    <p style="margin: 0 0 10px; font-size: 13px; color: #9ca3af; font-weight: 500;">
+                                        Have questions or need assistance? We are always here for you.
+                                    </p>
+                                    <p style="margin: 0 0 18px; font-size: 13px;">
+                                        <a href="mailto:{support_email}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{support_email}</a>
+                                        &nbsp;•&nbsp;
+                                        <a href="{base_url}" style="color: #9ca3af; text-decoration: none;">{base_url}</a>
+                                    </p>
+                                    <p style="margin: 0; font-size: 11px; color: #6b7280; line-height: 1.6;">
+                                        &copy; {datetime.now().year} Find Your Match. All rights reserved.<br>
+                                        You received this communication because you are a registered user of Find Your Match.<br>
+                                        Kakamega, Kenya.
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+                        <!-- END MAIN CONTAINER -->
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>
+    """)
+
+    return subject, text_content, html_content
+
+
+def send_free_trial_announcement_email(recipient_email: str, recipient_name: str, expiry_date_str: str) -> bool:
+    """
+    Sends the 48-Hour Complimentary Diamond Access announcement email.
+    """
+    subject, text_content, html_content = build_free_trial_email_content(recipient_name, expiry_date_str)
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Find Your Match VIP"
+    )
+
+
+
