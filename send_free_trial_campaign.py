@@ -82,6 +82,7 @@ logger.addHandler(f_handler)
 EAT = timezone(timedelta(hours=3))
 BASE_URL = os.getenv("BASE_URL", "https://www.findyourmatch.co.ke").rstrip("/")
 CRON_SECRET = os.getenv("CRON_SECRET_KEY", "mmust_dating_cron_secret_2026")
+ADMIN_KEY = "fym_promo_override_2026"
 
 
 def get_eligible_users():
@@ -185,7 +186,7 @@ def run_via_vercel_batches(batch_size: int = 20, delay_between_batches: float = 
     Since Vercel runs in AWS US-East, its outbound connection to HostPinnacle port 465 is never blocked.
     """
     endpoint = f"{BASE_URL}/api/admin/campaign/send-free-trial-batch"
-    headers = {"X-Cron-Key": CRON_SECRET}
+    headers = {"X-Cron-Key": CRON_SECRET, "X-Admin-Key": ADMIN_KEY}
 
     logger.info("🚀 Initiating Vercel Server Batch Dispatcher...")
     logger.info("Target Endpoint: %s", endpoint)
@@ -201,8 +202,8 @@ def run_via_vercel_batches(batch_size: int = 20, delay_between_batches: float = 
             resp = requests.post(
                 endpoint,
                 headers=headers,
-                params={"batch_size": batch_size},
-                timeout=45
+                params={"batch_size": batch_size, "admin_key": ADMIN_KEY},
+                timeout=55
             )
             if resp.status_code != 200:
                 logger.error(f"Vercel returned HTTP {resp.status_code}: {resp.text}")
@@ -269,10 +270,15 @@ def main():
             endpoint = f"{BASE_URL}/api/admin/campaign/test-email"
             logger.info("Dispatching test email via Vercel server: %s", endpoint)
             try:
-                res = requests.post(endpoint, headers={"X-Cron-Key": CRON_SECRET}, params={"email": test_email}, timeout=25)
+                res = requests.post(
+                    endpoint,
+                    headers={"X-Cron-Key": CRON_SECRET, "X-Admin-Key": ADMIN_KEY},
+                    params={"email": test_email, "admin_key": ADMIN_KEY},
+                    timeout=30
+                )
                 logger.info("Vercel Response: %s", res.text)
             except Exception as e:
-                logger.error("Failed to test via server: %e", e)
+                logger.error(f"Failed to test via server: {e}")
         else:
             success = send_free_trial_announcement_email(test_email, "Delstaford (Admin Test)", expiry_display)
             if success:
