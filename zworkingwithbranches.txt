@@ -1,0 +1,47 @@
+2. Two-Branch Setup: Live Production vs. Staging
+Your branches and domains are now set up:
+
+Environment	Git Branch	Live URL	Purpose
+Testing / Staging	testing	https://findyourmatch.vercel.app	Test new features & changes first
+Live Production	main	https://findyourmatch.co.ke	Real MMUST campus students
+3. How to Use Your New Workflow
+Step 1: Work & Test on the testing branch
+Your local environment is currently on branch testing. When you make changes:
+
+powershell
+git add .
+git commit -m "your changes"
+git push origin testing
+Vercel will update findyourmatch.vercel.app where you can test everything safely without affecting actual users.
+
+Step 2: Promote to Production (main)
+Once you confirm everything works on findyourmatch.vercel.app, merge your changes into main:
+
+powershell
+git checkout main
+git merge testing
+git push origin main
+git checkout testing
+Vercel will automatically deploy the changes to findyourmatch.co.ke.
+
+
+Dating spots or venue ist fitting and working well in all devices screens make it work well , the https://findyourmatch.vercel.app/discover, for group chats remove the need for group admin to approve new members , forst approve all the members and send them an email to inform to check the specific groups with a link to take them straight to the groups chats.make LIGHTS OUT work well send a notfication for users to join, then also when user wants to use virtual club send a notification to inform users who are online to join the club, so they can click and join.Make the profiles that show here clickable to go to profile.Welcome back, Delstarford!
++
+Add Story
+📸
+PAULINE
+📸
+Faith
+📸
+Student
+📸
+Ogar
+📸
+PAULINE
+⭐ Daily Curated Picks
+[✨ 85% MatchStudent](https://findyourmatch.vercel.app/student/spon_ed3f8277745543bc) ,  make this button seen well, for enter sponsor room, Enter the Sponsors Room
+Connect with verified sponsors off-campus.
+[Enter Room](https://findyourmatch.vercel.app/sponsors-room)
+Discover Students then style the page that appears when they click it, Enter the Sponsors Room
+Connect with verified sponsors off-campus.
+[Enter Room](https://findyourmatch.vercel.app/sponsors-room)

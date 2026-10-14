@@ -8,8 +8,8 @@
 <meta property="og:url" content="{{ event_url }}">
 <meta property="og:title" content="{{ event.title }} | Campus Event">
 <meta property="og:description" content="🗓️ {{ event.date_str or event.date }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
-<meta property="og:image" content="{{ event.banner_img }}">
-<meta property="og:image:secure_url" content="{{ event.banner_img }}">
+<meta property="og:image" content="{{ event.banner_img or '/static/img/icon-512.png' }}">
+<meta property="og:image:secure_url" content="{{ event.banner_img or '/static/img/icon-512.png' }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
@@ -18,189 +18,419 @@
 <meta name="twitter:url" content="{{ event_url }}">
 <meta name="twitter:title" content="{{ event.title }} | Campus Event">
 <meta name="twitter:description" content="🗓️ {{ event.date_str or event.date }} @ {{ event.time_str }} | 📍 {{ event.venue_name }} | 🎟️ {{ event.price_display }}. Click to get your ticket pass!">
-<meta name="twitter:image" content="{{ event.banner_img }}">
+<meta name="twitter:image" content="{{ event.banner_img or '/static/img/icon-512.png' }}">
 {% endblock %}
 
 {% block content %}
+{% set banner_url = event.banner_img or '/static/img/icon-512.png' %}
+
 <style>
     :root {
         --fym-crimson: #720000;
+        --fym-crimson-dark: #4a0000;
         --fym-rose: #E60026;
+        --fym-rose-light: #fff1f2;
         --fym-dark: #0f172a;
+        --fym-slate: #1e293b;
+        --fym-muted: #64748b;
+        --fym-border: #e2e8f0;
         --fym-emerald: #10b981;
+        --fym-emerald-dark: #059669;
+        --fym-amber: #f59e0b;
+        --fym-card-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+        --fym-card-shadow-hover: 0 20px 50px rgba(114, 0, 0, 0.12);
+        --fym-radius-card: clamp(18px, 4vw, 28px);
     }
 
     *, *::before, *::after {
         box-sizing: border-box;
     }
 
+    /* === MAIN CONTAINER === */
     .event-page-container {
-        max-width: 1040px;
+        max-width: 1080px;
         margin: 0 auto;
-        padding: clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 18px) 70px;
+        padding: clamp(12px, 2.5vw, 24px) clamp(12px, 3vw, 20px) calc(90px + env(safe-area-inset-bottom, 0px));
         width: 100%;
         overflow-x: hidden;
+        color: var(--fym-dark);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
+    /* === TOP BACK NAVIGATION === */
     .back-nav-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 14px;
+        gap: 10px;
+        margin-bottom: 16px;
         width: 100%;
     }
 
     .back-link {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        color: #4b5563;
-        font-size: 13px;
+        gap: 8px;
+        color: #334155;
+        font-size: clamp(12px, 2.2vw, 13px);
         font-weight: 700;
         text-decoration: none;
-        padding: 7px 14px;
-        background: white;
-        border: 1px solid #e5e7eb;
+        padding: 8px 16px;
+        background: #ffffff;
+        border: 1px solid var(--fym-border);
         border-radius: 50px;
-        transition: all 0.2s;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .back-link:hover {
-        background: #f3f4f6;
-        color: #111;
+        background: #f8fafc;
+        color: var(--fym-crimson);
+        border-color: #cbd5e1;
+        transform: translateX(-2px);
     }
 
     .fym-nav-badge {
-        background: rgba(114, 0, 0, 0.08);
-        color: #720000;
-        border: 1px solid rgba(114, 0, 0, 0.2);
-        padding: 7px 14px;
+        background: rgba(114, 0, 0, 0.07);
+        color: var(--fym-crimson);
+        border: 1px solid rgba(114, 0, 0, 0.18);
+        padding: 8px 16px;
         border-radius: 50px;
-        font-size: 12px;
+        font-size: clamp(11px, 2vw, 12px);
         font-weight: 800;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        transition: all 0.2s ease;
+    }
+    .fym-nav-badge:hover {
+        background: rgba(114, 0, 0, 0.12);
+        color: var(--fym-rose);
     }
 
-    @keyframes fymSpin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-
-    /* 1. MAIN FLYER HERO CARD */
+    /* === 1. HERO FLYER BANNER CARD (RESPONSIVE FOR ALL DEVICES & ASPECT RATIOS) === */
     .event-hero-card {
-        background: white;
-        border-radius: clamp(18px, 4vw, 28px);
+        background: #ffffff;
+        border-radius: var(--fym-radius-card);
         overflow: hidden;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 16px 40px rgba(0,0,0,0.07);
-        margin-bottom: clamp(20px, 3.5vw, 30px);
+        border: 1px solid var(--fym-border);
+        box-shadow: var(--fym-card-shadow);
+        margin-bottom: clamp(20px, 3.5vw, 32px);
         width: 100%;
+        transition: box-shadow 0.25s ease;
+    }
+    .event-hero-card:hover {
+        box-shadow: var(--fym-card-shadow-hover);
     }
 
+    /* Dual-layer ambient flyer wrapper:
+       Layer 1: Blurred atmospheric ambient background (adapts to any uploaded image colors)
+       Layer 2: Foreground crisp flyer image with object-fit: contain (100% visible, no cropped text!)
+    */
     .hero-banner-image-wrap {
         position: relative;
         width: 100%;
-        height: clamp(200px, 42vw, 420px);
-        background: #111;
+        height: clamp(280px, 52vw, 490px);
+        background: #090d16;
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    .hero-banner-image-wrap img {
-        width: 100%;
-        height: 100%;
+    @media (max-width: 600px) {
+        .hero-banner-image-wrap {
+            height: clamp(280px, 86vw, 440px);
+        }
+    }
+
+    /* Atmospheric ambient backdrop */
+    .hero-banner-backdrop {
+        position: absolute;
+        inset: -25px;
+        width: calc(100% + 50px);
+        height: calc(100% + 50px);
         object-fit: cover;
-        display: block;
+        filter: blur(32px) brightness(0.38) saturate(1.4);
+        transform: scale(1.15);
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.9;
     }
 
+    /* Crisp foreground flyer */
+    .hero-banner-main-img {
+        position: relative;
+        z-index: 2;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        display: block;
+        filter: drop-shadow(0 14px 32px rgba(0, 0, 0, 0.55));
+        cursor: pointer;
+        transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+    }
+    .hero-banner-main-img:hover {
+        transform: scale(1.015);
+        filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.7));
+    }
+
+    /* Top gradient protection scrim for badges */
+    .hero-banner-scrim-top {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 95px;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.2) 60%, transparent 100%);
+        z-index: 3;
+        pointer-events: none;
+    }
+
+    /* Overlay Badges */
     .hero-banner-overlay-badges {
         position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
+        top: clamp(10px, 2.5vw, 16px);
+        left: clamp(10px, 2.5vw, 16px);
+        right: clamp(10px, 2.5vw, 16px);
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 8px;
         pointer-events: none;
-        z-index: 2;
+        z-index: 4;
     }
 
     .badge-category {
-        background: rgba(0, 0, 0, 0.78);
-        color: white;
-        backdrop-filter: blur(8px);
+        background: rgba(15, 23, 42, 0.82);
+        color: #ffffff;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
         padding: 6px 14px;
         border-radius: 50px;
-        font-size: clamp(11px, 2.2vw, 13px);
+        font-size: clamp(11px, 2.2vw, 12px);
         font-weight: 800;
-        letter-spacing: 0.3px;
+        letter-spacing: 0.4px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
     }
 
     .badge-price {
-        background: #10B981;
-        color: white;
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: #ffffff;
         padding: 6px 16px;
         border-radius: 50px;
-        font-size: clamp(12px, 2.4vw, 14px);
+        font-size: clamp(12px, 2.4vw, 13px);
         font-weight: 900;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        pointer-events: auto;
     }
-    .badge-price.paid { background: #f59e0b; }
+    .badge-price.paid {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 4px 16px rgba(245, 158, 11, 0.45);
+    }
 
     .badge-fym-tag {
-        background: rgba(114, 0, 0, 0.90);
-        backdrop-filter: blur(8px);
-        color: white;
-        padding: 5px 12px;
+        background: rgba(114, 0, 0, 0.88);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #ffffff;
+        padding: 6px 14px;
         border-radius: 50px;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 800;
         letter-spacing: 0.8px;
         text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        pointer-events: auto;
     }
 
-    /* Event Info Body */
+    /* Expand Full Poster Button */
+    .btn-tap-expand-flyer {
+        position: absolute;
+        bottom: clamp(10px, 2.5vw, 16px);
+        right: clamp(10px, 2.5vw, 16px);
+        z-index: 4;
+        background: rgba(15, 23, 42, 0.78);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        padding: 7px 14px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    }
+    .btn-tap-expand-flyer:hover {
+        background: var(--fym-crimson);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+
+    /* Full-Screen Lightbox Modal for Flyer */
+    .flyer-lightbox-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.88);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        z-index: 999999;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(12px, 3vw, 24px);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+    .flyer-lightbox-modal.active {
+        display: flex;
+        opacity: 1;
+    }
+
+    .flyer-lightbox-content {
+        position: relative;
+        max-width: 95vw;
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        animation: flyerModalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes flyerModalPop {
+        from { transform: scale(0.92); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .flyer-lightbox-img {
+        max-width: 92vw;
+        max-height: 80vh;
+        object-fit: contain;
+        border-radius: 14px;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+        background: #0f172a;
+    }
+
+    .flyer-lightbox-header {
+        position: absolute;
+        top: -46px;
+        right: 0;
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-close-lightbox {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        font-size: 18px;
+        font-weight: 900;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .btn-close-lightbox:hover {
+        background: var(--fym-rose);
+        transform: rotate(90deg);
+    }
+
+    .flyer-lightbox-footer {
+        margin-top: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        color: white;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .btn-open-full-res {
+        background: var(--fym-crimson);
+        color: white;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 50px;
+        font-size: 12px;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* === HERO TEXT & COUNTDOWN === */
     .event-hero-content {
         padding: clamp(18px, 4vw, 36px);
         width: 100%;
     }
 
     .event-main-title {
-        font-size: clamp(22px, 5vw, 36px);
+        font-size: clamp(22px, 4.5vw, 36px);
         font-weight: 900;
-        color: #0f172a;
-        margin: 0 0 12px;
+        color: var(--fym-dark);
+        margin: 0 0 14px;
         line-height: 1.22;
-        letter-spacing: -0.5px;
+        letter-spacing: -0.6px;
+        word-break: break-word;
     }
 
-    /* Live Countdown */
+    .event-description-text {
+        font-size: clamp(14px, 2.4vw, 16px);
+        color: #475569;
+        line-height: 1.68;
+        margin: 0 0 24px;
+        white-space: pre-line;
+        word-break: break-word;
+    }
+
+    /* Dynamic Live Countdown Bar */
     .countdown-bar {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: clamp(14px, 3vw, 18px);
+        background: linear-gradient(135deg, #f8fafc 0%, #fff5f5 100%);
+        border: 1px solid #fee2e2;
+        border-radius: clamp(16px, 3vw, 20px);
         padding: clamp(12px, 2.5vw, 18px);
-        display: flex;
-        justify-content: space-around;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: clamp(6px, 1.5vw, 12px);
         text-align: center;
-        margin-bottom: 24px;
-        gap: 4px;
+        margin-bottom: 6px;
         width: 100%;
+        box-shadow: 0 4px 14px rgba(114, 0, 0, 0.03);
     }
 
     .countdown-item {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: clamp(8px, 2vw, 12px) 4px;
+        border: 1px solid #fecdd3;
         display: flex;
         flex-direction: column;
-        flex: 1;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
     }
 
     .countdown-number {
-        font-size: clamp(18px, 4.5vw, 30px);
+        font-size: clamp(18px, 4.2vw, 30px);
         font-weight: 900;
         color: var(--fym-crimson);
         font-variant-numeric: tabular-nums;
@@ -208,20 +438,21 @@
     }
 
     .countdown-label {
-        font-size: clamp(9px, 2vw, 11px);
+        font-size: clamp(9px, 1.8vw, 11px);
         font-weight: 800;
-        color: #64748b;
+        color: #9f1239;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 2px;
+        letter-spacing: 0.6px;
+        margin-top: 3px;
     }
 
-    /* 2. TWO-COLUMN LAYOUT */
+    /* === 2. MAIN GRID LAYOUT === */
     .event-grid-layout {
         display: grid;
         grid-template-columns: 1fr;
-        gap: clamp(20px, 3vw, 30px);
+        gap: clamp(20px, 3vw, 32px);
         width: 100%;
+        align-items: start;
     }
 
     @media (min-width: 992px) {
@@ -230,22 +461,22 @@
         }
     }
 
-    /* Specs Card */
+    /* === SPECS & CONTENT CARDS === */
     .specs-card {
-        background: white;
+        background: #ffffff;
         border-radius: clamp(18px, 3.5vw, 24px);
-        padding: clamp(18px, 3.5vw, 26px);
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        padding: clamp(18px, 3.5vw, 28px);
+        border: 1px solid var(--fym-border);
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
         margin-bottom: clamp(20px, 3vw, 28px);
         width: 100%;
     }
 
     .specs-card h3 {
         margin: 0 0 16px;
-        font-size: clamp(16px, 3vw, 18px);
+        font-size: clamp(17px, 3vw, 19px);
         font-weight: 900;
-        color: #111827;
+        color: var(--fym-dark);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -254,19 +485,23 @@
     .spec-row {
         display: flex;
         align-items: flex-start;
-        gap: 12px;
-        padding: 12px 0;
-        border-bottom: 1px solid #f3f4f6;
+        gap: 14px;
+        padding: 13px 0;
+        border-bottom: 1px solid #f1f5f9;
         overflow-wrap: anywhere;
         word-break: break-word;
     }
-    .spec-row:last-child { border-bottom: none; }
+    .spec-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
 
     .spec-icon {
         font-size: 20px;
-        background: #f3f4f6;
-        width: 40px;
-        height: 40px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        width: 44px;
+        height: 44px;
         border-radius: 12px;
         display: flex;
         align-items: center;
@@ -277,17 +512,17 @@
     .spec-label {
         font-size: 11px;
         font-weight: 800;
-        color: #6b7280;
+        color: var(--fym-muted);
         text-transform: uppercase;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
         letter-spacing: 0.5px;
     }
 
     .spec-val {
         font-size: clamp(14px, 2.5vw, 15px);
         font-weight: 800;
-        color: #1f2937;
-        line-height: 1.35;
+        color: var(--fym-slate);
+        line-height: 1.4;
     }
 
     .btn-maps-pin {
@@ -295,26 +530,30 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
-        background: #0f172a;
-        color: white;
+        background: var(--fym-dark);
+        color: #ffffff;
         text-decoration: none;
-        padding: 9px 14px;
-        border-radius: 8px;
+        padding: 10px 16px;
+        border-radius: 10px;
         font-size: 12px;
         font-weight: 800;
         margin-top: 8px;
-        transition: background 0.2s;
+        transition: all 0.2s ease;
         width: 100%;
+        max-width: 320px;
     }
-    .btn-maps-pin:hover { background: #334155; }
+    .btn-maps-pin:hover {
+        background: #334155;
+        transform: translateY(-1px);
+    }
 
-    /* 3. TICKET ACTION BOX */
+    /* === 3. TICKET ACTION & RSVP BOX === */
     .ticket-action-box {
-        background: white;
+        background: #ffffff;
         border-radius: clamp(18px, 4vw, 24px);
         padding: clamp(18px, 4vw, 28px);
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+        border: 1px solid var(--fym-border);
+        box-shadow: 0 12px 36px rgba(15, 23, 42, 0.07);
         width: 100%;
     }
 
@@ -322,19 +561,20 @@
         .ticket-action-box {
             position: sticky;
             top: 20px;
+            z-index: 10;
         }
     }
 
     .ticket-header-title {
-        font-size: clamp(18px, 3.5vw, 20px);
+        font-size: clamp(18px, 3.5vw, 21px);
         font-weight: 900;
-        color: #111827;
+        color: var(--fym-dark);
         margin: 0 0 6px;
     }
 
     .spots-gauge-wrap {
-        background: #f3f4f6;
-        height: 8px;
+        background: #f1f5f9;
+        height: 10px;
         border-radius: 10px;
         overflow: hidden;
         margin: 14px 0 6px;
@@ -342,17 +582,21 @@
 
     .spots-gauge-fill {
         height: 100%;
-        background: linear-gradient(90deg, #10B981, #059669);
+        background: linear-gradient(90deg, #10B981 0%, #059669 100%);
         border-radius: 10px;
+        transition: width 0.4s ease;
     }
 
     .spots-gauge-text {
         display: flex;
         justify-content: space-between;
+        align-items: center;
         font-size: 12px;
         font-weight: 700;
-        color: #64748b;
+        color: var(--fym-muted);
         margin-bottom: 18px;
+        flex-wrap: wrap;
+        gap: 4px;
     }
 
     .form-field {
@@ -364,28 +608,28 @@
         font-size: 13px;
         font-weight: 700;
         color: #374151;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
     }
 
     .form-input {
         width: 100%;
         padding: 12px 14px;
-        border: 1px solid #d1d5db;
+        border: 1px solid #cbd5e1;
         border-radius: 12px;
-        font-size: 16px; /* 16px prevents iOS auto-zoom */
-        box-sizing: border-box;
+        font-size: 16px; /* 16px prevents iOS Safari auto-zooming */
         outline: none;
-        transition: border-color 0.2s;
-        background: white;
+        transition: all 0.2s ease;
+        background: #ffffff;
+        color: #1e293b;
     }
     .form-input:focus {
-        border-color: #E60026;
-        box-shadow: 0 0 0 3px rgba(230,0,38,0.1);
+        border-color: var(--fym-rose);
+        box-shadow: 0 0 0 3px rgba(230, 0, 38, 0.12);
     }
 
     .btn-confirm-rsvp {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
-        color: white;
+        color: #ffffff;
         border: none;
         width: 100%;
         padding: 15px;
@@ -393,13 +637,22 @@
         font-size: clamp(14px, 3vw, 16px);
         font-weight: 900;
         cursor: pointer;
-        box-shadow: 0 8px 20px rgba(230,0,38,0.3);
+        box-shadow: 0 8px 24px rgba(230, 0, 38, 0.32);
         margin-top: 8px;
-        transition: transform 0.2s;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
-    .btn-confirm-rsvp:hover { transform: translateY(-2px); }
-    .btn-confirm-rsvp:active { transform: scale(0.98); }
+    .btn-confirm-rsvp:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(230, 0, 38, 0.42);
+    }
+    .btn-confirm-rsvp:active {
+        transform: scale(0.98);
+    }
 
     /* DIGITAL PASS CONFIRMED VIEW */
     .digital-ticket-card {
@@ -414,9 +667,9 @@
 
     .ticket-code-display {
         font-family: monospace;
-        font-size: clamp(16px, 4.5vw, 22px);
+        font-size: clamp(17px, 4.5vw, 22px);
         font-weight: 900;
-        color: #720000;
+        color: var(--fym-crimson);
         letter-spacing: 1.5px;
         margin: 6px 0;
         word-break: break-all;
@@ -432,7 +685,7 @@
 
     .btn-wa-share-big {
         background: #25D366;
-        color: white;
+        color: #ffffff;
         text-decoration: none;
         padding: 13px 18px;
         border-radius: 12px;
@@ -443,9 +696,13 @@
         justify-content: center;
         gap: 8px;
         width: 100%;
-        box-sizing: border-box;
         margin-bottom: 8px;
         box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+        transition: all 0.2s ease;
+    }
+    .btn-wa-share-big:hover {
+        background: #20ba59;
+        transform: translateY(-1px);
     }
 
     .btn-copy-link {
@@ -462,6 +719,11 @@
         align-items: center;
         justify-content: center;
         gap: 6px;
+        transition: all 0.2s ease;
+    }
+    .btn-copy-link:hover {
+        background: #f1f5f9;
+        color: #0f172a;
     }
 
     /* Attendees / Who's Going */
@@ -486,8 +748,8 @@
     }
 
     .attendee-pill img {
-        width: 26px;
-        height: 26px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         object-fit: cover;
     }
@@ -501,6 +763,115 @@
         border: 1px solid #e2e8f0;
         overflow-wrap: anywhere;
         word-break: break-word;
+    }
+
+    /* === 4. RESPONSIVE ADMIN GUESTLIST TABLE / MOBILE CARD VIEW === */
+    .admin-guestlist-wrap {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: white;
+    }
+
+    @media (max-width: 680px) {
+        .admin-guestlist-wrap {
+            border: none;
+            overflow-x: visible;
+            background: transparent;
+        }
+
+        #adminGuestlistTable,
+        #adminGuestlistTable tbody,
+        #adminGuestlistTable tr {
+            display: block;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+
+        #adminGuestlistTable thead {
+            display: none;
+        }
+
+        .guestlist-row {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 14px !important;
+            padding: 14px !important;
+            margin-bottom: 12px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+        }
+
+        .guestlist-row td {
+            display: block !important;
+            padding: 4px 0 !important;
+            border: none !important;
+        }
+
+        .guestlist-mobile-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #f1f5f9;
+        }
+    }
+
+    /* === 5. FLOATING MOBILE STICKY RSVP BAR (< 992px) === */
+    .mobile-sticky-rsvp-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-top: 1px solid #e5e7eb;
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+        z-index: 999;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    @media (min-width: 992px) {
+        .mobile-sticky-rsvp-bar {
+            display: none !important;
+        }
+    }
+
+    .mobile-sticky-rsvp-bar.hidden {
+        transform: translateY(110%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .btn-mobile-quick-rsvp {
+        background: linear-gradient(135deg, #720000 0%, #E60026 100%);
+        color: white;
+        border: none;
+        padding: 11px 20px;
+        border-radius: 50px;
+        font-size: 14px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 4px 15px rgba(230, 0, 38, 0.3);
+        white-space: nowrap;
+    }
+
+    @keyframes fymSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 </style>
 
@@ -516,10 +887,17 @@
         </a>
     </div>
 
-    <!-- MAIN EVENT HERO CARD -->
+    <!-- MAIN EVENT HERO FLYER CARD -->
     <div class="event-hero-card">
+        <!-- Dual-Layer Banner: Ambient Backdrop + Crisp Contained Foreground Flyer -->
         <div class="hero-banner-image-wrap">
-            <img src="{{ event.banner_img }}" alt="{{ event.title }}" onerror="this.src='/static/img/icon-512.png'">
+            <!-- Background Layer: Ambient Blurred Aura of the flyer -->
+            <img src="{{ banner_url }}" alt="" class="hero-banner-backdrop" onerror="this.src='/static/img/icon-512.png'" aria-hidden="true">
+
+            <!-- Top gradient scrim -->
+            <div class="hero-banner-scrim-top"></div>
+
+            <!-- Overlay Badges -->
             <div class="hero-banner-overlay-badges">
                 <span class="badge-category">{{ event.category_label or event.category|title }}</span>
                 <span class="badge-price {% if event.price > 0 %}paid{% endif %}">
@@ -529,13 +907,20 @@
                     ✨ FINDYOURMATCH
                 </span>
             </div>
+
+            <!-- Foreground Layer: Crisp Contained Flyer Image -->
+            <img src="{{ banner_url }}" alt="{{ event.title }}" class="hero-banner-main-img" onerror="this.src='/static/img/icon-512.png'" onclick="openFlyerModal()" title="Click to view full poster">
+
+            <!-- Tap to Expand Flyer Button -->
+            <button type="button" class="btn-tap-expand-flyer" onclick="openFlyerModal()" title="View full flyer at high resolution">
+                <span>🔍</span> View Full Poster
+            </button>
         </div>
 
         <div class="event-hero-content">
             <h1 class="event-main-title">{{ event.title }}</h1>
-            <p style="font-size: clamp(14px, 2.5vw, 16px); color: #4b5563; line-height: 1.65; margin: 0 0 20px;">
-                {{ event.description }}
-            </p>
+            
+            <p class="event-description-text">{{ event.description }}</p>
 
             <!-- LIVE DYNAMIC COUNTDOWN TIMER -->
             <div class="countdown-bar" id="countdownBar" data-date="{{ event.date }}">
@@ -571,7 +956,7 @@
                 
                 <div class="spec-row">
                     <div class="spec-icon">🗓️</div>
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="spec-label">Date & Time</div>
                         <div class="spec-val">{{ event.date_str or event.date }} @ {{ event.time_str }}</div>
                     </div>
@@ -579,18 +964,20 @@
 
                 <div class="spec-row">
                     <div class="spec-icon">📍</div>
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="spec-label">Venue Location</div>
                         <div class="spec-val">{{ event.venue_name }}</div>
+                        {% if event.location_url %}
                         <a href="{{ event.location_url }}" target="_blank" class="btn-maps-pin">
                             🗺️ Open Location in Google Maps
                         </a>
+                        {% endif %}
                     </div>
                 </div>
 
                 <div class="spec-row">
                     <div class="spec-icon">👗</div>
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="spec-label">Dress Code & Theme</div>
                         <div class="spec-val">{{ event.dress_code or "Smart Casual & Friendly" }}</div>
                     </div>
@@ -598,11 +985,11 @@
 
                 <div class="spec-row">
                     <div class="spec-icon">👤</div>
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="spec-label">Event Organizer</div>
                         <div class="spec-val">{{ event.organizer_name }}</div>
                         {% if event.organizer_phone %}
-                        <a href="https://wa.me/{{ event.organizer_phone|replace('+', '')|replace(' ', '') }}" target="_blank" style="font-size: 13px; color: #25D366; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 4px;">
+                        <a href="https://wa.me/{{ event.organizer_phone|replace('+', '')|replace(' ', '') }}" target="_blank" style="font-size: 13px; color: #16a34a; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 5px;">
                             💬 Chat with Organizer on WhatsApp
                         </a>
                         {% endif %}
@@ -611,26 +998,27 @@
 
                 <div class="spec-row">
                     <div class="spec-icon">🛡️</div>
-                    <div style="flex: 1;">
+                    <div style="flex: 1; min-width: 0;">
                         <div class="spec-label">Platform Verification</div>
-                        <div class="spec-val" style="color: #10B981;">
+                        <div class="spec-val" style="color: #10B981; font-weight: 800;">
                             ✅ Verified FYM Campus Event & 100 KES Platform Maintenance Cleared
                         </div>
                     </div>
+                </div>
             </div>
 
             <!-- EVENT ADMIN & DOOR ENTRANCE CONTROL PANEL (VISIBLE TO ORGANIZER & SUPER ADMIN) -->
             {% if is_event_admin %}
-            <div class="specs-card" style="border: 2px solid #720000; background: linear-gradient(180deg, #ffffff 0%, #fffbfa 100%); box-shadow: 0 10px 30px rgba(114,0,0,0.08); position: relative; overflow: hidden;">
+            <div class="specs-card" style="border: 2px solid var(--fym-crimson); background: linear-gradient(180deg, #ffffff 0%, #fffbfa 100%); box-shadow: 0 10px 30px rgba(114,0,0,0.08); position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="background: #720000; color: white; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
+                        <span style="background: var(--fym-crimson); color: white; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
                             🛡️ Event Admin
                         </span>
-                        <h3 style="margin: 0; font-size: 19px; color: #0f172a;">Door Entrance & Guestlist</h3>
+                        <h3 style="margin: 0; font-size: clamp(17px, 3.5vw, 19px); color: #0f172a;">Door Entrance & Guestlist</h3>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <a href="/events/verify-ticket?event={{ event.id }}" class="btn-door-scanner-main" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(230,0,38,0.3); transition: transform 0.15s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <a href="/events/verify-ticket?event={{ event.id }}" class="btn-door-scanner-main" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(230,0,38,0.3); transition: transform 0.15s;">
                             📱 Launch Door Scanner & LOVI Code
                         </a>
                         <a href="/events/{{ event.id }}/export-attendees" style="background: #f1f5f9; color: #334155; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
@@ -640,18 +1028,18 @@
                 </div>
 
                 <!-- LIVE DOOR CHECK-IN COUNTERS -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 18px;">
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px; text-align: center;">
-                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Registered</div>
-                        <div style="font-size: 22px; font-weight: 900; color: #0f172a;" id="statTotalReg">{{ attendees_count }}</div>
+                        <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Registered</div>
+                        <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #0f172a;" id="statTotalReg">{{ attendees_count }}</div>
                     </div>
                     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 12px; text-align: center;">
-                        <div style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase;">Admitted at Door</div>
-                        <div style="font-size: 22px; font-weight: 900; color: #15803d;" id="statAdmitted">{{ admitted_count }}</div>
+                        <div style="font-size: 10px; font-weight: 800; color: #166534; text-transform: uppercase;">Admitted at Door</div>
+                        <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #15803d;" id="statAdmitted">{{ admitted_count }}</div>
                     </div>
                     <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 14px; padding: 12px; text-align: center;">
-                        <div style="font-size: 11px; font-weight: 800; color: #9f1239; text-transform: uppercase;">Awaiting Arrival</div>
-                        <div style="font-size: 22px; font-weight: 900; color: #be123c;" id="statPending">{{ pending_count }}</div>
+                        <div style="font-size: 10px; font-weight: 800; color: #9f1239; text-transform: uppercase;">Awaiting Arrival</div>
+                        <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #be123c;" id="statPending">{{ pending_count }}</div>
                     </div>
                 </div>
 
@@ -661,8 +1049,8 @@
                         🔑 Ask Attendee for LOVI Code or Enter Ticket Pass:
                     </div>
                     <form onsubmit="handleQuickAdmit(event)" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        <input type="text" id="quickLoviInput" placeholder="e.g. LOVI-61DC or 61DC or FYM-XXXX" style="flex: 1; min-width: 200px; padding: 12px 14px; border: 2px solid #fda4af; border-radius: 12px; font-size: 15px; font-weight: 800; font-family: monospace; text-transform: uppercase; outline: none; background: white;">
-                        <button type="submit" id="btnQuickAdmit" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 12px 22px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; white-space: nowrap;">
+                        <input type="text" id="quickLoviInput" placeholder="e.g. LOVI-61DC or 61DC or FYM-XXXX" style="flex: 1; min-width: 170px; padding: 12px 14px; border: 2px solid #fda4af; border-radius: 12px; font-size: 15px; font-weight: 800; font-family: monospace; text-transform: uppercase; outline: none; background: white;">
+                        <button type="submit" id="btnQuickAdmit" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 12px 22px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; white-space: nowrap; flex-shrink: 0;">
                             🎟️ Admit Attendee
                         </button>
                     </form>
@@ -672,11 +1060,11 @@
                 <!-- REGISTERED ATTENDEES ROSTER -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <h4 style="margin: 0; font-size: 16px; color: #0f172a;">📋 Registered Guestlist & Pass Codes</h4>
-                    <input type="text" id="guestlistFilterInput" onkeyup="filterAdminGuestlist()" placeholder="🔍 Search name, phone, or LOVI code..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12px; outline: none; width: 220px;">
+                    <input type="text" id="guestlistFilterInput" onkeyup="filterAdminGuestlist()" placeholder="🔍 Search name, phone, or LOVI code..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 12px; outline: none; width: 100%; max-width: 250px;">
                 </div>
 
                 {% if admin_guestlist %}
-                <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; border: 1px solid #e2e8f0;">
+                <div class="admin-guestlist-wrap">
                     <table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 620px;" id="adminGuestlistTable">
                         <thead>
                             <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; text-align: left;">
@@ -738,7 +1126,7 @@
                                     {% if a.checked_in %}
                                     <span style="color: #10b981; font-weight: 800; font-size: 12px;">Admitted</span>
                                     {% else %}
-                                    <button type="button" onclick="admitAttendeeDirect('{{ a.ticket_code }}', '{{ a.lovi_code }}', '{{ a.attendee_id }}')" style="background: #15803d; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform 0.15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                                    <button type="button" onclick="admitAttendeeDirect('{{ a.ticket_code }}', '{{ a.lovi_code }}', '{{ a.attendee_id }}')" style="background: #15803d; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform 0.15s;">
                                         🎟️ Admit
                                     </button>
                                     {% endif %}
@@ -756,12 +1144,12 @@
             </div>
             {% endif %}
 
-            <!-- WHO'S GOING ROSTER (REAL ATTENDEE DATA ONLY) -->
+            <!-- WHO'S GOING ROSTER -->
             <div class="specs-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <h3 style="margin: 0;">👥 Who's Going ({{ attendees_count }})</h3>
                     {% if user_id and event.created_by == user_id %}
-                    <a href="/events/{{ event.id }}/export-attendees" style="font-size: 12px; color: #720000; font-weight: 800; text-decoration: none;">
+                    <a href="/events/{{ event.id }}/export-attendees" style="font-size: 12px; color: var(--fym-crimson); font-weight: 800; text-decoration: none;">
                         📥 Download Guestlist CSV
                     </a>
                     {% endif %}
@@ -781,7 +1169,7 @@
                 {% endif %}
 
                 <!-- Matchmaking prompt -->
-                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; padding: 12px; margin-top: 16px; text-align: center;">
+                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; padding: 14px; margin-top: 16px; text-align: center;">
                     <div style="font-size: 13px; font-weight: 800; color: #9f1239; margin-bottom: 2px;">
                         💘 Want Someone to Accompany You?
                     </div>
@@ -791,7 +1179,7 @@
                 </div>
             </div>
 
-            <!-- DISCUSSION / QA WALL (REAL DATA ONLY) -->
+            <!-- DISCUSSION / QA WALL -->
             <div class="specs-card">
                 <h3>💬 Event Discussion & Q&A</h3>
                 
@@ -813,8 +1201,8 @@
                 </div>
 
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <input type="text" id="commentInput" class="form-input" style="flex: 1; min-width: 180px;" placeholder="Ask a question or hype up the event..." onkeypress="if(event.key === 'Enter') postComment()">
-                    <button onclick="postComment()" style="background: var(--fym-crimson); color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: 800; cursor: pointer; min-height: 44px;">
+                    <input type="text" id="commentInput" class="form-input" style="flex: 1; min-width: 170px;" placeholder="Ask a question or hype up the event..." onkeypress="if(event.key === 'Enter') postComment()">
+                    <button type="button" onclick="postComment()" style="background: var(--fym-crimson); color: white; border: none; padding: 0 20px; border-radius: 12px; font-weight: 800; cursor: pointer; min-height: 44px; flex-shrink: 0;">
                         Send
                     </button>
                 </div>
@@ -846,14 +1234,14 @@
         </div>
 
         <!-- RIGHT: TICKET RESERVATION & GUEST PASS FORM -->
-        <div>
+        <div id="rsvpFormBox">
             <div class="ticket-action-box">
                 <h3 class="ticket-header-title">🎟️ Reserve Your Ticket</h3>
                 <p style="font-size: 13px; color: #64748b; margin: 0 0 12px; line-height: 1.45;">
                     Available for both FYM members and outside guests. Instant QR code ticket sent to your email.
                 </p>
 
-                <!-- Spots Progress -->
+                <!-- Spots Progress Gauge -->
                 <div class="spots-gauge-wrap">
                     <div class="spots-gauge-fill" style="width: {{ capacity_percent }}%;"></div>
                 </div>
@@ -952,6 +1340,11 @@
                         ✅ Present this QR code or LOVI Code at the entrance
                     </div>
 
+                    <!-- Screenshot Ticket Helper -->
+                    <button type="button" onclick="copyTicketPassDetails()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; width: 100%; margin-bottom: 8px;">
+                        📋 Copy Ticket Pass & LOVI Code
+                    </button>
+
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px; text-align: center; margin-top: 6px;">
                         <div style="font-size: 10px; font-weight: 800; color: #720000; text-transform: uppercase; margin-bottom: 3px;">
                             ✨ MADE BY FINDYOURMATCH
@@ -989,6 +1382,37 @@
 
 </div>
 
+<!-- FLOATING MOBILE STICKY RSVP BAR -->
+<div id="mobileStickyBar" class="mobile-sticky-rsvp-bar">
+    <div>
+        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">
+            {{ spots_remaining }} spots left
+        </div>
+        <div style="font-size: 16px; font-weight: 900; color: var(--fym-crimson);">
+            {{ event.price_display }}
+        </div>
+    </div>
+    <button type="button" class="btn-mobile-quick-rsvp" onclick="scrollToRsvp()">
+        🎟️ Reserve Ticket
+    </button>
+</div>
+
+<!-- FLYER LIGHTBOX MODAL -->
+<div id="flyerLightboxModal" class="flyer-lightbox-modal" onclick="closeFlyerModal(event)">
+    <div class="flyer-lightbox-content" onclick="event.stopPropagation()">
+        <div class="flyer-lightbox-header">
+            <button type="button" class="btn-close-lightbox" onclick="closeFlyerModal()" aria-label="Close flyer">✕</button>
+        </div>
+        <img src="{{ banner_url }}" alt="{{ event.title }} Event Poster" class="flyer-lightbox-img" onerror="this.src='/static/img/icon-512.png'">
+        <div class="flyer-lightbox-footer">
+            <span style="font-size: 13px; font-weight: 800; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ event.title }}</span>
+            <a href="{{ banner_url }}" target="_blank" class="btn-open-full-res" download>
+                📥 Open Full Size
+            </a>
+        </div>
+    </div>
+</div>
+
 <script>
     // Live Countdown Timer
     function initCountdown() {
@@ -996,7 +1420,13 @@
         if (!bar) return;
         const targetDateStr = bar.getAttribute('data-date');
         if (!targetDateStr) return;
-        const targetDate = new Date(targetDateStr + "T19:00:00").getTime();
+        
+        // Parse time if available or default to 19:00:00
+        const timeVal = "{{ event.time_str or '19:00' }}".trim();
+        let targetDate = new Date(targetDateStr + "T" + (timeVal.length === 5 ? timeVal + ":00" : "19:00:00")).getTime();
+        if (isNaN(targetDate)) {
+            targetDate = new Date(targetDateStr + "T19:00:00").getTime();
+        }
 
         function update() {
             const now = new Date().getTime();
@@ -1025,6 +1455,78 @@
         setInterval(update, 1000);
     }
     initCountdown();
+
+    // Flyer Lightbox Modal Control
+    function openFlyerModal() {
+        const modal = document.getElementById('flyerLightboxModal');
+        if (modal) {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeFlyerModal(e) {
+        if (e && e.target && e.target.classList.contains('flyer-lightbox-img')) return;
+        const modal = document.getElementById('flyerLightboxModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeFlyerModal();
+        }
+    });
+
+    // Mobile Quick RSVP Scroll
+    function scrollToRsvp() {
+        const box = document.getElementById('rsvpFormBox');
+        if (box) {
+            box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const input = box.querySelector('input[name="name"]');
+            if (input) {
+                setTimeout(() => input.focus(), 600);
+            }
+        }
+    }
+
+    // Smart Mobile Sticky Bar visibility on scroll
+    function initMobileStickyBar() {
+        const bar = document.getElementById('mobileStickyBar');
+        const rsvpBox = document.getElementById('rsvpFormBox');
+        if (!bar || !rsvpBox) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    bar.classList.add('hidden');
+                } else {
+                    // Check if scrolled down enough from hero
+                    if (window.scrollY > 300) {
+                        bar.classList.remove('hidden');
+                    } else {
+                        bar.classList.add('hidden');
+                    }
+                }
+            });
+        }, { threshold: 0.1 });
+
+        observer.observe(rsvpBox);
+
+        window.addEventListener('scroll', () => {
+            const rect = rsvpBox.getBoundingClientRect();
+            if (rect.top <= window.innerHeight && rect.bottom >= 0) {
+                bar.classList.add('hidden');
+            } else if (window.scrollY > 250) {
+                bar.classList.remove('hidden');
+            } else {
+                bar.classList.add('hidden');
+            }
+        }, { passive: true });
+    }
+    initMobileStickyBar();
 
     // Handle RSVP Submit
     function handleRsvpSubmit(e) {
@@ -1124,6 +1626,16 @@
             <img src="${res.qr_url}" alt="Ticket QR" width="160" height="160" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width: 100%; height: auto;">
         `;
         alert(res.message || "🎉 Ticket confirmed! An official ticket pass has been emailed to you.");
+    }
+
+    // Copy Ticket Pass Details for Comrades
+    function copyTicketPassDetails() {
+        const ticketCode = document.getElementById('confirmedTicketCode').innerText;
+        const loviCode = document.getElementById('confirmedLoviCode') ? document.getElementById('confirmedLoviCode').innerText : '';
+        const text = `🎟️ FINDYOURMATCH EVENT PASS\nEvent: {{ event.title }}\nTicket Pass: ${ticketCode}\nDoor LOVI Code: ${loviCode}\nVenue: {{ event.venue_name }}\nDate: {{ event.date_str or event.date }} @ {{ event.time_str }}`;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("✅ Ticket details copied to clipboard! Take a screenshot or keep this safe for door entry.");
+        });
     }
 
     // Copy Event Link

@@ -19,10 +19,12 @@ except ImportError:
     def get_all_swipes(): return []
 
 def get_recommendations(target_user_id: str, limit: int = 5) -> List[str]:
+
     """
     Highly optimized recommendation engine using pure Python Cosine Similarity.
     Eliminates dependencies on pandas and scikit-learn for memory-restricted production environments.
     """
+    
     swipes = get_all_swipes()
     if not swipes:
         return []

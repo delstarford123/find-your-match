@@ -6,6 +6,7 @@
 firebase_key.json
 *secret*.json
 *.pem
+*.cer
 
 # ==========================================
 # 2. PYTHON & FLASK VIRTUAL ENVIRONMENTS

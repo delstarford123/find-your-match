@@ -61,11 +61,6 @@
       ]
     },
     
-    "events_rsvps": {
-      ".read": "auth != null",
-      ".write": "auth != null",
-      ".indexOn": ["event_id", "user_id"]
-    },
     
     "notifications": {
       ".read": true,
@@ -286,7 +281,13 @@
     },
     "group_messages": {
       ".read": true,
-      ".write": true
+      ".write": true,
+      ".indexOn": ["timestamp"]
+    },
+    "group_calls": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["status", "created_at"]
     },
     "chat_notifications": {
       ".read": true,
@@ -310,7 +311,7 @@
     "events_rsvps": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": ["timestamp", "event_id", "user_id"]
     },
     "events_discussions": {
       ".read": true,

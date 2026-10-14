@@ -1,0 +1,12 @@
+Summary Checklist to Go Live Right Now:
+
+Go to your Cloudflare Dashboard for findyourmatch.co.ke (or click Vercel's Cloudflare Domain Connect Link).
+Update:
+
+A record @ → 76.76.21.21 (DNS only / Gray cloud)
+
+CNAME record www → cname.vercel-dns.com (DNS only / Gray cloud)
+
+Leave all mail records (mail.findyourmatch.co.ke, MX, SPF) as they are.
+
+Push your repo to GitHub to activate the free hourly GitHub Action.
