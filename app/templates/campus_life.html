@@ -672,14 +672,37 @@
     }
 
     .fee-notice-box {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
         border-radius: 12px;
         padding: 12px 14px;
         font-size: 13px;
-        color: #92400e;
         margin-bottom: 18px;
         line-height: 1.5;
+        transition: all 0.3s ease;
+    }
+
+    .fee-notice-box.free-mode {
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+    }
+
+    .fee-notice-box.paid-mode {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+    }
+
+    @keyframes paymentPulse {
+        0% { transform: scale(0.95); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { transform: scale(1.18); opacity: 0; box-shadow: 0 0 0 22px rgba(16, 185, 129, 0); }
+        100% { transform: scale(0.95); opacity: 0; }
+    }
+    .payment-pulse-ring {
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        border: 3px solid #10B981;
+        animation: paymentPulse 2s infinite ease-out;
     }
 
     .btn-submit-create {
@@ -926,126 +949,353 @@
     <div class="modal-container">
         <button class="modal-close-btn" onclick="closeCreateModal()">&times;</button>
         
-        <div style="text-align: center; margin-bottom: 20px;">
-            <div style="font-size: 34px; margin-bottom: 6px;">🎉</div>
-            <h2 style="margin: 0 0 6px; font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #111827;">Create a Campus Event</h2>
-            <p style="margin: 0; font-size: 13px; color: #6b7280;">Host a bash, pool party, birthday, or house chill with shareable link and ticket QR passes!</p>
+        <!-- Form Section -->
+        <div id="createEventFormSection">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 34px; margin-bottom: 6px;">🎉</div>
+                <h2 style="margin: 0 0 6px; font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #111827;">Create a Campus Event</h2>
+                <p style="margin: 0; font-size: 13px; color: #6b7280;">Host a bash, pool party, birthday, or house chill with shareable link and ticket QR passes!</p>
+            </div>
+
+            <div class="fee-notice-box free-mode" id="feeNoticeBox">
+                <div id="noticeFree" style="display: block;">
+                    🎉 <strong>Free Event Listing:</strong> Platform listing is <strong>100% Free</strong> for free admission events! Host your campus chill, mixer, or hangout with automated guest RSVPs and shareable link.
+                </div>
+                <div id="noticePaid" style="display: none;">
+                    💳 <strong>Paid Ticket Listing Fee (KES {{ event_creation_fee }}):</strong> Because this is a ticketed event where attendees purchase passes, an organizer platform fee of <strong>KES {{ event_creation_fee }}</strong> covers automated M-Pesa ticket sales, QR validation, SMS/email passes, and organizer payouts. An M-Pesa PIN prompt will be sent upon submitting.
+                </div>
+            </div>
+
+            <form id="createEventForm" onsubmit="handleCreateEventSubmit(event)" enctype="multipart/form-data">
+                
+                <div class="form-group">
+                    <label>Event Title *</label>
+                    <input type="text" name="title" class="form-control" placeholder="e.g. Kakamega Sunset Pool Party 2026" required>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Event Category *</label>
+                        <select name="category" class="form-control" required>
+                            <option value="bash">Campus Bash 🎉</option>
+                            <option value="pool_party">Pool Party 🏊</option>
+                            <option value="house_party">House Party 🏡</option>
+                            <option value="birthday">Birthday Celebration 🎂</option>
+                            <option value="speed_dating">Speed Dating & Mixer 💘</option>
+                            <option value="campus_mixer">Campus Mixer / Hangout 🍸</option>
+                            <option value="rave">Rave & DJ Night 🎧</option>
+                            <option value="custom">Other Social Gathering 🌟</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dress Code</label>
+                        <input type="text" name="dress_code" class="form-control" placeholder="e.g. All White, Swimwear, Casual">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" name="date" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Time / Doors Open *</label>
+                        <input type="text" name="time" class="form-control" placeholder="e.g. 4:00 PM - 11:00 PM" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Venue Name *</label>
+                    <input type="text" name="venue_name" class="form-control" placeholder="e.g. Signature Lounge, Kakamega Forest Resort, Boma Villa" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Google Maps Location Link (Optional)</label>
+                    <input type="url" name="location_url" class="form-control" placeholder="https://maps.google.com/?q=...">
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Pricing Type *</label>
+                        <select name="price_type" id="priceTypeSelect" class="form-control" onchange="togglePriceInput(this.value)">
+                            <option value="free" selected>Free Admission (No Ticket Charge)</option>
+                            <option value="paid">Paid Registration / Ticketed Event</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="priceField" style="display: none;">
+                        <label>Attendee Ticket Price (KES) *</label>
+                        <input type="number" name="price" id="priceInput" class="form-control" placeholder="e.g. 200" min="1" value="0">
+                        <small style="color: #6b7280; font-size: 11px; margin-top: 3px; display: block;">Price per ticket paid by guests via M-Pesa</small>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label>Max Guest Capacity</label>
+                        <input type="number" name="capacity" class="form-control" placeholder="100" min="5" value="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Organizer Phone / WhatsApp *</label>
+                        <input type="tel" name="organizer_phone" class="form-control" placeholder="e.g. 0707605751" required>
+                        <small id="phoneNotice" style="color: #6b7280; font-size: 11px; margin-top: 3px; display: block;">Contact number for attendees to reach you.</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Event Flyer / Poster Image</label>
+                    <input type="file" name="banner_file" class="form-control" accept="image/*">
+                    <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
+                        Uploaded to Firebase Cloud Storage. If left blank, a stylish category banner will be assigned automatically.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>Event Description / Highlights</label>
+                    <textarea name="description" class="form-control" rows="3" placeholder="Tell students what to expect, DJ lineup, special perks, rules, etc."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit-create" id="btnSubmitCreate">
+                    🚀 Publish Free Event & Generate Shareable Link
+                </button>
+            </form>
         </div>
 
-        <div class="fee-notice-box">
-            {% if event_creation_fee == 0 %}
-                🎉 <strong>Free Event Listing:</strong> Platform listing fee is currently WAIVED! Host your bash, party, or campus chill with automated ticketing, email passes, and shareable links for free.
-            {% else %}
-                💡 <strong>{{ event_creation_fee }} KES Platform Maintenance Fee:</strong> All listed events include automated guest ticketing, email confirmations with Google Maps venue pin, and social share banners.
-            {% endif %}
+        <!-- M-Pesa Payment Poller Section for Paid Events -->
+        <div id="createEventPaymentSection" style="display: none; text-align: center; padding: 10px 5px;">
+            <div style="background: #f0fdf4; border: 2px solid #bbf7d0; border-radius: 22px; padding: clamp(20px, 4vw, 32px) clamp(14px, 3vw, 24px); max-width: 500px; margin: 0 auto; box-shadow: 0 15px 35px rgba(16, 185, 129, 0.12);">
+                <div style="width: 76px; height: 76px; margin: 0 auto 16px; background: #10B981; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35); position: relative;">
+                    <span style="font-size: 34px;" id="paymentStatusIcon">📱</span>
+                    <div id="paymentPulseRing" class="payment-pulse-ring"></div>
+                </div>
+                
+                <h3 id="paymentTitle" style="margin: 0 0 6px; font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #065f46;">
+                    Enter M-Pesa PIN on Your Phone
+                </h3>
+                
+                <div style="display: inline-block; background: #047857; color: white; padding: 6px 16px; border-radius: 50px; font-weight: 900; font-size: 14px; margin-bottom: 14px; letter-spacing: 0.3px;">
+                    KES <span id="paymentAmountDisplay">100</span> Listing Fee
+                </div>
+
+                <p id="paymentPromptMessage" style="margin: 0 0 18px; font-size: clamp(13px, 2.5vw, 15px); color: #065f46; line-height: 1.6;">
+                    An M-Pesa prompt has been sent to <strong id="paymentPhoneDisplay" style="color: #047857; font-family: monospace; font-size: 16px;">07XXXXXXXX</strong>.<br>
+                    Please unlock your phone screen and enter your M-Pesa PIN to publish your paid event!
+                </p>
+
+                <div style="background: white; border: 1px dashed #6ee7b7; border-radius: 14px; padding: 14px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-around;">
+                    <div>
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 700; text-transform: uppercase;">Awaiting PIN</div>
+                        <div id="paymentCountdown" style="font-size: 20px; font-weight: 900; color: #047857; font-family: monospace;">60s</div>
+                    </div>
+                    <div style="width: 1px; height: 35px; background: #e5e7eb;"></div>
+                    <div>
+                        <div style="font-size: 11px; color: #6b7280; font-weight: 700; text-transform: uppercase;">Ticket Price</div>
+                        <div id="eventTicketPriceDisplay" style="font-size: 20px; font-weight: 900; color: #111827;">KES 0</div>
+                    </div>
+                </div>
+
+                <div id="paymentErrorBox" style="display: none; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 14px; border-radius: 12px; font-size: 13px; margin-bottom: 16px; text-align: left; line-height: 1.5;">
+                </div>
+
+                <div id="paymentSuccessBox" style="display: none; background: #dcfce7; border: 1px solid #86efac; color: #14532d; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; margin-bottom: 16px;">
+                    🎉 Payment received! Your ticketed event is active and published. Redirecting to your event page...
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <button type="button" id="btnCancelPayment" onclick="cancelPaymentPoller()" style="background: #f3f4f6; color: #374151; border: none; padding: 11px 22px; border-radius: 50px; font-weight: 700; font-size: 13px; cursor: pointer; transition: background 0.2s;">
+                        ← Edit Event Form
+                    </button>
+                    <button type="button" id="btnRetryPayment" onclick="retryPaymentPrompt()" style="display: none; background: #10B981; color: white; border: none; padding: 11px 24px; border-radius: 50px; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+                        🔄 Resend M-Pesa Prompt
+                    </button>
+                </div>
+            </div>
         </div>
-
-        <form id="createEventForm" onsubmit="handleCreateEventSubmit(event)" enctype="multipart/form-data">
-            
-            <div class="form-group">
-                <label>Event Title *</label>
-                <input type="text" name="title" class="form-control" placeholder="e.g. Kakamega Sunset Pool Party 2026" required>
-            </div>
-
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>Event Category *</label>
-                    <select name="category" class="form-control" required>
-                        <option value="bash">Campus Bash 🎉</option>
-                        <option value="pool_party">Pool Party 🏊</option>
-                        <option value="house_party">House Party 🏡</option>
-                        <option value="birthday">Birthday Celebration 🎂</option>
-                        <option value="speed_dating">Speed Dating & Mixer 💘</option>
-                        <option value="campus_mixer">Campus Mixer / Hangout 🍸</option>
-                        <option value="rave">Rave & DJ Night 🎧</option>
-                        <option value="custom">Other Social Gathering 🌟</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Dress Code</label>
-                    <input type="text" name="dress_code" class="form-control" placeholder="e.g. All White, Swimwear, Casual">
-                </div>
-            </div>
-
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>Date *</label>
-                    <input type="date" name="date" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Time / Doors Open *</label>
-                    <input type="text" name="time" class="form-control" placeholder="e.g. 4:00 PM - 11:00 PM" required>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Venue Name *</label>
-                <input type="text" name="venue_name" class="form-control" placeholder="e.g. Signature Lounge, Kakamega Forest Resort, Boma Villa" required>
-            </div>
-
-            <div class="form-group">
-                <label>Google Maps Location Link (Optional)</label>
-                <input type="url" name="location_url" class="form-control" placeholder="https://maps.google.com/?q=...">
-            </div>
-
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>Pricing Type *</label>
-                    <select name="price_type" class="form-control" onchange="togglePriceInput(this.value)">
-                        <option value="free">Free Admission</option>
-                        <option value="paid">Paid Registration / Ticket</option>
-                    </select>
-                </div>
-                <div class="form-group" id="priceField" style="display: none;">
-                    <label>Ticket Price (KES)</label>
-                    <input type="number" name="price" class="form-control" placeholder="e.g. 200" min="0">
-                </div>
-            </div>
-
-            <div class="form-grid-2">
-                <div class="form-group">
-                    <label>Max Guest Capacity</label>
-                    <input type="number" name="capacity" class="form-control" placeholder="100" min="5" value="100">
-                </div>
-                <div class="form-group">
-                    <label>Organizer Phone / WhatsApp *</label>
-                    <input type="tel" name="organizer_phone" class="form-control" placeholder="e.g. 0707605751" required>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Event Flyer / Poster Image</label>
-                <input type="file" name="banner_file" class="form-control" accept="image/*">
-                <small style="color: #6b7280; font-size: 12px; margin-top: 4px; display: block;">
-                    Uploaded to Firebase Cloud Storage. If left blank, a stylish category banner will be assigned automatically.
-                </small>
-            </div>
-
-            <div class="form-group">
-                <label>Event Description / Highlights</label>
-                <textarea name="description" class="form-control" rows="3" placeholder="Tell students what to expect, DJ lineup, special perks, rules, etc."></textarea>
-            </div>
-
-            <button type="submit" class="btn-submit-create" id="btnSubmitCreate">
-                🚀 Publish Event & Generate Shareable Link
-            </button>
-        </form>
     </div>
 </div>
 
 <script>
+    let currentCheckoutId = null;
+    let currentEventUrl = null;
+    let paymentPollInterval = null;
+    let countdownTimer = null;
+    let secondsRemaining = 60;
+
     function openCreateModal() {
+        cancelPaymentPoller();
+        const priceTypeSelect = document.getElementById('priceTypeSelect');
+        const priceType = priceTypeSelect ? priceTypeSelect.value : 'free';
+        togglePriceInput(priceType);
         document.getElementById('createEventModal').classList.add('open');
         document.body.style.overflow = 'hidden';
     }
 
     function closeCreateModal() {
+        cancelPaymentPoller();
         document.getElementById('createEventModal').classList.remove('open');
         document.body.style.overflow = '';
     }
 
     function togglePriceInput(val) {
-        document.getElementById('priceField').style.display = (val === 'paid') ? 'block' : 'none';
+        const isPaid = (val === 'paid');
+        const priceField = document.getElementById('priceField');
+        const priceInput = document.getElementById('priceInput');
+        const noticeFree = document.getElementById('noticeFree');
+        const noticePaid = document.getElementById('noticePaid');
+        const feeBox = document.getElementById('feeNoticeBox');
+        const btnSubmit = document.getElementById('btnSubmitCreate');
+        const phoneNotice = document.getElementById('phoneNotice');
+        const feeAmount = parseInt("{{ event_creation_fee }}") || 100;
+
+        if (priceField) {
+            priceField.style.display = isPaid ? 'block' : 'none';
+        }
+
+        if (isPaid) {
+            if (feeBox) {
+                feeBox.classList.remove('free-mode');
+                feeBox.classList.add('paid-mode');
+            }
+            if (noticeFree) noticeFree.style.display = 'none';
+            if (noticePaid) noticePaid.style.display = 'block';
+            if (priceInput) {
+                priceInput.required = true;
+                if (!priceInput.value || priceInput.value === '0') priceInput.value = '';
+            }
+            if (btnSubmit) {
+                btnSubmit.innerHTML = `💳 Pay ${feeAmount} KES via M-Pesa & Publish Event`;
+                btnSubmit.style.background = 'linear-gradient(135deg, #047857 0%, #10B981 100%)';
+            }
+            if (phoneNotice) {
+                phoneNotice.innerHTML = `⚠️ M-Pesa STK prompt of <strong>${feeAmount} KES</strong> will be sent to this phone to publish your event.`;
+                phoneNotice.style.color = '#047857';
+            }
+        } else {
+            if (feeBox) {
+                feeBox.classList.remove('paid-mode');
+                feeBox.classList.add('free-mode');
+            }
+            if (noticeFree) noticeFree.style.display = 'block';
+            if (noticePaid) noticePaid.style.display = 'none';
+            if (priceInput) {
+                priceInput.required = false;
+                priceInput.value = '0';
+            }
+            if (btnSubmit) {
+                btnSubmit.innerHTML = '🚀 Publish Free Event & Generate Shareable Link';
+                btnSubmit.style.background = 'linear-gradient(135deg, #720000 0%, #E60026 100%)';
+            }
+            if (phoneNotice) {
+                phoneNotice.innerHTML = 'Contact number for attendees to reach you regarding the event.';
+                phoneNotice.style.color = '#6b7280';
+            }
+        }
+    }
+
+    function startPaymentPolling(checkoutId, eventUrl, amount, phone, ticketPrice) {
+        currentCheckoutId = checkoutId;
+        currentEventUrl = eventUrl;
+        secondsRemaining = 60;
+
+        document.getElementById('createEventFormSection').style.display = 'none';
+        document.getElementById('createEventPaymentSection').style.display = 'block';
+        
+        document.getElementById('paymentAmountDisplay').innerText = amount;
+        document.getElementById('paymentPhoneDisplay').innerText = phone;
+        document.getElementById('eventTicketPriceDisplay').innerText = `KES ${ticketPrice}`;
+        document.getElementById('paymentCountdown').innerText = `${secondsRemaining}s`;
+        
+        document.getElementById('paymentErrorBox').style.display = 'none';
+        document.getElementById('paymentSuccessBox').style.display = 'none';
+        document.getElementById('btnRetryPayment').style.display = 'none';
+        document.getElementById('btnCancelPayment').style.display = 'inline-block';
+        document.getElementById('paymentStatusIcon').innerText = '📱';
+        document.getElementById('paymentTitle').innerText = 'Enter M-Pesa PIN on Your Phone';
+        document.getElementById('paymentTitle').style.color = '#065f46';
+
+        if (paymentPollInterval) clearInterval(paymentPollInterval);
+        if (countdownTimer) clearInterval(countdownTimer);
+
+        countdownTimer = setInterval(() => {
+            secondsRemaining--;
+            const cd = document.getElementById('paymentCountdown');
+            if (cd) cd.innerText = `${Math.max(0, secondsRemaining)}s`;
+            if (secondsRemaining <= 0) {
+                clearInterval(countdownTimer);
+            }
+        }, 1000);
+
+        let pollAttempts = 0;
+        paymentPollInterval = setInterval(() => {
+            pollAttempts++;
+            if (pollAttempts > 35) { // ~70s
+                clearInterval(paymentPollInterval);
+                clearInterval(countdownTimer);
+                document.getElementById('paymentTitle').innerText = 'Payment Timeout';
+                document.getElementById('paymentTitle').style.color = '#991b1b';
+                document.getElementById('paymentStatusIcon').innerText = '⏳';
+                const errBox = document.getElementById('paymentErrorBox');
+                errBox.innerText = 'Did not receive M-Pesa confirmation. If you entered your PIN, please wait a moment or click Resend.';
+                errBox.style.display = 'block';
+                document.getElementById('btnRetryPayment').style.display = 'inline-block';
+                return;
+            }
+
+            fetch(`/api/events/check-creation-payment/${checkoutId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'COMPLETED') {
+                        clearInterval(paymentPollInterval);
+                        clearInterval(countdownTimer);
+                        document.getElementById('paymentStatusIcon').innerText = '✅';
+                        document.getElementById('paymentTitle').innerText = 'Payment Verified!';
+                        document.getElementById('paymentTitle').style.color = '#065f46';
+                        document.getElementById('paymentSuccessBox').style.display = 'block';
+                        document.getElementById('btnCancelPayment').style.display = 'none';
+                        document.getElementById('btnRetryPayment').style.display = 'none';
+                        setTimeout(() => {
+                            window.location.href = data.event_url || currentEventUrl;
+                        }, 1300);
+                    } else if (data.status === 'FAILED') {
+                        clearInterval(paymentPollInterval);
+                        clearInterval(countdownTimer);
+                        document.getElementById('paymentStatusIcon').innerText = '❌';
+                        document.getElementById('paymentTitle').innerText = 'Payment Cancelled or Failed';
+                        document.getElementById('paymentTitle').style.color = '#991b1b';
+                        const errBox = document.getElementById('paymentErrorBox');
+                        errBox.innerText = data.error || 'Payment was cancelled or could not be completed.';
+                        errBox.style.display = 'block';
+                        document.getElementById('btnRetryPayment').style.display = 'inline-block';
+                    }
+                })
+                .catch(err => {
+                    console.warn('Payment poll network issue:', err);
+                });
+        }, 2000);
+    }
+
+    function cancelPaymentPoller() {
+        if (paymentPollInterval) clearInterval(paymentPollInterval);
+        if (countdownTimer) clearInterval(countdownTimer);
+        const formSec = document.getElementById('createEventFormSection');
+        const paySec = document.getElementById('createEventPaymentSection');
+        if (formSec) formSec.style.display = 'block';
+        if (paySec) paySec.style.display = 'none';
+        const priceType = document.getElementById('priceTypeSelect') ? document.getElementById('priceTypeSelect').value : 'free';
+        const btn = document.getElementById('btnSubmitCreate');
+        if (btn) btn.disabled = false;
+        togglePriceInput(priceType);
+    }
+
+    function retryPaymentPrompt() {
+        const form = document.getElementById('createEventForm');
+        if (form) {
+            cancelPaymentPoller();
+            if (form.requestSubmit) {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        }
     }
 
     function filterEvents(category, btn) {
@@ -1106,7 +1356,27 @@
     function handleCreateEventSubmit(e) {
         e.preventDefault();
         const btn = document.getElementById('btnSubmitCreate');
-        btn.innerHTML = "Uploading flyer & publishing event...";
+        const priceType = document.getElementById('priceTypeSelect') ? document.getElementById('priceTypeSelect').value : 'free';
+        const priceInput = document.getElementById('priceInput');
+        const priceVal = priceInput ? parseInt(priceInput.value || 0) : 0;
+
+        if (priceType === 'paid' && (!priceVal || priceVal <= 0)) {
+            alert("Please enter a valid ticket price (greater than 0 KES) for paid events.");
+            if (priceInput) priceInput.focus();
+            return;
+        }
+
+        const phoneInput = document.querySelector('input[name="organizer_phone"]');
+        const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+        if (!phoneVal) {
+            alert("Please enter an organizer phone number.");
+            if (phoneInput) phoneInput.focus();
+            return;
+        }
+
+        btn.innerHTML = (priceType === 'paid') 
+            ? "⏳ Sending M-Pesa STK prompt..." 
+            : "⏳ Uploading flyer & publishing...";
         btn.disabled = true;
 
         const formData = new FormData(e.target);
@@ -1117,19 +1387,26 @@
         })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
-                alert("🎉 Event published successfully!");
-                window.location.href = data.event_url;
-            } else {
-                btn.innerHTML = "🚀 Publish Event & Generate Shareable Link";
+            if (!data.success) {
                 btn.disabled = false;
+                togglePriceInput(priceType);
                 alert(data.error || "Failed to create event.");
+                return;
+            }
+
+            if (data.requires_payment) {
+                // Paid event: Organizer must enter PIN on their phone
+                startPaymentPolling(data.checkout_id, data.event_url, data.amount, data.phone, priceVal);
+            } else {
+                // Free event: published immediately!
+                alert(data.message || "🎉 Free event published successfully!");
+                window.location.href = data.event_url;
             }
         })
         .catch(err => {
-            btn.innerHTML = "🚀 Publish Event & Generate Shareable Link";
             btn.disabled = false;
-            alert("Error communicating with server.");
+            togglePriceInput(priceType);
+            alert("Error communicating with server: " + (err.message || err));
             console.error(err);
         });
     }

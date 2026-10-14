@@ -138,6 +138,9 @@ def campus_life():
     if isinstance(events_dict, dict):
         for eid, edata in events_dict.items():
             if isinstance(edata, dict):
+                # Filter out unpaid draft events
+                if edata.get('status') == 'pending_payment' and not edata.get('maintenance_fee_paid'):
+                    continue
                 edata['id'] = eid
                 # Calculate real attendees count from actual RSVP records
                 event_rsvps = rsvps_all.get(eid, {}) if isinstance(rsvps_all, dict) else {}
@@ -186,6 +189,35 @@ def view_event(event_id):
     
     if not event or not isinstance(event, dict):
         return redirect(url_for('events_bp.campus_life'))
+
+    # If event has pending organizer listing fee, verify or redirect
+    if event.get('status') == 'pending_payment' and not event.get('maintenance_fee_paid'):
+        pending_payments = db.reference('pending_event_creation_payments').order_by_child('event_id').equal_to(event_id).get() or {}
+        paid_now = False
+        if isinstance(pending_payments, dict):
+            for pid, precord in pending_payments.items():
+                if isinstance(precord, dict):
+                    if precord.get('status') == 'success':
+                        paid_now = True
+                        break
+                    checkout_id = precord.get('checkout_id')
+                    if checkout_id:
+                        qres = check_payment_status(checkout_id)
+                        if qres.get('status') == 'SUCCESS':
+                            paid_now = True
+                            receipt = qres.get('receipt') or "QUERY_SUCCESS"
+                            db.reference(f'pending_event_creation_payments/{pid}').update({
+                                "status": "success", 
+                                "receipt": receipt,
+                                "completed_at": int(time.time() * 1000)
+                            })
+                            break
+        if paid_now:
+            event['maintenance_fee_paid'] = True
+            event['status'] = 'active'
+            db.reference(f'events/{event_id}').update({"maintenance_fee_paid": True, "status": "active"})
+        else:
+            return redirect(url_for('events_bp.campus_life'))
     
     event['id'] = event_id
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
@@ -409,22 +441,201 @@ def create_event():
         "organizer_phone": organizer_phone,
         "created_by": user_id,
         "banner_img": banner_img,
-        "creation_fee": event_creation_fee,
-        "maintenance_fee_paid": True, # Platform listing fee recorded
         "created_at": int(time.time() * 1000)
     }
 
-    db.reference(f'events/{event_id}').set(event_payload)
-    
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     event_url = f"{base_url}/events/{event_id}"
 
+    # If this is a PAID event (where users are charged for tickets) and creation_fee > 0,
+    # the organizer MUST pay the platform listing fee (e.g. 100 KES) via M-Pesa STK push.
+    if price_type == 'paid' and price <= 0:
+        return jsonify({
+            "success": False,
+            "error": "Ticket price must be greater than 0 KES for paid ticketed events. If admission is free, select 'Free Admission'."
+        }), 400
+
+    is_paid_event = (price_type == 'paid' and price > 0)
+    
+    if is_paid_event and event_creation_fee > 0:
+        formatted_phone = format_phone_number(organizer_phone)
+        if not formatted_phone or len(formatted_phone) != 12:
+            return jsonify({
+                "success": False, 
+                "error": "A valid M-Pesa phone number (e.g. 07XXXXXXXX or 01XXXXXXXX) is required to pay the 100 KES listing fee for ticketed events."
+            }), 400
+
+        # Save event in pending payment state
+        event_payload["creation_fee"] = event_creation_fee
+        event_payload["maintenance_fee_paid"] = False
+        event_payload["status"] = "pending_payment"
+        db.reference(f'events/{event_id}').set(event_payload)
+
+        # Initiate STK push to the organizer
+        account_ref = f"FEE_{event_id[-6:].upper()}"
+        callback_url = f"{base_url}/api/mpesa/event_creation_callback"
+        desc = "Event Listing Fee"
+        logger.info(f"Initiating organizer listing fee STK push of KES {event_creation_fee} to {formatted_phone} for paid event '{title}'...")
+        res = initiate_stk_push(formatted_phone, event_creation_fee, account_ref, callback_url, desc)
+
+        if not res or 'error' in res:
+            err_msg = res.get('error', 'Failed to initiate M-Pesa prompt.') if res else 'Payment gateway error.'
+            return jsonify({"success": False, "error": f"M-Pesa Error: {err_msg}"}), 400
+
+        checkout_id = res.get('CheckoutRequestID')
+        if not checkout_id:
+            return jsonify({"success": False, "error": "Did not receive valid CheckoutRequestID from Safaricom."}), 400
+
+        db.reference(f'pending_event_creation_payments/{checkout_id}').set({
+            "checkout_id": checkout_id,
+            "event_id": event_id,
+            "event_title": title,
+            "account_reference": account_ref,
+            "amount": event_creation_fee,
+            "organizer_name": organizer_name,
+            "organizer_phone": formatted_phone,
+            "user_id": user_id,
+            "status": "pending",
+            "created_at": int(time.time() * 1000)
+        })
+
+        return jsonify({
+            "success": True,
+            "requires_payment": True,
+            "checkout_id": checkout_id,
+            "amount": event_creation_fee,
+            "phone": formatted_phone,
+            "event_id": event_id,
+            "event_url": event_url,
+            "message": f"📱 M-Pesa prompt of KES {event_creation_fee} sent to {formatted_phone}. Enter your M-Pesa PIN on your phone to complete listing your paid event."
+        })
+
+    # Otherwise: FREE admission event, or super admin set creation fee to 0
+    event_payload["creation_fee"] = 0 if not is_paid_event else event_creation_fee
+    event_payload["maintenance_fee_paid"] = True
+    event_payload["status"] = "active"
+    db.reference(f'events/{event_id}').set(event_payload)
+
     return jsonify({
         "success": True,
+        "requires_payment": False,
         "event_id": event_id,
         "event_url": event_url,
-        "message": "Event created successfully! Your shareable link is ready."
+        "message": "🎉 Event published successfully! Your shareable link is ready."
     })
+
+
+@events_bp.route('/api/events/check-creation-payment/<checkout_id>', methods=['GET'])
+def check_event_creation_payment_status(checkout_id):
+    """
+    Real-time status poller for organizer event listing fee payment.
+    Queries pending_event_creation_payments and Safaricom Daraja Query API.
+    """
+    pending_ref = db.reference(f'pending_event_creation_payments/{checkout_id}')
+    payment_record = pending_ref.get()
+    if not payment_record or not isinstance(payment_record, dict):
+        return jsonify({"success": False, "status": "NOT_FOUND", "error": "Payment record not found."}), 404
+
+    event_id = payment_record.get('event_id')
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    event_url = f"{base_url}/events/{event_id}"
+
+    status = payment_record.get('status')
+    if status == 'success':
+        return jsonify({
+            "success": True,
+            "status": "COMPLETED",
+            "event_id": event_id,
+            "event_url": event_url,
+            "message": "Payment confirmed! Your event is now live and published."
+        })
+    elif status == 'failed':
+        return jsonify({
+            "success": False,
+            "status": "FAILED",
+            "error": payment_record.get('reason') or "Payment was not completed."
+        })
+
+    # If still pending, query Safaricom directly to catch dropped/delayed webhooks
+    query_res = check_payment_status(checkout_id)
+    if query_res.get('status') == 'SUCCESS':
+        receipt = query_res.get('receipt') or "QUERY_SUCCESS"
+        pending_ref.update({
+            "status": "success",
+            "receipt": receipt,
+            "completed_at": int(time.time() * 1000)
+        })
+        db.reference(f'events/{event_id}').update({
+            "maintenance_fee_paid": True,
+            "status": "active",
+            "creation_fee_receipt": receipt
+        })
+        return jsonify({
+            "success": True,
+            "status": "COMPLETED",
+            "event_id": event_id,
+            "event_url": event_url,
+            "message": "Payment verified! Your event is now live."
+        })
+    elif query_res.get('status') in ['CANCELED', 'FAILED']:
+        reason = query_res.get('reason', 'Payment cancelled')
+        pending_ref.update({"status": "failed", "reason": reason})
+        return jsonify({"success": False, "status": "FAILED", "error": reason})
+
+    return jsonify({"success": True, "status": "PENDING", "message": "Waiting for PIN entry..."})
+
+
+@events_bp.route('/api/mpesa/event_creation_callback', methods=['POST'])
+def mpesa_event_creation_callback():
+    """
+    Webhook called by Safaricom when organizer enters PIN for event listing fee.
+    Activates event and marks maintenance_fee_paid = True.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        body = data.get('Body', {})
+        stk_callback = body.get('stkCallback', {})
+        if not stk_callback:
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        result_code = stk_callback.get('ResultCode')
+        checkout_id = stk_callback.get('CheckoutRequestID')
+
+        pending_ref = db.reference(f'pending_event_creation_payments/{checkout_id}')
+        payment_record = pending_ref.get()
+        if not payment_record or not isinstance(payment_record, dict):
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        if payment_record.get('status') == 'success':
+            return jsonify({"ResultCode": 0, "ResultDesc": "Already processed"})
+
+        if result_code == 0:
+            metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
+            receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
+            event_id = payment_record.get('event_id')
+
+            pending_ref.update({
+                "status": "success",
+                "receipt": receipt,
+                "completed_at": int(time.time() * 1000)
+            })
+            db.reference(f'events/{event_id}').update({
+                "maintenance_fee_paid": True,
+                "status": "active",
+                "creation_fee_receipt": receipt
+            })
+            logger.info(f"✅ Event listing fee paid for event {event_id}. Event is now ACTIVE!")
+        else:
+            fail_desc = stk_callback.get('ResultDesc', 'Payment failed')
+            pending_ref.update({
+                "status": "failed",
+                "reason": fail_desc,
+                "result_code": result_code
+            })
+    except Exception as e:
+        logger.error(f"Error in mpesa_event_creation_callback: {e}")
+
+    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
 
 # ========================================================

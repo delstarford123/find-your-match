@@ -348,6 +348,11 @@
       ".write": true,
       ".indexOn": ["status", "event_id"]
     },
+    "pending_event_creation_payments": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["status", "event_id"]
+    },
     "b2c_payout_results": {
       ".read": true,
       ".write": true,
