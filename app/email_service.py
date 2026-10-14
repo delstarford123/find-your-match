@@ -2730,10 +2730,10 @@ def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, i
     return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
 
 
-def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str, lovi_code: str = None):
+def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str, lovi_code: str = None, ticket_tier: str = None):
     """
     Sends a rich, digital event ticket confirmation with embedded QR code,
-    door backup LOVI code, Google Maps venue pin, dress code, and Made by FindYourMatch onboarding.
+    door backup LOVI code, ticket tier / entry level badge, Google Maps venue pin, dress code, and Made by FindYourMatch onboarding.
     """
     import urllib.parse
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
@@ -2751,6 +2751,8 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     banner_img = event_data.get("banner_img") or f"{base_url}/static/img/icon-512.png"
     event_url = f"{base_url}/events/{event_id}"
     
+    tier_display = ticket_tier or event_data.get("ticket_tier") or event_data.get("tier_name") or "Standard Admission"
+    
     # LOVI Code for door backup verification
     lovi_code = lovi_code or event_data.get("lovi_code") or f"LOVI-{ticket_code.split('-')[1]}"
     
@@ -2759,7 +2761,7 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     encoded_verify_url = urllib.parse.quote(verify_url, safe='')
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
 
-    subject = f"🎟️ Ticket Confirmed: {event_title} | Pass #{ticket_code} (LOVI: {lovi_code})"
+    subject = f"🎟️ Ticket Confirmed: {event_title} ({tier_display}) | Pass #{ticket_code}"
 
     text_content = textwrap.dedent(f"""\
         Hello {recipient_name}!
@@ -2768,6 +2770,7 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
 
         ========================================
         DIGITAL TICKET PASS
+        Pass Level  : {tier_display}
         Ticket Code : {ticket_code}
         LOVI Code   : {lovi_code} (Backup for door admin)
         Event       : {event_title} ({category})
@@ -2828,8 +2831,8 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
                 <div style="padding:30px 25px;">
                     
                     <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:20px;padding:25px;text-align:center;margin-bottom:25px;">
-                        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
-                            Official Entrance Pass
+                        <div style="display:inline-block;background:#720000;color:white;padding:6px 18px;border-radius:50px;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;box-shadow:0 4px 12px rgba(114,0,0,0.25);">
+                            🎟️ {tier_display} PASS
                         </div>
                         
                         <!-- SCANNABLE QR CODE FOR ADMINS -->
@@ -2863,6 +2866,10 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
 
                     <!-- EVENT SPECS GRID -->
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:25px;font-size:14px;">
+                        <tr>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🎟️ Pass Level</td>
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#720000;font-weight:900;">{tier_display}</td>
+                        </tr>
                         <tr>
                             <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🗓️ Date & Time</td>
                             <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{date_str} @ {time_str}</td>

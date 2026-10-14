@@ -705,6 +705,36 @@
         animation: paymentPulse 2s infinite ease-out;
     }
 
+    /* TIER PRESET BUTTONS & TIER BUILDER */
+    .tier-preset-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .tier-preset-btn:hover {
+        background: #fff1f2;
+        border-color: #720000;
+        color: #720000;
+        transform: translateY(-1px);
+    }
+    .tier-item-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 12px 14px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        transition: border-color 0.2s;
+    }
+    .tier-item-card:hover {
+        border-color: #cbd5e1;
+    }
+
     .btn-submit-create {
         background: linear-gradient(135deg, #720000 0%, #E60026 100%);
         color: white;
@@ -1014,19 +1044,61 @@
                     <input type="url" name="location_url" class="form-control" placeholder="https://maps.google.com/?q=...">
                 </div>
 
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label>Pricing Type *</label>
-                        <select name="price_type" id="priceTypeSelect" class="form-control" onchange="togglePriceInput(this.value)">
-                            <option value="free" selected>Free Admission (No Ticket Charge)</option>
-                            <option value="paid">Paid Registration / Ticketed Event</option>
-                        </select>
+                <div class="form-group">
+                    <label>Pricing Type *</label>
+                    <select name="price_type" id="priceTypeSelect" class="form-control" onchange="togglePriceInput(this.value)">
+                        <option value="free" selected>Free Admission (No Ticket Charge)</option>
+                        <option value="paid">Paid Registration / Ticketed Event (Multiple Entry Levels)</option>
+                    </select>
+                </div>
+
+                <!-- TICKET TIERS & ENTRY LEVELS BUILDER (Visible when Paid) -->
+                <div id="ticketTiersContainer" style="display: none; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 18px; padding: clamp(14px, 3vw, 18px); margin-bottom: 18px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <label style="font-weight: 800; font-size: 14px; color: #0f172a; margin: 0; display: block;">
+                                🎟️ Entry Levels & Ticket Tiers *
+                            </label>
+                            <span style="font-size: 12px; color: #64748b;">Set different passes like Regular, Couple, VIP, or Early Bird (like on event posters)</span>
+                        </div>
+                        <span id="tiersSummaryBadge" style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 800;">
+                            3 Levels Configured
+                        </span>
                     </div>
-                    <div class="form-group" id="priceField" style="display: none;">
-                        <label>Attendee Ticket Price (KES) *</label>
-                        <input type="number" name="price" id="priceInput" class="form-control" placeholder="e.g. 200" min="1" value="0">
-                        <small style="color: #6b7280; font-size: 11px; margin-top: 3px; display: block;">Price per ticket paid by guests via M-Pesa</small>
+
+                    <!-- Quick Preset Buttons -->
+                    <div style="margin-bottom: 14px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px;">
+                        <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">
+                            ⚡ Load Poster Presets:
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" onclick="applyTierPreset('poster')" class="tier-preset-btn">
+                                🎪 Single (300) + Couple (500) + VIP (700)
+                            </button>
+                            <button type="button" onclick="applyTierPreset('club')" class="tier-preset-btn">
+                                👑 Regular (200) + VIP (500) + VVIP (1000)
+                            </button>
+                            <button type="button" onclick="applyTierPreset('early_bird')" class="tier-preset-btn">
+                                ⚡ Early Bird (200) + Regular (350) + VIP (600)
+                            </button>
+                            <button type="button" onclick="applyTierPreset('single')" class="tier-preset-btn">
+                                🎫 Flat Ticket (200)
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Dynamic Tiers List -->
+                    <div id="tiersList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+                        <!-- Injected dynamically via JS -->
+                    </div>
+
+                    <button type="button" onclick="addNewTier()" style="background: #ffffff; color: #720000; border: 1.5px dashed #720000; padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; width: 100%; justify-content: center; transition: all 0.2s;">
+                        ➕ Add Another Entry Level / Pass (e.g. VVIP, Table)
+                    </button>
+
+                    <!-- Hidden serialization inputs -->
+                    <input type="hidden" name="ticket_tiers_json" id="ticketTiersJson" value="">
+                    <input type="hidden" name="price" id="priceInput" value="0">
                 </div>
 
                 <div class="form-grid-2">
@@ -1135,10 +1207,139 @@
         document.body.style.overflow = '';
     }
 
+    let currentTiers = [
+        { id: 'tier_person', name: 'Per Person', price: 300, perk: 'Standard single entry' },
+        { id: 'tier_couple', name: 'Per Couple', price: 500, perk: 'Admission pass for 2 comrades' },
+        { id: 'tier_vip', name: 'VIP Entrance', price: 700, perk: 'VIP section access & priority service' }
+    ];
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderTiers() {
+        const list = document.getElementById('tiersList');
+        if (!list) return;
+        list.innerHTML = '';
+
+        currentTiers.forEach((tier, index) => {
+            const row = document.createElement('div');
+            row.className = 'tier-item-card';
+            row.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 800; color: #720000; text-transform: uppercase;">
+                        🏷️ Entry Level #${index + 1}
+                    </span>
+                    ${currentTiers.length > 1 ? `
+                        <button type="button" onclick="removeTier(${index})" style="background: none; border: none; color: #ef4444; font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 6px;">
+                            ✕ Remove
+                        </button>
+                    ` : ''}
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1.2fr; gap: 8px; margin-bottom: 8px;">
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">Level / Pass Name *</label>
+                        <input type="text" value="${escapeHtml(tier.name)}" oninput="updateTierField(${index}, 'name', this.value)" class="form-control" placeholder="e.g. Regular, VIP, Per Couple" style="padding: 9px 12px; font-size: 13px;" required>
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">Price (KES) *</label>
+                        <input type="number" value="${tier.price || ''}" min="1" oninput="updateTierField(${index}, 'price', this.value)" class="form-control" placeholder="300" style="padding: 9px 12px; font-size: 14px; font-weight: 800; color: #047857;" required>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">Perks / Pass Details (Optional)</label>
+                    <input type="text" value="${escapeHtml(tier.perk || '')}" oninput="updateTierField(${index}, 'perk', this.value)" class="form-control" placeholder="e.g. Standard entry, Entry for 2, or VIP Lounge access" style="padding: 7px 12px; font-size: 12px; color: #64748b;">
+                </div>
+            `;
+            list.appendChild(row);
+        });
+
+        serializeTiers();
+    }
+
+    function updateTierField(index, field, value) {
+        if (!currentTiers[index]) return;
+        if (field === 'price') {
+            currentTiers[index][field] = parseInt(value) || 0;
+        } else {
+            currentTiers[index][field] = value;
+        }
+        serializeTiers();
+    }
+
+    function addNewTier() {
+        currentTiers.push({
+            id: 'tier_' + Date.now(),
+            name: 'VVIP Experience',
+            price: 1000,
+            perk: 'Dedicated area & premium perks'
+        });
+        renderTiers();
+    }
+
+    function removeTier(index) {
+        if (currentTiers.length > 1) {
+            currentTiers.splice(index, 1);
+            renderTiers();
+        }
+    }
+
+    function applyTierPreset(preset) {
+        if (preset === 'poster') {
+            currentTiers = [
+                { id: 'tier_person', name: 'Per Person', price: 300, perk: 'Standard single entry' },
+                { id: 'tier_couple', name: 'Per Couple', price: 500, perk: 'Admission pass for 2 comrades' },
+                { id: 'tier_vip', name: 'VIP Entrance', price: 700, perk: 'VIP section access & priority service' }
+            ];
+        } else if (preset === 'club') {
+            currentTiers = [
+                { id: 'tier_regular', name: 'Regular Entry', price: 200, perk: 'Standard party admission' },
+                { id: 'tier_vip', name: 'VIP Pass', price: 500, perk: 'VIP lounge & front stage access' },
+                { id: 'tier_vvip', name: 'VVIP Experience', price: 1000, perk: 'Dedicated table + bottle service' }
+            ];
+        } else if (preset === 'early_bird') {
+            currentTiers = [
+                { id: 'tier_early', name: 'Early Bird (Limited)', price: 200, perk: 'Discounted advance ticket' },
+                { id: 'tier_regular', name: 'Regular Admission', price: 350, perk: 'Standard gate entry pass' },
+                { id: 'tier_vip', name: 'VIP Experience', price: 600, perk: 'VIP lounge access & free cocktail' }
+            ];
+        } else if (preset === 'single') {
+            currentTiers = [
+                { id: 'tier_single', name: 'Regular Admission', price: 200, perk: 'Standard event ticket pass' }
+            ];
+        }
+        renderTiers();
+    }
+
+    function serializeTiers() {
+        const jsonInput = document.getElementById('ticketTiersJson');
+        const priceInput = document.getElementById('priceInput');
+        const badge = document.getElementById('tiersSummaryBadge');
+        
+        const validTiers = currentTiers.filter(t => t.name && t.price > 0);
+        const sorted = [...validTiers].sort((a, b) => a.price - b.price);
+
+        if (jsonInput) jsonInput.value = JSON.stringify(validTiers);
+
+        if (sorted.length > 0) {
+            const minPrice = sorted[0].price;
+            const maxPrice = sorted[sorted.length - 1].price;
+            if (priceInput) priceInput.value = minPrice;
+            if (badge) {
+                badge.innerText = (minPrice === maxPrice)
+                    ? `${sorted.length} Level (${minPrice} KES)`
+                    : `${sorted.length} Levels (${minPrice} - ${maxPrice} KES)`;
+            }
+        } else {
+            if (priceInput) priceInput.value = 0;
+            if (badge) badge.innerText = "0 Levels Configured";
+        }
+    }
+
     function togglePriceInput(val) {
         const isPaid = (val === 'paid');
-        const priceField = document.getElementById('priceField');
-        const priceInput = document.getElementById('priceInput');
+        const tiersContainer = document.getElementById('ticketTiersContainer');
         const noticeFree = document.getElementById('noticeFree');
         const noticePaid = document.getElementById('noticePaid');
         const feeBox = document.getElementById('feeNoticeBox');
@@ -1146,8 +1347,11 @@
         const phoneNotice = document.getElementById('phoneNotice');
         const feeAmount = parseInt("{{ event_creation_fee }}") || 100;
 
-        if (priceField) {
-            priceField.style.display = isPaid ? 'block' : 'none';
+        if (tiersContainer) {
+            tiersContainer.style.display = isPaid ? 'block' : 'none';
+            if (isPaid) {
+                renderTiers();
+            }
         }
 
         if (isPaid) {
@@ -1157,10 +1361,6 @@
             }
             if (noticeFree) noticeFree.style.display = 'none';
             if (noticePaid) noticePaid.style.display = 'block';
-            if (priceInput) {
-                priceInput.required = true;
-                if (!priceInput.value || priceInput.value === '0') priceInput.value = '';
-            }
             if (btnSubmit) {
                 btnSubmit.innerHTML = `💳 Pay ${feeAmount} KES via M-Pesa & Publish Event`;
                 btnSubmit.style.background = 'linear-gradient(135deg, #047857 0%, #10B981 100%)';
@@ -1176,10 +1376,8 @@
             }
             if (noticeFree) noticeFree.style.display = 'block';
             if (noticePaid) noticePaid.style.display = 'none';
-            if (priceInput) {
-                priceInput.required = false;
-                priceInput.value = '0';
-            }
+            const priceInput = document.getElementById('priceInput');
+            if (priceInput) priceInput.value = '0';
             if (btnSubmit) {
                 btnSubmit.innerHTML = '🚀 Publish Free Event & Generate Shareable Link';
                 btnSubmit.style.background = 'linear-gradient(135deg, #720000 0%, #E60026 100%)';
@@ -1357,13 +1555,14 @@
         e.preventDefault();
         const btn = document.getElementById('btnSubmitCreate');
         const priceType = document.getElementById('priceTypeSelect') ? document.getElementById('priceTypeSelect').value : 'free';
-        const priceInput = document.getElementById('priceInput');
-        const priceVal = priceInput ? parseInt(priceInput.value || 0) : 0;
 
-        if (priceType === 'paid' && (!priceVal || priceVal <= 0)) {
-            alert("Please enter a valid ticket price (greater than 0 KES) for paid events.");
-            if (priceInput) priceInput.focus();
-            return;
+        if (priceType === 'paid') {
+            serializeTiers();
+            const validTiers = currentTiers.filter(t => t.name && t.price > 0);
+            if (validTiers.length === 0) {
+                alert("Please configure at least one ticket tier / entry level (e.g. Regular, VIP, Couple) with a price greater than 0 KES.");
+                return;
+            }
         }
 
         const phoneInput = document.querySelector('input[name="organizer_phone"]');

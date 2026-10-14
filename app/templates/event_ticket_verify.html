@@ -1096,8 +1096,15 @@
                 </div>
             </div>
 
+            <!-- ATTENDEE NAME & PASS TIER -->
             <div class="attendee-name-hero" id="cardAttendeeName">
                 {{ ticket.name }}
+            </div>
+
+            <div style="margin: 6px 0 12px;">
+                <span class="pass-tier-badge" style="display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #111827 0%, #1f2937 100%); color: #f59e0b; border: 1.5px solid #d97706; padding: 6px 14px; border-radius: 50px; font-size: 13px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(0,0,0,0.12);">
+                    👑 PASS LEVEL: {{ ticket.ticket_tier or "General Admission" }}
+                </span>
             </div>
 
             <div class="attendee-contact-sub">
@@ -1128,6 +1135,10 @@
                 <tr>
                     <td>🎉 Event</td>
                     <td>{{ event.title or "Campus Event" }}</td>
+                </tr>
+                <tr>
+                    <td>👑 Pass Level</td>
+                    <td><strong style="color: #b45309; text-transform: uppercase;">{{ ticket.ticket_tier or "General Admission" }}</strong></td>
                 </tr>
                 <tr>
                     <td>📍 Venue</td>
@@ -1163,6 +1174,12 @@
 
             <div class="attendee-name-hero" style="color: #9f1239;">
                 {{ ticket.name }}
+            </div>
+
+            <div style="margin: 4px 0 10px;">
+                <span style="display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 50px; text-transform: uppercase;">
+                    👑 PASS LEVEL: {{ ticket.ticket_tier or "General Admission" }}
+                </span>
             </div>
 
             <p style="font-size: 14px; color: #881337; margin: 0 0 16px; line-height: 1.5;">
@@ -1274,7 +1291,7 @@
                 <tbody id="rosterTableBody">
                     {% if attendees_list %}
                         {% for a in attendees_list %}
-                        <tr class="roster-row" id="roster-row-{{ a.attendee_id }}" data-search="{{ a.name|lower }} {{ a.phone|lower }} {{ a.email|lower }} {{ a.lovi_code|lower }} {{ a.ticket_code|lower }}">
+                        <tr class="roster-row" id="roster-row-{{ a.attendee_id }}" data-search="{{ a.name|lower }} {{ a.phone|lower }} {{ a.email|lower }} {{ a.lovi_code|lower }} {{ a.ticket_code|lower }} {{ (a.ticket_tier or '')|lower }}">
                             <td>
                                 <div class="roster-attendee-cell">
                                     <img src="{{ a.avatar }}" alt="{{ a.name }}" class="roster-avatar" onerror="this.src='/static/img/icon-192.png'">
@@ -1287,6 +1304,11 @@
                                             Single pass
                                             {% endif %}
                                             • {{ a.timestamp_str or 'Registered' }}
+                                        </div>
+                                        <div style="margin-top: 3px;">
+                                            <span style="display: inline-block; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #f59e0b; border: 1px solid #d97706; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase;">
+                                                👑 {{ a.ticket_tier or 'Regular' }}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -1556,6 +1578,7 @@
 
         const t = data.ticket;
         const ev = data.event || {};
+        const tierStr = t.ticket_tier || t.tier_name || 'General Admission';
 
         if (data.status === 'ALREADY_CHECKED_IN') {
             playChime(false);
@@ -1565,6 +1588,11 @@
                         ⚠️ ALREADY ADMITTED / USED PASS
                     </div>
                     <div class="attendee-name-hero" style="color: #9f1239;">${t.name}</div>
+                    <div style="margin: 4px 0 10px;">
+                        <span style="display: inline-block; background: #fee2e2; color: #991b1b; border: 1px solid #f87171; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 50px; text-transform: uppercase;">
+                            👑 PASS LEVEL: ${tierStr}
+                        </span>
+                    </div>
                     <p style="font-size: 14px; color: #881337; margin: 0 0 16px; line-height: 1.5;">
                         This pass has <strong>already been checked in</strong> at the entrance! Do not admit duplicate attendees without checking with head security.
                     </p>
@@ -1580,6 +1608,7 @@
                     </div>
                     <table class="verify-details-table">
                         <tr><td>🎉 Event</td><td>${ev.title || "Campus Event"}</td></tr>
+                        <tr><td>👑 Pass Level</td><td><strong style="color: #be123c; text-transform: uppercase;">${tierStr}</strong></td></tr>
                         <tr><td>⏰ Admitted At</td><td style="color: #be123c;">Checked In Previously</td></tr>
                         <tr><td>👤 Admitted By</td><td>${t.checked_in_by || "Event Admin"}</td></tr>
                     </table>
@@ -1604,6 +1633,12 @@
 
                 <div class="attendee-name-hero">${t.name}</div>
 
+                <div style="margin: 6px 0 12px;">
+                    <span class="pass-tier-badge" style="display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #111827 0%, #0f172a 100%); color: #f59e0b; border: 1.5px solid #d97706; padding: 6px 14px; border-radius: 50px; font-size: 13px; font-weight: 900; letter-spacing: 0.8px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(0,0,0,0.12);">
+                        👑 PASS LEVEL: ${tierStr}
+                    </span>
+                </div>
+
                 <div class="attendee-contact-sub">
                     <span>📧 ${t.email}</span>
                     ${t.phone ? `<span>•</span> <a href="tel:${t.phone}" class="contact-link">📞 ${t.phone}</a>` : ''}
@@ -1623,6 +1658,7 @@
 
                 <table class="verify-details-table">
                     <tr><td>🎉 Event</td><td>${ev.title || "Campus Event"}</td></tr>
+                    <tr><td>👑 Pass Level</td><td><strong style="color: #b45309; text-transform: uppercase;">${tierStr}</strong></td></tr>
                     <tr><td>📍 Venue</td><td>${ev.venue_name || "Campus Location"}</td></tr>
                     <tr><td>👥 Admitted Count</td><td>${plusStr}</td></tr>
                     <tr><td>💵 Admission</td><td>${ev.price_display || "Free Admission"}</td></tr>

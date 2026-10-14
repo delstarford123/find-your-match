@@ -305,6 +305,7 @@ def view_event(event_id):
                     "avatar": a_data.get('avatar') or "/static/img/icon-192.png",
                     "ticket_code": a_data.get('ticket_code', ''),
                     "lovi_code": a_data.get('lovi_code', ''),
+                    "ticket_tier": a_data.get('ticket_tier') or a_data.get('tier_name') or "General Admission",
                     "plus_ones": a_data.get('plus_ones', 0),
                     "checked_in": is_in,
                     "checked_in_at": a_data.get('checked_in_at'),
@@ -414,11 +415,71 @@ def create_event():
     if not location_url:
         location_url = f"https://maps.google.com/?q={venue_name.replace(' ', '+')}"
 
-    # Price display text
-    if price_type == 'free' or price == 0:
-        price_display = "Free Admission"
+    # Parse Ticket Tiers (e.g. Regular, Couple, VIP, VVIP, Early Bird)
+    import json
+    raw_tiers = data.get('ticket_tiers_json') or data.get('ticket_tiers')
+    ticket_tiers = []
+    if raw_tiers:
+        if isinstance(raw_tiers, str):
+            try:
+                ticket_tiers = json.loads(raw_tiers)
+            except Exception as e:
+                logger.warning(f"Could not parse ticket_tiers_json: {e}")
+                ticket_tiers = []
+        elif isinstance(raw_tiers, list):
+            ticket_tiers = raw_tiers
+
+    cleaned_tiers = []
+    if price_type == 'paid':
+        if isinstance(ticket_tiers, list):
+            for idx, t in enumerate(ticket_tiers):
+                if isinstance(t, dict):
+                    t_name = str(t.get('name', '')).strip()
+                    try:
+                        t_price = int(t.get('price', 0) or 0)
+                    except:
+                        t_price = 0
+                    t_perk = str(t.get('perk', '')).strip()
+                    if t_name and t_price > 0:
+                        cleaned_tiers.append({
+                            "id": t.get('id') or f"tier_{idx+1}_{uuid.uuid4().hex[:4]}",
+                            "name": t_name,
+                            "price": t_price,
+                            "perk": t_perk
+                        })
+
+        if cleaned_tiers:
+            cleaned_tiers.sort(key=lambda x: x['price'])
+            min_price = cleaned_tiers[0]['price']
+            max_price = cleaned_tiers[-1]['price']
+            price = min_price
+            if min_price == max_price:
+                price_display = f"{min_price} KES"
+            else:
+                price_display = f"From {min_price} KES"
+        else:
+            if price > 0:
+                cleaned_tiers = [{
+                    "id": "tier_regular",
+                    "name": "Regular / General Admission",
+                    "price": price,
+                    "perk": "Standard Entry Pass"
+                }]
+                price_display = f"{price} KES"
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Please configure at least one ticket tier with a price greater than 0 KES for paid ticketed events."
+                }), 400
     else:
-        price_display = f"{price} KES"
+        price = 0
+        price_display = "Free Admission"
+        cleaned_tiers = [{
+            "id": "tier_free",
+            "name": "Free Admission",
+            "price": 0,
+            "perk": "Free Guest Entry"
+        }]
 
     event_payload = {
         "id": event_id,
@@ -435,6 +496,7 @@ def create_event():
         "price_type": price_type,
         "price": price,
         "price_display": price_display,
+        "ticket_tiers": cleaned_tiers,
         "capacity": capacity,
         "attendees_count": 0,
         "organizer_name": organizer_name,
@@ -449,12 +511,6 @@ def create_event():
 
     # If this is a PAID event (where users are charged for tickets) and creation_fee > 0,
     # the organizer MUST pay the platform listing fee (e.g. 100 KES) via M-Pesa STK push.
-    if price_type == 'paid' and price <= 0:
-        return jsonify({
-            "success": False,
-            "error": "Ticket price must be greater than 0 KES for paid ticketed events. If admission is free, select 'Free Admission'."
-        }), 400
-
     is_paid_event = (price_type == 'paid' and price > 0)
     
     if is_paid_event and event_creation_fee > 0:
@@ -669,12 +725,15 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         u_prof = db.reference(f'profiles/{user_id}').get() or {}
         avatar = u_prof.get('img') or avatar
 
+    ticket_tier = attendee_data.get('ticket_tier') or attendee_data.get('tier_name') or attendee_data.get('tier') or "General Admission"
+
     rsvp_entry = {
         "attendee_id": attendee_id,
         "name": user_name,
         "email": email,
         "phone": phone,
         "avatar": avatar,
+        "ticket_tier": ticket_tier,
         "plus_ones": plus_ones,
         "ticket_code": ticket_code,
         "lovi_code": lovi_code,
@@ -697,6 +756,7 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         "name": user_name,
         "email": email,
         "phone": phone,
+        "ticket_tier": ticket_tier,
         "plus_ones": plus_ones,
         "paid": bool(amount > 0),
         "amount_paid": amount,
@@ -720,7 +780,8 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
             "recipient_name": user_name,
             "event_data": dict(event),
             "ticket_code": ticket_code,
-            "lovi_code": lovi_code
+            "lovi_code": lovi_code,
+            "ticket_tier": ticket_tier
         }
         threading.Thread(target=send_event_ticket_confirmation_email, kwargs=email_kwargs, daemon=True).start()
     except Exception as mail_err:
@@ -738,7 +799,7 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
     # =========================================================================
     if amount > 0:
         organizer_phone = event.get('organizer_phone')
-        logger.info(f"💰 Ticket fee of KES {amount} received! Scheduling payout to organizer {organizer_phone} in 2 minutes (120s)...")
+        logger.info(f"💰 Ticket fee of KES {amount} ({ticket_tier}) received! Scheduling payout to organizer {organizer_phone} in 2 minutes (120s)...")
         schedule_event_organizer_payout(
             event_id=event_id,
             ticket_code=ticket_code,
@@ -750,6 +811,7 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
     return {
         "ticket_code": ticket_code,
         "lovi_code": lovi_code,
+        "ticket_tier": ticket_tier,
         "qr_url": qr_url,
         "verify_url": verify_url,
         "attendees_count": new_count
@@ -761,8 +823,8 @@ def rsvp_event():
     """
     Registers an attendee for an event.
     - If event is free: instantly confirms and issues ticket pass with QR and LOVI code.
-    - If event is paid: initiates M-Pesa STK push. Once paid, funds are directed to event admin
-      number 2 minutes later automatically via M-Pesa B2C.
+    - If event is paid: initiates M-Pesa STK push for the chosen ticket tier (e.g. Regular, Couple, VIP).
+      Once paid, funds are directed to event admin number 2 minutes later automatically via M-Pesa B2C.
     """
     data = request.json or request.form.to_dict()
     event_id = data.get('event_id')
@@ -791,16 +853,41 @@ def rsvp_event():
         return jsonify({"success": False, "error": "Sorry, this event is at maximum capacity!"}), 400
 
     price_type = str(event.get('price_type', 'free')).lower()
-    try:
-        price = int(event.get('price', 0) or 0)
-    except:
-        price = 0
+
+    # Determine Selected Ticket Tier (e.g. Regular, Couple, VIP, VVIP, Early Bird)
+    tier_id = str(data.get('tier_id') or '').strip()
+    tier_name = str(data.get('tier_name') or '').strip()
+    event_tiers = event.get('ticket_tiers', [])
+
+    selected_tier = None
+    if isinstance(event_tiers, list) and event_tiers:
+        if tier_id:
+            selected_tier = next((t for t in event_tiers if isinstance(t, dict) and str(t.get('id')) == tier_id), None)
+        if not selected_tier and tier_name:
+            selected_tier = next((t for t in event_tiers if isinstance(t, dict) and str(t.get('name', '')).strip().lower() == tier_name.lower()), None)
+        if not selected_tier:
+            selected_tier = event_tiers[0]
+
+    if selected_tier and isinstance(selected_tier, dict):
+        try:
+            tier_price = int(selected_tier.get('price', 0) or 0)
+        except:
+            tier_price = 0
+        chosen_tier_name = selected_tier.get('name', 'General Admission')
+        chosen_tier_id = selected_tier.get('id', '')
+    else:
+        try:
+            tier_price = int(event.get('price', 0) or 0)
+        except:
+            tier_price = 0
+        chosen_tier_name = "General Admission"
+        chosen_tier_id = ""
 
     total_tickets = 1 + plus_ones
-    total_amount = price * total_tickets
+    total_amount = tier_price * total_tickets
 
     # If PAID event, initiate STK Push
-    if price > 0 and price_type != 'free':
+    if tier_price > 0 and price_type != 'free':
         formatted_phone = format_phone_number(phone)
         if not formatted_phone or len(formatted_phone) != 12:
             return jsonify({"success": False, "error": "Please provide a valid M-Pesa phone number (e.g. 07XXXXXXXX or 01XXXXXXXX)."}), 400
@@ -809,7 +896,7 @@ def rsvp_event():
         event_title = event.get('title', '').strip()
         account_ref = format_event_account_ref(event_title, event_id)
         desc = f"{account_ref[:8]} Pass" if account_ref else "Event Ticket"
-        logger.info(f"Initiating STK push of KES {total_amount} to {formatted_phone} for event '{event_title}' (AccountRef: '{account_ref}')...")
+        logger.info(f"Initiating STK push of KES {total_amount} for tier '{chosen_tier_name}' to {formatted_phone} (Event: '{event_title}')...")
         res = initiate_stk_push(formatted_phone, total_amount, account_ref, callback_url, desc)
 
         if not res or 'error' in res:
@@ -826,6 +913,10 @@ def rsvp_event():
             "event_title": event_title,
             "account_reference": account_ref,
             "amount": total_amount,
+            "tier_id": chosen_tier_id,
+            "tier_name": chosen_tier_name,
+            "ticket_tier": chosen_tier_name,
+            "tier_price": tier_price,
             "attendee_name": user_name,
             "name": user_name,
             "email": email,
@@ -842,8 +933,10 @@ def rsvp_event():
             "requires_payment": True,
             "checkout_id": checkout_id,
             "amount": total_amount,
+            "tier_name": chosen_tier_name,
+            "ticket_tier": chosen_tier_name,
             "phone": formatted_phone,
-            "message": f"📱 M-Pesa prompt of KES {total_amount} sent to {formatted_phone}. Enter your M-Pesa PIN on your phone to complete your ticket reservation."
+            "message": f"📱 M-Pesa prompt of KES {total_amount} for {chosen_tier_name} sent to {formatted_phone}. Enter your M-Pesa PIN on your phone to complete your ticket reservation."
         })
 
     # Otherwise FREE event
@@ -852,7 +945,8 @@ def rsvp_event():
         "email": email,
         "phone": phone,
         "plus_ones": plus_ones,
-        "user_id": user_id
+        "user_id": user_id,
+        "ticket_tier": chosen_tier_name
     }
     ticket_info = finalize_event_ticket(event_id, attendee_data, receipt="FREE_ADMISSION", amount=0)
 
@@ -861,10 +955,11 @@ def rsvp_event():
         "requires_payment": False,
         "ticket_code": ticket_info['ticket_code'],
         "lovi_code": ticket_info['lovi_code'],
+        "ticket_tier": ticket_info.get('ticket_tier', chosen_tier_name),
         "qr_url": ticket_info['qr_url'],
         "verify_url": ticket_info['verify_url'],
         "attendees_count": ticket_info['attendees_count'],
-        "message": f"🎉 Ticket confirmed! An official ticket pass with QR Code & LOVI Code has been emailed to {email}."
+        "message": f"🎉 Ticket confirmed! An official {chosen_tier_name} pass with QR Code & LOVI Code has been emailed to {email}."
     })
 
 
@@ -886,6 +981,7 @@ def check_event_payment_status(checkout_id):
             "status": "COMPLETED",
             "ticket_code": payment_record.get('ticket_code'),
             "lovi_code": payment_record.get('lovi_code'),
+            "ticket_tier": payment_record.get('ticket_tier') or payment_record.get('tier_name') or "General Admission",
             "qr_url": payment_record.get('qr_url'),
             "verify_url": payment_record.get('verify_url'),
             "message": "Payment confirmed! Your ticket pass is ready."
@@ -910,6 +1006,7 @@ def check_event_payment_status(checkout_id):
             "receipt": receipt,
             "ticket_code": ticket_info['ticket_code'],
             "lovi_code": ticket_info['lovi_code'],
+            "ticket_tier": ticket_info.get('ticket_tier'),
             "qr_url": ticket_info['qr_url'],
             "verify_url": ticket_info['verify_url'],
             "completed_at": int(time.time() * 1000)
@@ -919,6 +1016,7 @@ def check_event_payment_status(checkout_id):
             "status": "COMPLETED",
             "ticket_code": ticket_info['ticket_code'],
             "lovi_code": ticket_info['lovi_code'],
+            "ticket_tier": ticket_info.get('ticket_tier'),
             "qr_url": ticket_info['qr_url'],
             "verify_url": ticket_info['verify_url'],
             "message": "Payment verified! Your ticket pass is ready."
@@ -968,11 +1066,12 @@ def mpesa_event_callback():
                 "receipt": receipt,
                 "ticket_code": ticket_info['ticket_code'],
                 "lovi_code": ticket_info['lovi_code'],
+                "ticket_tier": ticket_info.get('ticket_tier'),
                 "qr_url": ticket_info['qr_url'],
                 "verify_url": ticket_info['verify_url'],
                 "completed_at": int(time.time() * 1000)
             })
-            logger.info(f"✅ EVENT TICKET ISSUED via callback: {ticket_info['ticket_code']} receipt={receipt}")
+            logger.info(f"✅ EVENT TICKET ISSUED via callback: {ticket_info['ticket_code']} ({ticket_info.get('ticket_tier')}) receipt={receipt}")
         else:
             fail_desc = stk_callback.get('ResultDesc', 'Payment failed')
             pending_ref.update({
@@ -1112,6 +1211,17 @@ def find_ticket_record(code: str):
     if not ticket_record:
         return None, None, f"No ticket or registration found matching code '{code}'."
 
+    # Ensure ticket_tier is populated on ticket_record
+    if not ticket_record.get('ticket_tier'):
+        eid = ticket_record.get('event_id')
+        aid = ticket_record.get('attendee_id')
+        if eid and aid:
+            att = db.reference(f'events_rsvps/{eid}/{aid}').get() or {}
+            if isinstance(att, dict):
+                ticket_record['ticket_tier'] = att.get('ticket_tier') or att.get('tier_name')
+        if not ticket_record.get('ticket_tier'):
+            ticket_record['ticket_tier'] = 'General Admission'
+
     # Fetch event details
     event_id = ticket_record.get('event_id')
     event_data = {}
@@ -1205,6 +1315,7 @@ def verify_ticket_page(ticket_code=None):
                         "avatar": a.get('avatar') or "/static/img/icon-192.png",
                         "ticket_code": a.get('ticket_code', ''),
                         "lovi_code": a.get('lovi_code', ''),
+                        "ticket_tier": a.get('ticket_tier') or a.get('tier_name') or ("Free Pass" if not a.get('paid') else "General Admission"),
                         "plus_ones": a.get('plus_ones', 0),
                         "checked_in": is_in,
                         "checked_in_at": a.get('checked_in_at'),
