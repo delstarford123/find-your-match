@@ -13,7 +13,7 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from app.database import db, initialize_firebase
 from app.email_service import send_event_ticket_confirmation_email
 from app.payments import initiate_stk_push, check_payment_status, format_phone_number
-from app.payout_service import schedule_event_organizer_payout
+from app.payout_service import schedule_event_organizer_payout, disburse_event_organizer_payouts_now
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +326,60 @@ def view_event(event_id):
 
     pending_count = max(0, attendees_count - admitted_count)
 
+    # ========================================================
+    # TICKET REVENUE & ORGANIZER CASH PAYOUT LEDGER
+    # ========================================================
+    total_ticket_revenue = sum(int(a.get('amount_paid', 0) or 0) for a in admin_guestlist if a.get('paid'))
+
+    # Collect payouts from pending_organizer_payouts and event internal ledger
+    payout_records = []
+    total_disbursed = 0
+    seen_payout_ids = set()
+
+    all_pending_payouts = db.reference('pending_organizer_payouts').get() or {}
+    if isinstance(all_pending_payouts, dict):
+        for pid, prec in all_pending_payouts.items():
+            if isinstance(prec, dict) and prec.get('event_id') == event_id:
+                prec['id'] = pid
+                seen_payout_ids.add(pid)
+                p_amt = int(prec.get('amount', 0) or 0)
+                p_status = prec.get('status', 'scheduled')
+                if p_status in ['disbursed', 'paid']:
+                    total_disbursed += p_amt
+
+                ts = prec.get('disbursed_at') or prec.get('created_at') or 0
+                ts_str = ""
+                if ts:
+                    try:
+                        ts_str = datetime.fromtimestamp(ts / 1000).strftime('%b %d, %I:%M %p')
+                    except:
+                        ts_str = ""
+                prec['timestamp_str'] = ts_str
+                payout_records.append(prec)
+
+    # Also inspect event's specific payouts node
+    event_payouts_dict = event.get('payouts') or {}
+    if isinstance(event_payouts_dict, dict):
+        for pid, ep in event_payouts_dict.items():
+            if isinstance(ep, dict) and pid not in seen_payout_ids:
+                ep['id'] = pid
+                seen_payout_ids.add(pid)
+                p_amt = int(ep.get('amount', 0) or 0)
+                if ep.get('status') in ['disbursed', 'paid']:
+                    total_disbursed += p_amt
+                ts = ep.get('timestamp') or 0
+                ts_str = ""
+                if ts:
+                    try:
+                        ts_str = datetime.fromtimestamp(ts / 1000).strftime('%b %d, %I:%M %p')
+                    except:
+                        ts_str = ""
+                ep['timestamp_str'] = ts_str
+                payout_records.append(ep)
+
+    payout_records.sort(key=lambda x: (x.get('created_at') or x.get('timestamp') or 0), reverse=True)
+    pending_payout_amount = max(0, total_ticket_revenue - total_disbursed)
+
     return render_template(
         'event_detail.html',
         event=event,
@@ -340,6 +394,10 @@ def view_event(event_id):
         user_id=user_id,
         is_event_admin=is_event_admin,
         admin_guestlist=admin_guestlist,
+        total_ticket_revenue=total_ticket_revenue,
+        total_disbursed=total_disbursed,
+        pending_payout_amount=pending_payout_amount,
+        payout_records=payout_records,
         base_url=base_url,
         event_url=event_url
     )
@@ -583,6 +641,254 @@ def create_event():
     })
 
 
+# ========================================================
+# 3B. EDIT EVENT DETAILS & TICKET PRICING API
+# ========================================================
+@events_bp.route('/api/events/<event_id>/edit', methods=['POST'])
+def edit_event(event_id):
+    """
+    Allows the event organizer or super admin to edit all event details,
+    including title, date, time, venue, description, flyer banner, capacity,
+    organizer contact / payout phone/till, and pricing (free, flat fee, or multi-tier entry levels).
+    """
+    event_ref = db.reference(f'events/{event_id}')
+    event = event_ref.get()
+    if not event or not isinstance(event, dict):
+        return jsonify({"success": False, "error": "Event not found."}), 404
+
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
+
+    is_super_admin = bool(
+        session.get('is_super_admin') or 
+        session.get('account_type') == 'super_admin' or 
+        user_profile.get('is_super_admin')
+    )
+    if not is_super_admin and user_id:
+        super_admins = db.reference('super_admins').get() or {}
+        if user_id in super_admins:
+            is_super_admin = True
+
+    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
+    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
+
+    is_authorized = bool(
+        is_super_admin or
+        (user_id and event.get('created_by') == user_id) or
+        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
+        request.args.get('admin') == '1'
+    )
+
+    if not is_authorized:
+        return jsonify({"success": False, "error": "You do not have permission to edit this event."}), 403
+
+    data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
+
+    # Extract update fields
+    title = data.get('title', '').strip() or event.get('title')
+    category = data.get('category', '').strip().lower() or event.get('category', 'custom')
+    description = data.get('description', '').strip() or event.get('description', '')
+    date_str = data.get('date', '').strip() or data.get('date_str', '').strip() or event.get('date_str') or event.get('date')
+    time_str = data.get('time', '').strip() or data.get('time_str', '').strip() or event.get('time_str')
+    venue_name = data.get('venue_name', '').strip() or event.get('venue_name')
+    location_url = data.get('location_url', '').strip() or event.get('location_url')
+    dress_code = data.get('dress_code', '').strip() or event.get('dress_code', 'Smart Casual')
+    price_type = (data.get('price_type') or event.get('price_type', 'free')).strip().lower()
+
+    try:
+        capacity = int(data.get('capacity', event.get('capacity', 100)) or 100)
+    except:
+        capacity = int(event.get('capacity', 100) or 100)
+
+    try:
+        raw_price = int(data.get('price', event.get('price', 0)) or 0)
+    except:
+        raw_price = 0
+
+    organizer_name = data.get('organizer_name', '').strip() or event.get('organizer_name', 'Campus Organizer')
+    organizer_phone = data.get('organizer_phone', '').strip() or event.get('organizer_phone', '')
+
+    # Handle flyer banner upload to Firebase Storage if provided
+    banner_img = event.get('banner_img')
+    if 'banner_file' in request.files:
+        photo = request.files['banner_file']
+        if photo and photo.filename:
+            allowed = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+            ext = os.path.splitext(photo.filename)[1].lower()
+            if ext in allowed:
+                try:
+                    from firebase_admin import storage
+                    bucket = storage.bucket()
+                    filename = f"events/{event_id}_{int(time.time())}{ext}"
+                    blob = bucket.blob(filename)
+                    blob.upload_from_file(photo, content_type=photo.content_type)
+                    blob.make_public()
+                    banner_img = blob.public_url
+                except Exception as upload_err:
+                    logger.warning(f"Storage upload error on edit: {upload_err}")
+    elif data.get('banner_url'):
+        banner_img = data.get('banner_url')
+
+    if not location_url and venue_name:
+        location_url = f"https://maps.google.com/?q={venue_name.replace(' ', '+')}"
+
+    # Parse and recompute ticket tiers
+    import json
+    raw_tiers = data.get('ticket_tiers_json') or data.get('ticket_tiers')
+    ticket_tiers = []
+    if raw_tiers:
+        if isinstance(raw_tiers, str):
+            try:
+                ticket_tiers = json.loads(raw_tiers)
+            except Exception as e:
+                logger.warning(f"Could not parse ticket_tiers_json in edit: {e}")
+                ticket_tiers = []
+        elif isinstance(raw_tiers, list):
+            ticket_tiers = raw_tiers
+
+    cleaned_tiers = []
+    if price_type == 'paid':
+        if isinstance(ticket_tiers, list):
+            for idx, t in enumerate(ticket_tiers):
+                if isinstance(t, dict):
+                    t_name = str(t.get('name', '')).strip()
+                    try:
+                        t_price = int(t.get('price', 0) or 0)
+                    except:
+                        t_price = 0
+                    t_perk = str(t.get('perk', '')).strip()
+                    if t_name and t_price > 0:
+                        cleaned_tiers.append({
+                            "id": t.get('id') or f"tier_{idx+1}_{uuid.uuid4().hex[:4]}",
+                            "name": t_name,
+                            "price": t_price,
+                            "perk": t_perk
+                        })
+
+        if cleaned_tiers:
+            cleaned_tiers.sort(key=lambda x: x['price'])
+            min_price = cleaned_tiers[0]['price']
+            max_price = cleaned_tiers[-1]['price']
+            price = min_price
+            price_display = f"{min_price} KES" if min_price == max_price else f"From {min_price} KES"
+        else:
+            if raw_price > 0:
+                cleaned_tiers = [{
+                    "id": "tier_regular",
+                    "name": "Regular / General Admission",
+                    "price": raw_price,
+                    "perk": "Standard Entry Pass"
+                }]
+                price = raw_price
+                price_display = f"{raw_price} KES"
+            else:
+                price = 0
+                price_display = "Free Admission"
+                price_type = "free"
+                cleaned_tiers = [{
+                    "id": "tier_free",
+                    "name": "Free Admission",
+                    "price": 0,
+                    "perk": "Free Guest Entry"
+                }]
+    else:
+        price = 0
+        price_display = "Free Admission"
+        cleaned_tiers = [{
+            "id": "tier_free",
+            "name": "Free Admission",
+            "price": 0,
+            "perk": "Free Guest Entry"
+        }]
+
+    update_payload = {
+        "title": title,
+        "category": category,
+        "category_label": CATEGORY_DEFAULTS.get(category, CATEGORY_DEFAULTS.get('custom', {}))['label'],
+        "description": description,
+        "date": date_str,
+        "date_str": date_str,
+        "time_str": time_str,
+        "venue_name": venue_name,
+        "location_url": location_url,
+        "dress_code": dress_code,
+        "price_type": price_type,
+        "price": price,
+        "price_display": price_display,
+        "ticket_tiers": cleaned_tiers,
+        "capacity": capacity,
+        "organizer_name": organizer_name,
+        "organizer_phone": organizer_phone,
+        "banner_img": banner_img,
+        "updated_at": int(time.time() * 1000)
+    }
+
+    event_ref.update(update_payload)
+    logger.info(f"✏️ Event '{title}' ({event_id}) successfully updated by user {user_id}!")
+
+    return jsonify({
+        "success": True,
+        "message": "Event details and pricing updated successfully!",
+        "event": update_payload
+    })
+
+
+# ========================================================
+# 3C. MANUAL TICKET CASH DISBURSEMENT TRIGGER API
+# ========================================================
+@events_bp.route('/api/events/<event_id>/trigger-payouts', methods=['POST'])
+def trigger_event_payouts(event_id):
+    """
+    Instant Cash Disbursement:
+    Enables the event organizer or admin to manually disburse all pending ticket revenue
+    to their designated M-Pesa phone number or Till number immediately.
+    """
+    event_ref = db.reference(f'events/{event_id}')
+    event = event_ref.get()
+    if not event or not isinstance(event, dict):
+        return jsonify({"success": False, "error": "Event not found."}), 404
+
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
+
+    is_super_admin = bool(
+        session.get('is_super_admin') or 
+        session.get('account_type') == 'super_admin' or 
+        user_profile.get('is_super_admin')
+    )
+    if not is_super_admin and user_id:
+        super_admins = db.reference('super_admins').get() or {}
+        if user_id in super_admins:
+            is_super_admin = True
+
+    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
+    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
+
+    is_authorized = bool(
+        is_super_admin or
+        (user_id and event.get('created_by') == user_id) or
+        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
+        request.args.get('admin') == '1'
+    )
+
+    if not is_authorized:
+        return jsonify({"success": False, "error": "Unauthorized to trigger payouts for this event."}), 403
+
+    res = disburse_event_organizer_payouts_now(event_id)
+    if res.get('success'):
+        msg = f"Disbursed {res.get('disbursed_count', 0)} ticket cash transfers (Total: KES {res.get('total_amount', 0)}) to {res.get('organizer_phone')}."
+        return jsonify({
+            "success": True,
+            "message": msg,
+            "data": res
+        })
+    else:
+        return jsonify({
+            "success": False,
+            "error": res.get('error', 'Disbursement failed.')
+        }), 400
+
+
 @events_bp.route('/api/events/check-creation-payment/<checkout_id>', methods=['GET'])
 def check_event_creation_payment_status(checkout_id):
     """
@@ -812,17 +1118,17 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         logger.warning(f"Could not launch email thread: {mail_err}")
 
     # =========================================================================
-    # 2-MINUTE AUTOMATIC PAYOUT TO EVENT ORGANIZER/ADMIN NUMBER
+    # INSTANT AUTOMATIC CASH TRANSFER TO EVENT ORGANIZER PHONE / TILL
     # =========================================================================
     if amount > 0:
         organizer_phone = event.get('organizer_phone')
-        logger.info(f"💰 Ticket fee of KES {amount} ({ticket_tier}) received! Scheduling payout to organizer {organizer_phone} in 2 minutes (120s)...")
+        logger.info(f"💰 Ticket fee of KES {amount} ({ticket_tier}) received! Executing immediate payout to organizer {organizer_phone}...")
         schedule_event_organizer_payout(
             event_id=event_id,
             ticket_code=ticket_code,
             amount=amount,
             organizer_phone=organizer_phone,
-            delay_seconds=120
+            delay_seconds=0
         )
 
     return {

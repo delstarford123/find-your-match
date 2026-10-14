@@ -302,10 +302,88 @@ def initiate_b2c_payout(
                 err_msg = data.get('errorMessage') or data.get('ResponseDescription') or str(data)
                 logger.warning(f"⚠️ B2C from {b2c_url}: {err_msg}")
                 last_error = err_msg
-
         except Exception as e:
-            logger.error(f"❌ B2C request exception on {b2c_url}: {e}")
+            logger.error(f"❌ B2C request exception for {b2c_url}: {e}")
             last_error = str(e)
 
     return {"success": False, "error": last_error or "B2C request failed."}
+
+
+# ==========================================
+# M-PESA B2B PAYOUT SERVICE (BUSINESS TRANSFERS)
+# ==========================================
+def initiate_b2b_payout(
+    receiver_shortcode: str,
+    amount: float or int,
+    command_id: str = "BusinessPayBill",
+    remarks: str = "Event Ticket Payout",
+    account_reference: str = "TicketCash"
+):
+    """
+    Dispatches an automated B2B transfer from Shortcode 4050545 to an external Till or Paybill.
+    Supports:
+    - command_id="BusinessPayBill" (to Paybill)
+    - command_id="BusinessBuyGoods" (to Till Number)
+    """
+    token = get_access_token()
+    if not token:
+        logger.error("❌ B2B Payout failed: Could not obtain M-Pesa access token.")
+        return {"success": False, "error": "Failed to authenticate with M-Pesa."}
+
+    initiator = os.getenv("DARAJA_INITIATOR_NAME") or "Delstarford Api"
+    credential = os.getenv("DARAJA_SECURITY_CREDENTIAL") or "fwrS8i2o7+s/XdCz+jl05zQyQgsOv/y6o4tGRETOMqk/3mccnywYx+YngcZgxOWicaEAqzi0U7UoTak83d7QeSJ+F87HER2077r00aB90sLxxZ8/JDoJWNPf6a4xl1Ovd4FesrqfIN6HZcaCfTZU+1gx68vq6cpuKijr6SJ1aHOeCE+tqEbQs2pEllQmb+AefNg+PH2A2ElkBjjKKfMNoEw6GixZeRVewQFloDA2Ymf2Fp67zbvXlMJAIScHViS8h4yNUEtsSwODv1F7TkqbSfNtrMDJ4AilJ3kzXx0rSd8NWnSWZ0pVQOb91qJOhKnvzbm2IEIq+dk9Kw5FtIe07w=="
+    shortcode = os.getenv("BUSINESS_SHORT_CODE") or os.getenv("MPESA_SHORTCODE") or "4050545"
+    timeout_url = os.getenv("DARAJA_B2C_TIMEOUT_URL") or "https://www.findyourmatch.co.ke/mpesa/b2c/timeout"
+    result_url = os.getenv("DARAJA_B2C_RESULT_URL") or "https://www.findyourmatch.co.ke/mpesa/b2c/result"
+
+    try:
+        clean_amount = int(round(float(amount)))
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"Invalid payout amount: {amount}"}
+
+    clean_receiver = ''.join(filter(str.isdigit, str(receiver_shortcode)))
+    if not clean_receiver:
+        return {"success": False, "error": "Receiver Till/Paybill number is required."}
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "Initiator": initiator,
+        "SecurityCredential": credential,
+        "CommandID": command_id,
+        "SenderIdentifierType": "4",
+        "RecieverIdentifierType": "4" if command_id == "BusinessPayBill" else "2",
+        "Amount": clean_amount,
+        "PartyA": shortcode,
+        "PartyB": clean_receiver,
+        "AccountReference": str(account_reference)[:12],
+        "Remarks": str(remarks)[:95],
+        "QueueTimeOutURL": timeout_url,
+        "ResultURL": result_url
+    }
+
+    b2b_url = f"{BASE_URL}/mpesa/b2b/v1/paymentrequest"
+    try:
+        logger.info(f"📤 Sending B2B Payout: KES {clean_amount} to {clean_receiver} ({command_id})...")
+        res = requests.post(b2b_url, json=payload, headers=headers, timeout=25)
+        data = res.json()
+        if res.status_code in [200, 201] and (data.get('ResponseCode') == '0' or 'ConversationID' in data):
+            logger.info(f"✅ B2B Disbursed Successfully: ConversationID={data.get('ConversationID')}")
+            return {
+                "success": True,
+                "ConversationID": data.get('ConversationID'),
+                "OriginatorConversationID": data.get('OriginatorConversationID'),
+                "ResponseDescription": data.get('ResponseDescription', 'Accepted'),
+                "data": data
+            }
+        else:
+            err_msg = data.get('errorMessage') or data.get('ResponseDescription') or str(data)
+            logger.warning(f"⚠️ B2B response: {err_msg}")
+            return {"success": False, "error": err_msg}
+    except Exception as e:
+        logger.error(f"❌ B2B request exception: {e}")
+        return {"success": False, "error": str(e)}
 

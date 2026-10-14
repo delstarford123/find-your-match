@@ -1007,6 +1007,106 @@
         margin-top: 2px;
         padding-right: 24px;
     }
+
+    /* === EDIT EVENT MODAL & TIER BUILDER === */
+    .edit-event-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 10000;
+        justify-content: center;
+        align-items: center;
+        padding: 16px;
+        overflow-y: auto;
+    }
+    .edit-event-modal.active {
+        display: flex;
+    }
+    .edit-modal-dialog {
+        background: #ffffff;
+        border-radius: 24px;
+        width: 100%;
+        max-width: 680px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        position: relative;
+        animation: editModalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes editModalSlideUp {
+        from { opacity: 0; transform: translateY(20px) scale(0.97); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .edit-modal-header {
+        position: sticky;
+        top: 0;
+        background: #ffffff;
+        padding: 18px 24px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 10;
+    }
+    .edit-modal-body {
+        padding: 24px;
+    }
+    .edit-input-group {
+        margin-bottom: 16px;
+    }
+    .edit-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 6px;
+    }
+    .edit-input, .edit-select, .edit-textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 12px;
+        font-size: 14px;
+        color: #0f172a;
+        background: #f8fafc;
+        transition: all 0.2s;
+        outline: none;
+        font-family: inherit;
+    }
+    .edit-input:focus, .edit-select:focus, .edit-textarea:focus {
+        border-color: #720000;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(114, 0, 0, 0.1);
+    }
+    .tier-row-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 10px;
+        margin-bottom: 10px;
+        display: grid;
+        grid-template-columns: 1.5fr 1fr 2fr auto;
+        gap: 8px;
+        align-items: center;
+    }
+    @media (max-width: 600px) {
+        .tier-row-item {
+            grid-template-columns: 1fr 1fr;
+        }
+        .tier-row-item .tier-perk-input {
+            grid-column: span 2;
+        }
+        .tier-row-item .btn-remove-tier {
+            grid-column: span 2;
+        }
+    }
 </style>
 
 <div class="event-page-container">
@@ -1216,6 +1316,9 @@
                         <h3 style="margin: 0; font-size: clamp(17px, 3.5vw, 19px); color: #0f172a;">Door Entrance & Guestlist</h3>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" onclick="openEditEventModal()" class="btn-edit-event-main" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; border: 1px solid #334155; padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(15,23,42,0.15); transition: transform 0.15s;">
+                            ✏️ Edit Event & Pricing
+                        </button>
                         <a href="/events/verify-ticket?event={{ event.id }}" class="btn-door-scanner-main" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(230,0,38,0.3); transition: transform 0.15s;">
                             📱 Launch Door Scanner & LOVI Code
                         </a>
@@ -1345,6 +1448,111 @@
                     No attendees have registered for this event yet.
                 </p>
                 {% endif %}
+
+                <!-- TICKET SALES CASH & ORGANIZER PAYOUTS LEDGER -->
+                <div style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed #fecdd3;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: #15803d; color: white; padding: 4px 10px; border-radius: 50px; font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;">
+                                💰 Cash & Payouts
+                            </span>
+                            <h4 style="margin: 0; font-size: clamp(16px, 3.5vw, 18px); color: #0f172a;">Ticket Sales Revenue & M-Pesa Transfers</h4>
+                        </div>
+                        {% if pending_payout_amount > 0 %}
+                        <button type="button" onclick="triggerOrganizerPayout('{{ event.id }}')" id="btnDisbursePayouts" style="background: linear-gradient(135deg, #15803d 0%, #10b981 100%); color: white; border: none; padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(16,185,129,0.3); transition: transform 0.15s;">
+                            ⚡ Disburse Pending Cash (KES {{ pending_payout_amount }})
+                        </button>
+                        {% else %}
+                        <span style="font-size: 12px; font-weight: 800; color: #166534; background: #dcfce7; padding: 6px 12px; border-radius: 50px; display: inline-flex; align-items: center; gap: 4px;">
+                            ✅ All Ticket Cash Disbursed
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- FINANCIAL SUMMARY METRICS -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 18px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; text-align: center;">
+                            <div style="font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase;">Total Ticket Revenue</div>
+                            <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #0f172a;">KES {{ total_ticket_revenue }}</div>
+                        </div>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 14px; text-align: center;">
+                            <div style="font-size: 10px; font-weight: 800; color: #166534; text-transform: uppercase;">Disbursed to Organizer</div>
+                            <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: #15803d;">KES {{ total_disbursed }}</div>
+                        </div>
+                        <div style="background: {% if pending_payout_amount > 0 %}#fff1f2{% else %}#f8fafc{% endif %}; border: 1px solid {% if pending_payout_amount > 0 %}#fecdd3{% else %}#e2e8f0{% endif %}; border-radius: 14px; padding: 14px; text-align: center;">
+                            <div style="font-size: 10px; font-weight: 800; color: {% if pending_payout_amount > 0 %}#9f1239{% else %}#64748b{% endif %}; text-transform: uppercase;">Pending Cash Balance</div>
+                            <div style="font-size: clamp(20px, 4vw, 24px); font-weight: 900; color: {% if pending_payout_amount > 0 %}#be123c{% else %}#0f172a{% endif %};" id="displayPendingPayoutAmt">KES {{ pending_payout_amount }}</div>
+                        </div>
+                        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 14px; padding: 14px; text-align: center;">
+                            <div style="font-size: 10px; font-weight: 800; color: #1e40af; text-transform: uppercase;">Payout Target Destination</div>
+                            <div style="font-size: 14px; font-weight: 900; color: #1e3a8a; font-family: monospace; word-break: break-all;">
+                                {{ event.organizer_phone or 'Not set' }}
+                            </div>
+                            <div style="font-size: 10px; color: #3b82f6; font-weight: 700; margin-top: 3px;">
+                                {% if event.organizer_phone and event.organizer_phone|length <= 7 %}
+                                🏢 Till / Buy Goods (B2B)
+                                {% else %}
+                                📱 Mobile Line (B2C)
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DISBURSEMENT TRANSACTIONS TABLE -->
+                    {% if payout_records %}
+                    <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 10px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; min-width: 550px;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; text-align: left;">
+                                    <th style="padding: 10px 12px;">Date & Time</th>
+                                    <th style="padding: 10px 12px;">Ticket / Reference</th>
+                                    <th style="padding: 10px 12px;">Target Destination</th>
+                                    <th style="padding: 10px 12px;">Amount</th>
+                                    <th style="padding: 10px 12px;">Transfer Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in payout_records %}
+                                <tr style="border-bottom: 1px solid #f1f5f9; background: white;">
+                                    <td style="padding: 10px 12px; color: #64748b; white-space: nowrap;">
+                                        {{ p.timestamp_str or 'Recent' }}
+                                    </td>
+                                    <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; color: #0f172a;">
+                                        {{ p.ticket_code or p.id }}
+                                    </td>
+                                    <td style="padding: 10px 12px;">
+                                        <span style="font-weight: 700; color: #334155; font-family: monospace;">{{ p.phone or p.organizer_phone or event.organizer_phone }}</span>
+                                        <span style="font-size: 10px; color: #64748b; margin-left: 4px;">({{ p.channel or ('B2B Till' if (p.phone|length <= 7) else 'B2C') }})</span>
+                                    </td>
+                                    <td style="padding: 10px 12px; font-weight: 900; color: #15803d; white-space: nowrap;">
+                                        KES {{ p.amount }}
+                                    </td>
+                                    <td style="padding: 10px 12px;">
+                                        {% if p.status in ['disbursed', 'paid'] %}
+                                        <span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 50px; font-size: 10px; font-weight: 800;">
+                                            ✅ Disbursed ({{ p.conversation_id[:10] if p.conversation_id else 'OK' }})
+                                        </span>
+                                        {% elif p.status == 'processing' %}
+                                        <span style="background: #fef3c7; color: #b45309; padding: 3px 8px; border-radius: 50px; font-size: 10px; font-weight: 800;">
+                                            ⏳ Processing...
+                                        </span>
+                                        {% else %}
+                                        <span style="background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 50px; font-size: 10px; font-weight: 800;" title="{{ p.error or '' }}">
+                                            ❌ Failed (Will retry)
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div style="background: #f8fafc; border-radius: 12px; padding: 14px; text-align: center; color: #64748b; font-size: 13px;">
+                        No payouts initiated yet. When attendees buy paid tickets via M-Pesa, cash is transferred straight to your destination number!
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
 
@@ -1667,6 +1875,153 @@
                 📥 Open Full Size
             </a>
         </div>
+    </div>
+</div>
+
+<!-- EDIT EVENT & PRICING MODAL -->
+<div id="editEventModal" class="edit-event-modal" onclick="closeEditEventModal(event)">
+    <div class="edit-modal-dialog" onclick="event.stopPropagation()">
+        <div class="edit-modal-header">
+            <div>
+                <h3 style="margin: 0; font-size: 19px; color: #0f172a; font-weight: 900;">✏️ Edit Event & Pricing</h3>
+                <p style="margin: 2px 0 0; font-size: 12px; color: #64748b;">Update your event details, ticket price tiers, and M-Pesa payout number.</p>
+            </div>
+            <button type="button" onclick="closeEditEventModal()" style="background: #f1f5f9; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; font-weight: bold; cursor: pointer; color: #475569; display: flex; align-items: center; justify-content: center;">✕</button>
+        </div>
+
+        <form id="editEventForm" onsubmit="handleEditEventSubmit(event)" class="edit-modal-body">
+            <!-- Event Title -->
+            <div class="edit-input-group">
+                <label class="edit-label">Event Title <span style="color: #e11d48;">*</span></label>
+                <input type="text" id="editTitle" name="title" value="{{ event.title }}" required class="edit-input" placeholder="e.g. Kakamega All Black Affair">
+            </div>
+
+            <!-- Category & Capacity -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="edit-input-group">
+                    <label class="edit-label">Category</label>
+                    <select id="editCategory" name="category" class="edit-select">
+                        <option value="bash" {% if event.category == 'bash' %}selected{% endif %}>Campus Bash 🎉</option>
+                        <option value="pool_party" {% if event.category == 'pool_party' %}selected{% endif %}>Pool Party 🏊</option>
+                        <option value="house_party" {% if event.category == 'house_party' %}selected{% endif %}>House Party 🏡</option>
+                        <option value="birthday" {% if event.category == 'birthday' %}selected{% endif %}>Birthday Party 🎂</option>
+                        <option value="club_night" {% if event.category == 'club_night' %}selected{% endif %}>Club Night 🍾</option>
+                        <option value="rave" {% if event.category == 'rave' %}selected{% endif %}>Rave / Fest ⚡</option>
+                        <option value="concert" {% if event.category == 'concert' %}selected{% endif %}>Live Concert 🎤</option>
+                        <option value="custom" {% if event.category == 'custom' or not event.category %}selected{% endif %}>Custom Event 🎈</option>
+                    </select>
+                </div>
+                <div class="edit-input-group">
+                    <label class="edit-label">Capacity (Max Guests)</label>
+                    <input type="number" id="editCapacity" name="capacity" value="{{ event.capacity or 100 }}" min="1" class="edit-input">
+                </div>
+            </div>
+
+            <!-- Date & Time -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="edit-input-group">
+                    <label class="edit-label">Date <span style="color: #e11d48;">*</span></label>
+                    <input type="date" id="editDate" name="date" value="{{ event.date_str or event.date }}" required class="edit-input">
+                </div>
+                <div class="edit-input-group">
+                    <label class="edit-label">Time / Schedule</label>
+                    <input type="text" id="editTime" name="time" value="{{ event.time_str or '7:00 PM Till Late' }}" class="edit-input" placeholder="e.g. 7:00 PM Till Dawn">
+                </div>
+            </div>
+
+            <!-- Venue & Google Maps Pin URL -->
+            <div class="edit-input-group">
+                <label class="edit-label">Venue Name <span style="color: #e11d48;">*</span></label>
+                <input type="text" id="editVenue" name="venue_name" value="{{ event.venue_name }}" required class="edit-input" placeholder="e.g. Galaxy Lounge, Kakamega">
+            </div>
+            <div class="edit-input-group">
+                <label class="edit-label">Google Maps Link (Optional)</label>
+                <input type="url" id="editLocationUrl" name="location_url" value="{{ event.location_url or '' }}" class="edit-input" placeholder="https://maps.google.com/...">
+            </div>
+
+            <!-- Dress Code -->
+            <div class="edit-input-group">
+                <label class="edit-label">Dress Code</label>
+                <input type="text" id="editDressCode" name="dress_code" value="{{ event.dress_code or 'Smart Casual' }}" class="edit-input" placeholder="e.g. All Black Everything, Smart Casual">
+            </div>
+
+            <!-- Flyer Banner Upload / Replace -->
+            <div class="edit-input-group" style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 14px; padding: 14px;">
+                <label class="edit-label">Flyer Banner Image</label>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    <img src="{{ banner_url }}" alt="Current Flyer" id="editFlyerPreview" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;" onerror="this.src='/static/img/icon-512.png'">
+                    <div style="font-size: 12px; color: #64748b;">
+                        <div><strong>Current Flyer Active</strong></div>
+                        <div>Select a new file below if you want to replace this flyer banner.</div>
+                    </div>
+                </div>
+                <input type="file" id="editBannerFile" name="banner_file" accept="image/*" class="edit-input" style="background: white; padding: 8px;" onchange="previewEditFlyer(this)">
+            </div>
+
+            <!-- Organizer Name & Payout Destination Number -->
+            <div style="background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 14px; padding: 16px; margin-bottom: 18px;">
+                <div style="font-size: 13px; font-weight: 800; color: #9f1239; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <span>💰</span> Organizer M-Pesa Ticket Cash Transfer Destination
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <label class="edit-label" style="font-size: 12px;">Organizer Name</label>
+                        <input type="text" id="editOrganizerName" name="organizer_name" value="{{ event.organizer_name or '' }}" class="edit-input" placeholder="e.g. Captain Joe">
+                    </div>
+                    <div>
+                        <label class="edit-label" style="font-size: 12px;">M-Pesa Phone / Till Number <span style="color: #e11d48;">*</span></label>
+                        <input type="text" id="editOrganizerPhone" name="organizer_phone" value="{{ event.organizer_phone or '' }}" required class="edit-input" placeholder="07XXXXXXXX or Till 5266608">
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: #be123c; margin-top: 8px; line-height: 1.4;">
+                    ⚡ <strong>Automated Cash Transfers:</strong> When an attendee pays for their ticket via M-Pesa, the cash is transferred immediately to this destination! Supports both personal numbers (07XXXXXXXX / 01XXXXXXXX via B2C) and merchant shortcodes (Till 5266608 or Paybill via B2B).
+                </div>
+            </div>
+
+            <!-- Ticket Pricing & Entry Levels Builder -->
+            <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 16px; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <label class="edit-label" style="margin: 0; font-size: 14px; font-weight: 800;">🎟️ Admission & Ticket Price Levels</label>
+                    <div style="display: flex; gap: 12px; font-size: 13px; font-weight: 700;">
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="radio" name="price_type" value="free" id="editPriceTypeFree" {% if event.price_type == 'free' or (event.price == 0 and not event.ticket_tiers) %}checked{% endif %} onchange="toggleEditPriceFields()">
+                            Free Admission
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <input type="radio" name="price_type" value="paid" id="editPriceTypePaid" {% if event.price_type != 'free' and (event.price > 0 or event.ticket_tiers) %}checked{% endif %} onchange="toggleEditPriceFields()">
+                            Paid Tickets
+                        </label>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC TIERS LIST -->
+                <div id="editTiersWrapper" style="display: {% if event.price_type != 'free' and (event.price > 0 or event.ticket_tiers) %}block{% else %}none{% endif %};">
+                    <p style="font-size: 12px; color: #64748b; margin: 0 0 10px;">
+                        Configure entry tiers (e.g. Regular, Couple, VIP, VVIP, Early Bird). Attendees choose their tier and pay the exact amount.
+                    </p>
+                    <div id="editTiersList"></div>
+                    <button type="button" onclick="addEditTierRow()" style="background: #f1f5f9; border: 1.5px dashed #94a3b8; color: #334155; padding: 10px 14px; border-radius: 10px; font-weight: 800; font-size: 12px; width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; transition: background 0.15s;">
+                        <span>➕</span> Add Another Entry Tier (e.g. VIP / Couple / VVIP)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="edit-input-group">
+                <label class="edit-label">Event Description & Perks</label>
+                <textarea id="editDescription" name="description" rows="4" class="edit-textarea" placeholder="Tell comrades what to expect, who is performing, DJs, offers...">{{ event.description }}</textarea>
+            </div>
+
+            <!-- Modal Action Footer -->
+            <div style="display: flex; gap: 10px; justify-content: flex-end; padding-top: 14px; border-top: 1px solid #f1f5f9;">
+                <button type="button" onclick="closeEditEventModal()" style="background: #f1f5f9; color: #475569; border: none; padding: 12px 20px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer;">
+                    Cancel
+                </button>
+                <button type="submit" id="btnSaveEditEvent" style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: white; border: none; padding: 12px 26px; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(230,0,38,0.3);">
+                    <span>💾</span> Save Changes
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -2139,5 +2494,216 @@
             }
         });
     }
+
+    // ========================================================
+    // EDIT EVENT & PRICING MODAL JAVASCRIPT
+    // ========================================================
+    let currentEventTiers = {{ (event.ticket_tiers or [])|tojson|safe }};
+
+    function openEditEventModal() {
+        const modal = document.getElementById('editEventModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        renderEditTiersList();
+    }
+
+    function closeEditEventModal(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.edit-modal-dialog') && e.target.id !== 'editEventModal') {
+            return;
+        }
+        const modal = document.getElementById('editEventModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function previewEditFlyer(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('editFlyerPreview');
+                if (preview) preview.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function toggleEditPriceFields() {
+        const isPaid = document.getElementById('editPriceTypePaid').checked;
+        const tiersWrap = document.getElementById('editTiersWrapper');
+        if (tiersWrap) {
+            tiersWrap.style.display = isPaid ? 'block' : 'none';
+        }
+        if (isPaid && currentEventTiers.length === 0) {
+            addEditTierRow('Regular', {{ event.price if event.price > 0 else 300 }}, 'Standard Entry Pass');
+        }
+    }
+
+    function renderEditTiersList() {
+        const list = document.getElementById('editTiersList');
+        if (!list) return;
+        list.innerHTML = '';
+
+        if (!currentEventTiers || currentEventTiers.length === 0) {
+            if (document.getElementById('editPriceTypePaid').checked) {
+                addEditTierRow('Regular', {{ event.price if event.price > 0 else 300 }}, 'Standard Admission');
+            }
+            return;
+        }
+
+        currentEventTiers.forEach(t => {
+            addEditTierRow(t.name, t.price, t.perk || '', t.id);
+        });
+    }
+
+    function addEditTierRow(name = '', price = '', perk = '', id = '') {
+        const list = document.getElementById('editTiersList');
+        if (!list) return;
+
+        const row = document.createElement('div');
+        row.className = 'tier-row-item';
+        row.innerHTML = `
+            <input type="text" class="edit-input tier-name-input" placeholder="Tier Name (e.g. VIP)" value="${escapeHtml(name)}" required style="font-weight: 700;">
+            <div style="position: relative;">
+                <input type="number" class="edit-input tier-price-input" placeholder="Price" value="${price}" min="0" required style="font-weight: 900; color: #15803d; padding-right: 32px;">
+                <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 800; color: #64748b;">KES</span>
+            </div>
+            <input type="text" class="edit-input tier-perk-input" placeholder="Perks (e.g. Lounge entry + 1 Drink)" value="${escapeHtml(perk)}">
+            <button type="button" onclick="removeEditTierRow(this)" class="btn-remove-tier" style="background: #fee2e2; border: 1px solid #fecdd3; color: #b91c1c; border-radius: 10px; padding: 10px 12px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Remove this tier">
+                🗑️
+            </button>
+        `;
+        list.appendChild(row);
+    }
+
+    function removeEditTierRow(btn) {
+        const list = document.getElementById('editTiersList');
+        if (!list) return;
+        const rows = list.querySelectorAll('.tier-row-item');
+        if (rows.length <= 1) {
+            alert("A paid event must have at least one entry level tier.");
+            return;
+        }
+        btn.closest('.tier-row-item').remove();
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function handleEditEventSubmit(e) {
+        e.preventDefault();
+        const btnSave = document.getElementById('btnSaveEditEvent');
+        const origText = btnSave.innerHTML;
+        btnSave.disabled = true;
+        btnSave.innerHTML = `<span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: fymSpin 1s linear infinite;"></span> Saving...`;
+
+        const form = document.getElementById('editEventForm');
+        const formData = new FormData(form);
+
+        // Collect ticket tiers
+        const isPaid = document.getElementById('editPriceTypePaid').checked;
+        const tiers = [];
+        if (isPaid) {
+            const rows = document.querySelectorAll('#editTiersList .tier-row-item');
+            rows.forEach((r, idx) => {
+                const name = r.querySelector('.tier-name-input').value.trim();
+                const price = parseInt(r.querySelector('.tier-price-input').value) || 0;
+                const perk = r.querySelector('.tier-perk-input').value.trim();
+                if (name && price > 0) {
+                    tiers.push({
+                        id: `tier_${idx+1}_${Date.now().toString(36)}`,
+                        name: name,
+                        price: price,
+                        perk: perk
+                    });
+                }
+            });
+
+            if (tiers.length === 0) {
+                alert("Please add at least one entry level tier with a price greater than 0 KES.");
+                btnSave.disabled = false;
+                btnSave.innerHTML = origText;
+                return;
+            }
+        }
+
+        formData.set('price_type', isPaid ? 'paid' : 'free');
+        formData.set('ticket_tiers_json', JSON.stringify(tiers));
+
+        fetch('/api/events/{{ event.id }}/edit', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            btnSave.disabled = false;
+            btnSave.innerHTML = origText;
+            if (data.success) {
+                alert("🎉 " + data.message);
+                window.location.href = '/events/{{ event.id }}';
+            } else {
+                alert("❌ " + (data.error || "Failed to update event."));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            btnSave.disabled = false;
+            btnSave.innerHTML = origText;
+            alert("Network error updating event details.");
+        });
+    }
+
+    // ========================================================
+    // INSTANT ORGANIZER PAYOUT DISBURSEMENT TRIGGER
+    // ========================================================
+    function triggerOrganizerPayout(eventId) {
+        const btn = document.getElementById('btnDisbursePayouts');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<span style="display: inline-block; width: 14px; height: 14px; border: 2px solid white; border-top-color: transparent; border-radius: 50%; animation: fymSpin 1s linear infinite;"></span> Disbursing Cash...`;
+        }
+
+        fetch(`/api/events/${eventId}/trigger-payouts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert("💸 " + data.message);
+                window.location.reload();
+            } else {
+                alert("❌ " + (data.error || "Disbursement failed. Please verify organizer phone/till."));
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = `⚡ Disburse Pending Cash`;
+                }
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Network error triggering payout.");
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `⚡ Disburse Pending Cash`;
+            }
+        });
+    }
+
+    // Auto open edit modal if ?edit=1 in URL
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.location.search.includes('edit=1')) {
+            openEditEventModal();
+        }
+    });
 </script>
 {% endblock %}

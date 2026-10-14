@@ -4,30 +4,75 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from app.database import db
-from app.payments import initiate_b2c_payout, format_phone_number
+from app.payments import initiate_b2c_payout, initiate_b2b_payout, format_phone_number
 
 logger = logging.getLogger(__name__)
 
 EAT = timezone(timedelta(hours=3))
 
 # ========================================================
-# 1. EVENT ORGANIZER 2-MINUTE AUTOMATIC PAYOUT ENGINE
+# 1. EVENT ORGANIZER AUTOMATIC & INSTANT CASH PAYOUT ENGINE
 # ========================================================
 
-def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: float or int, organizer_phone: str, delay_seconds: int = 120):
+def resolve_payout_destination(target: str):
     """
-    Schedules an automated M-Pesa B2C payout of the event registration fee to the event admin/organizer.
-    The money is automatically disbursed 2 minutes after the attendee pays.
+    Analyzes organizer's phone number or Till / Paybill number.
+    Returns: (channel, clean_dest, error_msg)
+    - 'b2b_till': 5-7 digits (Buy Goods & Services)
+    - 'b2b_paybill': 5-7 digits (Paybill shortcode)
+    - 'b2c_phone': 9-12 digits personal M-Pesa line (formatted as 254XXXXXXXXX)
+    """
+    if not target:
+        return None, None, "Organizer destination number is missing."
+
+    raw = str(target).strip()
+    digits = ''.join(filter(str.isdigit, raw))
+    lower = raw.lower()
+
+    if not digits:
+        return None, None, f"No digits found in destination '{target}'."
+
+    # Explicit keyword detection
+    is_explicit_paybill = 'paybill' in lower
+    is_explicit_till = 'till' in lower or 'buy goods' in lower
+
+    # 5 to 7 digits is an M-Pesa Till or Paybill shortcode
+    if 5 <= len(digits) <= 7:
+        if is_explicit_paybill:
+            return 'b2b_paybill', digits, None
+        return 'b2b_till', digits, None
+
+    # 9, 10, or 12 digits is a personal M-Pesa mobile number
+    if len(digits) in [9, 10, 12]:
+        fmt = format_phone_number(digits)
+        if fmt and len(fmt) == 12 and fmt.startswith('254'):
+            return 'b2c_phone', fmt, None
+
+    # Fallback checks
+    fmt = format_phone_number(digits)
+    if fmt and len(fmt) == 12 and fmt.startswith('254'):
+        return 'b2c_phone', fmt, None
+    elif 5 <= len(digits) <= 8:
+        return 'b2b_till', digits, None
+
+    return None, None, f"Invalid M-Pesa phone or Till number: '{target}'."
+
+
+def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: float or int, organizer_phone: str = None, delay_seconds: int = 0):
+    """
+    Schedules and executes automated cash transfer of the event ticket fee directly to the organizer.
+    - If delay_seconds <= 0: Transfers immediately in real-time.
+    - If delay_seconds > 0: Schedules with background execution and DB fallback persistence.
+    - Detects whether destination is a personal phone (B2C) or venue Till/Paybill (B2B).
     """
     try:
         if not organizer_phone:
-            # Fallback to fetching event record
             event_data = db.reference(f'events/{event_id}').get() or {}
             organizer_phone = event_data.get('organizer_phone')
 
-        formatted_phone = format_phone_number(organizer_phone)
-        if not formatted_phone:
-            logger.error(f"❌ Cannot schedule payout: Missing organizer phone for event {event_id}")
+        channel, clean_dest, err = resolve_payout_destination(organizer_phone)
+        if not channel or not clean_dest:
+            logger.error(f"❌ Cannot execute ticket payout for event {event_id}: {err}")
             return False
 
         clean_amount = int(round(float(amount)))
@@ -35,7 +80,7 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
             return False
 
         now_ms = int(time.time() * 1000)
-        scheduled_at_ms = now_ms + (delay_seconds * 1000)
+        scheduled_at_ms = now_ms + (max(0, delay_seconds) * 1000)
         payout_id = f"evt_pay_{ticket_code.replace('-', '_')}_{int(time.time())}"
 
         # Fetch event title
@@ -48,18 +93,25 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
             "event_title": event_title,
             "ticket_code": ticket_code,
             "amount": clean_amount,
-            "organizer_phone": formatted_phone,
+            "organizer_phone": clean_dest,
+            "raw_destination": organizer_phone,
+            "channel": channel,
             "created_at": now_ms,
             "scheduled_at": scheduled_at_ms,
             "status": "scheduled",
             "delay_seconds": delay_seconds
         }
 
-        # Persist to database so it survives across serverless cold starts
+        # Persist to Firebase Realtime Database
         db.reference(f'pending_organizer_payouts/{payout_id}').set(record)
-        logger.info(f"⏳ Scheduled organizer payout of KES {clean_amount} to {formatted_phone} in {delay_seconds}s for ticket {ticket_code}")
+        logger.info(f"💰 Ticket payout registered: KES {clean_amount} -> {clean_dest} ({channel}) for ticket {ticket_code}")
 
-        # Spawn background timer thread for real-time execution in active instances
+        # If zero delay (immediate mode), disburse right now
+        if delay_seconds <= 0:
+            logger.info(f"⚡ Instant disbursement triggered for payout {payout_id}...")
+            return execute_single_organizer_payout(payout_id)
+
+        # Otherwise, spawn background timer thread for delayed execution
         def timer_worker():
             time.sleep(delay_seconds)
             execute_single_organizer_payout(payout_id)
@@ -74,8 +126,8 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
 
 def execute_single_organizer_payout(payout_id: str):
     """
-    Executes a single scheduled organizer payout via M-Pesa B2C.
-    Guarded by atomic status check to prevent duplicate disbursements.
+    Executes a single organizer cash payout via M-Pesa B2C (personal phone) or B2B (Till/Paybill).
+    Guarded by atomic status lock to prevent duplicate disbursements.
     """
     payout_ref = db.reference(f'pending_organizer_payouts/{payout_id}')
     payout = payout_ref.get()
@@ -86,61 +138,186 @@ def execute_single_organizer_payout(payout_id: str):
         logger.info(f"ℹ️ Payout {payout_id} already disbursed.")
         return {"success": True, "already_disbursed": True}
 
-    organizer_phone = payout.get('organizer_phone')
+    dest = payout.get('organizer_phone')
     amount = payout.get('amount')
     event_title = payout.get('event_title', 'Campus Event')
     ticket_code = payout.get('ticket_code', '')
     event_id = payout.get('event_id')
+    channel = payout.get('channel')
+
+    if not channel or not dest:
+        channel, dest, _ = resolve_payout_destination(dest or payout.get('raw_destination'))
 
     # Atomic lock
-    payout_ref.update({"status": "processing", "processing_started_at": int(time.time() * 1000)})
+    now_ms = int(time.time() * 1000)
+    payout_ref.update({"status": "processing", "processing_started_at": now_ms})
 
     remarks = f"Tkt {ticket_code} {event_title}"[:95]
-    res = initiate_b2c_payout(
-        phone_number=organizer_phone,
-        amount=amount,
-        command_id="BusinessPayment",
-        remarks=remarks,
-        occasion="Ticket Payout"
-    )
+    res = {"success": False, "error": "Unknown channel"}
 
-    now_ms = int(time.time() * 1000)
+    if channel == 'b2b_till':
+        # Route to venue / merchant Till Number (Buy Goods)
+        res = initiate_b2b_payout(
+            receiver_shortcode=dest,
+            amount=amount,
+            command_id="BusinessBuyGoods",
+            remarks=remarks,
+            account_reference=ticket_code[:12] if ticket_code else "TicketCash"
+        )
+        # If Safaricom notes receiver is Paybill instead, retry with BusinessPayBill
+        if not res.get('success') and 'PayBill' in str(res.get('error', '')):
+            res = initiate_b2b_payout(
+                receiver_shortcode=dest,
+                amount=amount,
+                command_id="BusinessPayBill",
+                remarks=remarks,
+                account_reference=ticket_code[:12] if ticket_code else "TicketCash"
+            )
+
+    elif channel == 'b2b_paybill':
+        # Route to merchant Paybill
+        res = initiate_b2b_payout(
+            receiver_shortcode=dest,
+            amount=amount,
+            command_id="BusinessPayBill",
+            remarks=remarks,
+            account_reference=ticket_code[:12] if ticket_code else "TicketCash"
+        )
+
+    else:
+        # Route to personal M-Pesa mobile number via B2C
+        res = initiate_b2c_payout(
+            phone_number=dest,
+            amount=amount,
+            command_id="BusinessPayment",
+            remarks=remarks,
+            occasion="Ticket Payout"
+        )
+
+    now_completed_ms = int(time.time() * 1000)
     if res.get('success'):
+        conv_id = res.get('ConversationID') or res.get('OriginatorConversationID') or "DISBURSED_OK"
+        desc = res.get('ResponseDescription', 'Accepted for disbursement')
         payout_ref.update({
             "status": "disbursed",
-            "disbursed_at": now_ms,
-            "conversation_id": res.get('ConversationID'),
-            "response_description": res.get('ResponseDescription')
+            "disbursed_at": now_completed_ms,
+            "conversation_id": conv_id,
+            "response_description": desc,
+            "channel_used": channel,
+            "destination": dest
         })
 
-        # Also log under the event's payout ledger
+        # Also record in event's internal ledger
         if event_id:
             db.reference(f'events/{event_id}/payouts/{payout_id}').set({
                 "ticket_code": ticket_code,
                 "amount": amount,
-                "phone": organizer_phone,
-                "timestamp": now_ms,
+                "phone": dest,
+                "channel": channel,
+                "timestamp": now_completed_ms,
                 "status": "disbursed",
-                "conversation_id": res.get('ConversationID')
+                "conversation_id": conv_id
             })
 
-        logger.info(f"🎉 Successfully sent KES {amount} organizer payout to {organizer_phone} for event '{event_title}'!")
-        return {"success": True, "conversation_id": res.get('ConversationID')}
+        logger.info(f"🎉 Cash Transfer Success: KES {amount} sent to {dest} ({channel}) for event '{event_title}'!")
+        return {"success": True, "conversation_id": conv_id, "amount": amount, "destination": dest}
     else:
-        err = res.get('error', 'Daraja error')
+        err = res.get('error', 'Daraja transaction error')
         payout_ref.update({
             "status": "failed",
-            "failed_at": now_ms,
+            "failed_at": now_completed_ms,
             "error": err
         })
-        logger.error(f"❌ Failed to disburse organizer payout {payout_id}: {err}")
+        logger.error(f"❌ Failed to disburse organizer payout {payout_id} to {dest}: {err}")
         return {"success": False, "error": err}
+
+
+def disburse_event_organizer_payouts_now(event_id: str):
+    """
+    Instantly sweeps and disburses all pending or failed ticket cash transfers for an event.
+    Guarantees the organizer receives all collected ticket revenue on demand.
+    """
+    event_ref = db.reference(f'events/{event_id}')
+    event = event_ref.get()
+    if not event or not isinstance(event, dict):
+        return {"success": False, "error": "Event not found."}
+
+    organizer_phone = event.get('organizer_phone')
+    if not organizer_phone:
+        return {"success": False, "error": "Event does not have an organizer payout phone number configured."}
+
+    # 1. Sweep existing pending or failed payouts
+    pending_dict = db.reference('pending_organizer_payouts').get() or {}
+    disbursed_count = 0
+    total_amount = 0
+    results = []
+
+    already_handled_tickets = set()
+
+    if isinstance(pending_dict, dict):
+        for pid, precord in pending_dict.items():
+            if isinstance(precord, dict) and precord.get('event_id') == event_id:
+                t_code = precord.get('ticket_code')
+                if t_code:
+                    already_handled_tickets.add(t_code)
+
+                status = precord.get('status')
+                if status in ['scheduled', 'failed', 'processing']:
+                    logger.info(f"⚡ Immediate sweep disbursing payout {pid} for event {event_id}...")
+                    res = execute_single_organizer_payout(pid)
+                    results.append({"payout_id": pid, "result": res})
+                    if res.get('success'):
+                        disbursed_count += 1
+                        total_amount += int(precord.get('amount', 0) or 0)
+                elif status == 'disbursed':
+                    already_handled_tickets.add(t_code)
+
+    # 2. Check all paid RSVPs for this event in case any didn't have a payout record created
+    rsvps_dict = db.reference(f'events_rsvps/{event_id}').get() or {}
+    if isinstance(rsvps_dict, dict):
+        for aid, rsvp in rsvps_dict.items():
+            if isinstance(rsvp, dict) and rsvp.get('paid') and int(rsvp.get('amount_paid', 0) or 0) > 0:
+                t_code = rsvp.get('ticket_code')
+                amt = int(rsvp.get('amount_paid', 0) or 0)
+                if t_code and t_code not in already_handled_tickets:
+                    logger.info(f"⚡ Creating and executing missing payout for ticket {t_code} (KES {amt})...")
+                    now_ms = int(time.time() * 1000)
+                    p_id = f"evt_pay_{t_code.replace('-', '_')}_{int(time.time())}"
+                    channel, clean_dest, _ = resolve_payout_destination(organizer_phone)
+                    rec = {
+                        "id": p_id,
+                        "event_id": event_id,
+                        "event_title": event.get('title', 'Campus Event'),
+                        "ticket_code": t_code,
+                        "amount": amt,
+                        "organizer_phone": clean_dest,
+                        "raw_destination": organizer_phone,
+                        "channel": channel,
+                        "created_at": now_ms,
+                        "scheduled_at": now_ms,
+                        "status": "scheduled",
+                        "delay_seconds": 0
+                    }
+                    db.reference(f'pending_organizer_payouts/{p_id}').set(rec)
+                    res = execute_single_organizer_payout(p_id)
+                    results.append({"payout_id": p_id, "ticket_code": t_code, "result": res})
+                    if res.get('success'):
+                        disbursed_count += 1
+                        total_amount += amt
+                    already_handled_tickets.add(t_code)
+
+    return {
+        "success": True,
+        "disbursed_count": disbursed_count,
+        "total_amount": total_amount,
+        "organizer_phone": organizer_phone,
+        "results": results
+    }
 
 
 def sweep_pending_organizer_payouts():
     """
-    Sweeper that runs on cron/requests to ensure any pending payouts older than 2 minutes
-    get disbursed immediately even if serverless rebooted.
+    Sweeper that runs on cron/requests to ensure any pending payouts get disbursed.
     """
     now_ms = int(time.time() * 1000)
     pending_dict = db.reference('pending_organizer_payouts').get() or {}
@@ -151,9 +328,8 @@ def sweep_pending_organizer_payouts():
             if isinstance(p, dict):
                 status = p.get('status')
                 scheduled_at = p.get('scheduled_at', 0)
-                # If scheduled time has arrived and status is scheduled or failed with retry
                 if status == 'scheduled' and now_ms >= scheduled_at:
-                    logger.info(f"🔄 Sweeper triggering delayed payout {pid}...")
+                    logger.info(f"🔄 Sweeper triggering payout {pid}...")
                     res = execute_single_organizer_payout(pid)
                     if res.get('success'):
                         disbursed_count += 1
