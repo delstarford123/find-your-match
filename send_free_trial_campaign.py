@@ -88,7 +88,7 @@ ADMIN_KEY = "fym_promo_override_2026"
 def get_eligible_users():
     """
     Fetches all profiles from Firebase Realtime Database and identifies users 
-    WITHOUT an active subscription who have a valid email address.
+    eligible for the 2-Day Free Diamond VIP Access or pending the announcement email.
     """
     initialize_firebase()
     all_profiles = db.reference("profiles").get() or {}
@@ -96,6 +96,7 @@ def get_eligible_users():
     now = datetime.now(EAT)
     candidates = []
     active_subscribers = []
+    already_emailed = []
     no_email_count = 0
 
     for uid, profile in all_profiles.items():
@@ -107,11 +108,12 @@ def get_eligible_users():
             no_email_count += 1
             continue
 
-        # Check if user already has an active paid subscription
         is_paid = profile.get("is_paid", False)
         expiry_str = profile.get("subscription_expiry")
-        has_active_sub = False
+        is_trial_recipient = bool(profile.get("free_trial_granted_at"))
+        trial_email_sent = bool(profile.get("free_trial_email_sent"))
 
+        has_active_sub = False
         if is_paid and expiry_str:
             try:
                 expiry_dt = datetime.fromisoformat(str(expiry_str).replace("Z", "+00:00"))
@@ -122,8 +124,14 @@ def get_eligible_users():
             except Exception:
                 pass
 
-        if has_active_sub:
+        # Protect genuine paid subscribers (those who have paid and were NOT part of this promo trial)
+        if has_active_sub and not is_trial_recipient:
             active_subscribers.append(uid)
+            continue
+
+        # If they were already granted the trial AND already emailed, skip them to prevent double emailing
+        if is_trial_recipient and trial_email_sent:
+            already_emailed.append(uid)
             continue
 
         name = str(profile.get("name", "Student")).strip()
@@ -136,13 +144,15 @@ def get_eligible_users():
             "email": email,
             "gender": gender,
             "phone": phone,
-            "current_expiry": expiry_str or "None"
+            "current_expiry": expiry_str or "None",
+            "is_trial_recipient": is_trial_recipient
         })
 
-    logger.info("Total profiles scanned : %d", len(all_profiles))
-    logger.info("Active paid subscribers : %d (Protected from being touched)", len(active_subscribers))
-    logger.info("Profiles without email  : %d (Skipped)", no_email_count)
-    logger.info("Eligible inactive users : %d (Qualified for 2-Day Free VIP Access)", len(candidates))
+    logger.info("Total profiles scanned   : %d", len(all_profiles))
+    logger.info("Active paid subscribers   : %d (Protected from being touched)", len(active_subscribers))
+    logger.info("Already received email    : %d (Skipped to avoid duplicate sends)", len(already_emailed))
+    logger.info("Profiles without email    : %d (Skipped)", no_email_count)
+    logger.info("Eligible campaign users   : %d (Ready for 2-Day VIP Access & Email)", len(candidates))
 
     return candidates
 
@@ -313,17 +323,18 @@ def main():
         logger.info("To send emails via Vercel:          python send_free_trial_campaign.py --via-server")
         return
 
-    # 4. FAST DATABASE ACTIVATION (--apply-only or before email loop)
-    if not args.email_only:
-        logger.info("Activating 48-Hour Diamond VIP access for %d users in Firebase...", len(candidates))
-        db_ok = apply_fast_database_upgrade(candidates, two_days_later)
+    # 4. FAST DATABASE ACTIVATION (Only upgrade candidates who have not already been activated)
+    users_needing_activation = [c for c in candidates if not c.get("is_trial_recipient")]
+    if not args.email_only and users_needing_activation:
+        logger.info("Activating 48-Hour Diamond VIP access for %d users in Firebase...", len(users_needing_activation))
+        db_ok = apply_fast_database_upgrade(users_needing_activation, two_days_later)
         if not db_ok:
             logger.error("Failed to update database. Halting.")
             return
 
-        if args.apply_only:
-            logger.info("✅ Access applied to all %d users. Exiting as requested by --apply-only.", len(candidates))
-            return
+    if args.apply_only:
+        logger.info("✅ Access applied to all %d users. Exiting as requested by --apply-only.", len(candidates))
+        return
 
     # 5. DISPATCH EMAILS VIA VERCEL SERVER
     if args.via_server:
