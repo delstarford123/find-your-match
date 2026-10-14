@@ -1570,6 +1570,13 @@
                     
                     <div id="ticketQrImageWrap" style="margin-bottom: 12px;"></div>
 
+                    <!-- 📥 DIRECT DOWNLOAD QR PASS BUTTON -->
+                    <div style="margin: 4px 0 14px;">
+                        <a id="btnDownloadQrPass" href="#" download="Ticket-Pass-QR.png" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 12px; font-size: 13.5px; font-weight: 800; width: 100%; box-shadow: 0 4px 14px rgba(230, 0, 38, 0.28); transition: transform 0.15s; cursor: pointer;">
+                            <span>📥</span> Download QR Code Pass (PNG)
+                        </a>
+                    </div>
+
                     <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Ticket ID:</div>
                     <div class="ticket-code-display" id="confirmedTicketCode">FYM-XXXX</div>
 
@@ -1919,6 +1926,12 @@
         document.getElementById('ticketQrImageWrap').innerHTML = `
             <img src="${res.qr_url}" alt="Ticket QR" width="160" height="160" style="border-radius:12px; display:inline-block; box-shadow:0 4px 12px rgba(0,0,0,0.1); max-width: 100%; height: auto;">
         `;
+        const dlBtn = document.getElementById('btnDownloadQrPass');
+        if (dlBtn) {
+            const dlUrl = res.download_qr_url || `/events/ticket/${res.ticket_code}/download-qr`;
+            dlBtn.href = dlUrl;
+            dlBtn.setAttribute('download', `Ticket-${res.ticket_code}-Pass.png`);
+        }
         alert(res.message || "🎉 Ticket confirmed! An official ticket pass has been emailed to you.");
     }
 

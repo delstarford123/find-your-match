@@ -1130,6 +1130,13 @@
                 </div>
             </div>
 
+            <!-- DOWNLOAD QR PASS BUTTON -->
+            <div style="margin: 12px 0 16px;">
+                <a href="/events/ticket/{{ ticket.ticket_code }}/download-qr" download="Ticket-{{ ticket.ticket_code }}-QR.png" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #f8fafc; color: #0f172a; border: 1.5px solid #cbd5e1; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 800; text-decoration: none; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.2s;">
+                    <span>📥</span> Download Scannable QR Code Pass (PNG)
+                </a>
+            </div>
+
             <!-- EVENT DETAILS -->
             <table class="verify-details-table">
                 <tr>
@@ -1654,6 +1661,13 @@
                         <div class="code-pill-label" style="color: #9f1239;">Door LOVI Code</div>
                         <div class="code-pill-value val-lovi">${t.lovi_code}</div>
                     </div>
+                </div>
+
+                <!-- DOWNLOAD QR PASS BUTTON -->
+                <div style="margin: 12px 0 16px;">
+                    <a href="/events/ticket/${t.ticket_code}/download-qr" download="Ticket-${t.ticket_code}-QR.png" target="_blank" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #f8fafc; color: #0f172a; border: 1.5px solid #cbd5e1; padding: 11px 18px; border-radius: 12px; font-size: 13px; font-weight: 800; text-decoration: none; width: 100%; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: all 0.2s;">
+                        <span>📥</span> Download Scannable QR Code Pass (PNG)
+                    </a>
                 </div>
 
                 <table class="verify-details-table">

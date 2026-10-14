@@ -6,6 +6,8 @@ import csv
 import io
 import threading
 import logging
+import requests
+import urllib.parse
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response, current_app
 from app.database import db, initialize_firebase
@@ -773,6 +775,28 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
     new_count = curr_count + 1 + plus_ones
     event_ref.child('attendees_count').set(new_count)
 
+    # Build QR, verification, and direct download URLs
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
+    download_qr_url = f"{base_url}/events/ticket/{ticket_code}/download-qr"
+    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
+
+    rsvp_entry["download_qr_url"] = download_qr_url
+    rsvp_entry["qr_url"] = qr_url
+    db.reference(f'events_rsvps/{event_id}/{attendee_id}').update({
+        "download_qr_url": download_qr_url,
+        "qr_url": qr_url
+    })
+    db.reference(f'tickets_lookup/{ticket_code}').update({
+        "download_qr_url": download_qr_url,
+        "qr_url": qr_url
+    })
+    db.reference(f'lovi_lookup/{lovi_code}').update({
+        "download_qr_url": download_qr_url,
+        "qr_url": qr_url
+    })
+
     # Dispatch Ticket Email in Background Thread
     try:
         email_kwargs = {
@@ -786,13 +810,6 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         threading.Thread(target=send_event_ticket_confirmation_email, kwargs=email_kwargs, daemon=True).start()
     except Exception as mail_err:
         logger.warning(f"Could not launch email thread: {mail_err}")
-
-    # Build QR and verification URLs
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
-    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
-    import urllib.parse
-    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=280x280&data={encoded_verify_url}&color=72-0-0"
 
     # =========================================================================
     # 2-MINUTE AUTOMATIC PAYOUT TO EVENT ORGANIZER/ADMIN NUMBER
@@ -813,9 +830,42 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         "lovi_code": lovi_code,
         "ticket_tier": ticket_tier,
         "qr_url": qr_url,
+        "download_qr_url": download_qr_url,
         "verify_url": verify_url,
         "attendees_count": new_count
     }
+
+
+@events_bp.route('/events/ticket/<ticket_code>/download-qr', methods=['GET'])
+@events_bp.route('/api/events/ticket/<ticket_code>/download-qr', methods=['GET'])
+def download_ticket_qr(ticket_code):
+    """
+    Direct QR Code Download Endpoint:
+    Downloads the high-resolution QR code pass as an image/png attachment file.
+    Enables attendees to save their ticket QR pass to their phone gallery or files for offline admission.
+    """
+    clean_code = (ticket_code or '').strip().upper()
+    if not clean_code:
+        return "Invalid ticket code.", 400
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    verify_url = f"{base_url}/events/verify-ticket/{clean_code}"
+    encoded_url = urllib.parse.quote(verify_url, safe='')
+    qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&data={encoded_url}&color=72-0-0"
+
+    try:
+        resp = requests.get(qr_api_url, timeout=10)
+        if resp.status_code == 200 and resp.content:
+            response = Response(resp.content, mimetype="image/png")
+            filename = f"Ticket-{clean_code}-QR.png"
+            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+            response.headers["Cache-Control"] = "public, max-age=86400"
+            return response
+    except Exception as e:
+        logger.error(f"Error downloading QR image for ticket {clean_code}: {e}")
+
+    # Fallback to direct QR redirect
+    return redirect(qr_api_url)
 
 
 @events_bp.route('/api/events/rsvp', methods=['POST'])
@@ -957,6 +1007,7 @@ def rsvp_event():
         "lovi_code": ticket_info['lovi_code'],
         "ticket_tier": ticket_info.get('ticket_tier', chosen_tier_name),
         "qr_url": ticket_info['qr_url'],
+        "download_qr_url": ticket_info.get('download_qr_url'),
         "verify_url": ticket_info['verify_url'],
         "attendees_count": ticket_info['attendees_count'],
         "message": f"🎉 Ticket confirmed! An official {chosen_tier_name} pass with QR Code & LOVI Code has been emailed to {email}."
@@ -974,15 +1025,18 @@ def check_event_payment_status(checkout_id):
     if not payment_record or not isinstance(payment_record, dict):
         return jsonify({"success": False, "status": "NOT_FOUND", "error": "Payment record not found."}), 404
 
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     status = payment_record.get('status')
     if status == 'success':
+        ticket_c = payment_record.get('ticket_code')
         return jsonify({
             "success": True,
             "status": "COMPLETED",
-            "ticket_code": payment_record.get('ticket_code'),
+            "ticket_code": ticket_c,
             "lovi_code": payment_record.get('lovi_code'),
             "ticket_tier": payment_record.get('ticket_tier') or payment_record.get('tier_name') or "General Admission",
             "qr_url": payment_record.get('qr_url'),
+            "download_qr_url": payment_record.get('download_qr_url') or f"{base_url}/events/ticket/{ticket_c}/download-qr",
             "verify_url": payment_record.get('verify_url'),
             "message": "Payment confirmed! Your ticket pass is ready."
         })
@@ -1008,6 +1062,7 @@ def check_event_payment_status(checkout_id):
             "lovi_code": ticket_info['lovi_code'],
             "ticket_tier": ticket_info.get('ticket_tier'),
             "qr_url": ticket_info['qr_url'],
+            "download_qr_url": ticket_info['download_qr_url'],
             "verify_url": ticket_info['verify_url'],
             "completed_at": int(time.time() * 1000)
         })
@@ -1018,6 +1073,7 @@ def check_event_payment_status(checkout_id):
             "lovi_code": ticket_info['lovi_code'],
             "ticket_tier": ticket_info.get('ticket_tier'),
             "qr_url": ticket_info['qr_url'],
+            "download_qr_url": ticket_info['download_qr_url'],
             "verify_url": ticket_info['verify_url'],
             "message": "Payment verified! Your ticket pass is ready."
         })
@@ -1068,6 +1124,7 @@ def mpesa_event_callback():
                 "lovi_code": ticket_info['lovi_code'],
                 "ticket_tier": ticket_info.get('ticket_tier'),
                 "qr_url": ticket_info['qr_url'],
+                "download_qr_url": ticket_info['download_qr_url'],
                 "verify_url": ticket_info['verify_url'],
                 "completed_at": int(time.time() * 1000)
             })

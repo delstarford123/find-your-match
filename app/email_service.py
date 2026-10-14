@@ -2758,6 +2758,7 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
     
     # Scannable QR code encodes the direct admin verification URL!
     verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
+    download_qr_url = f"{base_url}/events/ticket/{ticket_code}/download-qr"
     encoded_verify_url = urllib.parse.quote(verify_url, safe='')
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
 
@@ -2780,6 +2781,9 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
         Admission   : {price_str}
         ========================================
 
+        📥 Download & Save QR Code Pass:
+        {download_qr_url}
+
         📷 Entrance Verification Link:
         {verify_url}
 
@@ -2792,7 +2796,7 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
         Host Contact: {organizer_name} ({organizer_phone})
 
         INSTRUCTIONS FOR ADMISSION:
-        1. Show the QR code to the event admin/manager to scan and confirm your entry.
+        1. Show your downloaded QR code or this email to the event admin/manager to scan and confirm your entry.
         2. If the admin does not scan the QR code, tell them your LOVI Code: {lovi_code} to confirm and allow you in.
 
         ----------------------------------------
@@ -2837,12 +2841,19 @@ def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: s
                         
                         <!-- SCANNABLE QR CODE FOR ADMINS -->
                         <div style="background:white;display:inline-block;padding:12px;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,0.08);margin-bottom:12px;">
-                            <a href="{verify_url}" target="_blank">
+                            <a href="{download_qr_url}" target="_blank" title="Click to download QR code pass">
                                 <img src="{qr_url}" alt="Ticket QR Code" width="180" height="180" style="display:block;border-radius:8px;">
                             </a>
                         </div>
                         <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">
                             📷 SCANNABLE BY EVENT ADMIN AT ENTRANCE
+                        </div>
+
+                        <!-- 📥 DIRECT DOWNLOAD QR CODE PASS BUTTON -->
+                        <div style="margin-bottom:16px;">
+                            <a href="{download_qr_url}" download="Ticket-{ticket_code}-Pass.png" target="_blank" style="display:inline-block;background:#720000;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:50px;font-weight:800;font-size:13px;box-shadow:0 4px 14px rgba(114,0,0,0.3);">
+                                📥 Save / Download QR Code Pass (PNG)
+                            </a>
                         </div>
 
                         <div style="font-size:18px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:14px;">
