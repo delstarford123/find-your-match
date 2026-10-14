@@ -79,9 +79,22 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
         if clean_amount <= 0:
             return False
 
+        # Deterministic payout ID prevents any double disbursement for the same ticket
+        payout_id = f"evt_payout_{event_id}_{ticket_code.replace('-', '_')}"
+
+        # Check existing payout state before writing
+        existing_payout = db.reference(f'pending_organizer_payouts/{payout_id}').get()
+        if existing_payout and isinstance(existing_payout, dict):
+            status = existing_payout.get('status')
+            if status in ['disbursed', 'paid']:
+                logger.info(f"ℹ️ Payout {payout_id} has already been disbursed. Aborting duplicate.")
+                return True
+            if status == 'processing':
+                logger.info(f"⏳ Payout {payout_id} is already actively processing. Aborting duplicate.")
+                return True
+
         now_ms = int(time.time() * 1000)
         scheduled_at_ms = now_ms + (max(0, delay_seconds) * 1000)
-        payout_id = f"evt_pay_{ticket_code.replace('-', '_')}_{int(time.time())}"
 
         # Fetch event title
         event_data = db.reference(f'events/{event_id}').get() or {}
@@ -137,6 +150,15 @@ def execute_single_organizer_payout(payout_id: str):
     if payout.get('status') in ['disbursed', 'paid']:
         logger.info(f"ℹ️ Payout {payout_id} already disbursed.")
         return {"success": True, "already_disbursed": True}
+
+    now_ms = int(time.time() * 1000)
+
+    # Active processing lock: if currently processing within last 60 seconds, prevent duplicate call
+    if payout.get('status') == 'processing':
+        proc_started = int(payout.get('processing_started_at', 0) or 0)
+        if now_ms - proc_started < 60000:
+            logger.warning(f"⚠️ Payout {payout_id} is already actively processing ({now_ms - proc_started}ms ago). Duplicate prevented.")
+            return {"success": False, "error": "Payout is currently being processed by Safaricom."}
 
     dest = payout.get('organizer_phone')
     amount = payout.get('amount')
@@ -242,6 +264,15 @@ def disburse_event_organizer_payouts_now(event_id: str):
     if not event or not isinstance(event, dict):
         return {"success": False, "error": "Event not found."}
 
+    now_ms = int(time.time() * 1000)
+
+    # Anti-hammering throttle: prevent rapid button spamming
+    last_sweep = int(event.get('last_payout_sweep_at', 0) or 0)
+    if now_ms - last_sweep < 8000:
+        return {"success": False, "error": "A disbursement sweep is already processing. Please wait a few seconds."}
+
+    event_ref.update({"last_payout_sweep_at": now_ms})
+
     organizer_phone = event.get('organizer_phone')
     if not organizer_phone:
         return {"success": False, "error": "Event does not have an organizer payout phone number configured."}
@@ -262,14 +293,14 @@ def disburse_event_organizer_payouts_now(event_id: str):
                     already_handled_tickets.add(t_code)
 
                 status = precord.get('status')
-                if status in ['scheduled', 'failed', 'processing']:
+                if status in ['scheduled', 'failed']:
                     logger.info(f"⚡ Immediate sweep disbursing payout {pid} for event {event_id}...")
                     res = execute_single_organizer_payout(pid)
                     results.append({"payout_id": pid, "result": res})
                     if res.get('success'):
                         disbursed_count += 1
                         total_amount += int(precord.get('amount', 0) or 0)
-                elif status == 'disbursed':
+                elif status in ['disbursed', 'paid']:
                     already_handled_tickets.add(t_code)
 
     # 2. Check all paid RSVPs for this event in case any didn't have a payout record created
@@ -281,8 +312,7 @@ def disburse_event_organizer_payouts_now(event_id: str):
                 amt = int(rsvp.get('amount_paid', 0) or 0)
                 if t_code and t_code not in already_handled_tickets:
                     logger.info(f"⚡ Creating and executing missing payout for ticket {t_code} (KES {amt})...")
-                    now_ms = int(time.time() * 1000)
-                    p_id = f"evt_pay_{t_code.replace('-', '_')}_{int(time.time())}"
+                    p_id = f"evt_payout_{event_id}_{t_code.replace('-', '_')}"
                     channel, clean_dest, _ = resolve_payout_destination(organizer_phone)
                     rec = {
                         "id": p_id,

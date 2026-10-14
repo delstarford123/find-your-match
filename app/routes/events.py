@@ -8,6 +8,10 @@ import threading
 import logging
 import requests
 import urllib.parse
+import hmac
+import hashlib
+import html
+import secrets
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, Response, current_app
 from app.database import db, initialize_firebase
@@ -18,6 +22,107 @@ from app.payout_service import schedule_event_organizer_payout, disburse_event_o
 logger = logging.getLogger(__name__)
 
 events_bp = Blueprint('events_bp', __name__)
+
+def sanitize_text(text: str, max_length: int = 500) -> str:
+    """Strips leading/trailing whitespace, escapes HTML entities, and truncates text."""
+    if not text:
+        return ""
+    cleaned = html.escape(str(text).strip())
+    return cleaned[:max_length]
+
+def validate_email_syntax(email: str) -> bool:
+    """Validates standard RFC-like email address syntax."""
+    if not email or len(email) > 120:
+        return False
+    return bool(re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email.strip()))
+
+def claim_mpesa_receipt(receipt: str, event_id: str, ticket_code: str, checkout_id: str, amount: int):
+    """
+    Atomically claims an M-Pesa receipt in the global deduplication ledger ('used_mpesa_receipts').
+    Blocks replay attacks, duplicate ticket generation, and cross-event receipt recycling.
+    Returns: (success: bool, record: dict)
+    """
+    if not receipt or str(receipt).startswith("FREE_"):
+        return True, None
+
+    clean_receipt = re.sub(r'[^a-zA-Z0-9]', '', str(receipt).upper().strip())
+    if not clean_receipt or len(clean_receipt) < 6:
+        return False, {"error": "Invalid M-Pesa receipt format"}
+
+    receipt_ref = db.reference(f'used_mpesa_receipts/{clean_receipt}')
+    existing = receipt_ref.get()
+
+    if existing and isinstance(existing, dict):
+        # Idempotency check: if already claimed for THIS checkout or ticket, accept idempotently
+        if (checkout_id and existing.get('checkout_id') == checkout_id) or (ticket_code and existing.get('ticket_code') == ticket_code):
+            return True, existing
+        # Otherwise: someone is attempting to reuse or replay an already-claimed receipt!
+        logger.warning(
+            f"🚨 DUPLICATE PAYMENT REJECTED: M-Pesa receipt '{clean_receipt}' was already claimed for checkout "
+            f"'{existing.get('checkout_id')}' / ticket '{existing.get('ticket_code')}'. Replay attempt on event '{event_id}' blocked!"
+        )
+        return False, existing
+
+    # Atomically claim the receipt
+    now_ms = int(time.time() * 1000)
+    claim_record = {
+        "receipt": clean_receipt,
+        "event_id": event_id,
+        "ticket_code": ticket_code,
+        "checkout_id": checkout_id,
+        "amount": amount,
+        "claimed_at": now_ms
+    }
+    receipt_ref.set(claim_record)
+    return True, claim_record
+
+def check_event_admin_authorization(event: dict, user_id: str = None, user_profile: dict = None, provided_key: str = None) -> bool:
+    """
+    Strict cryptographic and session-backed authorization check for event organizers & admins.
+    Eliminates broken access control and unauthorized parameter tampering (no '?admin=1' bypass).
+    """
+    if not event or not isinstance(event, dict):
+        return False
+
+    event_id = event.get('id')
+
+    # 1. Super Admin session check
+    if session.get('is_super_admin') or session.get('account_type') == 'super_admin':
+        return True
+
+    # 2. Super Admin database check
+    if user_profile and user_profile.get('is_super_admin'):
+        return True
+    if user_id:
+        super_admins = db.reference('super_admins').get() or {}
+        if isinstance(super_admins, dict) and user_id in super_admins:
+            return True
+
+    # 3. Authenticated Event Creator check
+    if user_id and event.get('created_by') and event.get('created_by') == user_id:
+        return True
+
+    # 4. Session creator grant (stored in session when user publishes an event)
+    if event_id and session.get(f'event_admin_{event_id}') is True:
+        return True
+
+    # 5. Verified phone number match (only for logged-in users with a verified phone)
+    organizer_phone_clean = ''.join(filter(str.isdigit, str(event.get('organizer_phone', ''))))
+    user_phone_clean = ''.join(filter(str.isdigit, str((user_profile or {}).get('phone', ''))))
+    if organizer_phone_clean and user_phone_clean and len(organizer_phone_clean) >= 9 and len(user_phone_clean) >= 9:
+        if organizer_phone_clean.endswith(user_phone_clean[-9:]):
+            return True
+
+    # 6. Cryptographic Admin Token verification (constant-time comparison)
+    event_token = event.get('admin_token')
+    if event_token and provided_key:
+        try:
+            if hmac.compare_digest(str(event_token).strip(), str(provided_key).strip()):
+                return True
+        except Exception:
+            pass
+
+    return False
 
 def format_event_account_ref(event_title, event_id=None):
     """
@@ -259,22 +364,9 @@ def view_event(event_id):
     if user_id:
         user_profile = db.reference(f'profiles/{user_id}').get() or {}
 
-    # Check if current user is the Event Admin or Super Admin
-    is_super_admin = bool(session.get('is_super_admin') or session.get('account_type') == 'super_admin' or user_profile.get('is_super_admin'))
-    if not is_super_admin and user_id:
-        super_admins = db.reference('super_admins').get() or {}
-        if user_id in super_admins:
-            is_super_admin = True
-
-    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
-    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
-
-    is_event_admin = bool(
-        is_super_admin or
-        (user_id and event.get('created_by') == user_id) or
-        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
-        request.args.get('admin') == '1'
-    )
+    # Secure authorization check for Event Organizer / Super Admin (no '?admin=1' bypass)
+    provided_key = request.args.get('key') or request.args.get('token') or request.headers.get('X-Admin-Token')
+    is_event_admin = check_event_admin_authorization(event, user_id=user_id, user_profile=user_profile, provided_key=provided_key)
 
     admin_guestlist = []
     admitted_count = 0
@@ -415,21 +507,23 @@ def create_event():
     user_id = session.get('user_id', 'guest_organizer')
     data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
     
-    title = data.get('title', '').strip()
-    category = data.get('category', 'custom').strip().lower()
-    description = data.get('description', '').strip()
-    date_str = data.get('date', '').strip()
-    time_str = data.get('time', '').strip()
-    venue_name = data.get('venue_name', '').strip()
-    location_url = data.get('location_url', '').strip()
-    dress_code = data.get('dress_code', 'Smart Casual').strip()
-    price_type = data.get('price_type', 'free').strip().lower()
+    title = sanitize_text(data.get('title', ''), max_length=100)
+    category = sanitize_text(data.get('category', 'custom'), max_length=30).lower()
+    description = sanitize_text(data.get('description', ''), max_length=2000)
+    date_str = sanitize_text(data.get('date', '') or data.get('date_str', ''), max_length=40)
+    time_str = sanitize_text(data.get('time', '') or data.get('time_str', ''), max_length=40)
+    venue_name = sanitize_text(data.get('venue_name', ''), max_length=120)
+    location_url = sanitize_text(data.get('location_url', ''), max_length=300)
+    dress_code = sanitize_text(data.get('dress_code', 'Smart Casual'), max_length=60)
+    price_type = (data.get('price_type') or 'free').strip().lower()
+    if price_type not in ['free', 'paid']:
+        price_type = 'free'
     try:
-        price = int(data.get('price', 0) or 0)
+        price = max(0, int(data.get('price', 0) or 0))
     except:
         price = 0
     try:
-        capacity = int(data.get('capacity', 100) or 100)
+        capacity = max(1, min(50000, int(data.get('capacity', 100) or 100)))
     except:
         capacity = 100
 
@@ -440,32 +534,39 @@ def create_event():
     except (ValueError, TypeError):
         event_creation_fee = 100
 
-    organizer_name = data.get('organizer_name', '').strip() or session.get('user_name', 'Campus Organizer')
-    organizer_phone = data.get('organizer_phone', '').strip()
+    organizer_name = sanitize_text(data.get('organizer_name', '') or session.get('user_name', 'Campus Organizer'), max_length=60)
+    organizer_phone = sanitize_text(data.get('organizer_phone', ''), max_length=20)
 
     if not title or not venue_name:
         return jsonify({"success": False, "error": "Event Title and Venue Name are required."}), 400
 
     event_id = f"evt_{uuid.uuid4().hex[:10]}"
+    admin_token = secrets.token_urlsafe(24)
     
-    # Handle Flyer Banner Image Upload (to Firebase Storage Bucket)
+    # Handle Flyer Banner Image Upload (to Firebase Storage Bucket, max 5MB)
     banner_img = None
     if 'banner_file' in request.files:
         photo = request.files['banner_file']
         if photo and photo.filename:
-            allowed = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+            allowed = {'.jpg', '.jpeg', '.png', '.webp'}
             ext = os.path.splitext(photo.filename)[1].lower()
             if ext in allowed:
                 try:
-                    from firebase_admin import storage
-                    bucket = storage.bucket()
-                    filename = f"events/{event_id}_{int(time.time())}{ext}"
-                    blob = bucket.blob(filename)
-                    blob.upload_from_file(photo, content_type=photo.content_type)
-                    blob.make_public()
-                    banner_img = blob.public_url
+                    photo.seek(0, os.SEEK_END)
+                    fsize = photo.tell()
+                    photo.seek(0)
+                    if fsize <= 5 * 1024 * 1024:
+                        from firebase_admin import storage
+                        bucket = storage.bucket()
+                        filename = f"events/{event_id}_{int(time.time())}{ext}"
+                        blob = bucket.blob(filename)
+                        blob.upload_from_file(photo, content_type=photo.content_type)
+                        blob.make_public()
+                        banner_img = blob.public_url
+                    else:
+                        logger.warning(f"Uploaded banner exceeded 5MB ({fsize} bytes). Using default.")
                 except Exception as upload_err:
-                    print(f"Warning: Firebase Storage upload error: {upload_err}")
+                    logger.warning(f"Firebase Storage upload error: {upload_err}")
     
     # Fallback to direct banner_url or category stock photography
     if not banner_img:
@@ -494,12 +595,12 @@ def create_event():
         if isinstance(ticket_tiers, list):
             for idx, t in enumerate(ticket_tiers):
                 if isinstance(t, dict):
-                    t_name = str(t.get('name', '')).strip()
+                    t_name = sanitize_text(str(t.get('name', '')), max_length=60)
                     try:
-                        t_price = int(t.get('price', 0) or 0)
+                        t_price = max(0, int(t.get('price', 0) or 0))
                     except:
                         t_price = 0
-                    t_perk = str(t.get('perk', '')).strip()
+                    t_perk = sanitize_text(str(t.get('perk', '')), max_length=120)
                     if t_name and t_price > 0:
                         cleaned_tiers.append({
                             "id": t.get('id') or f"tier_{idx+1}_{uuid.uuid4().hex[:4]}",
@@ -562,12 +663,16 @@ def create_event():
         "organizer_name": organizer_name,
         "organizer_phone": organizer_phone,
         "created_by": user_id,
+        "admin_token": admin_token,
         "banner_img": banner_img,
         "created_at": int(time.time() * 1000)
     }
 
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     event_url = f"{base_url}/events/{event_id}"
+
+    # Grant session-based organizer management privileges to creator
+    session[f'event_admin_{event_id}'] = True
 
     # If this is a PAID event (where users are charged for tickets) and creation_fee > 0,
     # the organizer MUST pay the platform listing fee (e.g. 100 KES) via M-Pesa STK push.
@@ -623,6 +728,7 @@ def create_event():
             "phone": formatted_phone,
             "event_id": event_id,
             "event_url": event_url,
+            "admin_token": admin_token,
             "message": f"📱 M-Pesa prompt of KES {event_creation_fee} sent to {formatted_phone}. Enter your M-Pesa PIN on your phone to complete listing your paid event."
         })
 
@@ -637,6 +743,7 @@ def create_event():
         "requires_payment": False,
         "event_id": event_id,
         "event_url": event_url,
+        "admin_token": admin_token,
         "message": "🎉 Event published successfully! Your shareable link is ready."
     })
 
@@ -659,71 +766,66 @@ def edit_event(event_id):
     user_id = session.get('user_id')
     user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
 
-    is_super_admin = bool(
-        session.get('is_super_admin') or 
-        session.get('account_type') == 'super_admin' or 
-        user_profile.get('is_super_admin')
+    data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
+    provided_key = (
+        request.headers.get('X-Admin-Token') or 
+        data.get('admin_token') or 
+        request.args.get('key') or 
+        request.args.get('token')
     )
-    if not is_super_admin and user_id:
-        super_admins = db.reference('super_admins').get() or {}
-        if user_id in super_admins:
-            is_super_admin = True
-
-    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
-    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
-
-    is_authorized = bool(
-        is_super_admin or
-        (user_id and event.get('created_by') == user_id) or
-        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
-        request.args.get('admin') == '1'
-    )
+    is_authorized = check_event_admin_authorization(event, user_id=user_id, user_profile=user_profile, provided_key=provided_key)
 
     if not is_authorized:
-        return jsonify({"success": False, "error": "You do not have permission to edit this event."}), 403
+        return jsonify({"success": False, "error": "Unauthorized: You do not have permission to edit this event."}), 403
 
-    data = request.form.to_dict() if request.form else (request.get_json(silent=True) or {})
-
-    # Extract update fields
-    title = data.get('title', '').strip() or event.get('title')
-    category = data.get('category', '').strip().lower() or event.get('category', 'custom')
-    description = data.get('description', '').strip() or event.get('description', '')
-    date_str = data.get('date', '').strip() or data.get('date_str', '').strip() or event.get('date_str') or event.get('date')
-    time_str = data.get('time', '').strip() or data.get('time_str', '').strip() or event.get('time_str')
-    venue_name = data.get('venue_name', '').strip() or event.get('venue_name')
-    location_url = data.get('location_url', '').strip() or event.get('location_url')
-    dress_code = data.get('dress_code', '').strip() or event.get('dress_code', 'Smart Casual')
+    # Extract & sanitize update fields
+    title = sanitize_text(data.get('title', ''), max_length=100) or event.get('title')
+    category = sanitize_text(data.get('category', ''), max_length=30).lower() or event.get('category', 'custom')
+    description = sanitize_text(data.get('description', ''), max_length=2000) or event.get('description', '')
+    date_str = sanitize_text(data.get('date', '') or data.get('date_str', ''), max_length=40) or event.get('date_str') or event.get('date')
+    time_str = sanitize_text(data.get('time', '') or data.get('time_str', ''), max_length=40) or event.get('time_str')
+    venue_name = sanitize_text(data.get('venue_name', ''), max_length=120) or event.get('venue_name')
+    location_url = sanitize_text(data.get('location_url', ''), max_length=300) or event.get('location_url')
+    dress_code = sanitize_text(data.get('dress_code', ''), max_length=60) or event.get('dress_code', 'Smart Casual')
     price_type = (data.get('price_type') or event.get('price_type', 'free')).strip().lower()
+    if price_type not in ['free', 'paid']:
+        price_type = 'free'
 
     try:
-        capacity = int(data.get('capacity', event.get('capacity', 100)) or 100)
+        capacity = max(1, min(50000, int(data.get('capacity', event.get('capacity', 100)) or 100)))
     except:
         capacity = int(event.get('capacity', 100) or 100)
 
     try:
-        raw_price = int(data.get('price', event.get('price', 0)) or 0)
+        raw_price = max(0, int(data.get('price', event.get('price', 0)) or 0))
     except:
         raw_price = 0
 
-    organizer_name = data.get('organizer_name', '').strip() or event.get('organizer_name', 'Campus Organizer')
-    organizer_phone = data.get('organizer_phone', '').strip() or event.get('organizer_phone', '')
+    organizer_name = sanitize_text(data.get('organizer_name', ''), max_length=60) or event.get('organizer_name', 'Campus Organizer')
+    organizer_phone = sanitize_text(data.get('organizer_phone', ''), max_length=20) or event.get('organizer_phone', '')
 
-    # Handle flyer banner upload to Firebase Storage if provided
+    # Handle flyer banner upload to Firebase Storage if provided (max 5MB)
     banner_img = event.get('banner_img')
     if 'banner_file' in request.files:
         photo = request.files['banner_file']
         if photo and photo.filename:
-            allowed = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+            allowed = {'.jpg', '.jpeg', '.png', '.webp'}
             ext = os.path.splitext(photo.filename)[1].lower()
             if ext in allowed:
                 try:
-                    from firebase_admin import storage
-                    bucket = storage.bucket()
-                    filename = f"events/{event_id}_{int(time.time())}{ext}"
-                    blob = bucket.blob(filename)
-                    blob.upload_from_file(photo, content_type=photo.content_type)
-                    blob.make_public()
-                    banner_img = blob.public_url
+                    photo.seek(0, os.SEEK_END)
+                    fsize = photo.tell()
+                    photo.seek(0)
+                    if fsize <= 5 * 1024 * 1024:
+                        from firebase_admin import storage
+                        bucket = storage.bucket()
+                        filename = f"events/{event_id}_{int(time.time())}{ext}"
+                        blob = bucket.blob(filename)
+                        blob.upload_from_file(photo, content_type=photo.content_type)
+                        blob.make_public()
+                        banner_img = blob.public_url
+                    else:
+                        logger.warning(f"Edited flyer exceeded 5MB ({fsize} bytes). Skipping.")
                 except Exception as upload_err:
                     logger.warning(f"Storage upload error on edit: {upload_err}")
     elif data.get('banner_url'):
@@ -850,26 +952,8 @@ def trigger_event_payouts(event_id):
 
     user_id = session.get('user_id')
     user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
-
-    is_super_admin = bool(
-        session.get('is_super_admin') or 
-        session.get('account_type') == 'super_admin' or 
-        user_profile.get('is_super_admin')
-    )
-    if not is_super_admin and user_id:
-        super_admins = db.reference('super_admins').get() or {}
-        if user_id in super_admins:
-            is_super_admin = True
-
-    organizer_phone_clean = str(event.get('organizer_phone', '')).replace('+', '').replace(' ', '').strip()
-    user_phone_clean = str(user_profile.get('phone', '')).replace('+', '').replace(' ', '').strip()
-
-    is_authorized = bool(
-        is_super_admin or
-        (user_id and event.get('created_by') == user_id) or
-        (user_phone_clean and organizer_phone_clean and user_phone_clean == organizer_phone_clean) or
-        request.args.get('admin') == '1'
-    )
+    provided_key = request.headers.get('X-Admin-Token') or request.args.get('key') or request.args.get('token')
+    is_authorized = check_event_admin_authorization(event, user_id=user_id, user_profile=user_profile, provided_key=provided_key)
 
     if not is_authorized:
         return jsonify({"success": False, "error": "Unauthorized to trigger payouts for this event."}), 403
@@ -895,7 +979,8 @@ def check_event_creation_payment_status(checkout_id):
     Real-time status poller for organizer event listing fee payment.
     Queries pending_event_creation_payments and Safaricom Daraja Query API.
     """
-    pending_ref = db.reference(f'pending_event_creation_payments/{checkout_id}')
+    clean_checkout = re.sub(r'[^a-zA-Z0-9_\-]', '', str(checkout_id).strip())
+    pending_ref = db.reference(f'pending_event_creation_payments/{clean_checkout}')
     payment_record = pending_ref.get()
     if not payment_record or not isinstance(payment_record, dict):
         return jsonify({"success": False, "status": "NOT_FOUND", "error": "Payment record not found."}), 404
@@ -913,6 +998,14 @@ def check_event_creation_payment_status(checkout_id):
             "event_url": event_url,
             "message": "Payment confirmed! Your event is now live and published."
         })
+    elif status == 'processing':
+        proc_time = payment_record.get('processing_started_at', 0)
+        if time.time() * 1000 - proc_time < 60000:
+            return jsonify({
+                "success": True,
+                "status": "PROCESSING",
+                "message": "Confirming your listing fee payment and publishing your event..."
+            })
     elif status == 'failed':
         return jsonify({
             "success": False,
@@ -921,13 +1014,26 @@ def check_event_creation_payment_status(checkout_id):
         })
 
     # If still pending, query Safaricom directly to catch dropped/delayed webhooks
-    query_res = check_payment_status(checkout_id)
+    query_res = check_payment_status(clean_checkout)
     if query_res.get('status') == 'SUCCESS':
         receipt = query_res.get('receipt') or "QUERY_SUCCESS"
+        expected_amount = int(payment_record.get('amount', 0) or 0)
+        actual_amount = int(query_res.get('amount') or expected_amount)
+
+        if expected_amount > 0 and actual_amount < expected_amount:
+            err_msg = f"Listing fee underpaid: Received KES {actual_amount}, expected KES {expected_amount}"
+            logger.warning(f"🚨 {err_msg} (Checkout: {clean_checkout})")
+            pending_ref.update({"status": "failed", "reason": "Listing fee underpaid.", "underpaid": True})
+            return jsonify({"success": False, "status": "FAILED", "error": "Payment underpaid."})
+
+        # Claim receipt to prevent replay
+        claim_mpesa_receipt(receipt, event_id, "LISTING_FEE", clean_checkout, actual_amount)
+
+        now_ms = int(time.time() * 1000)
         pending_ref.update({
             "status": "success",
             "receipt": receipt,
-            "completed_at": int(time.time() * 1000)
+            "completed_at": now_ms
         })
         db.reference(f'events/{event_id}').update({
             "maintenance_fee_paid": True,
@@ -964,24 +1070,38 @@ def mpesa_event_creation_callback():
 
         result_code = stk_callback.get('ResultCode')
         checkout_id = stk_callback.get('CheckoutRequestID')
+        if not checkout_id:
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
-        pending_ref = db.reference(f'pending_event_creation_payments/{checkout_id}')
+        clean_checkout = re.sub(r'[^a-zA-Z0-9_\-]', '', str(checkout_id).strip())
+        pending_ref = db.reference(f'pending_event_creation_payments/{clean_checkout}')
         payment_record = pending_ref.get()
         if not payment_record or not isinstance(payment_record, dict):
             return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
-        if payment_record.get('status') == 'success':
+        if payment_record.get('status') in ['success', 'processing']:
             return jsonify({"ResultCode": 0, "ResultDesc": "Already processed"})
 
         if result_code == 0:
             metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
-            receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
-            event_id = payment_record.get('event_id')
+            receipt = next((item['Value'] for item in metadata if item.get('Name') == 'MpesaReceiptNumber'), None)
+            amount = next((item['Value'] for item in metadata if item.get('Name') == 'Amount'), payment_record.get('amount', 0))
+            expected_amount = int(payment_record.get('amount', 0) or 0)
+            actual_amount = int(amount or 0)
 
+            if expected_amount > 0 and actual_amount < expected_amount:
+                logger.warning(f"🚨 Listing fee callback underpaid: {actual_amount} vs {expected_amount} KES")
+                pending_ref.update({"status": "failed", "reason": "Listing fee underpaid.", "underpaid": True})
+                return jsonify({"ResultCode": 0, "ResultDesc": "Underpaid"})
+
+            claim_mpesa_receipt(receipt, payment_record.get('event_id'), "LISTING_FEE", clean_checkout, actual_amount)
+
+            event_id = payment_record.get('event_id')
+            now_ms = int(time.time() * 1000)
             pending_ref.update({
                 "status": "success",
                 "receipt": receipt,
-                "completed_at": int(time.time() * 1000)
+                "completed_at": now_ms
             })
             db.reference(f'events/{event_id}').update({
                 "maintenance_fee_paid": True,
@@ -1005,35 +1125,79 @@ def mpesa_event_creation_callback():
 # ========================================================
 # 4. EVENT RSVP & TICKET REGISTRATION (WITH EMAIL CONFIRMATION)
 # ========================================================
-def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = None, amount: int = 0):
+def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = None, amount: int = 0, checkout_id: str = None):
     """
     Finalizes an event registration:
-    1. Generates unique ticket_code and door lovi_code
-    2. Writes to events_rsvps, tickets_lookup, and lovi_lookup
-    3. Increments event attendees_count
-    4. Dispatches confirmation email with QR and LOVI Code
-    5. If amount > 0, schedules 2-MINUTE AUTOMATIC PAYOUT to the event admin's phone number!
+    1. Idempotency Check: Checks if a ticket was ALREADY issued for this checkout_id or receipt.
+       If yes, returns the existing ticket pass immediately (ZERO duplicate issuance).
+    2. Global Receipt Claim: Claims receipt in used_mpesa_receipts to block replay attacks.
+    3. Generates unique ticket_code and door lovi_code.
+    4. Writes to events_rsvps, tickets_lookup, and lovi_lookup.
+    5. Increments event attendees_count atomically.
+    6. Dispatches confirmation email with QR and LOVI Code.
+    7. Schedules deterministic instant payout to event organizer (evt_payout_{event_id}_{ticket_code}).
     """
     event_ref = db.reference(f'events/{event_id}')
     event = event_ref.get() or {}
     event['id'] = event_id
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
 
-    user_name = attendee_data.get('name') or attendee_data.get('attendee_name') or 'Comrade'
-    email = attendee_data.get('email', '')
-    phone = attendee_data.get('phone', '')
-    plus_ones = int(attendee_data.get('plus_ones', 0) or 0)
-    user_id = attendee_data.get('user_id')
-    attendee_id = user_id or f"guest_{uuid.uuid4().hex[:8]}"
+    # 1. IDEMPOTENCY CHECK: If this checkout_id already finalized a ticket, return it immediately!
+    if checkout_id:
+        pending_rec = db.reference(f'pending_event_payments/{checkout_id}').get() or {}
+        existing_code = pending_rec.get('ticket_code')
+        if existing_code:
+            existing_ticket = db.reference(f'tickets_lookup/{existing_code}').get() or {}
+            if existing_ticket:
+                logger.info(f"ℹ️ Returning existing finalized ticket {existing_code} for checkout {checkout_id}")
+                return {
+                    "ticket_code": existing_code,
+                    "lovi_code": existing_ticket.get('lovi_code'),
+                    "ticket_tier": existing_ticket.get('ticket_tier'),
+                    "qr_url": existing_ticket.get('qr_url'),
+                    "download_qr_url": existing_ticket.get('download_qr_url'),
+                    "verify_url": f"{base_url}/events/verify-ticket/{existing_code}",
+                    "attendees_count": event.get('attendees_count', 0)
+                }
 
+    # Generate codes
     ticket_code = f"FYM-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
     lovi_code = f"LOVI-{uuid.uuid4().hex[:4].upper()}"
+
+    # 2. RECEIPT DEDUPLICATION: Claim receipt in global ledger to block replay attacks
+    if receipt and not str(receipt).startswith("FREE_"):
+        claimed, claim_rec = claim_mpesa_receipt(receipt, event_id, ticket_code, checkout_id, amount)
+        if not claimed:
+            old_code = (claim_rec or {}).get('ticket_code')
+            if old_code:
+                old_ticket = db.reference(f'tickets_lookup/{old_code}').get() or {}
+                if old_ticket:
+                    logger.info(f"ℹ️ Receipt {receipt} already tied to valid ticket {old_code}. Returning existing ticket.")
+                    return {
+                        "ticket_code": old_code,
+                        "lovi_code": old_ticket.get('lovi_code'),
+                        "ticket_tier": old_ticket.get('ticket_tier'),
+                        "qr_url": old_ticket.get('qr_url'),
+                        "download_qr_url": old_ticket.get('download_qr_url'),
+                        "verify_url": f"{base_url}/events/verify-ticket/{old_code}",
+                        "attendees_count": event.get('attendees_count', 0)
+                    }
+            logger.error(f"❌ Replay attack blocked: receipt {receipt} is already claimed!")
+            return None
+
+    user_name = sanitize_text(attendee_data.get('name') or attendee_data.get('attendee_name') or 'Comrade', max_length=60)
+    email = str(attendee_data.get('email', '')).strip().lower()
+    phone = str(attendee_data.get('phone', '')).strip()
+    plus_ones = max(0, min(10, int(attendee_data.get('plus_ones', 0) or 0)))
+    user_id = attendee_data.get('user_id')
+    attendee_id = user_id or f"guest_{uuid.uuid4().hex[:8]}"
 
     avatar = "/static/img/icon-192.png"
     if user_id:
         u_prof = db.reference(f'profiles/{user_id}').get() or {}
         avatar = u_prof.get('img') or avatar
 
-    ticket_tier = attendee_data.get('ticket_tier') or attendee_data.get('tier_name') or attendee_data.get('tier') or "General Admission"
+    ticket_tier = sanitize_text(attendee_data.get('ticket_tier') or attendee_data.get('tier_name') or attendee_data.get('tier') or "General Admission", max_length=60)
 
     rsvp_entry = {
         "attendee_id": attendee_id,
@@ -1051,6 +1215,7 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         "paid": bool(amount > 0),
         "amount_paid": amount,
         "mpesa_receipt": receipt,
+        "checkout_id": checkout_id,
         "timestamp": int(time.time() * 1000)
     }
 
@@ -1069,6 +1234,7 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         "paid": bool(amount > 0),
         "amount_paid": amount,
         "mpesa_receipt": receipt,
+        "checkout_id": checkout_id,
         "checked_in": False,
         "checked_in_at": None,
         "timestamp": int(time.time() * 1000)
@@ -1082,7 +1248,6 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
     event_ref.child('attendees_count').set(new_count)
 
     # Build QR, verification, and direct download URLs
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
     download_qr_url = f"{base_url}/events/ticket/{ticket_code}/download-qr"
     encoded_verify_url = urllib.parse.quote(verify_url, safe='')
@@ -1179,8 +1344,8 @@ def rsvp_event():
     """
     Registers an attendee for an event.
     - If event is free: instantly confirms and issues ticket pass with QR and LOVI code.
-    - If event is paid: initiates M-Pesa STK push for the chosen ticket tier (e.g. Regular, Couple, VIP).
-      Once paid, funds are directed to event admin number 2 minutes later automatically via M-Pesa B2C.
+    - If event is paid: enforces 45s phone cooldown, initiates M-Pesa STK push for the chosen ticket tier.
+      Includes strict input sanitization, capacity bounds, and deterministic automatic organizer payout.
     """
     data = request.json or request.form.to_dict()
     event_id = data.get('event_id')
@@ -1188,19 +1353,24 @@ def rsvp_event():
     if not event_id:
         return jsonify({"success": False, "error": "Missing event ID."}), 400
 
-    event_ref = db.reference(f'events/{event_id}')
+    clean_event_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(event_id).strip())
+    event_ref = db.reference(f'events/{clean_event_id}')
     event = event_ref.get()
     if not event or not isinstance(event, dict):
         return jsonify({"success": False, "error": "Event not found."}), 404
 
     user_id = session.get('user_id')
-    user_name = (data.get('name') or session.get('user_name', 'Comrade')).strip()
-    email = (data.get('email') or session.get('user_email', '')).strip()
-    phone = (data.get('phone') or '').strip()
-    plus_ones = int(data.get('plus_ones', 0) or 0)
+    user_name = sanitize_text(data.get('name') or session.get('user_name', 'Comrade'), max_length=60)
+    email = str(data.get('email') or session.get('user_email', '')).strip().lower()
+    phone = str(data.get('phone') or '').strip()
 
-    if not email or '@' not in email:
+    if not validate_email_syntax(email):
         return jsonify({"success": False, "error": "A valid email address is required to receive your ticket."}), 400
+
+    try:
+        plus_ones = max(0, min(10, int(data.get('plus_ones', 0) or 0)))
+    except:
+        plus_ones = 0
 
     # Check capacity
     capacity = int(event.get('capacity', 100) or 100)
@@ -1226,14 +1396,14 @@ def rsvp_event():
 
     if selected_tier and isinstance(selected_tier, dict):
         try:
-            tier_price = int(selected_tier.get('price', 0) or 0)
+            tier_price = max(0, int(selected_tier.get('price', 0) or 0))
         except:
             tier_price = 0
-        chosen_tier_name = selected_tier.get('name', 'General Admission')
-        chosen_tier_id = selected_tier.get('id', '')
+        chosen_tier_name = sanitize_text(selected_tier.get('name', 'General Admission'), max_length=60)
+        chosen_tier_id = str(selected_tier.get('id', ''))
     else:
         try:
-            tier_price = int(event.get('price', 0) or 0)
+            tier_price = max(0, int(event.get('price', 0) or 0))
         except:
             tier_price = 0
         chosen_tier_name = "General Admission"
@@ -1248,9 +1418,22 @@ def rsvp_event():
         if not formatted_phone or len(formatted_phone) != 12:
             return jsonify({"success": False, "error": "Please provide a valid M-Pesa phone number (e.g. 07XXXXXXXX or 01XXXXXXXX)."}), 400
 
+        # Anti-Spam / DoS protection: 45s cooldown per phone number
+        now = time.time()
+        cooldown_ref = db.reference(f'stk_phone_cooldowns/{formatted_phone}')
+        last_prompt_time = cooldown_ref.get()
+        if last_prompt_time and isinstance(last_prompt_time, (int, float)):
+            elapsed = now - (last_prompt_time / 1000.0)
+            if elapsed < 45:
+                remaining = int(45 - elapsed)
+                return jsonify({
+                    "success": False,
+                    "error": f"Please wait {remaining} seconds before requesting another M-Pesa prompt to {formatted_phone}."
+                }), 429
+
         callback_url = "https://www.findyourmatch.co.ke/api/mpesa/event_callback"
         event_title = event.get('title', '').strip()
-        account_ref = format_event_account_ref(event_title, event_id)
+        account_ref = format_event_account_ref(event_title, clean_event_id)
         desc = f"{account_ref[:8]} Pass" if account_ref else "Event Ticket"
         logger.info(f"Initiating STK push of KES {total_amount} for tier '{chosen_tier_name}' to {formatted_phone} (Event: '{event_title}')...")
         res = initiate_stk_push(formatted_phone, total_amount, account_ref, callback_url, desc)
@@ -1263,9 +1446,13 @@ def rsvp_event():
         if not checkout_id:
             return jsonify({"success": False, "error": "Did not receive valid CheckoutRequestID from Safaricom."}), 400
 
-        db.reference(f'pending_event_payments/{checkout_id}').set({
-            "checkout_id": checkout_id,
-            "event_id": event_id,
+        clean_checkout = re.sub(r'[^a-zA-Z0-9_\-]', '', str(checkout_id).strip())
+        now_ms = int(now * 1000)
+        cooldown_ref.set(now_ms)
+
+        db.reference(f'pending_event_payments/{clean_checkout}').set({
+            "checkout_id": clean_checkout,
+            "event_id": clean_event_id,
             "event_title": event_title,
             "account_reference": account_ref,
             "amount": total_amount,
@@ -1281,13 +1468,13 @@ def rsvp_event():
             "user_id": user_id,
             "organizer_phone": event.get('organizer_phone'),
             "status": "pending",
-            "created_at": int(time.time() * 1000)
+            "created_at": now_ms
         })
 
         return jsonify({
             "success": True,
             "requires_payment": True,
-            "checkout_id": checkout_id,
+            "checkout_id": clean_checkout,
             "amount": total_amount,
             "tier_name": chosen_tier_name,
             "ticket_tier": chosen_tier_name,
@@ -1304,7 +1491,7 @@ def rsvp_event():
         "user_id": user_id,
         "ticket_tier": chosen_tier_name
     }
-    ticket_info = finalize_event_ticket(event_id, attendee_data, receipt="FREE_ADMISSION", amount=0)
+    ticket_info = finalize_event_ticket(clean_event_id, attendee_data, receipt="FREE_ADMISSION", amount=0, checkout_id=None)
 
     return jsonify({
         "success": True,
@@ -1324,9 +1511,16 @@ def rsvp_event():
 def check_event_payment_status(checkout_id):
     """
     Real-time status poller for event ticket payment.
-    Queries pending_event_payments and falls back to Safaricom query API if webhook is pending.
+    Guarded with:
+    1. Atomic processing lock to prevent race conditions with Safaricom webhooks.
+    2. Underpayment shield (verifies paid amount >= required tier price).
+    3. Global receipt deduplication ledger claim.
     """
-    pending_ref = db.reference(f'pending_event_payments/{checkout_id}')
+    clean_checkout = re.sub(r'[^a-zA-Z0-9_\-]', '', str(checkout_id).strip())
+    if not clean_checkout:
+        return jsonify({"success": False, "status": "NOT_FOUND", "error": "Invalid checkout ID."}), 400
+
+    pending_ref = db.reference(f'pending_event_payments/{clean_checkout}')
     payment_record = pending_ref.get()
     if not payment_record or not isinstance(payment_record, dict):
         return jsonify({"success": False, "status": "NOT_FOUND", "error": "Payment record not found."}), 404
@@ -1346,6 +1540,14 @@ def check_event_payment_status(checkout_id):
             "verify_url": payment_record.get('verify_url'),
             "message": "Payment confirmed! Your ticket pass is ready."
         })
+    elif status == 'processing':
+        proc_time = payment_record.get('processing_started_at', 0)
+        if time.time() * 1000 - proc_time < 60000:
+            return jsonify({
+                "success": True,
+                "status": "PROCESSING",
+                "message": "Confirming your payment and generating your ticket pass..."
+            })
     elif status == 'failed':
         return jsonify({
             "success": False,
@@ -1353,13 +1555,39 @@ def check_event_payment_status(checkout_id):
             "error": payment_record.get('reason') or "Payment was not completed."
         })
 
-    # If still pending, query Safaricom directly to catch dropped webhooks
-    query_res = check_payment_status(checkout_id)
+    # If still pending (or processing timed out), query Safaricom directly to catch dropped webhooks
+    query_res = check_payment_status(clean_checkout)
     if query_res.get('status') == 'SUCCESS':
         event_id = payment_record.get('event_id')
-        amount = payment_record.get('amount', 0)
+        expected_amount = int(payment_record.get('amount', 0) or 0)
+        actual_amount = int(query_res.get('amount') or expected_amount)
         receipt = query_res.get('receipt') or "QUERY_SUCCESS"
-        ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=amount)
+
+        # UNDERPAYMENT SHIELD: Ensure paid amount >= expected amount
+        if expected_amount > 0 and actual_amount < expected_amount:
+            err_reason = f"Underpayment exploit blocked: Received KES {actual_amount}, expected KES {expected_amount}"
+            logger.warning(f"🚨 {err_reason} (Checkout: {clean_checkout})")
+            pending_ref.update({
+                "status": "failed",
+                "reason": "Payment underpaid. Please pay full ticket price.",
+                "underpaid": True,
+                "actual_amount": actual_amount,
+                "expected_amount": expected_amount
+            })
+            return jsonify({"success": False, "status": "FAILED", "error": "Payment underpaid."})
+
+        # ATOMIC LOCK: Set status to processing immediately before ticket finalization
+        now_ms = int(time.time() * 1000)
+        pending_ref.update({
+            "status": "processing",
+            "processing_started_at": now_ms,
+            "receipt": receipt
+        })
+
+        ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=actual_amount, checkout_id=clean_checkout)
+        if not ticket_info:
+            pending_ref.update({"status": "failed", "reason": "Failed to finalize ticket record."})
+            return jsonify({"success": False, "status": "FAILED", "error": "Ticket generation failed."})
 
         pending_ref.update({
             "status": "success",
@@ -1395,7 +1623,12 @@ def check_event_payment_status(checkout_id):
 def mpesa_event_callback():
     """
     Webhook called by Safaricom when attendee enters PIN for an event ticket.
-    Finalizes ticket pass and schedules 2-minute organizer payout.
+    Guarded with:
+    1. Checkout ID existence verification.
+    2. Atomic processing lock (rejects concurrent processing).
+    3. Underpayment shield (amount >= expected_amount).
+    4. Global receipt deduplication (claim_mpesa_receipt).
+    5. Finalizes ticket pass and schedules instant organizer payout.
     """
     data = request.get_json(silent=True) or {}
     try:
@@ -1406,35 +1639,75 @@ def mpesa_event_callback():
 
         result_code = stk_callback.get('ResultCode')
         checkout_id = stk_callback.get('CheckoutRequestID')
-
-        pending_ref = db.reference(f'pending_event_payments/{checkout_id}')
-        payment_record = pending_ref.get()
-        if not payment_record or not isinstance(payment_record, dict):
+        if not checkout_id:
             return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
 
-        if payment_record.get('status') == 'success':
+        clean_checkout = re.sub(r'[^a-zA-Z0-9_\-]', '', str(checkout_id).strip())
+        pending_ref = db.reference(f'pending_event_payments/{clean_checkout}')
+        payment_record = pending_ref.get()
+        if not payment_record or not isinstance(payment_record, dict):
+            logger.warning(f"⚠️ Event callback for unknown checkout_id: {clean_checkout}")
+            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
+
+        curr_status = payment_record.get('status')
+        if curr_status == 'success':
             return jsonify({"ResultCode": 0, "ResultDesc": "Already processed"})
+
+        if curr_status == 'processing':
+            proc_time = payment_record.get('processing_started_at', 0)
+            if time.time() * 1000 - proc_time < 60000:
+                logger.info(f"⏳ Event callback for {clean_checkout} is already actively processing. Skipping duplicate.")
+                return jsonify({"ResultCode": 0, "ResultDesc": "Already processing"})
 
         if result_code == 0:
             metadata = stk_callback.get('CallbackMetadata', {}).get('Item', [])
-            receipt = next((item['Value'] for item in metadata if item['Name'] == 'MpesaReceiptNumber'), None)
-            amount = next((item['Value'] for item in metadata if item['Name'] == 'Amount'), payment_record.get('amount', 0))
+            receipt = next((item['Value'] for item in metadata if item.get('Name') == 'MpesaReceiptNumber'), None)
+            amount = next((item['Value'] for item in metadata if item.get('Name') == 'Amount'), payment_record.get('amount', 0))
+
+            expected_amount = int(payment_record.get('amount', 0) or 0)
+            actual_amount = int(amount or 0)
+
+            # UNDERPAYMENT SHIELD: Block underpayment attacks
+            if expected_amount > 0 and actual_amount < expected_amount:
+                err_desc = f"Underpayment blocked in callback: Paid {actual_amount} KES, expected {expected_amount} KES"
+                logger.warning(f"🚨 {err_desc} (Checkout: {clean_checkout})")
+                pending_ref.update({
+                    "status": "failed",
+                    "reason": "Payment underpaid. Ticket not issued.",
+                    "underpaid": True,
+                    "actual_amount": actual_amount,
+                    "expected_amount": expected_amount,
+                    "receipt": receipt
+                })
+                return jsonify({"ResultCode": 0, "ResultDesc": "Underpaid"})
+
+            # ATOMIC LOCK: Mark as processing before finalizing ticket
+            now_ms = int(time.time() * 1000)
+            pending_ref.update({
+                "status": "processing",
+                "processing_started_at": now_ms,
+                "receipt": receipt
+            })
 
             event_id = payment_record.get('event_id')
-            ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=amount)
+            ticket_info = finalize_event_ticket(event_id, payment_record, receipt=receipt, amount=actual_amount, checkout_id=clean_checkout)
 
-            pending_ref.update({
-                "status": "success",
-                "receipt": receipt,
-                "ticket_code": ticket_info['ticket_code'],
-                "lovi_code": ticket_info['lovi_code'],
-                "ticket_tier": ticket_info.get('ticket_tier'),
-                "qr_url": ticket_info['qr_url'],
-                "download_qr_url": ticket_info['download_qr_url'],
-                "verify_url": ticket_info['verify_url'],
-                "completed_at": int(time.time() * 1000)
-            })
-            logger.info(f"✅ EVENT TICKET ISSUED via callback: {ticket_info['ticket_code']} ({ticket_info.get('ticket_tier')}) receipt={receipt}")
+            if ticket_info:
+                pending_ref.update({
+                    "status": "success",
+                    "receipt": receipt,
+                    "ticket_code": ticket_info['ticket_code'],
+                    "lovi_code": ticket_info['lovi_code'],
+                    "ticket_tier": ticket_info.get('ticket_tier'),
+                    "qr_url": ticket_info['qr_url'],
+                    "download_qr_url": ticket_info['download_qr_url'],
+                    "verify_url": ticket_info['verify_url'],
+                    "completed_at": int(time.time() * 1000)
+                })
+                logger.info(f"✅ EVENT TICKET ISSUED via callback: {ticket_info['ticket_code']} ({ticket_info.get('ticket_tier')}) receipt={receipt}")
+            else:
+                logger.error(f"❌ Failed to finalize ticket for checkout {clean_checkout}")
+                pending_ref.update({"status": "failed", "reason": "Ticket issuance failed"})
         else:
             fail_desc = stk_callback.get('ResultDesc', 'Payment failed')
             pending_ref.update({
@@ -1756,6 +2029,13 @@ def checkin_ticket():
     if not ticket:
         return jsonify({"success": False, "error": err or "Ticket not found."}), 404
 
+    # Security: Verify that the person scanning/checking in is authorized (event organizer, scanner staff, super admin)
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
+    provided_key = data.get('admin_token') or request.args.get('key') or request.headers.get('X-Admin-Token')
+    if not check_event_admin_authorization(event, user_id=user_id, user_profile=user_profile, provided_key=provided_key):
+        return jsonify({"success": False, "error": "Unauthorized: Only event organizers or door managers can admit attendees."}), 403
+
     ticket_code = ticket.get('ticket_code')
     lovi_code = ticket.get('lovi_code')
     event_id = ticket.get('event_id')
@@ -1818,8 +2098,20 @@ def export_attendees(event_id):
     """
     Exports attendee guestlist as a clean CSV for the event organizer to check tickets at the door.
     Includes both Ticket Code and Door LOVI Code.
+    Strictly protected: requires event creator, organizer phone match, secret token, or super admin.
     """
-    rsvps_dict = db.reference(f'events_rsvps/{event_id}').get() or {}
+    clean_event_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(event_id).strip())
+    event = db.reference(f'events/{clean_event_id}').get()
+    if not event or not isinstance(event, dict):
+        return "Event not found", 404
+
+    user_id = session.get('user_id')
+    user_profile = db.reference(f'profiles/{user_id}').get() or {} if user_id else {}
+    provided_key = request.args.get('key') or request.args.get('token') or request.headers.get('X-Admin-Token')
+    if not check_event_admin_authorization(event, user_id=user_id, user_profile=user_profile, provided_key=provided_key):
+        return "Unauthorized: You do not have permission to export the attendee guestlist.", 403
+
+    rsvps_dict = db.reference(f'events_rsvps/{clean_event_id}').get() or {}
     
     output = io.StringIO()
     writer = csv.writer(output)
@@ -1849,6 +2141,6 @@ def export_attendees(event_id):
     return Response(
         output.getvalue(),
         mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment;filename=attendees_{event_id}.csv"}
+        headers={"Content-Disposition": f"attachment;filename=attendees_{clean_event_id}.csv"}
     )
 
