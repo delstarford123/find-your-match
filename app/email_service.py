@@ -3311,4 +3311,356 @@ def send_free_trial_announcement_email(recipient_email: str, recipient_name: str
     )
 
 
+def build_kalenjin_takeover_email_content(recipient_name: str = "Comrade", event_url: str = None):
+    """
+    Constructs high-impact responsive HTML & plaintext email for KALENJIN TAKE OVER (MMUST EDITION).
+    """
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+    if not event_url:
+        event_url = f"{base_url}/events/evt_7124cc20ce"
+    
+    first_name = (recipient_name or "Comrade").strip().split()[0].capitalize()
+    if not first_name:
+        first_name = "Comrade"
+    
+    banner_img = "https://storage.googleapis.com/mmust-dating-site.firebasestorage.app/events/evt_7124cc20ce_1792081746.png"
+    maps_url = "https://maps.google.com/?q=VAULT+RETRO+CLUB"
+    discover_url = f"{base_url}/discover"
+
+    subject = "🔥 KALENJIN TAKE OVER (MMUST EDITION) – Oct 31 @ Vault Retro Club! 💃🕺"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {first_name}!
+
+        Get ready for the biggest and most anticipated campus event of the semester!
+
+        🔥 KALENJIN TAKE OVER (MMUST EDITION) 🔥
+        ------------------------------------------------------------
+        🗓️ Date: Saturday, 31st October 2026
+        ⏰ Time: 6:00 PM – DAWN
+        📍 Venue: VAULT RETRO CLUB
+        👗 Dress Code: Casual (Turn up in style!)
+        ------------------------------------------------------------
+
+        🎤 SPECIAL GUEST ARTIST: TOBBY MR ROMANTIC
+        🎧 HYPED BY: MC BK OFFICIAL & MC DENOO
+        ⚡ ITAKUWA MOTO SANA! Non-stop music, Kalenjin vibes, afro-beats, and pure campus turn-up!
+
+        🎟️ TICKET PASSES & ADMISSION:
+        • Per Person (LIMITED) : 250 KES (Standard single entry)
+        • Per Couple (LIMITED) : 450 KES (Pass for 2 comrades)
+        • VIP Entrance (LIMITED) : 600 KES (VIP access & priority service)
+
+        👉 BOOK YOUR TICKETS ONLINE (Instant M-Pesa STK Push):
+        {event_url}
+
+        Your digital ticket with a scannable QR Code pass will be generated instantly 
+        and sent directly to your phone & email for fast entry at the door!
+
+        📍 Open Venue Location in Google Maps:
+        {maps_url}
+
+        ❤️ Looking for a partner or vibe to go with?
+        Meet other verified campus students right now on Find Your Match:
+        {discover_url}
+
+        Host Contact: BK OFFICIAL (0706695719)
+        Powered by Find Your Match Events ({base_url})
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>KALENJIN TAKE OVER (MMUST EDITION)</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #07090e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #ffffff;">
+
+            <!-- PREHEADER TEXT (HIDDEN IN BODY) -->
+            <div style="display: none; font-size: 1px; color: #07090e; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+                Kalenjin Take Over MMUST Edition! 31st Oct @ Vault Retro Club. Guest Artist Tobby Mr Romantic, Mc BK Official & Mc Denoo. Grab your ticket now!
+            </div>
+
+            <!-- OUTER WRAPPER TABLE -->
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07090e; padding: 20px 10px 40px;">
+                <tr>
+                    <td align="center">
+
+                        <!-- MAIN CONTAINER -->
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; background: #0f1523; border-radius: 28px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);">
+                            
+                            <!-- BRAND HEADER -->
+                            <tr>
+                                <td style="padding: 18px 24px; background: #0a0e18; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: center;">
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                        <tr>
+                                            <td align="center">
+                                                <a href="{base_url}" target="_blank" style="text-decoration: none; display: inline-block;">
+                                                    <span style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #ff334b; display: inline-flex; align-items: center;">
+                                                        FIND YOUR MATCH <span style="background: rgba(255,51,75,0.2); color: #ff6b7d; padding: 3px 8px; border-radius: 6px; font-size: 10px; margin-left: 8px; border: 1px solid rgba(255,51,75,0.3);">EVENTS 🎟️</span>
+                                                    </span>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <!-- HERO FLYER POSTER IMAGE -->
+                            <tr>
+                                <td style="background: #000000; text-align: center; line-height: 0;">
+                                    <a href="{event_url}" target="_blank" style="display: block; text-decoration: none;">
+                                        <img src="{banner_img}" alt="KALENJIN TAKE OVER (MMUST EDITION)" width="600" style="width: 100%; max-width: 600px; height: auto; display: block; border: 0;" />
+                                    </a>
+                                </td>
+                            </tr>
+
+                            <!-- TITLE & EVENT STATUS HERO -->
+                            <tr>
+                                <td style="background: linear-gradient(135deg, #7a0010 0%, #ba0d23 50%, #e60026 100%); padding: 34px 28px 28px; text-align: center; color: #ffffff;">
+                                    <div style="display: inline-block; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.25); padding: 6px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
+                                        🔥 OFFICIAL CAMPUS MEGA EVENT • TICKETS LIVE
+                                    </div>
+                                    <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.5px; text-transform: uppercase;">
+                                        KALENJIN TAKE OVER
+                                    </h1>
+                                    <div style="font-size: 15px; font-weight: 700; color: #ffe4e6; letter-spacing: 0.5px;">
+                                        (MMUST EDITION) – THE NIGHT OF THE SEMESTER! 🎧💃
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- BODY CONTENT -->
+                            <tr>
+                                <td style="padding: 32px 28px;">
+                                    
+                                    <!-- GREETING -->
+                                    <p style="font-size: 17px; color: #f1f5f9; line-height: 1.6; margin: 0 0 16px;">
+                                        Hello <strong style="color: #ff4d61;">{first_name}</strong>,
+                                    </p>
+                                    <p style="font-size: 15px; color: #cbd5e1; line-height: 1.7; margin: 0 0 24px;">
+                                        The most talked-about campus turn-up is finally happening in Kakamega! Mark your calendar and get your squad ready for an electrifying night packed with live performances, pure energy, and great company.
+                                    </p>
+
+                                    <!-- EVENT ESSENTIALS CARD -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; overflow: hidden; margin-bottom: 26px;">
+                                        <tr>
+                                            <td style="padding: 22px 20px;">
+                                                <div style="font-size: 12px; font-weight: 800; color: #ff6b7d; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 16px;">
+                                                    📌 EVENT DETAILS
+                                                </div>
+
+                                                <!-- DATE & TIME -->
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
+                                                    <tr>
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">🗓️</td>
+                                                        <td style="padding-left: 8px;">
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Date & Time</div>
+                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">Saturday, 31st October 2026</div>
+                                                            <div style="font-size: 13px; color: #f43f5e; font-weight: 700;">6:00 PM – DAWN 🌅</div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+
+                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
+
+                                                <!-- VENUE -->
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
+                                                    <tr>
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">📍</td>
+                                                        <td style="padding-left: 8px;">
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Venue Location</div>
+                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">VAULT RETRO CLUB</div>
+                                                            <a href="{maps_url}" target="_blank" style="font-size: 12px; color: #38bdf8; text-decoration: none; font-weight: 700; display: inline-block; margin-top: 2px;">
+                                                                Open in Google Maps &rarr;
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+
+                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
+
+                                                <!-- DRESS CODE -->
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                    <tr>
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">👗</td>
+                                                        <td style="padding-left: 8px;">
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Dress Code</div>
+                                                            <div style="font-size: 14px; font-weight: 700; color: #f1f5f9;">Casual &amp; Fresh (Come dressed to impress!)</div>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- ARTIST & HYPE HIGHLIGHT -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(135deg, rgba(230,0,38,0.15) 0%, rgba(122,0,16,0.25) 100%); border: 1px solid rgba(230,0,38,0.3); border-radius: 18px; padding: 20px; margin-bottom: 26px;">
+                                        <tr>
+                                            <td>
+                                                <div style="font-size: 12px; font-weight: 900; color: #ff4d61; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px;">
+                                                    ⭐ STAR-STUDDED LINEUP
+                                                </div>
+                                                <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-bottom: 4px;">
+                                                    🎤 Guest Artist: <span style="color: #facc15;">TOBBY MR ROMANTIC</span>
+                                                </div>
+                                                <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px;">
+                                                    🎧 Hyped By: <span style="color: #67e8f9;">MC BK OFFICIAL &amp; MC DENOO</span>
+                                                </div>
+                                                <div style="font-size: 13px; color: #fecdd3; font-style: italic; line-height: 1.5;">
+                                                    "ITAKUWA MOTO SANA! 🔥🔥 Don't just hear stories on Sunday morning, be there live!"
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- TICKET TIERS TABLE -->
+                                    <div style="margin-bottom: 26px;">
+                                        <div style="font-size: 12px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; text-align: center;">
+                                            🎟️ CHOOSE YOUR ENTRY PASS
+                                        </div>
+
+                                        <!-- TIER 1 -->
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
+                                            <tr>
+                                                <td style="padding: 14px 18px;">
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                        <tr>
+                                                            <td>
+                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Person (LIMITED)</div>
+                                                                <div style="font-size: 12px; color: #94a3b8;">Standard single admission pass</div>
+                                                            </td>
+                                                            <td align="right" style="white-space: nowrap;">
+                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">250 KES</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- TIER 2 -->
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
+                                            <tr>
+                                                <td style="padding: 14px 18px;">
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                        <tr>
+                                                            <td>
+                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Couple (LIMITED) 👫</div>
+                                                                <div style="font-size: 12px; color: #94a3b8;">Admission pass for 2 comrades (Save 50 KES!)</div>
+                                                            </td>
+                                                            <td align="right" style="white-space: nowrap;">
+                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">450 KES</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+
+                                        <!-- TIER 3 -->
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(234,179,8,0.3); border-radius: 14px;">
+                                            <tr>
+                                                <td style="padding: 14px 18px;">
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                        <tr>
+                                                            <td>
+                                                                <div style="font-size: 14px; font-weight: 800; color: #facc15;">VIP Entrance (LIMITED) ⭐</div>
+                                                                <div style="font-size: 12px; color: #cbd5e1;">VIP section access &amp; priority entry</div>
+                                                            </td>
+                                                            <td align="right" style="white-space: nowrap;">
+                                                                <span style="font-size: 16px; font-weight: 900; color: #facc15;">600 KES</span>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </div>
+
+                                    <!-- BIG CTA BUTTON -->
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 16px;">
+                                        <tr>
+                                            <td align="center">
+                                                <a href="{event_url}" target="_blank" style="display: block; width: 88%; background: linear-gradient(135deg, #e60026 0%, #ff1f44 100%); color: #ffffff; text-decoration: none; padding: 18px 24px; border-radius: 50px; font-weight: 900; font-size: 17px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(230,0,38,0.45); text-align: center;">
+                                                    🎟️ GET YOUR TICKETS NOW &rarr;
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <div style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 28px;">
+                                        ⚡ Instant M-Pesa STK Push • QR Code Ticket delivered immediately to your email &amp; phone!
+                                    </div>
+
+                                    <!-- DATING & MATCHING ANGLE -->
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 16px; padding: 18px 20px; text-align: center; margin-bottom: 24px;">
+                                        <div style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 6px;">
+                                            Looking for someone to attend with? 💘
+                                        </div>
+                                        <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 12px;">
+                                            Don't go solo! Check out students near you on Find Your Match and connect before Saturday night.
+                                        </div>
+                                        <a href="{discover_url}" target="_blank" style="display: inline-block; background: rgba(255,255,255,0.1); color: #ff6b7d; text-decoration: none; padding: 8px 20px; border-radius: 50px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.15);">
+                                            Find Your Party Match &rarr;
+                                        </a>
+                                    </div>
+
+                                    <!-- DIRECT LINK COPY FALLBACK -->
+                                    <div style="background: #080c14; border-radius: 12px; padding: 14px; font-size: 11px; color: #64748b; word-break: break-all; text-align: center;">
+                                        Direct link to view event &amp; book:<br>
+                                        <a href="{event_url}" style="color: #ff4d61; text-decoration: underline;">{event_url}</a>
+                                    </div>
+
+                                </td>
+                            </tr>
+
+                            <!-- FOOTER -->
+                            <tr>
+                                <td style="padding: 24px; background: #07090e; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">
+                                    <div style="margin-bottom: 8px; color: #94a3b8; font-weight: 700;">
+                                        Organized by BK OFFICIAL (0706695719)
+                                    </div>
+                                    <div style="margin-bottom: 12px;">
+                                        Verified campus ticketing powered by <a href="{base_url}" style="color: #ff334b; text-decoration: none; font-weight: 700;">Find Your Match</a>
+                                    </div>
+                                    <div style="font-size: 11px; color: #475569;">
+                                        You received this event invitation because you are a registered member of Find Your Match.<br>
+                                        Kakamega, Kenya.
+                                    </div>
+                                </td>
+                            </tr>
+
+                        </table>
+                        <!-- END MAIN CONTAINER -->
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>
+    """)
+
+    return subject, text_content, html_content
+
+
+def send_kalenjin_takeover_email(recipient_email: str, recipient_name: str, event_url: str = None) -> bool:
+    """
+    Sends the KALENJIN TAKE OVER (MMUST EDITION) event invitation email.
+    """
+    subject, text_content, html_content = build_kalenjin_takeover_email_content(recipient_name, event_url)
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Find Your Match Events"
+    )
+
+
+
 

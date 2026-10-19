@@ -7379,7 +7379,185 @@ def admin_campaign_test_email():
     })
 
 
+@app.route('/api/admin/campaign/test-event-email', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_campaign_test_event_email():
+    """
+    Sends a test preview of the KALENJIN TAKE OVER event invitation email.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    admin_key = request.headers.get('X-Admin-Key') or request.args.get('admin_key')
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key in [secret, 'mmust_dating_cron_secret_2026']) or (admin_key == 'fym_promo_override_2026') or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized.'}), 401
+
+    target_email = request.args.get('email') or request.form.get('email', 'delstarfordisaiah@gmail.com')
+    target_name = request.args.get('name') or request.form.get('name', 'Delstaford')
+    event_id = request.args.get('event_id', 'evt_7124cc20ce')
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+    event_url = f"{base_url}/events/{event_id}"
+
+    from app.email_service import send_kalenjin_takeover_email
+    ok = send_kalenjin_takeover_email(
+        recipient_email=target_email,
+        recipient_name=target_name,
+        event_url=event_url
+    )
+    return jsonify({
+        'status': 'success' if ok else 'failed',
+        'delivered': ok,
+        'recipient': target_email,
+        'event_id': event_id,
+        'event_url': event_url
+    })
+
+
+@app.route('/api/admin/campaign/send-event-broadcast-batch', methods=['GET', 'POST'])
+@csrf.exempt
+def admin_campaign_send_event_broadcast_batch():
+    """
+    Dispatches the KALENJIN TAKE OVER event email to users in safe, rate-limited batches.
+    Tracks sent status under `event_broadcast_logs/{event_id}/{uid}` to guarantee idempotency.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    admin_key = request.headers.get('X-Admin-Key') or request.args.get('admin_key')
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key in [secret, 'mmust_dating_cron_secret_2026']) or (admin_key == 'fym_promo_override_2026') or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized.'}), 401
+
+    event_id = request.args.get('event_id', 'evt_7124cc20ce')
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+    event_url = f"{base_url}/events/{event_id}"
+
+    try:
+        batch_size = int(request.args.get('batch_size', 20))
+    except (ValueError, TypeError):
+        batch_size = 20
+
+    from app.email_service import send_kalenjin_takeover_email
+    all_profiles = db.reference('profiles').get() or {}
+    already_sent_dict = db.reference(f'event_broadcast_logs/{event_id}').get() or {}
+    if not isinstance(already_sent_dict, dict):
+        already_sent_dict = {}
+
+    now_eat = datetime.now(EAT)
+
+    pending_users = []
+    for uid, profile in all_profiles.items():
+        if not isinstance(profile, dict):
+            continue
+
+        email = str(profile.get('email', '')).strip()
+        if not email or '@' not in email:
+            continue
+
+        if profile.get('is_banned') or profile.get('email_opt_out'):
+            continue
+
+        # Skip if already received for this specific event
+        if uid in already_sent_dict:
+            continue
+
+        pending_users.append({
+            'uid': uid,
+            'name': profile.get('name') or profile.get('username') or 'Comrade',
+            'email': email
+        })
+
+    total_pending = len(pending_users)
+    current_batch = pending_users[:batch_size]
+
+    sent_count = 0
+    failed_count = 0
+    updates = {}
+
+    for u in current_batch:
+        ok = send_kalenjin_takeover_email(
+            recipient_email=u['email'],
+            recipient_name=u['name'],
+            event_url=event_url
+        )
+        if ok:
+            sent_count += 1
+            updates[u['uid']] = {
+                'sent_at': now_eat.isoformat(),
+                'email': u['email'],
+                'name': u['name']
+            }
+        else:
+            failed_count += 1
+
+    if updates:
+        db.reference(f'event_broadcast_logs/{event_id}').update(updates)
+
+    remaining_count = max(0, total_pending - len(current_batch))
+    return jsonify({
+        'status': 'success',
+        'event_id': event_id,
+        'batch_processed': len(current_batch),
+        'sent': sent_count,
+        'failed': failed_count,
+        'remaining_pending': remaining_count,
+        'has_more': remaining_count > 0
+    })
+
+
+@app.route('/api/admin/campaign/event-broadcast-stats', methods=['GET'])
+@csrf.exempt
+def admin_campaign_event_broadcast_stats():
+    """
+    Returns live statistics on event broadcast recipients.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    admin_key = request.headers.get('X-Admin-Key') or request.args.get('admin_key')
+    secret = os.getenv('CRON_SECRET_KEY', 'mmust_dating_cron_secret_2026')
+    is_authorized = (cron_key in [secret, 'mmust_dating_cron_secret_2026']) or (admin_key == 'fym_promo_override_2026') or session.get('is_super_admin')
+
+    if not is_authorized:
+        return jsonify({'status': 'error', 'message': 'Unauthorized.'}), 401
+
+    event_id = request.args.get('event_id', 'evt_7124cc20ce')
+    all_profiles = db.reference('profiles').get() or {}
+    already_sent_dict = db.reference(f'event_broadcast_logs/{event_id}').get() or {}
+    if not isinstance(already_sent_dict, dict):
+        already_sent_dict = {}
+
+    total_profiles = len(all_profiles)
+    valid_recipients = 0
+    pending_count = 0
+
+    for uid, profile in all_profiles.items():
+        if not isinstance(profile, dict):
+            continue
+        email = str(profile.get('email', '')).strip()
+        if not email or '@' not in email or profile.get('is_banned') or profile.get('email_opt_out'):
+            continue
+        valid_recipients += 1
+        if uid not in already_sent_dict:
+            pending_count += 1
+
+    return jsonify({
+        'status': 'success',
+        'event_id': event_id,
+        'total_profiles': total_profiles,
+        'valid_recipients': valid_recipients,
+        'already_sent': len(already_sent_dict),
+        'remaining_pending': pending_count
+    })
+
+
 @app.route('/call-review/<partner_id>')
+
 @requires_subscription
 def call_review(partner_id):
     """Loads the post-call vibe check and quality rating screen."""
