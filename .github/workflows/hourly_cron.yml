@@ -12,4 +12,11 @@ jobs:
     steps:
       - name: Trigger FYM Hourly Anti-Ghosting & Schedulers
         run: |
-          curl -s -f -X GET "https://findyourmatch.co.ke/api/cron/hourly-check?cron_key=mmust_dating_cron_secret_2026"
+          curl -s -S -f -L \
+            --connect-timeout 30 \
+            --max-time 120 \
+            --retry 3 \
+            --retry-delay 5 \
+            -H "X-Cron-Key: mmust_dating_cron_secret_2026" \
+            -H "Authorization: Bearer mmust_dating_cron_secret_2026" \
+            "https://findyourmatch.co.ke/api/cron/hourly-check?cron_key=mmust_dating_cron_secret_2026"
