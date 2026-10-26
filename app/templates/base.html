@@ -179,6 +179,83 @@
             return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         }
 
+        function getNotificationUrl(notif) {
+            if (!notif) return '/dashboard';
+            
+            // Explicit link defined in payload
+            let link = notif.link || notif.click_url || notif.url;
+            if (link && link !== '#' && link !== 'null' && link !== 'undefined') {
+                return link;
+            }
+
+            const type = (notif.type || '').toLowerCase();
+            const title = (notif.title || '').toLowerCase();
+            const msg = (notif.message || notif.body || notif.text || '').toLowerCase();
+
+            // 1. Anonymous Confessions & NGL
+            if (type.includes('ngl') || type.includes('confession') || type.includes('anonymous') ||
+                title.includes('confession') || title.includes('ngl') || title.includes('anonymous') ||
+                msg.includes('ngl') || msg.includes('confession') || msg.includes('secret message')) {
+                const msgId = notif.message_id || notif.msg_id || notif.id;
+                return msgId ? `/ngl?msg=${msgId}` : '/ngl';
+            }
+
+            // 2. Secret Crush
+            if (type === 'crush' || title.includes('crush')) {
+                if (notif.sender_id && notif.sender_id !== 'SYSTEM' && notif.sender_id !== 'system') {
+                    return `/matches/${notif.sender_id}`;
+                }
+                return '/secret-admirer';
+            }
+
+            // 3. Group chat & group invite
+            if (type === 'group' || (notif.match_id && String(notif.match_id).startsWith('group_'))) {
+                const gId = notif.match_id ? String(notif.match_id).replace(/^group_invite_|^group_/, '') : '';
+                return gId ? `/group/${gId}` : '/groups';
+            }
+
+            // 4. Calls
+            if (type === 'group_call' || type === 'call') {
+                if (notif.call_id && notif.group_id) {
+                    return `/group/${notif.group_id}/call/${notif.call_id}`;
+                }
+                return '/groups';
+            }
+
+            // 5. Date requests & bookings
+            if (type === 'date_request' || type === 'booking') {
+                return '/bookings';
+            }
+
+            // 6. Likes
+            if (type === 'like') {
+                return '/swipe';
+            }
+
+            // 7. Direct Message or Match
+            if (notif.sender_id && notif.sender_id !== 'SYSTEM' && notif.sender_id !== 'system') {
+                return `/matches/${notif.sender_id}`;
+            }
+
+            if (type === 'match') {
+                return '/matches';
+            }
+
+            return '/matches';
+        }
+
+        function handleNotificationClick(key, targetUrl) {
+            if (key && notificationsRef) {
+                try {
+                    notificationsRef.child(key).remove().catch(e => console.error(e));
+                } catch(e) {}
+            }
+            delete notificationData[key];
+            updateGlobalBellUI();
+            const dest = targetUrl || '/dashboard';
+            window.location.href = dest;
+        }
+
         function updateGlobalBellUI() {
             const badge = document.getElementById('bell-badge');
             const list = document.getElementById('bell-popover-list');
@@ -187,21 +264,12 @@
             if (!badge || !list) return;
 
             const notifs = Object.values(notificationData).sort((a, b) => {
-                const ta = new Date(a.timestamp || 0).getTime();
-                const tb = new Date(b.timestamp || 0).getTime();
+                const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
                 return tb - ta;
             });
-            const count = notifs.length;
 
-            const mobileChatBadge = document.getElementById('mobile-chat-badge');
-            if (mobileChatBadge) {
-                if (count > 0) {
-                    mobileChatBadge.textContent = count > 99 ? '99+' : count;
-                    mobileChatBadge.style.display = 'inline-flex';
-                } else {
-                    mobileChatBadge.style.display = 'none';
-                }
-            }
+            const count = notifs.length;
 
             if (bell) {
                 if (count > 0) {
@@ -218,51 +286,45 @@
                 if (countEl) countEl.textContent = count + (count === 1 ? ' unread' : ' unread');
 
                 const typeConfig = {
-                    match:        { icon: '❤️', color: '#E60026', label: 'New Match!' },
-                    message:      { icon: '💬', color: '#3B82F6', label: 'Message' },
-                    date_request: { icon: '🍷', color: '#9333ea', label: 'Date Request' },
-                    crush:        { icon: '🤫', color: '#ec4899', label: 'Secret Crush' },
-                    like:         { icon: '💖', color: '#f43f5e', label: 'New Like' },
-                    shot:         { icon: '🎯', color: '#ec4899', label: 'Shot Fired' },
-                    meetup:       { icon: '📍', color: '#0ea5e9', label: 'Campus Meetup' },
-                    group:        { icon: '👥', color: '#10b981', label: 'Group Chat' },
-                    call:         { icon: '📞', color: '#06b6d4', label: 'Call Alert' },
-                    promo:        { icon: '🎁', color: '#8b5cf6', label: 'Reward' },
-                    success:      { icon: '❤️', color: '#E60026', label: 'New Match!' },
-                    info:         { icon: '📍', color: '#3B82F6', label: 'Campus Alert' },
-                    system:       { icon: '🔔', color: '#f59e0b', label: 'Update' }
+                    match:          { icon: '❤️', color: '#E60026', label: 'New Match!' },
+                    message:        { icon: '💬', color: '#3B82F6', label: 'Message' },
+                    ngl_confession: { icon: '🤫', color: '#FF0844', label: 'Anonymous Confession' },
+                    ngl:            { icon: '🤫', color: '#FF0844', label: 'Anonymous Confession' },
+                    confession:     { icon: '🤫', color: '#FF0844', label: 'Anonymous Confession' },
+                    anonymous:      { icon: '🎭', color: '#8B5CF6', label: 'Anonymous Message' },
+                    anonymous_chat: { icon: '🎭', color: '#8B5CF6', label: 'Anonymous Chat' },
+                    date_request:   { icon: '🍷', color: '#9333ea', label: 'Date Request' },
+                    crush:          { icon: '🤫', color: '#ec4899', label: 'Secret Crush' },
+                    like:           { icon: '💖', color: '#f43f5e', label: 'New Like' },
+                    shot:           { icon: '🎯', color: '#ec4899', label: 'Shot Fired' },
+                    meetup:         { icon: '📍', color: '#0ea5e9', label: 'Campus Meetup' },
+                    group:          { icon: '👥', color: '#10b981', label: 'Group Chat' },
+                    group_call:     { icon: '📞', color: '#06b6d4', label: 'Group Call' },
+                    call:           { icon: '📞', color: '#06b6d4', label: 'Call Alert' },
+                    promo:          { icon: '🎁', color: '#8b5cf6', label: 'Reward' },
+                    success:        { icon: '❤️', color: '#E60026', label: 'New Match!' },
+                    info:           { icon: '📍', color: '#3B82F6', label: 'Campus Alert' },
+                    system:         { icon: '🔔', color: '#f59e0b', label: 'Update' }
                 };
 
                 let html = '';
                 notifs.forEach((notif) => {
                     const key = notif._key;
-                    const cfg = typeConfig[notif.type] || typeConfig.message;
+                    const cfg = typeConfig[notif.type] || (notif.title && notif.title.includes('Confession') ? typeConfig.ngl_confession : typeConfig.message);
                     
-                    let link = notif.link || notif.click_url || notif.url;
-                    if (!link) {
-                        if (notif.match_id && String(notif.match_id).startsWith('group_')) {
-                            const gId = notif.match_id.replace(/^group_invite_|^group_/, '');
-                            link = gId ? `/group/${gId}` : '/groups';
-                        } else if (notif.type === 'date_request') {
-                            link = '/bookings';
-                        } else if (notif.type === 'group') {
-                            link = '/groups';
-                        } else if (notif.type === 'like') {
-                            link = '/swipe';
-                        } else if (notif.sender_id && notif.sender_id !== 'SYSTEM' && notif.sender_id !== 'system') {
-                            link = `/matches/${notif.sender_id}`;
-                        } else {
-                            link = '/matches';
-                        }
-                    }
+                    const link = getNotificationUrl(notif);
 
-                    const img = notif.sender_img || notif.img || notif.profile_img || '/static/img/placeholder.png';
+                    let defaultAvatar = '/static/img/placeholder.png';
+                    if (notif.type && (notif.type.includes('ngl') || notif.type.includes('confession') || notif.type.includes('anonymous'))) {
+                        defaultAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=confession&backgroundColor=ff0844';
+                    }
+                    const img = notif.sender_img || notif.img || notif.profile_img || defaultAvatar;
                     const ago = timeAgo(notif.timestamp);
                     const displayName = notif.title || notif.sender_name || cfg.label;
                     const displayMsg = notif.message || notif.body || notif.text || cfg.label;
 
                     html += `
-                        <div class="bell-notif-item" onclick="clearNotification('${key}'); window.location.href='${link}';">
+                        <div class="bell-notif-item" onclick="handleNotificationClick('${key}', '${link}');">
                             <div class="bell-notif-avatar">
                                 <img src="${img}" alt="" onerror="this.src='/static/img/placeholder.png'">
                                 <span class="bell-notif-type-icon" style="background:${cfg.color}">${cfg.icon}</span>
@@ -886,10 +948,11 @@
                         <a href="{{ url_for('groups') }}" class="premium-nav-link" style="color: #720000;">
                             🗣️ <span>Group Chats</span>
                         </a>
-                            <span class="pulse-dot"></span>
-                        </a>
                         <a href="{{ url_for('talk_directory') }}" class="premium-nav-link">
                             📞 <span>Voice & Video Calls</span>
+                        </a>
+                        <a href="/ngl" class="premium-nav-link" style="color: #FF0844; font-weight: 700;">
+                            🤫 <span>Anonymous NGL Inbox</span>
                         </a>
                         <a href="{{ url_for('lights_out') }}">🔒 Anonymous Chat Lobby</a>
                     </div>
@@ -947,8 +1010,9 @@
                                 <div style="font-size:13px;color:#9ca3af;">We'll ping you when something happens</div>
                             </div>
                         </div>
-                        <div class="bell-popover-footer">
-                            <a href="/matches" class="bell-view-all">View all matches &rarr;</a>
+                        <div class="bell-popover-footer" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px;">
+                            <a href="/matches" class="bell-view-all">Matches &rarr;</a>
+                            <a href="/ngl" class="bell-view-all" style="color: #FF0844; font-weight: 800;">🤫 NGL Inbox &rarr;</a>
                         </div>
                     </div>
                 </div>
@@ -2624,29 +2688,17 @@
 
             // Smart destination routing based on notification type and payload
             toast.onclick = () => {
-                let link = data.link || data.click_url || data.url;
-                if (!link) {
-                    if (data.match_id && String(data.match_id).startsWith('group_')) {
-                        const gId = data.match_id.replace(/^group_invite_|^group_/, '');
-                        link = gId ? `/group/${gId}` : '/groups';
-                    } else if (data.type === 'date_request') {
-                        link = '/bookings';
-                    } else if (data.type === 'group') {
-                        link = '/groups';
-                    } else if (data.type === 'like') {
-                        link = '/swipe';
-                    } else if (data.sender_id && data.sender_id !== 'SYSTEM' && data.sender_id !== 'system') {
-                        link = `/matches/${data.sender_id}`;
-                    } else {
-                        link = '/matches';
-                    }
-                }
+                let link = getNotificationUrl(data);
                 window.location.href = link;
             };
 
             const displayName = data.sender_name || data.title || 'Notification';
             const displayMsg = data.message || data.body || data.text || 'You have a new update!';
-            const img = data.sender_img || data.img || data.profile_img || '/static/img/placeholder.png';
+            let defaultAvatar = '/static/img/placeholder.png';
+            if (data.type && (data.type.includes('ngl') || data.type.includes('confession') || data.type.includes('anonymous'))) {
+                defaultAvatar = 'https://api.dicebear.com/7.x/bottts/svg?seed=confession&backgroundColor=ff0844';
+            }
+            const img = data.sender_img || data.img || data.profile_img || defaultAvatar;
 
             toast.innerHTML = `
                 <img src="${img}" alt="Profile" onerror="this.src='/static/img/placeholder.png'">

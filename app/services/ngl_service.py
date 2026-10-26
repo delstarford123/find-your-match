@@ -452,12 +452,29 @@ def submit_anonymous_confession(slug: str, message_text: str, user_agent: str = 
     # 4. Push in-app alert to recipient if registered
     if not str(user_id).startswith('ghost_'):
         try:
+            target_link = f"/ngl?msg={inbox_ref.key}"
             db.reference(f'notifications/{user_id}').push({
                 "title": "🤫 New Anonymous Confession!",
-                "message": "Someone just sent you a secret confession on your NGL link! Open your inbox to read it.",
+                "message": "Someone just sent you a secret confession on your NGL link! Tap to open your inbox.",
                 "type": "ngl_confession",
+                "link": target_link,
+                "click_url": target_link,
+                "url": target_link,
+                "message_id": inbox_ref.key,
                 "timestamp": now_eat.isoformat(),
                 "status": "unread"
+            })
+            # Also push real-time toast notification with sound
+            short_preview = (text[:48] + "...") if len(text) > 48 else text
+            db.reference(f'chat_notifications/{user_id}').push({
+                "title": "🤫 New Anonymous Confession!",
+                "message": f"\"{short_preview}\" — Tap to read",
+                "type": "ngl_confession",
+                "link": target_link,
+                "click_url": target_link,
+                "url": target_link,
+                "message_id": inbox_ref.key,
+                "timestamp": now_eat.isoformat()
             })
         except Exception as notif_err:
             logger.error(f"Error notifying recipient of confession: {notif_err}")
