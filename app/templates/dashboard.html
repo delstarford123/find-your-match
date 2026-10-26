@@ -609,19 +609,392 @@
     <div style="position: absolute; bottom: -40px; left: -40px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%); border-radius: 50%; pointer-events: none;"></div>
 </div>
 
-<!-- NGL ANONYMOUS LINK BANNER -->
-<div style="background: linear-gradient(135deg, #FF0844 0%, #FF4E50 50%, #F9D423 100%); border-radius: 24px; padding: 22px 24px; color: white; margin: 0 0 34px 0; box-shadow: 0 14px 35px rgba(255, 8, 68, 0.3); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
-    <div>
-        <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.25); padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 8px;">
-            🤫 Viral Anonymous Confessions
-        </div>
-        <h3 style="font-size: clamp(18px, 4vw, 22px); font-weight: 900; margin: 0 0 4px 0; color: #FFF;">Share Your NGL Link to WhatsApp Status!</h3>
-        <p style="font-size: 13px; color: #FFF; margin: 0; opacity: 0.95;">Get juicy anonymous confessions from your WhatsApp contacts without them needing to log in.</p>
+<!-- UPGRADED NGL ANONYMOUS CONFESSIONS HUB -->
+<style>
+    .dash-ngl-container {
+        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+        border: 1.5px solid rgba(255, 46, 116, 0.35);
+        border-radius: 28px;
+        padding: 24px;
+        color: white;
+        margin: 0 0 34px 0;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35), 0 0 30px rgba(255, 46, 116, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .dash-ngl-container::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(255, 46, 116, 0.25) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .dash-ngl-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .dash-ngl-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 46, 116, 0.18);
+        border: 1px solid rgba(255, 46, 116, 0.4);
+        color: #FF2E74;
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .dash-ngl-unread-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #FF2E74;
+        color: #FFF;
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 900;
+        box-shadow: 0 0 15px rgba(255, 46, 116, 0.6);
+        animation: pulseGlow 2s infinite;
+    }
+    @keyframes pulseGlow {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.04); }
+    }
+    .dash-ngl-title {
+        font-size: clamp(20px, 4vw, 24px);
+        font-weight: 900;
+        margin: 0 0 6px 0;
+        color: #FFF;
+        letter-spacing: -0.5px;
+    }
+    .dash-ngl-desc {
+        font-size: 13px;
+        color: #94A3B8;
+        margin: 0 0 18px 0;
+        max-width: 600px;
+        line-height: 1.5;
+    }
+    .dash-ngl-linkbox {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1.5px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    .dash-ngl-url {
+        font-size: 13px;
+        font-weight: 700;
+        color: #38BDF8;
+        font-family: monospace;
+        word-break: break-all;
+    }
+    .dash-ngl-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .btn-dash-wa {
+        background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+        color: #FFF;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35);
+        transition: transform 0.15s;
+        text-decoration: none;
+    }
+    .btn-dash-wa:hover {
+        transform: translateY(-2px);
+    }
+    .btn-dash-copy {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #FFF;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s;
+    }
+    .btn-dash-copy:hover {
+        background: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+    }
+    .btn-dash-manage {
+        background: rgba(255, 46, 116, 0.15);
+        border: 1px solid rgba(255, 46, 116, 0.35);
+        color: #FF2E74;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s;
+    }
+    .btn-dash-manage:hover {
+        background: rgba(255, 46, 116, 0.25);
+        transform: translateY(-2px);
+    }
+
+    /* Confessions Feed in Dashboard */
+    .dash-confessions-feed {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 18px;
+        margin-top: 10px;
+    }
+    .dash-feed-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .dash-feed-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #E2E8F0;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .dash-confessions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    .dash-confession-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    .dash-confession-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 46, 116, 0.4);
+    }
+    .dash-confession-card.unread {
+        border-left: 4px solid #FF2E74;
+        background: rgba(255, 46, 116, 0.08);
+    }
+    .dash-card-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #94A3B8;
+        margin-bottom: 10px;
+    }
+    .dash-card-text {
+        font-size: 14px;
+        font-weight: 700;
+        color: #FFF;
+        line-height: 1.45;
+        margin-bottom: 14px;
+        word-break: break-word;
+    }
+    .dash-card-device {
+        font-size: 11px;
+        color: #94A3B8;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-dash-reply {
+        background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);
+        color: #FFF;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        box-shadow: 0 4px 14px rgba(255, 46, 116, 0.3);
+        transition: transform 0.15s;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .btn-dash-reply:hover {
+        transform: scale(1.02);
+    }
+    .dash-empty-confessions {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+        padding: 22px 18px;
+        text-align: center;
+    }
+</style>
+
+<div class="dash-ngl-container">
+    <div class="dash-ngl-top">
+        <span class="dash-ngl-badge">
+            <span>🤫</span>
+            <span>NGL Anonymous Confessions</span>
+        </span>
+        {% if ngl_unread_count and ngl_unread_count > 0 %}
+        <span class="dash-ngl-unread-pill">
+            <span>🔥</span>
+            <span>{{ ngl_unread_count }} New Secret{% if ngl_unread_count > 1 %}s{% endif %}</span>
+        </span>
+        {% else %}
+        <span style="font-size: 12px; color: #94A3B8; font-weight: 600;">Zero-login links</span>
+        {% endif %}
     </div>
-    <a href="/ngl" style="background: #FFF; color: #D4145A; padding: 13px 26px; border-radius: 999px; font-weight: 900; font-size: 14px; text-decoration: none; box-shadow: 0 6px 18px rgba(0,0,0,0.25); display: inline-flex; align-items: center; gap: 6px; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='none'">
-        <span>Get My NGL Link &rarr;</span>
-    </a>
+
+    <h3 class="dash-ngl-title">Your Anonymous WhatsApp Link</h3>
+    <p class="dash-ngl-desc">
+        Post your link to your WhatsApp Status! Friends and crushes can send you secret messages and confessions without needing an account or login.
+    </p>
+
+    <!-- Link URL Box -->
+    <div class="dash-ngl-linkbox">
+        <span class="dash-ngl-url" id="dashNglLink">{{ ngl_full_link }}</span>
+        <div class="dash-ngl-actions">
+            <button type="button" class="btn-dash-wa" onclick="shareDashNglToWhatsApp()">
+                <span>📲 Post to Status</span>
+            </button>
+            <button type="button" class="btn-dash-copy" onclick="copyDashNglLink()">
+                <span id="dashCopyIcon">📋</span>
+                <span id="dashCopyLabel">Copy Link</span>
+            </button>
+            <a href="/ngl" class="btn-dash-manage">
+                <span>⚙️ Studio &rarr;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Confessions Feed -->
+    <div class="dash-confessions-feed">
+        <div class="dash-feed-header">
+            <span class="dash-feed-title">
+                <span>📬</span>
+                <span>Recent Confessions</span>
+                {% if ngl_inbox and ngl_inbox|length > 0 %}
+                <span style="background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 999px; font-size: 11px;">{{ ngl_inbox|length }}</span>
+                {% endif %}
+            </span>
+            {% if ngl_inbox and ngl_inbox|length > 0 %}
+            <a href="/ngl" style="color: #38BDF8; font-size: 12px; font-weight: 700; text-decoration: none;">View All &rarr;</a>
+            {% endif %}
+        </div>
+
+        {% if ngl_recent_messages and ngl_recent_messages|length > 0 %}
+        <div class="dash-confessions-grid">
+            {% for msg in ngl_recent_messages %}
+            <div class="dash-confession-card {% if not msg.is_read %}unread{% endif %}" 
+                 id="dash-card-{{ msg.id }}"
+                 data-id="{{ msg.id }}"
+                 data-text="{{ msg.text|forceescape }}"
+                 data-prompt="{{ msg.prompt|forceescape }}"
+                 data-device="{{ msg.device_hint|forceescape }}"
+                 data-location="{{ msg.location_hint|forceescape }}">
+                <div>
+                    <div class="dash-card-meta">
+                        <span style="font-weight: 800; color: #FF8A00;">{{ msg.game_type|title or 'Confession' }}</span>
+                        <span>{{ msg.time_formatted or 'Recently' }}</span>
+                    </div>
+                    <div class="dash-card-text">
+                        "{{ msg.text }}"
+                    </div>
+                    <div class="dash-card-device">
+                        <span>📱</span>
+                        <span>{{ msg.device_hint or 'Mobile Device' }}</span>
+                    </div>
+                </div>
+
+                <button type="button" class="btn-dash-reply" onclick="openStoryReplyModalById('{{ msg.id }}')">
+                    <span>📲 Reply on WhatsApp Status</span>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="dash-empty-confessions">
+            <div style="font-size: 28px; margin-bottom: 6px;">📬</div>
+            <div style="font-size: 14px; font-weight: 800; color: #FFF; margin-bottom: 4px;">No Confessions Yet!</div>
+            <p style="font-size: 12px; color: #94A3B8; margin: 0 0 14px 0;">Post your link to your WhatsApp Status and your comrades will start sending secret messages!</p>
+            <button type="button" class="btn-dash-wa" onclick="shareDashNglToWhatsApp()" style="padding: 12px 24px;">
+                <span>📲 Post Link to WhatsApp Status Now</span>
+            </button>
+        </div>
+        {% endif %}
+    </div>
 </div>
+
+<!-- Include Shared 9:16 Story Studio & Reply Modal -->
+{% include 'ngl_story_reply_modal.html' %}
+
+<script>
+    // Inject NGL data for dashboard
+    const INBOX_DATA = {{ ngl_inbox|tojson|safe }};
+    const NGL_FULL_LINK = "{{ ngl_full_link }}";
+    const NGL_SLUG = "{{ ngl_info.slug if ngl_info else '' }}";
+
+    function copyDashNglLink() {
+        const url = NGL_FULL_LINK || document.getElementById('dashNglLink')?.innerText;
+        navigator.clipboard.writeText(url).then(() => {
+            const label = document.getElementById('dashCopyLabel');
+            const icon = document.getElementById('dashCopyIcon');
+            if (label) label.innerText = 'Copied!';
+            if (icon) icon.innerText = '✓';
+            setTimeout(() => {
+                if (label) label.innerText = 'Copy Link';
+                if (icon) icon.innerText = '📋';
+            }, 2500);
+        }).catch(() => {
+            prompt('Copy your link:', url);
+        });
+    }
+
+    function shareDashNglToWhatsApp() {
+        const url = NGL_FULL_LINK || document.getElementById('dashNglLink')?.innerText;
+        const textToShare = `Send me anonymous confessions & secret messages! I won't know who sent it 👇\n\n${url}`;
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare)}`;
+        window.open(whatsappUrl, '_blank');
+    }
+</script>
 
 <h2 class="section-title">Discover Students</h2>
 {% if matches %}

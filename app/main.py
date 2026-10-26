@@ -1620,6 +1620,23 @@ def dashboard():
                     'compatibility': p.get('compatibility', 85)
                 })
 
+    # 6. Fetch NGL Viral Link & Inbox summary for Dashboard
+    try:
+        from app.services.ngl_service import get_or_create_user_link, get_user_inbox
+        ngl_info = get_or_create_user_link(user_id) or {}
+        ngl_inbox = get_user_inbox(user_id) or []
+        ngl_slug = ngl_info.get('slug') or 'student'
+        ngl_full_link = url_for('ngl_public_page', slug=ngl_slug, _external=True)
+        ngl_unread_count = sum(1 for m in ngl_inbox if not m.get('is_read'))
+        ngl_recent_messages = ngl_inbox[:3]
+    except Exception as ngl_err:
+        logger.error(f"Error loading NGL dashboard data: {ngl_err}")
+        ngl_info = {}
+        ngl_inbox = []
+        ngl_full_link = ""
+        ngl_unread_count = 0
+        ngl_recent_messages = []
+
     return render_template(
         'dashboard.html', 
         current_user=session.get('user_name', 'Student').split(' ')[0], 
@@ -1634,7 +1651,12 @@ def dashboard():
         daily_prompt=prompt_data,
         my_answer=my_answer_data,
         badges=badges,
-        profile_complete=is_profile_complete(user_data)
+        profile_complete=is_profile_complete(user_data),
+        ngl_info=ngl_info,
+        ngl_full_link=ngl_full_link,
+        ngl_unread_count=ngl_unread_count,
+        ngl_inbox=ngl_inbox,
+        ngl_recent_messages=ngl_recent_messages
     )
     
 @app.route('/api/boost', methods=['POST'])
@@ -10025,46 +10047,84 @@ def api_ngl_submit():
     return jsonify(res)
 
 
-@app.route('/ngl')
-@login_required
-def ngl_inbox_hub():
+def resolve_current_ngl_user():
     """
-    User's private NGL inbox, link generator, and Canvas story card replier.
+    Resolves the user identity for NGL.
+    If authenticated: returns (user_id, False, user_data)
+    If guest/ghost: returns (ghost_id, True, ghost_profile)
     """
     user_id = session.get('user_id')
-    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    if user_id:
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
+        return user_id, False, user_data
+
+    # Check client header, cookie, or session for ghost ID
+    client_ghost = request.args.get('ghost_id') or request.headers.get('X-Ghost-Id')
+    cookie_ghost = request.cookies.get('fym_ghost_ngl')
+    session_ghost = session.get('ghost_user_id')
+
+    ghost_id = session_ghost or cookie_ghost or client_ghost
+    if not ghost_id or not str(ghost_id).startswith('ghost_'):
+        import secrets
+        ghost_id = f"ghost_{secrets.token_hex(6)}"
+
+    session['ghost_user_id'] = ghost_id
+    ghost_profile = {
+        "name": "Comrade (Ghost Mode)",
+        "is_ghost": True,
+        "ghost_id": ghost_id
+    }
+    return ghost_id, True, ghost_profile
+
+
+@app.route('/ngl')
+def ngl_inbox_hub():
+    """
+    User's NGL inbox, link generator, and Canvas story card replier.
+    Accessible to BOTH registered students and instant zero-login ghost users!
+    """
+    from flask import make_response
     from app.services.ngl_service import get_or_create_user_link, get_user_inbox
-    link_info = get_or_create_user_link(user_id)
+
+    user_id, is_ghost, user_data = resolve_current_ngl_user()
+    link_info = get_or_create_user_link(user_id, is_ghost=is_ghost)
     inbox_messages = get_user_inbox(user_id)
 
     full_link = url_for('ngl_public_page', slug=link_info['slug'], _external=True)
 
-    return render_template(
+    resp = make_response(render_template(
         'ngl_inbox.html',
         user=user_data,
         link_info=link_info,
         full_link=full_link,
-        messages=inbox_messages
-    )
+        messages=inbox_messages,
+        is_ghost=is_ghost,
+        ghost_id=user_id if is_ghost else ""
+    ))
+
+    if is_ghost:
+        # Keep ghost cookie valid for 1 year
+        resp.set_cookie('fym_ghost_ngl', user_id, max_age=31536000, httponly=False, samesite='Lax')
+
+    return resp
 
 
 @app.route('/api/ngl/my-link', methods=['GET'])
-@login_required
 def api_ngl_my_link():
-    """Returns user link settings and prompts."""
-    user_id = session.get('user_id')
+    """Returns user link settings and prompts (works for registered & ghost users)."""
     from app.services.ngl_service import get_or_create_user_link
-    link_info = get_or_create_user_link(user_id)
+    user_id, is_ghost, _ = resolve_current_ngl_user()
+    link_info = get_or_create_user_link(user_id, is_ghost=is_ghost)
     link_info['full_link'] = url_for('ngl_public_page', slug=link_info['slug'], _external=True)
+    link_info['is_ghost'] = is_ghost
     return jsonify(link_info)
 
 
 @app.route('/api/ngl/update-link', methods=['POST'])
-@login_required
 @csrf.exempt
 def api_ngl_update_link():
-    """Updates slug, game type, or custom prompt."""
-    user_id = session.get('user_id')
+    """Updates slug, game type, or custom prompt for registered or ghost user."""
+    user_id, is_ghost, _ = resolve_current_ngl_user()
     data = request.get_json(silent=True) or {}
     new_slug = data.get('slug')
     game_type = data.get('game_type')
@@ -10083,21 +10143,19 @@ def api_ngl_update_link():
 
 
 @app.route('/api/ngl/inbox', methods=['GET'])
-@login_required
 def api_ngl_inbox():
-    """Fetches user's anonymous inbox messages."""
-    user_id = session.get('user_id')
+    """Fetches anonymous inbox messages for current user or ghost session."""
+    user_id, is_ghost, _ = resolve_current_ngl_user()
     from app.services.ngl_service import get_user_inbox
     messages = get_user_inbox(user_id)
-    return jsonify({"success": True, "messages": messages})
+    return jsonify({"success": True, "messages": messages, "is_ghost": is_ghost})
 
 
 @app.route('/api/ngl/inbox/read', methods=['POST'])
-@login_required
 @csrf.exempt
 def api_ngl_inbox_read():
     """Marks an anonymous message as opened/read."""
-    user_id = session.get('user_id')
+    user_id, _, _ = resolve_current_ngl_user()
     data = request.get_json(silent=True) or {}
     message_id = data.get('message_id')
     from app.services.ngl_service import mark_inbox_message_read
@@ -10106,16 +10164,33 @@ def api_ngl_inbox_read():
 
 
 @app.route('/api/ngl/inbox/delete', methods=['POST'])
-@login_required
 @csrf.exempt
 def api_ngl_inbox_delete():
     """Deletes an anonymous message."""
-    user_id = session.get('user_id')
+    user_id, _, _ = resolve_current_ngl_user()
     data = request.get_json(silent=True) or {}
     message_id = data.get('message_id')
     from app.services.ngl_service import delete_inbox_message
     ok = delete_inbox_message(user_id, message_id)
     return jsonify({"success": ok})
+
+
+@app.route('/api/ngl/claim', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_ngl_claim():
+    """
+    Migrates a ghost user's link and inbox confessions to their registered account.
+    """
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    ghost_id = data.get('ghost_id') or session.get('ghost_user_id') or request.cookies.get('fym_ghost_ngl')
+
+    from app.services.ngl_service import claim_ghost_ngl_link
+    res = claim_ghost_ngl_link(user_id, ghost_id)
+    if res.get('success'):
+        session.pop('ghost_user_id', None)
+    return jsonify(res)
 
 
 # ==========================================

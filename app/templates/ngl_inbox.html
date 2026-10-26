@@ -10,6 +10,90 @@
         padding: 0 16px;
     }
 
+    /* Ghost Mode Top Banner */
+    .ghost-status-card {
+        background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #1E1B4B 100%);
+        border: 1.5px solid rgba(129, 140, 248, 0.45);
+        border-radius: 24px;
+        padding: 22px 20px;
+        margin-bottom: 24px;
+        color: #FFFFFF;
+        box-shadow: 0 15px 35px rgba(30, 27, 75, 0.4), 0 0 25px rgba(99, 102, 241, 0.2);
+        animation: ghostGlow 3s infinite alternate;
+    }
+    @keyframes ghostGlow {
+        from { box-shadow: 0 15px 35px rgba(30, 27, 75, 0.4), 0 0 20px rgba(99, 102, 241, 0.15); }
+        to { box-shadow: 0 18px 40px rgba(30, 27, 75, 0.5), 0 0 35px rgba(129, 140, 248, 0.35); }
+    }
+    .ghost-badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(129, 140, 248, 0.2);
+        color: #C7D2FE;
+        border: 1px solid rgba(129, 140, 248, 0.4);
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    .ghost-headline {
+        font-size: clamp(17px, 3.5vw, 20px);
+        font-weight: 900;
+        margin: 0 0 6px 0;
+        color: #FFF;
+    }
+    .ghost-subtext {
+        font-size: 13px;
+        color: #CBD5E1;
+        line-height: 1.5;
+        margin: 0 0 16px 0;
+    }
+    .ghost-actions-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .btn-ghost-claim {
+        background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);
+        color: #FFF;
+        padding: 11px 22px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 6px 18px rgba(255, 46, 116, 0.35);
+        transition: transform 0.15s;
+    }
+    .btn-ghost-claim:hover {
+        transform: translateY(-2px);
+    }
+    .btn-ghost-signin {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #FFF;
+        padding: 11px 18px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s;
+    }
+    .btn-ghost-signin:hover {
+        background: rgba(255, 255, 255, 0.22);
+        transform: translateY(-2px);
+    }
+
     /* Top Hero Link Card */
     .ngl-hero-card {
         background: linear-gradient(135deg, #111827 0%, #1F2937 100%);
@@ -68,11 +152,12 @@
         font-size: 14px;
         font-weight: 500;
         margin-bottom: 20px;
+        line-height: 1.5;
     }
 
     /* Link URL Box */
     .link-display-box {
-        background: rgba(15, 23, 42, 0.8);
+        background: rgba(15, 23, 42, 0.85);
         border: 1.5px solid rgba(255, 255, 255, 0.12);
         border-radius: 18px;
         padding: 14px 18px;
@@ -84,7 +169,7 @@
         flex-wrap: wrap;
     }
     .link-url-text {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 700;
         color: #38BDF8;
         word-break: break-all;
@@ -97,10 +182,11 @@
         gap: 10px;
         flex-wrap: wrap;
         width: 100%;
+        margin-bottom: 14px;
     }
     .btn-ngl-primary {
         flex: 1;
-        min-width: 170px;
+        min-width: 180px;
         background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
         color: #FFF;
         border: none;
@@ -143,21 +229,56 @@
         transform: translateY(-2px);
     }
 
+    /* Social Share Quick Bar */
+    .quick-share-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+    }
+    .quick-share-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #94A3B8;
+        margin-right: 4px;
+    }
+    .share-pill-btn {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #E2E8F0;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .share-pill-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #FFF;
+        transform: translateY(-1px);
+    }
+
     /* Template Switcher Row */
     .template-selector-title {
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 800;
         color: #E2E8F0;
-        margin: 24px 0 12px;
+        margin: 20px 0 12px;
         display: flex;
         align-items: center;
         gap: 8px;
     }
     .template-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
         gap: 10px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
     }
     .template-pill {
         background: rgba(255, 255, 255, 0.05);
@@ -208,12 +329,16 @@
         background: rgba(255, 255, 255, 0.12);
         border: none;
         color: #FFF;
-        padding: 6px 14px;
+        padding: 7px 16px;
         border-radius: 999px;
         font-size: 12px;
         font-weight: 700;
         cursor: pointer;
         white-space: nowrap;
+        transition: background 0.15s;
+    }
+    .btn-edit-prompt:hover {
+        background: rgba(255, 46, 116, 0.4);
     }
 
     /* === INBOX SECTION === */
@@ -221,7 +346,9 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin: 35px 0 18px;
+        margin: 35px 0 16px;
+        flex-wrap: wrap;
+        gap: 10px;
     }
     .inbox-title {
         font-size: 22px;
@@ -240,10 +367,58 @@
         border-radius: 999px;
     }
 
+    /* Filter & Search Bar */
+    .inbox-filter-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .inbox-tabs-wrap {
+        display: flex;
+        gap: 6px;
+    }
+    .inbox-tab {
+        background: #F1F5F9;
+        border: none;
+        color: #64748B;
+        padding: 7px 16px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .inbox-tab.active {
+        background: #0F172A;
+        color: #FFF;
+    }
+    .inbox-search-wrap {
+        display: flex;
+        align-items: center;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 999px;
+        padding: 6px 14px;
+        gap: 8px;
+        flex: 1;
+        max-width: 260px;
+    }
+    .inbox-search-input {
+        border: none;
+        outline: none;
+        font-size: 12px;
+        font-family: inherit;
+        width: 100%;
+        color: #1E293B;
+    }
+
     .confession-list {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 18px;
     }
 
     .confession-card {
@@ -252,7 +427,7 @@
         padding: 22px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
         border: 1px solid rgba(0, 0, 0, 0.06);
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
         position: relative;
     }
     .confession-card:hover {
@@ -275,10 +450,11 @@
         font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
-        color: #64748B;
-        background: #F1F5F9;
+        color: #FF8A00;
+        background: #FFF7ED;
         padding: 4px 10px;
         border-radius: 999px;
+        border: 1px solid #FFEDD5;
     }
     .card-time-ago {
         font-size: 12px;
@@ -291,7 +467,7 @@
         font-weight: 700;
         color: #0F172A;
         line-height: 1.5;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
         padding: 14px 16px;
         background: #F8FAFC;
         border-radius: 16px;
@@ -305,7 +481,7 @@
         background: #F8FAFC;
         border-radius: 12px;
         padding: 8px 12px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -319,17 +495,65 @@
         font-weight: 600;
     }
 
+    /* Pro "Who Sent This?" Banner on Cards */
+    .card-clues-banner {
+        background: linear-gradient(135deg, rgba(255, 46, 116, 0.08) 0%, rgba(255, 138, 0, 0.08) 100%);
+        border: 1.5px dashed rgba(255, 46, 116, 0.35);
+        border-radius: 14px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        margin-bottom: 16px;
+        transition: all 0.2s;
+    }
+    .card-clues-banner:hover {
+        background: linear-gradient(135deg, rgba(255, 46, 116, 0.15) 0%, rgba(255, 138, 0, 0.15) 100%);
+        border-color: #FF2E74;
+        transform: translateY(-1px);
+    }
+    .clues-left-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .clues-sparkle-icon {
+        font-size: 20px;
+    }
+    .clues-primary-text {
+        font-size: 13px;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .clues-secondary-text {
+        font-size: 11px;
+        color: #64748B;
+        font-weight: 500;
+    }
+    .btn-clues-action {
+        font-size: 11px;
+        font-weight: 800;
+        color: #FF2E74;
+        background: #FFF;
+        padding: 4px 10px;
+        border-radius: 999px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        white-space: nowrap;
+    }
+
     .card-actions-row {
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 10px;
+        flex-wrap: wrap;
     }
     .btn-reply-status {
         background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);
         color: #FFF;
         border: none;
-        padding: 9px 18px;
+        padding: 10px 20px;
         border-radius: 999px;
         font-size: 13px;
         font-weight: 800;
@@ -343,11 +567,28 @@
     .btn-reply-status:hover {
         transform: scale(1.03);
     }
+    .btn-quick-text {
+        background: rgba(37, 211, 102, 0.1);
+        border: 1px solid rgba(37, 211, 102, 0.3);
+        color: #128C7E;
+        padding: 9px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.15s;
+    }
+    .btn-quick-text:hover {
+        background: rgba(37, 211, 102, 0.2);
+    }
     .btn-del-msg {
         background: transparent;
         border: 1px solid #E2E8F0;
         color: #94A3B8;
-        padding: 8px 14px;
+        padding: 9px 14px;
         border-radius: 999px;
         font-size: 12px;
         font-weight: 700;
@@ -386,38 +627,37 @@
         line-height: 1.5;
     }
 
-    /* === STORY CARD GENERATOR MODAL === */
-    .story-modal {
+    /* === VIP "WHO SENT THIS?" CONVERSION MODAL === */
+    .clues-modal-overlay {
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.85);
+        background: rgba(8, 11, 18, 0.88);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
-        z-index: 99999;
+        z-index: 999999;
         align-items: center;
         justify-content: center;
         padding: 16px;
-        overflow-y: auto;
     }
-    .story-modal.active {
+    .clues-modal-overlay.active {
         display: flex;
+        animation: modalFadeIn 0.25s ease-out;
     }
-
-    .story-modal-content {
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+    .clues-modal-content {
+        background: #0F172A;
+        border: 1.5px solid rgba(255, 46, 116, 0.4);
         border-radius: 28px;
-        padding: 24px;
+        padding: 26px 22px;
         width: 100%;
-        max-width: 420px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+        max-width: 460px;
+        color: #FFF;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(255, 46, 116, 0.25);
         position: relative;
+        text-align: center;
+        box-sizing: border-box;
     }
-    .modal-close-btn {
+    .clues-modal-close {
         position: absolute;
         top: 16px;
         right: 18px;
@@ -430,33 +670,149 @@
         font-size: 16px;
         cursor: pointer;
     }
-
-    /* 9:16 Canvas Preview */
-    .canvas-preview-wrapper {
-        width: 270px;
-        height: 480px;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
-        margin: 16px 0 20px;
-        background: #000;
-        position: relative;
+    .clues-header-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 46, 116, 0.15);
+        color: #FF2E74;
+        border: 1px solid rgba(255, 46, 116, 0.35);
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-bottom: 8px;
     }
-    #storyCanvas {
-        width: 100%;
-        height: 100%;
-        display: block;
+    .clues-modal-title {
+        font-size: 22px;
+        font-weight: 900;
+        margin: 0 0 6px 0;
+    }
+    .clues-modal-desc {
+        font-size: 13px;
+        color: #94A3B8;
+        line-height: 1.45;
+        margin: 0 0 20px 0;
     }
 
-    .story-actions-row {
-        width: 100%;
+    .clues-box-wrapper {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        padding: 14px;
         display: flex;
         flex-direction: column;
         gap: 10px;
+        margin-bottom: 20px;
+        text-align: left;
+    }
+    .clue-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+    }
+    .clue-label {
+        color: #94A3B8;
+        font-weight: 600;
+    }
+    .clue-val {
+        color: #FFF;
+        font-weight: 800;
+    }
+    .locked-clue {
+        position: relative;
+    }
+    .blurred-text {
+        filter: blur(5px);
+        user-select: none;
+        color: #E2E8F0;
+    }
+    .lock-pill {
+        background: #FF2E74;
+        color: #FFF;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 999px;
+        box-shadow: 0 0 8px rgba(255, 46, 116, 0.5);
+    }
+
+    .vip-perks-box {
+        background: linear-gradient(135deg, rgba(255, 46, 116, 0.12), rgba(255, 138, 0, 0.12));
+        border: 1px solid rgba(255, 46, 116, 0.3);
+        border-radius: 18px;
+        padding: 14px 16px;
+        text-align: left;
+        margin-bottom: 20px;
+    }
+    .vip-perks-box h4 {
+        font-size: 13px;
+        font-weight: 900;
+        color: #FF8A00;
+        margin: 0 0 8px 0;
+    }
+    .vip-perks-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: #CBD5E1;
+    }
+
+    .btn-unlock-vip {
+        width: 100%;
+        background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);
+        color: #FFF;
+        padding: 14px 20px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 900;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 8px 24px rgba(255, 46, 116, 0.4);
+        transition: transform 0.15s;
+        box-sizing: border-box;
+    }
+    .btn-unlock-vip:hover {
+        transform: translateY(-2px);
     }
 </style>
 
 <div class="ngl-container">
+
+    <!-- 1. GHOST USER CONVERSION BANNER (Visible for unregistered guest users) -->
+    {% if is_ghost %}
+    <div class="ghost-status-card">
+        <div class="ghost-badge-pill">
+            <span>👻</span>
+            <span>Guest / Ghost Mode Active</span>
+        </div>
+        <h3 class="ghost-headline">Your Link & Confessions are Active on this Device!</h3>
+        <p class="ghost-subtext">
+            You don't need an account to receive secrets! However, to prevent losing your messages when clearing your browser, claim your free permanent account below and unlock full Campus Dating.
+        </p>
+        <div class="ghost-actions-row">
+            <a href="/signup?claim_ghost={{ ghost_id }}" class="btn-ghost-claim">
+                <span>✨ Save Link & Create Free Account</span>
+            </a>
+            <a href="/login?claim_ghost={{ ghost_id }}" class="btn-ghost-signin">
+                <span>🔑 Log In to Link</span>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Top Hero Link Creator Card -->
     <div class="ngl-hero-card">
         <div class="ngl-hero-header">
@@ -464,7 +820,9 @@
                 <span>🔥</span>
                 <span>NGL Anonymous Link</span>
             </span>
-            <span style="color: #94A3B8; font-size: 12px; font-weight: 700;">Zero-login replies</span>
+            <span style="color: #94A3B8; font-size: 12px; font-weight: 700;">
+                {% if is_ghost %}Ghost Mode (No Account Required){% else %}Zero-login replies{% endif %}
+            </span>
         </div>
 
         <h1 class="ngl-hero-title">Your Anonymous Confessions Link</h1>
@@ -488,6 +846,20 @@
             </button>
         </div>
 
+        <!-- Quick Share Row -->
+        <div class="quick-share-row">
+            <span class="quick-share-label">Quick Share:</span>
+            <button type="button" class="share-pill-btn" onclick="shareToWhatsAppStatus()">
+                <span>💬 WhatsApp</span>
+            </button>
+            <a href="https://t.me/share/url?url={{ full_link|urlencode }}&text={{ 'Send me anonymous confessions! 🤫'|urlencode }}" target="_blank" class="share-pill-btn">
+                <span>✈️ Telegram</span>
+            </a>
+            <a href="https://twitter.com/intent/tweet?text={{ 'Send me anonymous confessions! 🤫'|urlencode }}&url={{ full_link|urlencode }}" target="_blank" class="share-pill-btn">
+                <span>✖️ Twitter</span>
+            </a>
+        </div>
+
         <!-- Template Selector -->
         <div class="template-selector-title">
             <span>✨</span>
@@ -496,7 +868,9 @@
 
         <div class="template-grid">
             {% for t_id, t in link_info.templates.items() %}
-            <div class="template-pill {% if link_info.game_type == t_id %}active{% endif %}" onclick="selectTemplate('{{ t_id }}', '{{ t.prompt|escape }}')">
+            <div class="template-pill {% if link_info.game_type == t_id %}active{% endif %}" 
+                 data-template="{{ t_id }}" 
+                 onclick="selectTemplate('{{ t_id }}')">
                 <div class="template-pill-emoji">{{ t.emoji }}</div>
                 <div class="template-pill-name">{{ t.title }}</div>
             </div>
@@ -509,7 +883,7 @@
                 <span style="font-size: 11px; font-weight: 800; color: #FF2E74; text-transform: uppercase;">Active Status Prompt</span>
                 <div class="prompt-preview-text" id="activePromptText">{{ link_info.prompt_text }}</div>
             </div>
-            <button type="button" class="btn-edit-prompt" onclick="openCustomPromptModal()">✏️ Edit</button>
+            <button type="button" class="btn-edit-prompt" onclick="openCustomPromptModal()">✏️ Edit Prompt</button>
         </div>
     </div>
 
@@ -523,9 +897,28 @@
     </div>
 
     {% if messages and messages|length > 0 %}
+    <!-- Filter and Search Bar -->
+    <div class="inbox-filter-bar">
+        <div class="inbox-tabs-wrap">
+            <button type="button" class="inbox-tab active" id="tabAll" onclick="filterInbox('all', this)">All ({{ messages|length }})</button>
+            <button type="button" class="inbox-tab" id="tabUnread" onclick="filterInbox('unread', this)">Unread (<span id="unreadTabCount">{{ messages|selectattr('is_read', 'equalto', false)|list|length }}</span>)</button>
+        </div>
+        <div class="inbox-search-wrap">
+            <span>🔍</span>
+            <input type="text" class="inbox-search-input" id="inboxSearchInput" placeholder="Search secrets..." oninput="onSearchInbox(this.value)">
+        </div>
+    </div>
+
     <div class="confession-list" id="confessionList">
         {% for msg in messages %}
-        <div class="confession-card {% if not msg.is_read %}unread{% endif %}" id="card-{{ msg.id }}">
+        <div class="confession-card {% if not msg.is_read %}unread{% endif %}" 
+             id="card-{{ msg.id }}"
+             data-id="{{ msg.id }}"
+             data-text="{{ msg.text|forceescape }}"
+             data-prompt="{{ msg.prompt|forceescape }}"
+             data-device="{{ msg.device_hint|forceescape }}"
+             data-location="{{ msg.location_hint|forceescape }}"
+             data-read="{{ 'true' if msg.is_read else 'false' }}">
             <div class="card-meta-row">
                 <span class="card-badge-game">{{ msg.game_type|title or 'Confession' }}</span>
                 <span class="card-time-ago">{{ msg.time_formatted or 'Recently' }} &bull; {{ msg.date_formatted or '' }}</span>
@@ -547,11 +940,26 @@
                 </span>
             </div>
 
+            <!-- Pro "Who Sent This?" Conversion Banner -->
+            <div class="card-clues-banner" onclick="openWhoSentThisModal('{{ msg.id }}', '{{ msg.device_hint|forceescape }}', '{{ msg.time_formatted|forceescape }}')">
+                <div class="clues-left-content">
+                    <span class="clues-sparkle-icon">🔍</span>
+                    <div>
+                        <div class="clues-primary-text">Who sent this confession?</div>
+                        <div class="clues-secondary-text">Campus hostel location, device trace & crush clue</div>
+                    </div>
+                </div>
+                <span class="btn-clues-action">Reveal Clues &rarr;</span>
+            </div>
+
             <div class="card-actions-row">
                 <button type="button" class="btn-del-msg" onclick="deleteConfession('{{ msg.id }}')">
                     🗑️ Delete
                 </button>
-                <button type="button" class="btn-reply-status" onclick="openStoryReplyModal('{{ msg.text|escape }}', '{{ msg.prompt|escape }}')">
+                <button type="button" class="btn-quick-text" onclick="quickTextStatus('{{ msg.id }}')">
+                    <span>💬 Text Status</span>
+                </button>
+                <button type="button" class="btn-reply-status" onclick="openStoryReplyModalById('{{ msg.id }}')">
                     <span>📲 Reply on WhatsApp Status</span>
                 </button>
             </div>
@@ -563,7 +971,7 @@
         <div class="empty-inbox-icon">📬</div>
         <h3 class="empty-inbox-title">No Confessions Yet!</h3>
         <p class="empty-inbox-desc">
-            Your anonymous inbox is empty right now. Tap the button below to post your link on your WhatsApp Status and let the secrets roll in!
+            Your anonymous inbox is ready. Tap the button below to post your link on your WhatsApp Status and let the secrets roll in!
         </p>
         <button type="button" class="btn-ngl-primary" onclick="shareToWhatsAppStatus()" style="display: inline-flex; width: auto; padding: 14px 28px;">
             <span>📲 Share to WhatsApp Status</span>
@@ -572,46 +980,98 @@
     {% endif %}
 </div>
 
-<!-- ========================================== -->
-<!-- 9:16 INSTAGRAM / WHATSAPP STORY CARD MODAL -->
-<!-- ========================================== -->
-<div class="story-modal" id="storyModal">
-    <div class="story-modal-content">
-        <button type="button" class="modal-close-btn" onclick="closeStoryModal()">&times;</button>
-        <h3 style="color: #FFF; font-size: 18px; font-weight: 800; margin-bottom: 4px;">Reply on WhatsApp Status</h3>
-        <p style="color: #94A3B8; font-size: 13px; text-align: center;">Auto-generated 9:16 story card ready to post!</p>
+<!-- VIP "Who Sent This?" Sender Clues & Subscription Modal -->
+<div class="clues-modal-overlay" id="whoSentThisModal" onclick="closeWhoSentThisModal(event)">
+    <div class="clues-modal-content" onclick="event.stopPropagation()">
+        <button type="button" class="clues-modal-close" onclick="closeWhoSentThisModal()">&times;</button>
+        
+        <div class="clues-header-badge">
+            <span>🔥 VIP Campus Intelligence</span>
+        </div>
+        <h3 class="clues-modal-title">Who Sent This Confession?</h3>
+        <p class="clues-modal-desc">
+            We traced the connection! See approximate student location, device signature, and university singles matching this profile.
+        </p>
 
-        <!-- Canvas Story Card Preview -->
-        <div class="canvas-preview-wrapper">
-            <canvas id="storyCanvas" width="1080" height="1920"></canvas>
+        <!-- Revealed & Locked Clues Card -->
+        <div class="clues-box-wrapper">
+            <div class="clue-item">
+                <span class="clue-label">📱 Device Used</span>
+                <span class="clue-val" id="clueDeviceText">Mobile Device</span>
+            </div>
+            <div class="clue-item">
+                <span class="clue-label">⏰ Sent Time</span>
+                <span class="clue-val" id="clueTimeText">Recently</span>
+            </div>
+            <div class="clue-item locked-clue">
+                <span class="clue-label">📍 Campus Location</span>
+                <span class="clue-val blurred-text">MMUST Hall 2 / Kakamega CBD</span>
+                <span class="lock-pill">🔒 VIP Only</span>
+            </div>
+            <div class="clue-item locked-clue">
+                <span class="clue-label">💘 Match Crushes</span>
+                <span class="clue-val blurred-text">3 Students viewed your link</span>
+                <span class="lock-pill">🔒 VIP Only</span>
+            </div>
         </div>
 
-        <div class="story-actions-row">
-            <button type="button" class="btn-ngl-primary" onclick="downloadStoryImage()">
-                <span>⬇️ Download Story Card Image</span>
-            </button>
-            <button type="button" class="btn-ngl-secondary" onclick="shareStoryCardNative()">
-                <span>📲 Post Directly to WhatsApp</span>
-            </button>
+        <!-- VIP Value Pitch -->
+        <div class="vip-perks-box">
+            <h4>Join FindYourMatch Diamond VIP (50 KES/Mo)</h4>
+            <ul class="vip-perks-list">
+                <li>✨ Unlock sender location clues on all anonymous confessions</li>
+                <li>❤️ See which university comrades have a secret crush on you</li>
+                <li>💬 Unlimited direct WhatsApp connects & campus match reveals</li>
+            </ul>
         </div>
+
+        <!-- Action Button -->
+        {% if is_ghost %}
+        <a href="/signup?claim_ghost={{ ghost_id }}" class="btn-unlock-vip">
+            <span>🔥 Claim Link & Unlock VIP (50 KES) &rarr;</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('subscription') }}" class="btn-unlock-vip">
+            <span>🔥 Unlock VIP Clues (50 KES) &rarr;</span>
+        </a>
+        {% endif %}
     </div>
 </div>
 
+<!-- Include Shared 9:16 Story Studio & Reply Modal -->
+{% include 'ngl_story_reply_modal.html' %}
+
 <script>
+    // Global Data
     const userSlug = "{{ link_info.slug }}";
     const fullLink = "{{ full_link }}";
+    const NGL_FULL_LINK = fullLink;
+    const NGL_SLUG = userSlug;
     let activePrompt = "{{ link_info.prompt_text }}";
+
+    const INBOX_DATA = {{ messages|tojson|safe }};
+    const GAME_TEMPLATES = {{ link_info.templates|tojson|safe }};
+    const isGhostUser = {{ 'true' if is_ghost else 'false' }};
+    const ghostId = "{{ ghost_id or '' }}";
+
+    // Persist ghost ID in localStorage for maximum reliability across browser restarts
+    if (isGhostUser && ghostId) {
+        try {
+            localStorage.setItem('fym_ghost_ngl_id', ghostId);
+        } catch(e) {}
+    }
 
     // Copy Link with Toast Feedback
     function copyLink() {
         navigator.clipboard.writeText(fullLink).then(() => {
             const label = document.getElementById('copyLabel');
             const icon = document.getElementById('copyIcon');
-            label.innerText = 'Copied to Clipboard!';
-            icon.innerText = '✓';
+            if (label) label.innerText = 'Copied!';
+            if (icon) icon.innerText = '✓';
+            showToast('NGL Link copied to clipboard!', '📋');
             setTimeout(() => {
-                label.innerText = 'Copy Link';
-                icon.innerText = '📋';
+                if (label) label.innerText = 'Copy Link';
+                if (icon) icon.innerText = '📋';
             }, 2500);
         }).catch(() => {
             prompt('Copy your link:', fullLink);
@@ -622,15 +1082,21 @@
     function shareToWhatsAppStatus() {
         const textToShare = `Send me anonymous confessions & secret messages! I won't know who sent it 👇\n\n${fullLink}`;
         const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare)}`;
+        showToast('Opening WhatsApp Status...', '📲');
         window.open(whatsappUrl, '_blank');
     }
 
-    // Template Switcher
-    async function selectTemplate(gameType, promptText) {
+    // Template Switcher (100% Safe, No inline string injection)
+    async function selectTemplate(gameType) {
         document.querySelectorAll('.template-pill').forEach(p => p.classList.remove('active'));
-        event.currentTarget.classList.add('active');
+        const pill = document.querySelector(`.template-pill[data-template="${gameType}"]`);
+        if (pill) pill.classList.add('active');
 
-        document.getElementById('activePromptText').innerText = promptText;
+        const template = GAME_TEMPLATES[gameType] || GAME_TEMPLATES['confessions'];
+        const promptText = template.prompt;
+
+        const activeTextEl = document.getElementById('activePromptText');
+        if (activeTextEl) activeTextEl.innerText = promptText;
         activePrompt = promptText;
 
         try {
@@ -639,6 +1105,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ game_type: gameType, custom_prompt: promptText })
             });
+            showToast(`Switched game to ${template.title}!`, template.emoji);
         } catch (e) {
             console.error(e);
         }
@@ -646,7 +1113,7 @@
 
     // Custom Prompt Modal
     function openCustomPromptModal() {
-        const current = document.getElementById('activePromptText').innerText;
+        const current = document.getElementById('activePromptText')?.innerText || "";
         const newPrompt = prompt('Enter your custom question or prompt for your WhatsApp contacts:', current);
         if (newPrompt && newPrompt.trim()) {
             document.getElementById('activePromptText').innerText = newPrompt.trim();
@@ -656,6 +1123,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ custom_prompt: newPrompt.trim(), game_type: 'custom' })
             });
+            showToast('Custom prompt saved!', '✨');
         }
     }
 
@@ -671,208 +1139,81 @@
             const data = await res.json();
             if (data.success) {
                 const card = document.getElementById(`card-${msgId}`);
-                if (card) card.remove();
+                if (card) {
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => card.remove(), 250);
+                }
                 const badge = document.getElementById('inboxCountBadge');
                 if (badge) {
                     const current = parseInt(badge.innerText || '1');
                     badge.innerText = Math.max(0, current - 1);
                 }
+                showToast('Confession deleted', '🗑️');
             }
         } catch (e) {
             console.error(e);
         }
     }
 
-    // ==========================================
-    // 9:16 HTML5 CANVAS STORY CARD GENERATOR
-    // ==========================================
-    let currentStoryText = "";
-    let currentStoryPrompt = "";
+    // Quick Text Status Direct Action
+    function quickTextStatus(msgId) {
+        const msg = INBOX_DATA.find(m => m.id === msgId);
+        if (!msg) return;
 
-    function openStoryReplyModal(confessionText, promptText) {
-        currentStoryText = confessionText;
-        currentStoryPrompt = promptText || "Send me anonymous confessions";
-        document.getElementById('storyModal').classList.add('active');
-        renderStoryCanvas(currentStoryText, currentStoryPrompt);
+        let text = `🤫 *ANONYMOUS CONFESSION:*\n"${msg.text}"\n\n`;
+        text += `🔥 *Send me secret confessions & truths here:* 👇\n${fullLink}`;
+
+        showToast('Opening WhatsApp...', '📲');
+        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, '_blank');
     }
 
-    function closeStoryModal() {
-        document.getElementById('storyModal').classList.remove('active');
-    }
+    // Filter Inbox (All / Unread)
+    function filterInbox(type, btnEl) {
+        document.querySelectorAll('.inbox-tab').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
 
-    function renderStoryCanvas(text, prompt) {
-        const canvas = document.getElementById('storyCanvas');
-        const ctx = canvas.getContext('2d');
-        const W = canvas.width;   // 1080
-        const H = canvas.height;  // 1920
-
-        // 1. Vibrant Sunset-Neon Gradient Background
-        const grad = ctx.createLinearGradient(0, 0, W, H);
-        grad.addColorStop(0, '#FF0844');
-        grad.addColorStop(0.5, '#FF4E50');
-        grad.addColorStop(1, '#F9D423');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, W, H);
-
-        // Subtle geometric circle glow
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.beginPath();
-        ctx.arc(W / 2, 450, 400, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 2. Top Header Brand Pill
-        const pillWidth = 520;
-        const pillHeight = 76;
-        const pillX = (W - pillWidth) / 2;
-        const pillY = 160;
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-        roundRect(ctx, pillX, pillY, pillWidth, pillHeight, 38, true, false);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 30px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🤫 FINDYOURMATCH ANONYMOUS', W / 2, pillY + pillHeight / 2);
-
-        // 3. User Prompt Box
-        const promptBoxW = 900;
-        const promptBoxH = 160;
-        const promptBoxX = (W - promptBoxW) / 2;
-        const promptBoxY = 280;
-
-        ctx.fillStyle = '#FFFFFF';
-        roundRect(ctx, promptBoxX, promptBoxY, promptBoxW, promptBoxH, 30, true, false);
-
-        ctx.fillStyle = '#0F172A';
-        ctx.font = 'bold 36px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        wrapText(ctx, prompt, W / 2, promptBoxY + 80, 820, 48);
-
-        // 4. Main Anonymous Confession Card (Translucent White)
-        const cardW = 900;
-        const cardH = 680;
-        const cardX = (W - cardW) / 2;
-        const cardY = 500;
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-        ctx.shadowBlur = 40;
-        ctx.shadowOffsetY = 20;
-        roundRect(ctx, cardX, cardY, cardW, cardH, 40, true, false);
-        ctx.shadowColor = 'transparent'; // reset shadow
-
-        // Quotation Mark Icon
-        ctx.fillStyle = '#FF2E74';
-        ctx.font = '900 110px "Plus Jakarta Sans", serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('“', cardX + 50, cardY + 120);
-
-        // Confession Text inside card
-        ctx.fillStyle = '#0F172A';
-        ctx.font = 'bold 50px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        wrapText(ctx, text, W / 2, cardY + 230, 780, 68);
-
-        // Bottom Secret Tag
-        ctx.fillStyle = '#94A3B8';
-        ctx.font = 'bold 28px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🔒 100% Anonymous Confession', W / 2, cardY + cardH - 60);
-
-        // 5. Reply Box for WhatsApp Status
-        const replyBoxW = 900;
-        const replyBoxH = 340;
-        const replyBoxX = (W - replyBoxW) / 2;
-        const replyBoxY = 1240;
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        roundRect(ctx, replyBoxX, replyBoxY, replyBoxW, replyBoxH, 36, true, false);
-
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = 4;
-        roundRect(ctx, replyBoxX, replyBoxY, replyBoxW, replyBoxH, 36, false, true);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 40px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('✍️ Type reply on WhatsApp Status...', W / 2, replyBoxY + 140);
-
-        ctx.fillStyle = '#E2E8F0';
-        ctx.font = '500 30px "Plus Jakarta Sans", sans-serif';
-        ctx.fillText('Post this story & type your reply underneath!', W / 2, replyBoxY + 220);
-
-        // 6. Bottom Watermark URL
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.font = 'bold 30px "Plus Jakarta Sans", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`ngl.link/findyourmatch • ${userSlug}`, W / 2, 1820);
-    }
-
-    function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-        if (fill) ctx.fill();
-        if (stroke) ctx.stroke();
-    }
-
-    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        let currentY = y;
-
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = ctx.measureText(testLine);
-            const testWidth = metrics.width;
-            if (testWidth > maxWidth && n > 0) {
-                ctx.fillText(line.trim(), x, currentY);
-                line = words[n] + ' ';
-                currentY += lineHeight;
-            } else {
-                line = testLine;
+        const cards = document.querySelectorAll('.confession-card');
+        cards.forEach(card => {
+            if (type === 'all') {
+                card.style.display = 'block';
+            } else if (type === 'unread') {
+                const isUnread = card.classList.contains('unread');
+                card.style.display = isUnread ? 'block' : 'none';
             }
+        });
+    }
+
+    // Instant Search
+    function onSearchInbox(query) {
+        const q = (query || "").toLowerCase().trim();
+        const cards = document.querySelectorAll('.confession-card');
+        cards.forEach(card => {
+            const text = (card.getAttribute('data-text') || "").toLowerCase();
+            if (!q || text.includes(q)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    // VIP "Who Sent This?" Modal Handlers
+    function openWhoSentThisModal(msgId, device, time) {
+        const modal = document.getElementById('whoSentThisModal');
+        const devEl = document.getElementById('clueDeviceText');
+        const timeEl = document.getElementById('clueTimeText');
+        if (devEl) devEl.innerText = device || 'Mobile Device';
+        if (timeEl) timeEl.innerText = time || 'Recently';
+        if (modal) modal.classList.add('active');
+    }
+
+    function closeWhoSentThisModal(e) {
+        if (!e || e.target.id === 'whoSentThisModal' || e.target.classList.contains('clues-modal-close')) {
+            const modal = document.getElementById('whoSentThisModal');
+            if (modal) modal.classList.remove('active');
         }
-        ctx.fillText(line.trim(), x, currentY);
-    }
-
-    function downloadStoryImage() {
-        const canvas = document.getElementById('storyCanvas');
-        const link = document.createElement('a');
-        link.download = `ngl_confession_${Date.now()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    }
-
-    async function shareStoryCardNative() {
-        const canvas = document.getElementById('storyCanvas');
-        canvas.toBlob(async (blob) => {
-            const file = new File([blob], 'confession_reply.png', { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: 'NGL Confession Reply',
-                        text: `Replying to anonymous confession! Send yours here: ${fullLink}`
-                    });
-                } catch (e) {
-                    console.log('Share dismissed');
-                }
-            } else {
-                downloadStoryImage();
-                alert('Story image downloaded! Go to WhatsApp Status, select the photo, and type your reply! 📲');
-            }
-        }, 'image/png');
     }
 </script>
 {% endblock %}

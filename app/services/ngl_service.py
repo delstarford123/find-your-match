@@ -49,6 +49,38 @@ GAME_TEMPLATES = {
         "card_theme": "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
         "placeholder": "What's the tea? Don't hold back..."
     },
+    "roast": {
+        "id": "roast",
+        "title": "Roast Me",
+        "emoji": "💀",
+        "prompt": "Roast me anonymously! Don't hold back 🔥",
+        "card_theme": "linear-gradient(135deg, #f83600 0%, #f9d423 100%)",
+        "placeholder": "Drop your funniest or most savage roast..."
+    },
+    "truth": {
+        "id": "truth",
+        "title": "Truth or Dare",
+        "emoji": "🙈",
+        "prompt": "Ask me any truth anonymously! I'll post the answer on WhatsApp Status 🙈",
+        "card_theme": "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+        "placeholder": "Ask any truth you've always wanted to know..."
+    },
+    "rate": {
+        "id": "rate",
+        "title": "Rate Me",
+        "emoji": "💯",
+        "prompt": "Rate me honestly from 1 to 10 and tell me why! 💯",
+        "card_theme": "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+        "placeholder": "Rating (1-10) and reason why..."
+    },
+    "compliment": {
+        "id": "compliment",
+        "title": "Compliments",
+        "emoji": "💖",
+        "prompt": "Send me a secret anonymous compliment to make my day 💖",
+        "card_theme": "linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%)",
+        "placeholder": "Say something sweet..."
+    },
     "custom": {
         "id": "custom",
         "title": "Custom Prompt",
@@ -123,15 +155,24 @@ def parse_device_hint(user_agent: str) -> str:
     return f"{os_name} • {browser}"
 
 
-def get_or_create_user_link(user_id: str) -> dict:
+def get_or_create_user_link(user_id: str, is_ghost: bool = False) -> dict:
     """
     Retrieves or generates the user's customized NGL anonymous link and settings.
+    Fully supports both registered campus accounts and instant zero-login ghost users.
     """
     if not user_id:
         return {"success": False, "error": "User ID required."}
 
-    profile = db.reference(f'profiles/{user_id}').get() or {}
-    slug = profile.get('ngl_slug')
+    is_ghost = is_ghost or user_id.startswith('ghost_')
+    slug = None
+
+    if is_ghost:
+        ghost_data = db.reference(f'ngl_ghosts/{user_id}').get() or {}
+        if isinstance(ghost_data, dict):
+            slug = ghost_data.get('slug')
+    else:
+        profile = db.reference(f'profiles/{user_id}').get() or {}
+        slug = profile.get('ngl_slug')
 
     # If slug already exists, fetch link settings
     if slug:
@@ -142,21 +183,27 @@ def get_or_create_user_link(user_id: str) -> dict:
             return {
                 "success": True,
                 "slug": slug,
+                "is_ghost": is_ghost,
                 "prompt_text": link_data.get('prompt_text', template['prompt']),
                 "game_type": game_type,
                 "templates": GAME_TEMPLATES,
                 "suggested_prompts": SUGGESTED_PROMPTS
             }
 
-    # Generate new unique slug based on user's name or referral code
-    raw_name = profile.get('name', 'student').split()[0]
-    base_slug = sanitize_slug(raw_name)
-    slug_candidate = f"{base_slug}_{random.randint(100, 999)}"
+    # Generate new unique slug
+    if is_ghost:
+        base_slug = f"comrade_{random.randint(100, 999)}"
+    else:
+        profile = db.reference(f'profiles/{user_id}').get() or {}
+        raw_name = profile.get('name', 'student').split()[0]
+        base_slug = sanitize_slug(raw_name)
+
+    slug_candidate = f"{base_slug}_{random.randint(10, 99)}" if not is_ghost else base_slug
 
     # Ensure slug uniqueness
     counter = 1
     while db.reference(f'ngl_links/{slug_candidate}').get():
-        slug_candidate = f"{base_slug}_{random.randint(1000, 9999)}"
+        slug_candidate = f"{base_slug}_{random.randint(100, 9999)}"
         counter += 1
         if counter > 5:
             slug_candidate = f"ngl_{int(datetime.now().timestamp())[-6:]}"
@@ -167,6 +214,7 @@ def get_or_create_user_link(user_id: str) -> dict:
 
     link_record = {
         "user_id": user_id,
+        "is_ghost": is_ghost,
         "game_type": initial_game,
         "prompt_text": initial_prompt,
         "created_at": datetime.now(EAT).isoformat(),
@@ -174,13 +222,20 @@ def get_or_create_user_link(user_id: str) -> dict:
     }
 
     db.reference(f'ngl_links/{slug_candidate}').set(link_record)
-    db.reference(f'profiles/{user_id}').update({'ngl_slug': slug_candidate})
+    if is_ghost:
+        db.reference(f'ngl_ghosts/{user_id}').set({
+            "slug": slug_candidate,
+            "created_at": datetime.now(EAT).isoformat()
+        })
+    else:
+        db.reference(f'profiles/{user_id}').update({'ngl_slug': slug_candidate})
 
-    logger.info(f"✨ Created NGL link for {user_id} -> {slug_candidate}")
+    logger.info(f"✨ Created NGL link ({'Ghost' if is_ghost else 'User'}) for {user_id} -> {slug_candidate}")
 
     return {
         "success": True,
         "slug": slug_candidate,
+        "is_ghost": is_ghost,
         "prompt_text": initial_prompt,
         "game_type": initial_game,
         "templates": GAME_TEMPLATES,
@@ -191,11 +246,13 @@ def get_or_create_user_link(user_id: str) -> dict:
 def update_user_link(user_id: str, new_slug: str = None, game_type: str = None, custom_prompt: str = None) -> dict:
     """
     Updates the prompt text, game template, or custom slug for the user's NGL link.
+    Works for both registered users and ghost users.
     """
     if not user_id:
         return {"success": False, "error": "User ID required."}
 
-    current = get_or_create_user_link(user_id)
+    is_ghost = user_id.startswith('ghost_')
+    current = get_or_create_user_link(user_id, is_ghost=is_ghost)
     current_slug = current.get('slug')
 
     target_slug = current_slug
@@ -211,7 +268,10 @@ def update_user_link(user_id: str, new_slug: str = None, game_type: str = None, 
             # Remove old link mapping and migrate
             db.reference(f'ngl_links/{current_slug}').delete()
             target_slug = clean_new
-            db.reference(f'profiles/{user_id}').update({'ngl_slug': target_slug})
+            if is_ghost:
+                db.reference(f'ngl_ghosts/{user_id}').update({'slug': target_slug})
+            else:
+                db.reference(f'profiles/{user_id}').update({'ngl_slug': target_slug})
 
     # Validate template
     selected_game = game_type or current.get('game_type', 'confessions')
@@ -221,6 +281,7 @@ def update_user_link(user_id: str, new_slug: str = None, game_type: str = None, 
 
     payload = {
         "user_id": user_id,
+        "is_ghost": is_ghost,
         "game_type": selected_game,
         "prompt_text": final_prompt,
         "active": True,
@@ -231,9 +292,60 @@ def update_user_link(user_id: str, new_slug: str = None, game_type: str = None, 
     return {
         "success": True,
         "slug": target_slug,
+        "is_ghost": is_ghost,
         "game_type": selected_game,
         "prompt_text": final_prompt,
         "message": "NGL link updated successfully!"
+    }
+
+
+def claim_ghost_ngl_link(user_id: str, ghost_id: str) -> dict:
+    """
+    Migrates a ghost anonymous link and all its inbox confessions to a real registered user account.
+    """
+    if not user_id or not ghost_id or not ghost_id.startswith('ghost_'):
+        return {"success": False, "error": "Invalid user or ghost ID."}
+
+    ghost_data = db.reference(f'ngl_ghosts/{ghost_id}').get()
+    if not ghost_data or not isinstance(ghost_data, dict):
+        return {"success": False, "error": "No ghost link found to claim."}
+
+    ghost_slug = ghost_data.get('slug')
+    if not ghost_slug:
+        return {"success": False, "error": "Ghost link slug missing."}
+
+    # 1. Update ngl_links record ownership
+    link_ref = db.reference(f'ngl_links/{ghost_slug}')
+    link_data = link_ref.get() or {}
+    if link_data:
+        link_ref.update({
+            "user_id": user_id,
+            "is_ghost": False,
+            "claimed_at": datetime.now(EAT).isoformat()
+        })
+
+    # 2. Update user profile
+    db.reference(f'profiles/{user_id}').update({'ngl_slug': ghost_slug})
+
+    # 3. Migrate all inbox confessions from ghost to user
+    ghost_inbox = db.reference(f'ngl_inbox/{ghost_id}').get() or {}
+    migrated_count = 0
+    if isinstance(ghost_inbox, dict):
+        for msg_id, msg_data in ghost_inbox.items():
+            db.reference(f'ngl_inbox/{user_id}/{msg_id}').set(msg_data)
+            migrated_count += 1
+        db.reference(f'ngl_inbox/{ghost_id}').delete()
+
+    # 4. Clean up ghost record
+    db.reference(f'ngl_ghosts/{ghost_id}').delete()
+
+    logger.info(f"🎉 Successfully claimed ghost link {ghost_slug} for user {user_id} ({migrated_count} messages migrated)")
+
+    return {
+        "success": True,
+        "slug": ghost_slug,
+        "migrated_count": migrated_count,
+        "message": f"Your link and {migrated_count} confessions have been permanently saved to your account!"
     }
 
 
@@ -248,11 +360,18 @@ def get_public_ngl_profile(slug: str) -> dict:
     if not link_data or not isinstance(link_data, dict):
         return {"found": False, "error": "This anonymous confession link does not exist."}
 
-    user_id = link_data.get('user_id')
-    profile = db.reference(f'profiles/{user_id}').get() or {}
+    user_id = link_data.get('user_id', '')
+    is_ghost = link_data.get('is_ghost') or str(user_id).startswith('ghost_')
+    if is_ghost:
+        first_name = "Comrade"
+        institution = "Campus Singles"
+        recipient_img = "/static/img/placeholder.png"
+    else:
+        profile = db.reference(f'profiles/{user_id}').get() or {}
+        first_name = profile.get('name', 'Comrade').split()[0]
+        institution = profile.get('institution_name', 'MMUST')
+        recipient_img = profile.get('img', '/static/img/placeholder.png')
 
-    first_name = profile.get('name', 'Comrade').split()[0]
-    institution = profile.get('institution_name', 'MMUST')
     game_type = link_data.get('game_type', 'confessions')
     template = GAME_TEMPLATES.get(game_type, GAME_TEMPLATES['confessions'])
 
@@ -260,8 +379,9 @@ def get_public_ngl_profile(slug: str) -> dict:
         "found": True,
         "slug": slug,
         "user_id": user_id,
+        "is_ghost": is_ghost,
         "recipient_first_name": first_name,
-        "recipient_img": profile.get('img', '/static/img/placeholder.png'),
+        "recipient_img": recipient_img,
         "institution": institution,
         "prompt_text": link_data.get('prompt_text', template['prompt']),
         "game_type": game_type,
@@ -307,9 +427,12 @@ def submit_anonymous_confession(slug: str, message_text: str, user_agent: str = 
 
     # 3. Parse Device & Location Hints (for NGL Pro hints)
     device_hint = parse_device_hint(user_agent)
-    recipient_profile = db.reference(f'profiles/{user_id}').get() or {}
-    campus_name = recipient_profile.get('institution_name', 'MMUST Campus')
-    location_hint = f"{campus_name} Area"
+    if str(user_id).startswith('ghost_'):
+        location_hint = "MMUST / Campus Area"
+    else:
+        recipient_profile = db.reference(f'profiles/{user_id}').get() or {}
+        campus_name = recipient_profile.get('institution_name', 'MMUST')
+        location_hint = f"{campus_name} Area"
 
     msg_payload = {
         "text": text,
@@ -326,17 +449,18 @@ def submit_anonymous_confession(slug: str, message_text: str, user_agent: str = 
 
     inbox_ref = db.reference(f'ngl_inbox/{user_id}').push(msg_payload)
 
-    # 4. Push in-app alert to recipient
-    try:
-        db.reference(f'notifications/{user_id}').push({
-            "title": "🤫 New Anonymous Confession!",
-            "message": f"Someone just sent you a secret confession on your NGL link! Open your inbox to read it.",
-            "type": "ngl_confession",
-            "timestamp": now_eat.isoformat(),
-            "status": "unread"
-        })
-    except Exception as notif_err:
-        logger.error(f"Error notifying recipient of confession: {notif_err}")
+    # 4. Push in-app alert to recipient if registered
+    if not str(user_id).startswith('ghost_'):
+        try:
+            db.reference(f'notifications/{user_id}').push({
+                "title": "🤫 New Anonymous Confession!",
+                "message": "Someone just sent you a secret confession on your NGL link! Open your inbox to read it.",
+                "type": "ngl_confession",
+                "timestamp": now_eat.isoformat(),
+                "status": "unread"
+            })
+        except Exception as notif_err:
+            logger.error(f"Error notifying recipient of confession: {notif_err}")
 
     logger.info(f"💌 Anonymous confession sent to {user_id} via /{slug} ({device_hint})")
 
@@ -385,3 +509,46 @@ def mark_inbox_message_read(user_id: str, message_id: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def claim_ghost_ngl_link(user_id: str, ghost_id: str) -> dict:
+    """
+    Migrates a ghost user's link and inbox confessions to their registered user account.
+    """
+    if not user_id or not ghost_id or not str(ghost_id).startswith('ghost_'):
+        return {"success": False, "error": "Invalid ghost ID or user ID."}
+
+    try:
+        # 1. Fetch ghost link mapping
+        ghost_data = db.reference(f'ngl_ghosts/{ghost_id}').get() or {}
+        slug = ghost_data.get('slug') if isinstance(ghost_data, dict) else None
+
+        if slug:
+            # Update link owner to registered user_id
+            db.reference(f'ngl_links/{slug}').update({
+                'user_id': user_id,
+                'is_ghost': False
+            })
+            # Update user's profile with this slug
+            db.reference(f'profiles/{user_id}').update({
+                'ngl_slug': slug
+            })
+
+        # 2. Migrate any inbox messages from ghost inbox to registered inbox
+        ghost_inbox = db.reference(f'ngl_inbox/{ghost_id}').get() or {}
+        if isinstance(ghost_inbox, dict) and ghost_inbox:
+            for mid, mdata in ghost_inbox.items():
+                if isinstance(mdata, dict):
+                    db.reference(f'ngl_inbox/{user_id}/{mid}').set(mdata)
+            # Clean up ghost inbox
+            db.reference(f'ngl_inbox/{ghost_id}').delete()
+
+        # 3. Clean up ghost record
+        db.reference(f'ngl_ghosts/{ghost_id}').delete()
+
+        logger.info(f"Successfully migrated ghost NGL link '{slug}' and messages from {ghost_id} to {user_id}")
+        return {"success": True, "slug": slug}
+    except Exception as e:
+        logger.error(f"Error migrating ghost NGL link from {ghost_id} to {user_id}: {e}")
+        return {"success": False, "error": str(e)}
+

@@ -335,6 +335,18 @@ def verify_email():
             session['user_religion'] = user_data.get('religion', 'Other')
             session.pop('temp_user_id', None)
             
+            # Auto-claim any ghost NGL link created prior to registration
+            ghost_id = session.get('ghost_user_id') or request.cookies.get('fym_ghost_ngl')
+            if ghost_id and str(ghost_id).startswith('ghost_'):
+                try:
+                    from app.services.ngl_service import claim_ghost_ngl_link
+                    claim_res = claim_ghost_ngl_link(user_id, ghost_id)
+                    if claim_res.get('success'):
+                        session.pop('ghost_user_id', None)
+                        flash(f"🎉 Your anonymous confessions link & secrets have been saved to your account!", "success")
+                except Exception as e:
+                    pass
+
             if not referred_by_code:
                 if bonus_premium_days >= 14:
                     flash("Account verified! You've been granted a 14-Day Free Trial! 🚀", "success")
@@ -472,6 +484,18 @@ def login():
                         session['user_img'] = user.get('img')
                         session['user_religion'] = user.get('religion', 'Other') 
                         
+                        # Auto-claim any ghost NGL link created prior to login
+                        ghost_id = session.get('ghost_user_id') or request.cookies.get('fym_ghost_ngl') or request.args.get('claim_ghost')
+                        if ghost_id and str(ghost_id).startswith('ghost_'):
+                            try:
+                                from app.services.ngl_service import claim_ghost_ngl_link
+                                claim_res = claim_ghost_ngl_link(safe_reg_number, ghost_id)
+                                if claim_res.get('success'):
+                                    session.pop('ghost_user_id', None)
+                                    flash("🎉 Your anonymous confessions link & secrets have been linked to your account!", "success")
+                            except Exception as e:
+                                pass
+
                         flash(f"Welcome back, {user['name']}!", "success")
                         
                         from flask import make_response
