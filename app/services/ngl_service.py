@@ -206,7 +206,7 @@ def get_or_create_user_link(user_id: str, is_ghost: bool = False) -> dict:
         slug_candidate = f"{base_slug}_{random.randint(100, 9999)}"
         counter += 1
         if counter > 5:
-            slug_candidate = f"ngl_{int(datetime.now().timestamp())[-6:]}"
+            slug_candidate = f"ngl_{str(int(datetime.now().timestamp()))[-6:]}"
             break
 
     initial_game = "confessions"

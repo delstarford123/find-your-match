@@ -1031,9 +1031,9 @@
             <span>🔥 Claim Link & Unlock VIP (50 KES) &rarr;</span>
         </a>
         {% else %}
-        <a href="{{ url_for('subscription') }}" class="btn-unlock-vip">
+        <button type="button" class="btn-unlock-vip" onclick="unlockVipHints()">
             <span>🔥 Unlock VIP Clues (50 KES) &rarr;</span>
-        </a>
+        </button>
         {% endif %}
     </div>
 </div>
@@ -1214,6 +1214,44 @@
             const modal = document.getElementById('whoSentThisModal');
             if (modal) modal.classList.remove('active');
         }
+    }
+
+    function unlockVipHints() {
+        const defaultPhone = "{{ user.get('phone', '') if user else '' }}";
+        const phone = prompt("Enter Safaricom M-Pesa number to unlock VIP clues (50 KES):", defaultPhone);
+        if (!phone) return;
+        const rawPhone = phone.replace(/[^0-9]/g, '');
+        let cleanPhone = rawPhone;
+        if (rawPhone.startsWith('0') && rawPhone.length === 10) {
+            cleanPhone = '254' + rawPhone.slice(1);
+        } else if ((rawPhone.startsWith('7') || rawPhone.startsWith('1')) && rawPhone.length === 9) {
+            cleanPhone = '254' + rawPhone;
+        }
+        if (cleanPhone.length !== 12 || !cleanPhone.startsWith('254')) {
+            alert("Please enter a valid Safaricom number. Format: 07XXXXXXXX or 01XXXXXXXX");
+            return;
+        }
+        showToast('Sending M-Pesa STK push for 50 KES...', '📲');
+        fetch('/api/pay_student_fee', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ phone_number: cleanPhone })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success || data.CheckoutRequestID) {
+                alert("M-Pesa PIN prompt sent to " + cleanPhone + "! Enter your PIN on your phone to unlock.");
+            } else {
+                alert(data.message || "Failed to initiate M-Pesa. Please try again from Dashboard.");
+            }
+        })
+        .catch(err => {
+            console.error("STK push error:", err);
+            window.location.href = '/dashboard';
+        });
     }
 </script>
 {% endblock %}

@@ -890,7 +890,7 @@
 
     <!-- Link URL Box -->
     <div class="dash-ngl-linkbox">
-        <span class="dash-ngl-url" id="dashNglLink">{{ ngl_full_link }}</span>
+        <a href="/ngl" class="dash-ngl-url" id="dashNglLink" style="text-decoration: none;" title="Click to open your NGL Link Studio & Inbox">{{ ngl_full_link }}</a>
         <div class="dash-ngl-actions">
             <button type="button" class="btn-dash-wa" onclick="shareDashNglToWhatsApp()">
                 <span>📲 Post to Status</span>
@@ -899,8 +899,8 @@
                 <span id="dashCopyIcon">📋</span>
                 <span id="dashCopyLabel">Copy Link</span>
             </button>
-            <a href="/ngl" class="btn-dash-manage">
-                <span>⚙️ Studio &rarr;</span>
+            <a href="/ngl" class="btn-dash-manage" id="btnGetMyNglLink">
+                <span>Get My NGL Link &rarr;</span>
             </a>
         </div>
     </div>
