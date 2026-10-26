@@ -3662,5 +3662,198 @@ def send_kalenjin_takeover_email(recipient_email: str, recipient_name: str, even
     )
 
 
+# ========================================================
+# LADIES CHAT-TO-EARN & NGL LAUNCH ONBOARDING CAMPAIGN
+# ========================================================
+
+def build_ladies_chat_earn_launch_email_content(recipient_name: str):
+    """
+    Constructs the high-converting onboarding email sent to all registered ladies
+    introducing the Chat-to-Earn weekly 10-lady squad and their NGL anonymous link.
+    """
+    first_name = (recipient_name or 'Comrade').split()[0]
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+    year = datetime.now().year
+
+    subject = f"🚂 Exclusive for You, {first_name}: Earn KES 50 Daily to M-Pesa + Your Anonymous WhatsApp Link!"
+
+    text_content = textwrap.dedent(f"""\
+        Hello {first_name}!
+
+        We have an exciting announcement exclusively for the ladies on FindYourMatch:
+        We are officially launching the "Chat-to-Earn" Weekly Train & your own Viral NGL Anonymous Link!
+
+        💰 FEATURE 1: CHAT-TO-EARN (10 LADIES PER WEEK)
+        • Earn KES 50 every day simply by replying to 10 men on the platform.
+        • Funds accumulate in your in-app wallet and are sent directly to your Safaricom M-Pesa every Sunday night!
+        • STRICTLY LIMITED: Only 10 ladies can board the train each week.
+          Spots are first-come, first-served. Once all 10 spots are claimed, you have to wait for next week!
+
+        🤫 FEATURE 2: YOUR VIRAL NGL ANONYMOUS LINK
+        • You now have your own private anonymous confessions link!
+        • Share it to your WhatsApp Status with one tap.
+        • Your contacts can send you secret confessions without downloading the app or logging in.
+        • Generate gorgeous 9:16 story cards to post your replies back to your WhatsApp Status!
+
+        👉 Claim Your Spot on the Train Now:
+        {base_url}/matches
+
+        👉 Get Your Anonymous NGL WhatsApp Link:
+        {base_url}/ngl
+
+        Don't let this week's spots fill up without you. Jump in today!
+
+        With love,
+        The FindYourMatch Team 💖
+        (c) {year} FindYourMatch Kenya
+    """)
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{subject}</title>
+        </head>
+        <body style="margin:0;padding:0;background-color:#0B0E14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0B0E14;padding:25px 12px;">
+                <tr>
+                    <td align="center">
+                        <!-- MAIN CARD -->
+                        <table role="presentation" width="100%" style="max-width:600px;background:#111827;border-radius:28px;overflow:hidden;border:1px solid rgba(255,46,116,0.3);box-shadow:0 25px 60px rgba(0,0,0,0.7);" cellspacing="0" cellpadding="0" border="0">
+                            
+                            <!-- GLOWING HEADER -->
+                            <tr>
+                                <td style="background:linear-gradient(135deg, #720000 0%, #E11D48 60%, #FF8A00 100%);padding:45px 30px 35px;text-align:center;">
+                                    <div style="display:inline-block;background:rgba(0,0,0,0.3);padding:6px 16px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#FFE4E6;margin-bottom:14px;border:1px solid rgba(255,255,255,0.25);">
+                                        👑 EXCLUSIVE LADIES INVITATION
+                                    </div>
+                                    <h1 style="color:#FFFFFF;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.2;">
+                                        Earn KES 50 Daily<br>+ Viral WhatsApp Confessions!
+                                    </h1>
+                                    <p style="color:#FFE4E6;font-size:15px;margin:0;font-weight:600;">
+                                        Get paid weekly to M-Pesa &bull; Only 10 ladies per week
+                                    </p>
+                                </td>
+                            </tr>
+
+                            <!-- GREETING & BODY -->
+                            <tr>
+                                <td style="padding:32px 30px 10px;">
+                                    <p style="font-size:16px;line-height:1.6;color:#F1F5F9;margin:0 0 20px;">
+                                        Hey <strong>{first_name}</strong>! 👋<br><br>
+                                        We have some massive news exclusively for our campus queens! Starting today, you can get rewarded for keeping the community active, plus get your own viral anonymous messaging link for WhatsApp.
+                                    </p>
+
+                                    <!-- FEATURE 1: CHAT TO EARN -->
+                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,46,116,0.25);border-radius:20px;padding:22px;margin-bottom:20px;">
+                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
+                                            <span style="font-size:26px;margin-right:10px;">💰</span>
+                                            <div>
+                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF2E74;">Chat-to-Earn Squad</h3>
+                                                <span style="font-size:12px;color:#34D399;font-weight:800;">50 KES DAILY &bull; WEEKLY M-PESA PAYOUT</span>
+                                            </div>
+                                        </div>
+                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0 0 12px;">
+                                            Reply to <strong>10 men</strong> every day on FindYourMatch and automatically earn <strong>KES 50/day</strong>. That's up to KES 350 every week, disbursed directly to your Safaricom M-Pesa every Sunday night!
+                                        </p>
+                                        <div style="background:rgba(239,68,68,0.15);border-left:4px solid #EF4444;border-radius:8px;padding:10px 14px;font-size:12px;color:#FCA5A5;font-weight:700;">
+                                            ⚠️ STRICT LIMIT: Only 10 ladies can join each week on a first-come, first-served basis! Once the train is full (10/10), you must wait until next week.
+                                        </div>
+                                    </div>
+
+                                    <!-- FEATURE 2: NGL VIRAL LINK -->
+                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,138,0,0.25);border-radius:20px;padding:22px;margin-bottom:26px;">
+                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
+                                            <span style="font-size:26px;margin-right:10px;">🤫</span>
+                                            <div>
+                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF8A00;">Your NGL Anonymous Link</h3>
+                                                <span style="font-size:12px;color:#94A3B8;font-weight:800;">POST ON WHATSAPP STATUS</span>
+                                            </div>
+                                        </div>
+                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0;">
+                                            Get secret confessions, compliments, and crush reveals from your phone contacts! They don't need to download any app or log in. Then generate high-res 9:16 story cards to share your spicy replies back to your status!
+                                        </p>
+                                    </div>
+
+                                    <!-- HOW IT WORKS (3 STEPS) -->
+                                    <div style="background:#0F172A;border-radius:18px;padding:20px;margin-bottom:28px;">
+                                        <h4 style="margin:0 0 14px;color:#F8FAFC;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;">
+                                            ⚡ How to Get Started in 30 Seconds:
+                                        </h4>
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:13px;color:#CBD5E1;line-height:1.7;">
+                                            <tr>
+                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">1.</td>
+                                                <td>Click the button below & claim your spot on this week's train before the 10 spots run out.</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">2.</td>
+                                                <td>Chat and reply to 10 men every day.</td>
+                                            </tr>
+                                            <tr>
+                                                <td width="30" valign="top" style="color:#10B981;font-weight:900;font-size:16px;">3.</td>
+                                                <td>Sit back and receive your cash directly to M-Pesa every Sunday at 23:59 EAT!</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+
+                                    <!-- MAIN CTA BUTTON -->
+                                    <div style="text-align:center;margin-bottom:26px;">
+                                        <a href="{base_url}/matches" style="display:inline-block;background:linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);color:#FFFFFF;padding:18px 38px;border-radius:999px;font-size:16px;font-weight:900;text-decoration:none;box-shadow:0 12px 30px rgba(255,46,116,0.45);letter-spacing:0.3px;">
+                                            🚂 Claim My Spot on the Train Now &rarr;
+                                        </a>
+                                    </div>
+
+                                    <!-- SECONDARY LINK -->
+                                    <div style="text-align:center;margin-bottom:30px;">
+                                        <a href="{base_url}/ngl" style="color:#94A3B8;font-size:13px;font-weight:700;text-decoration:underline;">
+                                            Or open your NGL Anonymous Link Hub &rarr;
+                                        </a>
+                                    </div>
+
+                                </td>
+                            </tr>
+
+                            <!-- FOOTER -->
+                            <tr>
+                                <td style="padding:22px;background:#0A0D14;border-top:1px solid rgba(255,255,255,0.06);text-align:center;font-size:12px;color:#64748B;line-height:1.6;">
+                                    <div style="margin-bottom:6px;color:#94A3B8;font-weight:800;">
+                                        FindYourMatch Kenya &bull; Comrades Network
+                                    </div>
+                                    <div>
+                                        You received this invitation because you are a verified female student member.<br>
+                                        Kakamega, Kenya &bull; <a href="{base_url}/privacy" style="color:#94A3B8;text-decoration:none;">Privacy Policy</a>
+                                    </div>
+                                </td>
+                            </tr>
+
+                        </table>
+                        <!-- END MAIN CARD -->
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
+    """)
+
+    return subject, text_content, html_content
+
+
+def send_ladies_chat_earn_launch_email(recipient_email: str, recipient_name: str) -> bool:
+    """
+    Dispatches the Chat-to-Earn & NGL onboarding email to a verified lady.
+    """
+    subject, text_content, html_content = build_ladies_chat_earn_launch_email_content(recipient_name)
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="FindYourMatch VIP"
+    )
+
+
+
 
 

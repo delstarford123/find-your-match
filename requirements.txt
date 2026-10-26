@@ -1,32 +1,29 @@
 # ==========================================
-# 🌐 WEB FRAMEWORK & SERVER
+# 🌐 WEB FRAMEWORK & UTILITIES (PRODUCTION)
 # ==========================================
 Flask
-Flask-SocketIO
 Flask-WTF
 Flask-Mail
 Flask-Cors
-gunicorn[eventlet]
-eventlet
 pytz
-APScheduler
-# ==========================================
-# 🗄️ DATABASE & ENVIRONMENT
-# ==========================================
-firebase-admin
 python-dotenv
-psycopg2-binary
-groq
 requests
 
 # ==========================================
-# 🛠️ UTILITIES & COMMUNICATIONS
+# 🗄️ DATABASE & EXTERNAL APIs
 # ==========================================
+firebase-admin
+groq
 twilio
+
+# ==========================================
+# 🛠️ UTILITIES & SECURITY
+# ==========================================
 pywebpush
 qrcode
 Pillow
 Flask-Limiter
+
 # ==========================================
 # 📊 MATHEMATICAL UTILITIES
 # ==========================================

@@ -523,6 +523,24 @@ function toggleAmbassador(id) {
                 <span class="trend-badge trend-up">↑ Growing</span>
             </div>
 
+            <!-- Ladies Chat-to-Earn Squad Metric Card -->
+            <div class="metric-card animate-up delay-2" style="background: linear-gradient(135deg, rgba(255, 46, 116, 0.12), rgba(15, 23, 42, 0.85)); border: 1px solid rgba(255, 46, 116, 0.35);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <div class="m-title" style="color: #FF2E74; font-weight: 800; margin-bottom: 0;">💃 Ladies Squad (10/Wk)</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="triggerWeeklyLadyPayout()" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #FFF; padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: 700; font-family: inherit;" title="Disburse weekly chat earnings to qualified ladies">PAYOUT</button>
+                        <button onclick="launchLadiesCampaign(this)" style="background: linear-gradient(135deg, #FF2E74, #FF8A00); border: none; color: #FFF; padding: 4px 10px; border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: 800; font-family: inherit; box-shadow: 0 2px 8px rgba(255,46,116,0.4);" title="Broadcast onboarding email & push notification to all ladies">🚀 LAUNCH</button>
+                    </div>
+                </div>
+                <div class="m-value" style="color: #FFF;"><span style="font-size: 20px;">{{ ladies_cohort_status.enrolled_count | default(0) }} / {{ ladies_cohort_status.slots_limit | default(10) }}</span> <span style="font-size: 14px; color: #FF2E74; font-weight: 700;">Spots Claimed</span></div>
+                <div class="m-sub" style="color: #CBD5E1; display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <span>50 KES/day &bull; Weekly M-Pesa Disbursal</span>
+                    <span id="dash-campaign-badge" class="badge {% if ladies_campaign_status.is_launched %}badge-green{% else %}badge-yellow{% endif %}" style="font-size: 9px;">
+                        {% if ladies_campaign_status.is_launched %}Launched{% else %}Ready{% endif %}
+                    </span>
+                </div>
+            </div>
+
             <!-- Daily Traffic -->
             <div class="metric-card animate-up delay-2">
                 <div class="m-title">📱 Daily Traffic</div>
@@ -1524,6 +1542,76 @@ function toggleAmbassador(id) {
 
     <!-- MODULE: SYSTEM -->
     <div id="module-system" class="module-content">
+
+        <!-- LADIES CHAT-TO-EARN & NGL LAUNCH COMMAND CENTER -->
+        <h3 class="section-title animate-up delay-1" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span>👑 Ladies Chat-to-Earn & NGL Launch Command Center</span>
+            <span id="ladies-campaign-status-badge" class="badge {% if ladies_campaign_status.status == 'in_progress' %}badge-yellow{% elif ladies_campaign_status.is_launched %}badge-green{% else %}badge-blue{% endif %}">
+                {% if ladies_campaign_status.status == 'in_progress' %}⏳ Broadcasting in Progress...{% elif ladies_campaign_status.is_launched %}🟢 Activity Launched{% else %}⚪ Standby (Ready to Launch){% endif %}
+            </span>
+        </h3>
+        <div class="admin-card animate-up delay-1" style="background: linear-gradient(135deg, rgba(255, 46, 116, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1.5px solid rgba(255, 46, 116, 0.35); border-radius: 20px; padding: 26px; flex-direction: column; align-items: stretch; margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+                <div style="max-width: 680px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <span style="font-size: 32px;">🚂</span>
+                        <div>
+                            <h4 style="margin: 0; color: white; font-size: 19px; font-weight: 900; letter-spacing: -0.3px;">Onboarding Email & Push Broadcast Switch</h4>
+                            <span style="font-size: 12px; color: #FF2E74; font-weight: 800; letter-spacing: 0.5px;">TARGET: ALL REGISTERED LADIES ON FINDYOURMATCH</span>
+                        </div>
+                    </div>
+                    <p style="color: #94A3B8; font-size: 13.5px; line-height: 1.6; margin: 0 0 12px 0;">
+                        Use this master switch whenever you're ready to launch the activity. Clicking the button immediately dispatches the high-converting onboarding email, pushes an in-app priority alert with a direct jump link to <code style="color:#FF2E74; background: rgba(255,46,116,0.1); padding: 2px 6px; border-radius: 4px;">/matches</code>, and sends background web push notifications to all verified ladies.
+                    </p>
+                    <div style="display: flex; gap: 12px; font-size: 12px; color: #CBD5E1; flex-wrap: wrap;">
+                        <span style="display: flex; align-items: center; gap: 5px;"><span style="color: #34D399;">✔</span> 50 KES Daily Engagement Goal</span>
+                        <span style="display: flex; align-items: center; gap: 5px;"><span style="color: #34D399;">✔</span> Strict 10-Lady Weekly Cap</span>
+                        <span style="display: flex; align-items: center; gap: 5px;"><span style="color: #34D399;">✔</span> Sunday M-Pesa Disbursals</span>
+                        <span style="display: flex; align-items: center; gap: 5px;"><span style="color: #34D399;">✔</span> Viral WhatsApp Anonymous Link</span>
+                    </div>
+                </div>
+
+                <!-- LAUNCH BUTTON / SWITCH -->
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
+                    <button id="btn-launch-ladies-campaign" onclick="launchLadiesCampaign(this)" 
+                            style="background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%); color: white; border: none; padding: 16px 30px; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(255, 46, 116, 0.4); transition: all 0.2s; font-family: inherit;"
+                            {% if ladies_campaign_status.status == 'in_progress' %}disabled{% endif %}>
+                        <span style="font-size: 20px;">🚀</span>
+                        <span id="btn-launch-ladies-text">
+                            {% if ladies_campaign_status.status == 'in_progress' %}Broadcasting in Progress...{% elif ladies_campaign_status.is_launched %}Re-Launch & Re-Send to All Ladies{% else %}Launch Activity & Email All Ladies Now{% endif %}
+                        </span>
+                    </button>
+                    <div style="font-size: 11.5px; color: #64748B; text-align: right;">
+                        {% if ladies_campaign_status.last_launched_at %}
+                            Last Launched: <span id="ladies-last-launched-time" style="color: #CBD5E1; font-weight: 700;">{{ ladies_campaign_status.last_launched_at }}</span>
+                        {% else %}
+                            <span id="ladies-last-launched-time" style="color: #94A3B8;">Activity is ready for first launch.</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATS COUNTERS -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; padding: 18px; background: rgba(0, 0, 0, 0.35); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.06);">
+                <div style="border-right: 1px solid rgba(255,255,255,0.06); padding-right: 10px;">
+                    <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Ladies Targeted</div>
+                    <div id="stat-ladies-targeted" style="font-size: 24px; font-weight: 900; color: #FFFFFF; margin-top: 4px;">{{ ladies_campaign_status.total_ladies_targeted | default(0) }}</div>
+                </div>
+                <div style="border-right: 1px solid rgba(255,255,255,0.06); padding-right: 10px;">
+                    <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Emails Delivered</div>
+                    <div id="stat-ladies-emails" style="font-size: 24px; font-weight: 900; color: #34D399; margin-top: 4px;">{{ ladies_campaign_status.emails_sent | default(0) }}</div>
+                </div>
+                <div style="border-right: 1px solid rgba(255,255,255,0.06); padding-right: 10px;">
+                    <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">In-App & Push Alerts</div>
+                    <div id="stat-ladies-notifs" style="font-size: 24px; font-weight: 900; color: #38BDF8; margin-top: 4px;">{{ ladies_campaign_status.notifications_sent | default(0) }}</div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Current Squad Slots</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #FF2E74; margin-top: 4px;">{{ ladies_cohort_status.enrolled_count | default(0) }} <span style="font-size: 14px; color: #94A3B8; font-weight: 600;">/ {{ ladies_cohort_status.slots_limit | default(10) }}</span></div>
+                </div>
+            </div>
+        </div>
+
         <h3 class="section-title animate-up delay-1">📢 Global Broadcast System</h3>
         <div class="admin-list animate-up delay-1">
             <div class="admin-card" style="flex-direction: column; align-items: stretch;">
@@ -2961,6 +3049,131 @@ function toggleAmbassador(id) {
             .catch(err => {
                 showToast("Error executing salary disbursal: " + err, true);
             });
+        }
+
+        function triggerWeeklyLadyPayout() {
+            if(!confirm("Are you sure you want to disburse accumulated weekly chat earnings to all qualified ladies via M-Pesa B2C right now?")) return;
+            showToast("Disbursing weekly ladies chat rewards via M-Pesa B2C...");
+            fetch('/api/cron/weekly-lady-payouts?force=true')
+            .then(res => res.json())
+            .then(data => {
+                showToast("Lady payouts operation completed!");
+                let summary = "Total Disbursed: KES " + (data.total_disbursed || 0) + "\n\n";
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(r => {
+                        summary += `• ${r.name}: KES ${r.amount} -> ${r.phone} [${r.status}]\n`;
+                    });
+                } else {
+                    summary += "No ladies with unpaid balance >= 50 KES found for disbursement.";
+                }
+                alert("Weekly Ladies Chat-to-Earn Payout Report:\n\n" + summary);
+                location.reload();
+            })
+            .catch(err => {
+                showToast("Error executing lady payouts: " + err, true);
+            });
+        }
+
+        function launchLadiesCampaign(btn) {
+            const promptMsg = "🚀 LAUNCH LADIES CHAT-TO-EARN ACTIVITY?\n\n" +
+                              "This will:\n" +
+                              "1. Send the official VIP onboarding email to ALL registered ladies.\n" +
+                              "2. Send an instant in-app notification with a direct link to join the 10-lady squad (/matches).\n" +
+                              "3. Send mobile/desktop push notifications.\n\n" +
+                              "Are you ready to launch this activity now?";
+            if (!confirm(promptMsg)) return;
+
+            const originalHtml = btn ? btn.innerHTML : "";
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = "<span>⏳</span> <span>Broadcasting to Ladies...</span>";
+            }
+            showToast("🚀 Initiating activity launch & emailing all ladies...");
+
+            fetch('/api/admin/launch-ladies-campaign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || "Launch broadcast started in background!");
+                    pollLadiesCampaignStatus(btn, originalHtml);
+                } else {
+                    if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+                    showToast("Failed to launch campaign: " + (data.error || data.message), true);
+                    alert("Error: " + (data.error || data.message));
+                }
+            })
+            .catch(err => {
+                if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+                showToast("Network error launching campaign: " + err, true);
+            });
+        }
+
+        let ladiesCampaignPollTimer = null;
+        function pollLadiesCampaignStatus(btn, originalHtml) {
+            if (ladiesCampaignPollTimer) clearInterval(ladiesCampaignPollTimer);
+
+            ladiesCampaignPollTimer = setInterval(() => {
+                fetch('/api/admin/ladies-campaign-status')
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success || !data.status) return;
+                    const st = data.status;
+
+                    const targetedEl = document.getElementById('stat-ladies-targeted');
+                    const emailsEl = document.getElementById('stat-ladies-emails');
+                    const notifsEl = document.getElementById('stat-ladies-notifs');
+                    const errorsEl = document.getElementById('stat-ladies-errors');
+                    const lastLaunchedEl = document.getElementById('ladies-last-launched-time');
+                    const badgeEl = document.getElementById('ladies-campaign-status-badge');
+                    const dashBadge = document.getElementById('dash-campaign-badge');
+                    const btnText = document.getElementById('btn-launch-ladies-text');
+
+                    if (targetedEl) targetedEl.innerText = st.total_ladies_targeted || 0;
+                    if (emailsEl) emailsEl.innerText = st.emails_sent || 0;
+                    if (notifsEl) notifsEl.innerText = st.notifications_sent || 0;
+                    if (errorsEl) errorsEl.innerText = st.errors_count || 0;
+                    if (lastLaunchedEl && st.last_launched_at) lastLaunchedEl.innerText = st.last_launched_at;
+
+                    if (st.status === 'completed' || st.status === 'idle') {
+                        clearInterval(ladiesCampaignPollTimer);
+                        ladiesCampaignPollTimer = null;
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalHtml || "<span>🚀</span> <span>Re-Launch & Re-Send to All Ladies</span>";
+                        }
+                        if (btnText) {
+                            btnText.innerText = "Re-Launch & Re-Send to All Ladies";
+                        }
+                        if (badgeEl) {
+                            badgeEl.className = "badge badge-green";
+                            badgeEl.innerText = "🟢 Activity Launched";
+                        }
+                        if (dashBadge) {
+                            dashBadge.className = "badge badge-green";
+                            dashBadge.innerText = "Launched";
+                        }
+                        showToast(`✅ Broadcast finished! ${st.emails_sent} emails & ${st.notifications_sent} notifications sent.`);
+                        alert(`🎉 LADIES ACTIVITY LAUNCH COMPLETE!\n\n` +
+                              `• Total Ladies Reached: ${st.total_ladies_targeted}\n` +
+                              `• Emails Delivered: ${st.emails_sent}\n` +
+                              `• In-App & Push Notifications Sent: ${st.notifications_sent}\n` +
+                              `• Errors: ${st.errors_count}\n\n` +
+                              `The ladies have been notified and can now board the 10-lady train at /matches!`);
+                    } else if (badgeEl) {
+                        badgeEl.className = "badge badge-yellow";
+                        badgeEl.innerText = `⏳ Broadcasting (${st.emails_sent}/${st.total_ladies_targeted} emails)...`;
+                    }
+                })
+                .catch(err => {
+                    console.error("Status polling error:", err);
+                });
+            }, 2500);
         }
 
         function filterEventsAdmin(query) {

@@ -1,5 +1,23 @@
 PassengerFriendlyErrorPages on
 
+# ── 1. SECURITY: Block direct access to secrets, keys, and code ─────────────
+<FilesMatch "^\.env|firebase_key\.json|\.pem$|\.cer$|master_database\.json$|\.py$|\.log$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ── 2. SSL: Force HTTPS ─────────────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
 # DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
 <IfModule Litespeed>
     SetEnv LSAPI_CHILDREN 24
@@ -11,3 +29,4 @@ PassengerAppRoot "/home1/farmerma/findyourmatch.co.ke/mmust-dating-ai"
 PassengerBaseURI "/"
 PassengerPython "/home1/farmerma/virtualenv/findyourmatch.co.ke/mmust-dating-ai/3.13/bin/python"
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+

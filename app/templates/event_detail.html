@@ -1463,9 +1463,14 @@
                             ⚡ Disburse Pending Cash (KES {{ pending_payout_amount }})
                         </button>
                         {% else %}
-                        <span style="font-size: 12px; font-weight: 800; color: #166534; background: #dcfce7; padding: 6px 12px; border-radius: 50px; display: inline-flex; align-items: center; gap: 4px;">
-                            ✅ All Ticket Cash Disbursed
-                        </span>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <span style="font-size: 12px; font-weight: 800; color: #166534; background: #dcfce7; padding: 6px 12px; border-radius: 50px; display: inline-flex; align-items: center; gap: 4px;">
+                                ✅ All Settled
+                            </span>
+                            <button type="button" onclick="triggerOrganizerPayout('{{ event.id }}')" id="btnDisbursePayouts" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 14px; border-radius: 10px; font-weight: 700; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                🔄 Resync & Sweep Payouts
+                            </button>
+                        </div>
                         {% endif %}
                     </div>
 
@@ -1691,7 +1696,7 @@
                         </select>
                     </div>
 
-                    {% if event.price > 0 %}
+                    {% if event.price > 0 or (event.ticket_tiers and event.ticket_tiers|length > 0) %}
                     <!-- PASS LEVEL SELECTION -->
                     {% if event.ticket_tiers and event.ticket_tiers|length > 1 %}
                     <div class="form-field" style="margin-bottom: 14px;">
@@ -1739,8 +1744,8 @@
                     {% endif %}
 
                     <button type="submit" class="btn-confirm-rsvp" id="btnRsvpSubmit">
-                        {% if event.price > 0 %}
-                            🎟️ Pay {{ event.price_display }} via M-Pesa
+                        {% if (event.price > 0) or (event.ticket_tiers and event.ticket_tiers[0].price > 0) %}
+                            🎟️ Pay {{ event.price_display or ('KES ' ~ event.ticket_tiers[0].price if event.ticket_tiers else 'via M-Pesa') }} via M-Pesa
                         {% else %}
                             🎟️ Confirm Free RSVP & Get QR Pass
                         {% endif %}
@@ -2173,11 +2178,15 @@
 
         const btn = document.getElementById('btnRsvpSubmit');
         if (btn) {
-            {% if event.price > 0 %}
-            btn.innerHTML = `🎟️ Pay KES ${totalCost} via M-Pesa (${currentSelectedTierName})`;
-            {% endif %}
+            if (totalCost > 0) {
+                btn.innerHTML = `🎟️ Pay KES ${totalCost} via M-Pesa (${currentSelectedTierName})`;
+            } else {
+                btn.innerHTML = `🎟️ Confirm Free RSVP & Get QR Pass`;
+            }
         }
     }
+    // Initialize pricing on page load
+    calculateRsvpTotal();
 
     // Handle RSVP Submit
     function handleRsvpSubmit(e) {

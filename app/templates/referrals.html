@@ -138,33 +138,10 @@
         
         <a href="javascript:history.back()" class="nav-back"><span>←</span> Back to Dashboard</a>
 
-        <div class="banner reward">
-            <div class="banner-icon">🎁</div>
-            <h2 class="banner-title">Earn Free Premium</h2>
-            <p class="banner-desc">Invite a single friend to Find Your Match. When they sign up, <strong>you both get 1 week of Premium Access (Free).</strong></p>
-        </div>
-
-        <div style="text-align: left;">
-            <label class="link-label" style="color: #E60026;">Your VIP Invite Link</label>
-            <div class="link-container">
-                <input type="text" id="ref-link" class="link-input" value="{{ base_url }}/join?ref={{ user.referral_code | default('FYM-VIP-26') }}" readonly>
-                <button class="btn-copy" onclick="copyLink('ref-link')">Copy</button>
-            </div>
-        </div>
-
-        <button onclick="shareReferral()" class="btn-whatsapp">
-            <span style="font-size: 22px;">💬</span> Share Invite to WhatsApp
-        </button>
-
-        <div class="stats-box">
-            <div class="stat-col">
-                <div class="stat-num">{{ user.referrals_count | default(0) }}</div>
-                <div class="stat-label">Friends<br>Joined</div>
-            </div>
-            <div class="stat-col">
-                <div class="stat-num" style="color: #28a745;">{{ user.free_weeks_earned | default(0) }}</div>
-                <div class="stat-label">Free Weeks<br>Earned</div>
-            </div>
+        <div class="banner reward" style="background: linear-gradient(135deg, #4b5563 0%, #374151 100%); box-shadow: none;">
+            <div class="banner-icon">⏳</div>
+            <h2 class="banner-title">Referral Reward Program Ended</h2>
+            <p class="banner-desc">The 1-week free premium referral promotion has concluded. Inviting friends no longer grants free premium weeks.</p>
         </div>
 
         <hr class="divider">

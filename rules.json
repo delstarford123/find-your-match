@@ -122,6 +122,46 @@
       ".indexOn": ["timestamp", "score"]
     },
 
+    "ngl_links": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["user_id", "active"]
+    },
+
+    "ngl_inbox": {
+      ".read": "auth != null",
+      ".write": true,
+      "$user_id": {
+        ".indexOn": ["timestamp", "is_read"]
+      }
+    },
+
+    "lady_weekly_cohorts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["is_full", "enrolled_count"]
+    },
+
+    "lady_daily_engagements": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$user_id": {
+        ".indexOn": ["count", "goal_reached"]
+      }
+    },
+
+    "lady_wallets": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["unpaid_balance"]
+    },
+
+    "lady_payout_history": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["user_id", "week_key", "status"]
+    },
+
     "missed_connections": {
       ".read": "auth != null",
       ".write": "auth != null",

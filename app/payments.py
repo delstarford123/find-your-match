@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import base64
 import logging
@@ -263,6 +264,10 @@ def initiate_b2c_payout(
         "Content-Type": "application/json"
     }
 
+    # Safaricom Daraja B2C strictly accepts alphanumeric and spaces only, max 20 characters
+    clean_remarks = re.sub(r'[^a-zA-Z0-9 ]', '', str(remarks)).strip()[:20] or "Ticket Payout"
+    clean_occasion = re.sub(r'[^a-zA-Z0-9 ]', '', str(occasion)).strip()[:20] or "TicketPayout"
+
     payload = {
         "InitiatorName": initiator,
         "SecurityCredential": credential,
@@ -270,10 +275,10 @@ def initiate_b2c_payout(
         "Amount": clean_amount,
         "PartyA": shortcode,
         "PartyB": formatted_phone,
-        "Remarks": str(remarks)[:95],
+        "Remarks": clean_remarks,
         "QueueTimeOutURL": timeout_url,
         "ResultURL": result_url,
-        "Occasion": str(occasion)[:95]
+        "Occasion": clean_occasion
     }
 
     # Try v3 first, then v1
@@ -359,8 +364,8 @@ def initiate_b2b_payout(
         "Amount": clean_amount,
         "PartyA": shortcode,
         "PartyB": clean_receiver,
-        "AccountReference": str(account_reference)[:12],
-        "Remarks": str(remarks)[:95],
+        "AccountReference": re.sub(r'[^a-zA-Z0-9]', '', str(account_reference))[:12] or "TicketCash",
+        "Remarks": re.sub(r'[^a-zA-Z0-9 ]', '', str(remarks)).strip()[:20] or "Ticket Payout",
         "QueueTimeOutURL": timeout_url,
         "ResultURL": result_url
     }

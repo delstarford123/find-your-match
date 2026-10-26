@@ -290,6 +290,34 @@
     
     <div class="matches-sidebar">
         <div class="sidebar-header">Inbox</div>
+        
+        <!-- NGL & LADIES EARN ACTION BAR -->
+        <div style="padding: 10px 14px; background: #FFF; border-bottom: 1px solid #FFD6DD; display: flex; gap: 8px; flex-direction: column;">
+            <!-- NGL Quick Link -->
+            <a href="/ngl" style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%); color: #FFF; padding: 10px 14px; border-radius: 14px; text-decoration: none; font-size: 13px; font-weight: 800; box-shadow: 0 4px 12px rgba(255, 46, 116, 0.25);">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                    <span>🤫</span>
+                    <span>NGL Anonymous Link</span>
+                </span>
+                <span style="background: rgba(0,0,0,0.25); padding: 3px 8px; border-radius: 999px; font-size: 11px;">Status Link & Inbox →</span>
+            </a>
+
+            <!-- Ladies Chat-to-Earn Widget -->
+            <div id="ladyEarnWidget" style="display: none; background: #FFF5F7; border: 1.5px solid #FFD6DD; border-radius: 14px; padding: 10px 12px; cursor: pointer; transition: 0.2s;" onclick="openLadyEarnModal()">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 12px; font-weight: 900; color: #720000; display: flex; align-items: center; gap: 5px;">
+                        <span>💰</span>
+                        <span id="ladyWidgetTitle">Chat-to-Earn (10 Ladies/Wk)</span>
+                    </span>
+                    <span id="ladySlotBadge" style="font-size: 10px; font-weight: 800; background: #E60026; color: #FFF; padding: 2px 7px; border-radius: 999px;">Loading...</span>
+                </div>
+                <div id="ladyWidgetSubtext" style="font-size: 11px; color: #666; font-weight: 600;">Reply to 10 men daily to earn 50 KES M-Pesa</div>
+                <!-- Progress bar for enrolled ladies -->
+                <div id="ladyProgressBarWrap" style="display: none; width: 100%; height: 6px; background: #FFE0E6; border-radius: 10px; margin-top: 6px; overflow: hidden;">
+                    <div id="ladyProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #10B981, #059669); transition: width 0.4s ease;"></div>
+                </div>
+            </div>
+        </div>
         {% if my_matches %}
             {% for match in my_matches %}
             <div class="match-item {% if active_partner and active_partner.id == match.id %}active{% endif %}" data-uid="{{ match.id }}" onclick="window.location.href='/matches/{{ match.id }}'">
@@ -1358,6 +1386,9 @@
                         statusElement.innerText = '✓';
                         statusElement.className = 'msg-status status-sent';
                     }
+                    if (data.lady_reward) {
+                        handleLadyRewardUpdate(data.lady_reward);
+                    }
                 }
             })
             .catch(err => {
@@ -1551,5 +1582,262 @@
             }
         });
     }
+
+    // ==========================================
+    // LADIES CHAT-TO-EARN (10 LADIES/WEEK) ENGINE
+    // ==========================================
+    let currentCohortData = null;
+
+    async function checkLadyEarnStatus() {
+        try {
+            const res = await fetch('/api/ladies/cohort-status');
+            const data = await res.json();
+            if (!data || !data.success) return;
+
+            currentCohortData = data;
+            const widget = document.getElementById('ladyEarnWidget');
+            if (!widget) return;
+
+            widget.style.display = 'block';
+            const badge = document.getElementById('ladySlotBadge');
+            const subtext = document.getElementById('ladyWidgetSubtext');
+            const pWrap = document.getElementById('ladyProgressBarWrap');
+            const pBar = document.getElementById('ladyProgressBar');
+
+            if (data.is_enrolled) {
+                // Enrolled state
+                const today = data.today_progress;
+                const pct = Math.min(100, Math.round((today.count / today.target) * 100));
+                badge.style.background = today.goal_reached ? '#10B981' : '#FF2E74';
+                badge.innerText = today.goal_reached ? '✓ 50 KES UNLOCKED' : `${today.count}/${today.target} MEN`;
+                
+                subtext.innerText = today.goal_reached 
+                    ? `🎉 50 KES earned today! Wallet: KES ${data.wallet.unpaid_balance}`
+                    : `Engage ${today.remaining} more men today to unlock 50 KES`;
+
+                pWrap.style.display = 'block';
+                pBar.style.width = `${pct}%`;
+                pBar.style.background = today.goal_reached ? '#10B981' : 'linear-gradient(90deg, #FF2E74, #FF8A00)';
+            } else {
+                // Not enrolled state
+                pWrap.style.display = 'none';
+                if (data.is_full) {
+                    badge.style.background = '#64748B';
+                    badge.innerText = 'TRAIN FULL (10/10)';
+                    subtext.innerText = 'All 10 spots claimed this week. Resets Monday.';
+                } else {
+                    badge.style.background = '#10B981';
+                    badge.innerText = `${data.slots_remaining} SPOTS LEFT`;
+                    subtext.innerText = `Claim spot & earn KES 50/day (Only 10 ladies/wk)`;
+                }
+            }
+        } catch (e) {
+            console.error('Error checking lady earn status:', e);
+        }
+    }
+
+    function openLadyEarnModal() {
+        if (!currentCohortData) return;
+        renderLadyModalContent(currentCohortData);
+        document.getElementById('ladyEarnModal').style.display = 'flex';
+    }
+
+    function closeLadyEarnModal() {
+        document.getElementById('ladyEarnModal').style.display = 'none';
+    }
+
+    function renderLadyModalContent(data) {
+        const container = document.getElementById('ladyModalBody');
+        if (!container) return;
+
+        const enrolledCount = data.enrolled_count || 0;
+        const slotsLimit = data.slots_limit || 10;
+
+        // Slot indicators (10 dots)
+        let dotsHtml = '';
+        for (let i = 0; i < slotsLimit; i++) {
+            const isTaken = i < enrolledCount;
+            dotsHtml += `<div style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: ${isTaken ? '#10B981' : '#E2E8F0'}; color: ${isTaken ? '#FFF' : '#94A3B8'};">${i + 1}</div>`;
+        }
+
+        let mainActionHtml = '';
+
+        if (data.is_enrolled) {
+            const today = data.today_progress;
+            const pct = Math.min(100, Math.round((today.count / today.target) * 100));
+
+            mainActionHtml = `
+                <div style="background: #F0FDF4; border: 1.5px solid #BBF7D0; border-radius: 18px; padding: 18px; margin-bottom: 18px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-weight: 800; color: #166534; font-size: 14px;">🚂 Spot Secured on This Week's Train!</span>
+                        <span style="font-size: 12px; font-weight: 800; background: #166534; color: #FFF; padding: 2px 8px; border-radius: 999px;">ACTIVE</span>
+                    </div>
+
+                    <div style="margin: 14px 0 6px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 800; color: #1E293B; margin-bottom: 6px;">
+                            <span>Today's Progress</span>
+                            <span>${today.count} / ${today.target} Men Engaged</span>
+                        </div>
+                        <div style="width: 100%; height: 10px; background: #DCFCE7; border-radius: 999px; overflow: hidden;">
+                            <div style="width: ${pct}%; height: 100%; background: #10B981; transition: width 0.4s ease;"></div>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; color: ${today.goal_reached ? '#15803D' : '#64748B'}; font-weight: 600; margin-top: 8px;">
+                        ${today.goal_reached ? '🎉 50 KES reward unlocked for today!' : `Reply to ${today.remaining} more men today to complete your KES 50 daily reward.`}
+                    </div>
+                </div>
+
+                <!-- Wallet Card -->
+                <div style="background: linear-gradient(135deg, #111827, #1F2937); color: #FFF; border-radius: 18px; padding: 18px; margin-bottom: 16px;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 800; letter-spacing: 0.5px;">Accumulated Weekly Earnings</div>
+                    <div style="font-size: 32px; font-weight: 900; color: #34D399; margin: 4px 0 10px;">KES ${data.wallet.unpaid_balance}</div>
+                    <div style="font-size: 12px; color: #CBD5E1; line-height: 1.4;">
+                        🗓️ Automatically sent to your M-Pesa every <strong>Sunday at 23:59 EAT</strong>.<br>
+                        📱 Destination: <strong>${data.wallet.phone_number || 'No phone set yet'}</strong>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="updatePhoneInput" value="${data.wallet.phone_number || ''}" placeholder="M-Pesa phone (e.g. 07XXXXXXXX)" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid #CBD5E1; font-size: 13px;">
+                    <button type="button" onclick="updateLadyPhone()" style="background: #111827; color: #FFF; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 12px; cursor: pointer;">Save Phone</button>
+                </div>
+            `;
+        } else if (data.is_full) {
+            mainActionHtml = `
+                <div style="background: #FEF2F2; border: 1.5px solid #FECACA; border-radius: 18px; padding: 20px; text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 40px; margin-bottom: 8px;">🛑</div>
+                    <h3 style="font-size: 18px; font-weight: 900; color: #991B1B; margin-bottom: 6px;">The Train is Full for This Week!</h3>
+                    <p style="font-size: 13px; color: #7F1D1D; line-height: 1.5; margin-bottom: 12px;">
+                        All <strong>${slotsLimit} spots</strong> for this week's cohort have been claimed by other ladies.<br>
+                        The train opens again next <strong>Monday at 00:00 EAT</strong>. Be ready early to board!
+                    </p>
+                    <button disabled style="width: 100%; padding: 14px; border-radius: 999px; background: #94A3B8; color: #FFF; border: none; font-weight: 800; font-size: 14px; cursor: not-allowed;">
+                        Train Full (10 / 10 Claimed)
+                    </button>
+                </div>
+            `;
+        } else {
+            mainActionHtml = `
+                <div style="background: #FFF5F7; border: 1.5px solid #FFD6DD; border-radius: 18px; padding: 20px; text-align: center; margin-bottom: 16px;">
+                    <div style="display: inline-block; background: #10B981; color: #FFF; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px;">
+                        ${data.slots_remaining} SPOTS REMAINING
+                    </div>
+                    <h3 style="font-size: 18px; font-weight: 900; color: #720000; margin-bottom: 6px;">Join This Week's Chat-to-Earn Train!</h3>
+                    <p style="font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 16px;">
+                        Reply to 10 men every day and earn <strong>50 KES daily</strong>.<br>
+                        Funds accumulate in your wallet and disburse directly to your M-Pesa every Sunday night!
+                    </p>
+
+                    <div style="margin-bottom: 14px; text-align: left;">
+                        <label style="font-size: 12px; font-weight: 700; color: #333; margin-bottom: 4px; display: block;">M-Pesa Payout Number:</label>
+                        <input type="text" id="joinLadyPhoneInput" value="${data.wallet.phone_number || ''}" placeholder="e.g. 0712345678" style="width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid #E2E8F0; font-size: 14px; box-sizing: border-box;">
+                    </div>
+
+                    <button type="button" onclick="joinLadyCohort()" style="width: 100%; padding: 15px; border-radius: 999px; background: linear-gradient(135deg, #10B981, #059669); color: #FFF; border: none; font-weight: 800; font-size: 15px; cursor: pointer; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);">
+                        🚂 Claim My Spot on This Week's Train
+                    </button>
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div style="margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 800; color: #64748B; text-transform: uppercase;">Weekly Squad (${data.week_label})</span>
+                    <span style="font-size: 13px; font-weight: 900; color: #0F172A;">${enrolledCount} / ${slotsLimit} Claimed</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 4px; margin-bottom: 14px;">
+                    ${dotsHtml}
+                </div>
+            </div>
+
+            ${mainActionHtml}
+        `;
+    }
+
+    async function joinLadyCohort() {
+        const phoneInput = document.getElementById('joinLadyPhoneInput');
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+
+        try {
+            const res = await fetch('/api/ladies/join-cohort', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'You have secured your spot on this week’s train!');
+                if (typeof confetti === 'function') confetti();
+                checkLadyEarnStatus();
+                closeLadyEarnModal();
+            } else {
+                alert(data.error || 'Failed to join cohort.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Connection error. Please try again.');
+        }
+    }
+
+    async function updateLadyPhone() {
+        const phoneInput = document.getElementById('updatePhoneInput');
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        if (!phone) return alert('Please enter your phone number.');
+
+        try {
+            const res = await fetch('/api/ladies/wallet-phone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: phone })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message);
+                checkLadyEarnStatus();
+            } else {
+                alert(data.error);
+            }
+        } catch (e) {
+            alert('Error updating phone.');
+        }
+    }
+
+    function handleLadyRewardUpdate(stat) {
+        if (!stat) return;
+        checkLadyEarnStatus();
+
+        if (stat.reward_unlocked) {
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+            alert(`🎉 AMAZING! You engaged with 10 men today!\n\nKES ${stat.reward_amount} has been added to your weekly M-Pesa payout wallet.`);
+        }
+    }
+
+    // Run status check on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        checkLadyEarnStatus();
+    });
 </script>
+
+<!-- LADIES CHAT-TO-EARN MODAL -->
+<div id="ladyEarnModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10002; justify-content: center; align-items: center; padding: 16px; backdrop-filter: blur(6px);">
+    <div style="background: white; border-radius: 28px; padding: 26px 22px; width: 100%; max-width: 440px; box-shadow: 0 25px 60px rgba(0,0,0,0.4); animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; max-height: 90vh; overflow-y: auto;">
+        <button type="button" onclick="closeLadyEarnModal()" style="position: absolute; top: 18px; right: 20px; background: #F1F5F9; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; color: #475569;">&times;</button>
+        
+        <div style="text-align: center; margin-bottom: 18px;">
+            <div style="display: inline-block; background: #FFF1F2; color: #E11D48; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+                💰 Ladies Chat-to-Earn
+            </div>
+            <h2 style="color: #720000; font-weight: 900; font-size: 22px; margin: 0 0 4px 0;">Weekly Earn Squad</h2>
+            <p style="color: #64748B; font-size: 13px; margin: 0;">10 Ladies / Week &bull; 50 KES Daily &bull; Weekly M-Pesa Payout</p>
+        </div>
+
+        <div id="ladyModalBody">
+            <!-- Rendered by renderLadyModalContent -->
+        </div>
+    </div>
+</div>
 {% endblock %}

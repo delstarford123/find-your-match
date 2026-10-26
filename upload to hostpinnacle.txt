@@ -1,21 +1,60 @@
-1. The Core App Logic
-Upload these to your app/ directory (overwrite the existing ones):
+================================================================================
+  FINDYOURMATCH (MMUST DATING AI) -> HOSTPINNACLE MIGRATION CHECKLIST
+================================================================================
 
-app/main.py (Contains the new Merchant Diamond unlocks, super admin logic, and notification overhaul)
-app/database.py (Contains the fixed serverless Firebase connection logic)
-2. The HTML Templates
-Upload these to your app/templates/ directory (overwrite the existing ones):
+1. CLOUDFLARE DNS (POINTING YOUR DOMAIN TO HOSTPINNACLE)
+--------------------------------------------------------------------------------
+Your nameservers are on Cloudflare (vicky & martha). You only need to update 2 records:
 
-app/templates/business_dashboard.html (Contains the fully unlocked UI and dynamic payment displays)
-app/templates/super_admin.html (Contains your new professional grid layout and the Merchant Registration Fee controller)
-3. Requirements (Important)
-Upload this to your root directory:
+- Record 1:
+  Type: A
+  Name: @ (or findyourmatch.co.ke)
+  IPv4 Address: 178.162.234.23 (HostPinnacle Server IP)
+  Proxy status: Proxied (Orange) or DNS Only (Gray)
 
-requirements.txt (We added groq and requests to this file. Make sure HostPinnacle has these installed in its Python environment!)
+- Record 2:
+  Type: CNAME (or A)
+  Name: www
+  Target: findyourmatch.co.ke (or A record to 178.162.234.23)
+  Proxy status: Same as Record 1
+
+*(Note: Change SSL/TLS encryption mode in Cloudflare to "Full" to prevent Error 525/526).*
 
 
-I have just pushed these changes directly to the main branch, so Vercel is deploying them automatically as we speak. When you are ready to update HostPinnacle cPanel, include these 3 updated files:
+2. FILES TO UPLOAD / OVERWRITE IN CPANEL FILE MANAGER
+--------------------------------------------------------------------------------
+Upload to your application root (e.g., /home1/farmerma/findyourmatch.co.ke/mmust-dating-ai):
 
-app/main.py
-app/templates/base.html
-app/static/push-worker.js (NEW FILE)
+[Root Files]
+- passenger_wsgi.py     (Updated: Directory anchoring, dotenv loading, crash diagnostic page)
+- .htaccess             (Updated: Direct access blocker for .env/keys + HTTPS redirect)
+- requirements.txt      (Updated: Cleaned production dependencies)
+- .env                  (Contains all production credentials, M-Pesa, Groq, SMTP)
+- firebase_key.json     (Google Firebase Admin private key)
+
+[App Folders]
+- app/                  (Core logic, routes, services, payments, email_service)
+- app/templates/        (All Jinja2 HTML templates, including weekly_report.html)
+- app/static/           (CSS, JS, images, push-worker.js, manifest.json)
+
+
+3. CPANEL "SETUP PYTHON APP"
+--------------------------------------------------------------------------------
+1. Log into cPanel -> "Setup Python App".
+2. Select your application (findyourmatch.co.ke).
+   - Python Version: 3.13 (or 3.11 / 3.12)
+   - Application root: findyourmatch.co.ke/mmust-dating-ai
+   - Application startup file: passenger_wsgi.py
+   - Application Entry point: application
+3. Under "Configuration files", ensure `requirements.txt` is listed.
+4. Click "Run Pip Install".
+5. Click "RESTART".
+
+
+4. CPANEL CRON JOB (REPLACING VERCEL CRON)
+--------------------------------------------------------------------------------
+In cPanel -> "Cron Jobs", add a job to run every hour (0 * * * *):
+
+Command:
+curl -s "https://www.findyourmatch.co.ke/api/cron/hourly-check?cron_key=mmust_dating_cron_secret_2026" >/dev/null 2>&1
+================================================================================

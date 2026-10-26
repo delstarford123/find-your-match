@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Send an Anonymous Confession to {{ data.recipient_first_name }} | FindYourMatch</title>
+    <meta name="description" content="Send an anonymous message or confession to {{ data.recipient_first_name }}. 100% private and secret.">
+
+    <!-- OpenGraph for WhatsApp & Social Previews -->
+    <meta property="og:title" content="Send an Anonymous Confession to {{ data.recipient_first_name }} 🤫">
+    <meta property="og:description" content="{{ data.prompt_text }}">
+    <meta property="og:image" content="{{ data.recipient_img }}">
+    <meta property="og:type" content="website">
+
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #FF2E74;
+            --primary-dark: #D4145A;
+            --accent: #FF8A00;
+            --bg-dark: #0B0E14;
+            --card-bg: rgba(22, 27, 34, 0.85);
+            --border-glass: rgba(255, 255, 255, 0.12);
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(255, 46, 116, 0.25) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 138, 0, 0.2) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(102, 126, 234, 0.15) 0px, transparent 60%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-main);
+            padding: 20px 16px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Top Brand Badge */
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #F8FAFC;
+            margin-bottom: 24px;
+            text-decoration: none;
+            transition: transform 0.2s;
+        }
+        .brand-badge:hover {
+            transform: scale(1.03);
+        }
+        .brand-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: #10B981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10B981;
+        }
+
+        /* Avatar & User Header */
+        .user-header {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .avatar-wrap {
+            position: relative;
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 12px;
+        }
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #FFF;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 46, 116, 0.4);
+        }
+        .lock-icon {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            background: linear-gradient(135deg, #FF2E74, #FF8A00);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border: 2px solid var(--bg-dark);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .user-title {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+        .user-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Main Form Card */
+        .ngl-card {
+            width: 100%;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 28px;
+            padding: 24px 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .prompt-banner {
+            background: {{ data.card_theme or 'linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%)' }};
+            padding: 16px 18px;
+            border-radius: 18px;
+            margin-bottom: 20px;
+            color: #FFF;
+            box-shadow: 0 8px 24px rgba(255, 46, 116, 0.35);
+            text-align: center;
+        }
+        .prompt-text {
+            font-size: 16px;
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 140px;
+            max-height: 240px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 16px;
+            color: #FFF;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: all 0.25s ease;
+            line-height: 1.5;
+        }
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(255, 46, 116, 0.2);
+            background: rgba(15, 23, 42, 0.9);
+        }
+        textarea::placeholder {
+            color: #64748B;
+        }
+
+        .card-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .dice-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-glass);
+            color: #E2E8F0;
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .dice-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+        .dice-btn:active {
+            transform: scale(0.96);
+        }
+
+        .char-counter {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748B;
+        }
+
+        /* Submit Button */
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);
+            border: none;
+            color: #FFF;
+            padding: 16px;
+            border-radius: 999px;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 10px 25px rgba(255, 46, 116, 0.4);
+            transition: all 0.25s ease;
+        }
+        .submit-btn:hover {
+            box-shadow: 0 14px 30px rgba(255, 46, 116, 0.55);
+            transform: translateY(-2px);
+        }
+        .submit-btn:active {
+            transform: translateY(1px);
+        }
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .anonymous-guarantee {
+            margin-top: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: #94A3B8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* Success Overlay */
+        .success-overlay {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 30px 10px 10px;
+            animation: fadeIn 0.3s ease;
+        }
+        .success-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #10B981, #059669);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: 18px;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .success-title {
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .success-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+
+        .another-btn {
+            background: transparent;
+            border: 1px solid var(--border-glass);
+            color: #CBD5E1;
+            padding: 10px 20px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 24px;
+            transition: all 0.2s;
+        }
+        .another-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Viral Viral CTA Box */
+        .viral-banner {
+            width: 100%;
+            background: linear-gradient(135deg, rgba(255, 46, 116, 0.15), rgba(255, 138, 0, 0.15));
+            border: 1px solid rgba(255, 46, 116, 0.3);
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .viral-banner h4 {
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            color: #FFF;
+        }
+        .viral-banner p {
+            font-size: 12px;
+            color: #CBD5E1;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .get-link-btn {
+            display: inline-block;
+            background: #FFF;
+            color: #0F172A;
+            padding: 10px 22px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 800;
+            text-decoration: none;
+            box-shadow: 0 6px 18px rgba(255, 255, 255, 0.25);
+            transition: all 0.2s;
+        }
+        .get-link-btn:hover {
+            transform: scale(1.04);
+        }
+
+        /* Footer */
+        footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #64748B;
+        }
+        footer a {
+            color: #94A3B8;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Brand Link -->
+        <a href="/" class="brand-badge">
+            <span class="dot"></span>
+            <span>FindYourMatch Anonymous</span>
+        </a>
+
+        <!-- Receiver Header -->
+        <div class="user-header">
+            <div class="avatar-wrap">
+                <img src="{{ data.recipient_img }}" alt="{{ data.recipient_first_name }}" class="avatar-img" onerror="this.src='/static/img/placeholder.png'">
+                <div class="lock-icon">🔒</div>
+            </div>
+            <h1 class="user-title">@{{ data.recipient_first_name }}</h1>
+            <p class="user-subtitle">{{ data.institution }} Comrade</p>
+        </div>
+
+        <!-- Form Card -->
+        <div class="ngl-card">
+            <!-- Active Input State -->
+            <div id="formSection">
+                <div class="prompt-banner">
+                    <p class="prompt-text">{{ data.prompt_text }}</p>
+                </div>
+
+                <form id="confessionForm" onsubmit="submitConfession(event)">
+                    <div class="input-group">
+                        <textarea 
+                            id="confessionInput" 
+                            name="message" 
+                            placeholder="{{ data.placeholder or 'Send me a secret message or confession...' }}" 
+                            maxlength="600" 
+                            required
+                            oninput="updateCharCount()"
+                        ></textarea>
+                    </div>
+
+                    <div class="card-controls">
+                        <button type="button" class="dice-btn" onclick="shufflePrompt()">
+                            🎲 <span>Shuffle Idea</span>
+                        </button>
+                        <span class="char-counter" id="charCounter">0 / 600</span>
+                    </div>
+
+                    <button type="submit" id="submitBtn" class="submit-btn">
+                        <span>Send Anonymously</span>
+                        <span style="font-size: 18px;">🚀</span>
+                    </button>
+                </form>
+
+                <div class="anonymous-guarantee">
+                    <span>🔒 100% Secret & Anonymous — Your identity will never be revealed</span>
+                </div>
+            </div>
+
+            <!-- Success Overlay (Rendered post-submit) -->
+            <div id="successSection" class="success-overlay">
+                <div class="success-icon">✓</div>
+                <h2 class="success-title">Confession Sent! 🔒</h2>
+                <p class="success-desc">
+                    Your secret message was safely delivered to {{ data.recipient_first_name }}'s private inbox. They won't know who sent it!
+                </p>
+
+                <button type="button" class="another-btn" onclick="resetForm()">
+                    Send another confession ✍️
+                </button>
+
+                <!-- High-Converting Viral CTA -->
+                <div class="viral-banner">
+                    <h4>Want to get confessions on your WhatsApp? 🔥</h4>
+                    <p>Create your own anonymous link in 10 seconds and share it to your status!</p>
+                    <a href="/ngl" class="get-link-btn">Create My Anonymous Link</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        FindYourMatch Campus Dating & Anonymous Confessions &copy; 2026<br>
+        <a href="/privacy">Privacy Policy</a> &bull; <a href="/terms">Terms of Service</a>
+    </footer>
+
+    <script>
+        const suggestedPrompts = {{ data.suggested_prompts|tojson }};
+        let lastPromptIdx = -1;
+
+        function updateCharCount() {
+            const input = document.getElementById('confessionInput');
+            const counter = document.getElementById('charCounter');
+            counter.innerText = `${input.value.length} / 600`;
+        }
+
+        function shufflePrompt() {
+            if (!suggestedPrompts || suggestedPrompts.length === 0) return;
+            let nextIdx = Math.floor(Math.random() * suggestedPrompts.length);
+            while (suggestedPrompts.length > 1 && nextIdx === lastPromptIdx) {
+                nextIdx = Math.floor(Math.random() * suggestedPrompts.length);
+            }
+            lastPromptIdx = nextIdx;
+
+            const input = document.getElementById('confessionInput');
+            input.value = suggestedPrompts[nextIdx];
+            input.focus();
+            updateCharCount();
+        }
+
+        async function submitConfession(e) {
+            e.preventDefault();
+            const input = document.getElementById('confessionInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const text = input.value.trim();
+
+            if (!text) {
+                input.focus();
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span>Sending secretly...</span> ⏳';
+
+            try {
+                const response = await fetch('/api/ngl/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        slug: '{{ data.slug }}',
+                        text: text
+                    })
+                });
+
+                const res = await response.json();
+
+                if (res.success) {
+                    document.getElementById('formSection').style.display = 'none';
+                    document.getElementById('successSection').style.display = 'flex';
+                } else {
+                    alert(res.error || 'Failed to send confession. Please check your message.');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>Send Anonymously</span> <span style="font-size: 18px;">🚀</span>';
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Connection error. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Send Anonymously</span> <span style="font-size: 18px;">🚀</span>';
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('confessionInput').value = '';
+            updateCharCount();
+            document.getElementById('formSection').style.display = 'block';
+            document.getElementById('successSection').style.display = 'none';
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Send Anonymously</span> <span style="font-size: 18px;">🚀</span>';
+        }
+    </script>
+</body>
+</html>

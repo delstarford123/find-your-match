@@ -281,8 +281,10 @@ def verify_email():
                 bonus_premium_days += 14  # Add 2 weeks free!
             
             # ====================================================
-            # 3. VIP REFERRAL REWARD SYSTEM 
+            # 3. VIP REFERRAL REWARD SYSTEM (DISCONTINUED)
             # ====================================================
+            # 1-week free premium rewards for peer referrals have been discontinued.
+            # Neither the referrer nor the invited user receives free premium.
             referred_by_code = user_data.get('referred_by')
             if referred_by_code:
                 try:
@@ -295,50 +297,11 @@ def verify_email():
                         session.pop('referred_by', None)
                         flash("Campus Manager Invite Confirmed! Welcome aboard.", "success")
                     else:
-                        # Find the user who sent the invite link
-                        referrers = db.reference('profiles').order_by_child('referral_code').equal_to(referred_by_code).get()
-                        
-                        if referrers:
-                            referrer_id = list(referrers.keys())[0]
-                            referrer_data = referrers[referrer_id]
-                            
-                            # A. Give the Referrer 1 Week Premium
-                            new_count = referrer_data.get('referrals_count', 0) + 1
-                            new_weeks = referrer_data.get('free_weeks_earned', 0) + 1
-                            
-                            ref_exp_str = referrer_data.get('subscription_expiry')
-                            # If they already have premium, ADD 7 days to their current expiry
-                            if ref_exp_str:
-                                try:
-                                    ref_dt = datetime.fromisoformat(ref_exp_str)
-                                    # Ensure ref_dt is aware for comparison
-                                    if ref_dt.tzinfo is None:
-                                        ref_dt = ref_dt.replace(tzinfo=EAT)
-                                    
-                                    if ref_dt > now_eat:
-                                        new_ref_exp = (ref_dt + timedelta(days=7)).isoformat()
-                                    else:
-                                        new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-                                except ValueError:
-                                    new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-                            else:
-                                new_ref_exp = (now_eat + timedelta(days=7)).isoformat()
-
-                            db.reference(f'profiles/{referrer_id}').update({
-                                'referrals_count': new_count,
-                                'free_weeks_earned': new_weeks,
-                                'is_paid': True,
-                                'subscription_expiry': new_ref_exp
-                            })
-                            
-                            # B. Add 7 days to the New User's bonus pool
-                            bonus_premium_days += 7
-                            
-                            # Clear the session code
-                            session.pop('referred_by', None)
-                            flash("VIP Invite Confirmed! You both get 1 Free Week of Premium! 🎉", "success")
+                        # Peer referral: 1-week free premium disabled (0 bonus days, no referrer upgrade)
+                        bonus_premium_days = 0
+                        session.pop('referred_by', None)
                 except Exception as e:
-                    print(f"Error processing referral reward: {e}")
+                    print(f"Error processing referral code: {e}")
 
             # ====================================================
             # 3.5. FEMALE FREE PROMO (Sep 23 – Oct 23, 2026)

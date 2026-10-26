@@ -3531,6 +3531,10 @@ def super_admin():
             default_event_creation_fee = max(0, int(system_settings.get('event_creation_fee', 100)))
         except (ValueError, TypeError):
             default_event_creation_fee = 100
+
+        from app.services.ladies_reward_service import get_ladies_campaign_status, get_cohort_status
+        ladies_campaign_status = get_ladies_campaign_status()
+        ladies_cohort_status = get_cohort_status()
         
         return render_template('super_admin.html',
                                manager_ledgers=manager_ledgers,
@@ -3575,7 +3579,9 @@ def super_admin():
                                detailed_users=global_detailed_users,
                                gender_stats=global_gender_stats,
                                all_events=all_events,
-                               default_event_creation_fee=default_event_creation_fee)
+                               default_event_creation_fee=default_event_creation_fee,
+                               ladies_campaign_status=ladies_campaign_status,
+                               ladies_cohort_status=ladies_cohort_status)
     except Exception as e:
         logger.error(f"God Mode Dashboard Error: {e}")
         return f"Failed to load dashboard data: {e}", 500
@@ -3810,6 +3816,14 @@ def admin_action():
                     count += 1
             logger.info(f"Broadcasted apology email to {count} users.")
             return jsonify({'success': True, 'message': f'Apology email broadcasted to {count} users'})
+
+        elif action == 'launch_ladies_campaign':
+            from app.services.ladies_reward_service import dispatch_ladies_launch_campaign
+            res = dispatch_ladies_launch_campaign(
+                admin_name="Super Admin",
+                push_fn=send_push_notification
+            )
+            return jsonify(res)
             
         elif action == 'resolve_feedback':
             feedback_type = data.get('alert_id') # Stored type in alert_id variable from JS
@@ -5217,15 +5231,27 @@ def api_send_message():
                 ).start()
 
         except Exception as e:
-            logger.error(f"Failed to push chat notification: {e}")
-        
-        return jsonify({
+            logger.error(f"Error dispatching chat notification: {e}")
+
+        # LADIES CHAT-TO-EARN ENGAGEMENT TRACKER
+        lady_reward_stat = None
+        try:
+            from app.services.ladies_reward_service import record_engagement_on_message
+            lady_reward_stat = record_engagement_on_message(sender_id, receiver_id)
+        except Exception as l_err:
+            logger.debug(f"Lady engagement tracking non-blocking error: {l_err}")
+
+        resp_payload = {
             "success": True, 
             "temp_id": temp_id, 
             "msg_id": new_msg_ref.key, 
             "status": "sent",
             "message_payload": message_payload
-        })
+        }
+        if lady_reward_stat and lady_reward_stat.get("recorded"):
+            resp_payload["lady_reward"] = lady_reward_stat
+
+        return jsonify(resp_payload)
     except Exception as e:
         logger.error(f"Save message error: {e}")
         return jsonify({"success": False}), 500
@@ -5815,71 +5841,23 @@ def internal_server_error(e):
 
 @app.route('/join')
 def join():
-    """Catches incoming referral links and stores the code before signup."""
-    # Get the code from the URL (e.g., ?ref=MMUST-VIP-26)
-    ref_code = request.args.get('ref')
-    
-    if ref_code:
-        # Save it securely in their browser session
-        session['referred_by'] = ref_code
-        flash("✨ VIP Invite applied! Create your account to claim your free Premium week.", "success")
-    
-    # Send them to the signup page (Adjust 'auth.signup' if your signup is just 'signup')
+    """Catches incoming referral links (Rewards program discontinued)."""
+    # 1-week free premium for referrals has been discontinued
     return redirect(url_for('auth.signup'))
 
 
 # ==========================================
-# 1. REFERRALS DASHBOARD ROUTE
+# 1. REFERRALS DASHBOARD ROUTE (DISABLED)
 # ==========================================
 @app.route('/referrals')
 def referrals():
-    # Defensive check: Ensure user is logged in
+    """The 1-week free premium referral program is disabled."""
     if 'user_id' not in session:
-        flash("Please log in to view your VIP Dashboard.", "error")
-        return redirect(url_for('auth.login')) 
-    
-    user_id = session['user_id']
-    user_ref = db.reference(f'profiles/{user_id}')
-    user_data = user_ref.get()
-    
-    # Defensive check: Ensure user profile actually exists in Firebase
-    if not user_data:
-        flash("Profile not found. Please log in again.", "error")
-        session.pop('user_id', None)
+        flash("Please log in.", "error")
         return redirect(url_for('auth.login'))
-        
-    # --- Generate Missing Codes on the Fly (Safety Fallback) ---
-    updates = {}
     
-    # 1. Ensure Referral Code Exists
-    if 'referral_code' not in user_data:
-        first_name = user_data.get('name', 'VIP').split(' ')[0].upper()
-        clean_name = ''.join(e for e in first_name if e.isalnum())[:5] 
-        random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-        new_ref_code = f"MMUST-{clean_name}-{random_suffix}"
-        
-        updates['referral_code'] = new_ref_code
-        user_data['referral_code'] = new_ref_code
-        
-    # 2. Ensure Wingman Code Exists
-    if 'wingman_code' not in user_data:
-        wingman_hash = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-        
-        updates['wingman_code'] = wingman_hash
-        user_data['wingman_code'] = wingman_hash
-        
-    # Batch update Firebase if new codes were generated (saves database calls)
-    if updates:
-        user_ref.update(updates)
-        
-    # Ensure default integer values exist for the template
-    user_data['referrals_count'] = user_data.get('referrals_count', 0)
-    user_data['free_weeks_earned'] = user_data.get('free_weeks_earned', 0)
-
-    # Use Flask's native built-in method to get the base URL automatically
-    base_url = request.url_root.rstrip('/')
-    
-    return render_template('referrals.html', user=user_data, base_url=base_url)
+    flash("The 1-week free premium referral reward program has ended.", "warning")
+    return redirect(url_for('dashboard'))
 
 
 # ==========================================
@@ -8559,6 +8537,29 @@ def cron_hourly_check():
         except Exception as sal_err:
             logger.error(f"Monthly salary disbursal error: {sal_err}")
 
+        # =========================================================================
+        # 3. LADIES CHAT-TO-EARN WEEKLY PAYOUTS (Runs every Sunday night / Monday)
+        # =========================================================================
+        try:
+            if now.weekday() in (6, 0): # Sunday or Monday
+                from app.payout_service import disburse_weekly_lady_earnings
+                from app.services.ladies_reward_service import get_current_week_key
+                curr_week = get_current_week_key(now)
+                dispatched_week_node = f'system_settings/last_weekly_lady_payout/{curr_week}'
+                already_paid = db.reference(dispatched_week_node).get()
+                if not already_paid:
+                    lady_payout_res = disburse_weekly_lady_earnings(week_key=curr_week, force=True)
+                    db.reference(dispatched_week_node).set({
+                        "dispatched_at": now.isoformat(),
+                        "week_key": curr_week,
+                        "total_disbursed": lady_payout_res.get('total_disbursed', 0)
+                    })
+                    results.append(f"Weekly lady chat rewards disbursed for {curr_week}: KES {lady_payout_res.get('total_disbursed', 0)}.")
+                else:
+                    results.append(f"Weekly lady payouts for {curr_week} already dispatched.")
+        except Exception as lady_p_err:
+            logger.error(f"Weekly lady payout sweeper error: {lady_p_err}")
+
         return jsonify({
             "success": True, 
             "message": "Cron check completed.", 
@@ -9879,6 +9880,242 @@ def clear_session():
     resp = make_response(redirect(url_for('home')))
     resp.set_cookie('account_type_pref', '', expires=0)
     return resp
+
+
+# ==========================================
+# 1. LADIES CHAT-TO-EARN (WEEKLY SQUAD OF 10)
+# ==========================================
+
+@app.route('/api/ladies/cohort-status', methods=['GET'])
+def api_ladies_cohort_status():
+    """Returns the live status of this week's 10-lady reward squad."""
+    user_id = session.get('user_id')
+    from app.services.ladies_reward_service import get_cohort_status
+    status = get_cohort_status(user_id=user_id)
+    return jsonify(status)
+
+
+@app.route('/api/ladies/join-cohort', methods=['POST'])
+@csrf.exempt
+def api_ladies_join_cohort():
+    """Enrolls a lady into this week's 10-lady reward squad. Enforces 10-slot limit."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Please log in to join the Chat-to-Earn squad.'}), 401
+    data = request.get_json(silent=True) or {}
+    phone = data.get('phone')
+    from app.services.ladies_reward_service import join_weekly_cohort
+    res = join_weekly_cohort(user_id=user_id, phone=phone)
+    return jsonify(res)
+
+
+@app.route('/api/ladies/wallet-phone', methods=['POST'])
+@csrf.exempt
+def api_ladies_wallet_phone():
+    """Updates the M-Pesa payout phone line for a lady's wallet."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
+    phone = data.get('phone')
+    from app.services.ladies_reward_service import save_lady_wallet_phone
+    res = save_lady_wallet_phone(user_id, phone)
+    return jsonify(res)
+
+
+@app.route('/api/cron/weekly-lady-payouts', methods=['GET', 'POST'])
+@csrf.exempt
+def api_cron_weekly_lady_payouts():
+    """Disburses weekly chat earnings to enrolled ladies via M-Pesa B2C."""
+    auth_header = request.headers.get('Authorization', '')
+    bearer_token = auth_header.split(' ', 1)[1] if auth_header.startswith('Bearer ') else None
+    cron_key = request.headers.get('X-Cron-Key') or request.args.get('cron_key') or bearer_token
+    admin_key = request.headers.get('X-Admin-Key') or request.args.get('admin_key')
+
+    secret_key = os.getenv('CRON_SECRET_KEY')
+    vercel_secret = os.getenv('CRON_SECRET')
+    raw_keys = [secret_key, vercel_secret, 'mmust_dating_cron_secret_2026', 'fym_promo_override_2026']
+    valid_keys = {k.strip(' "\'') for k in raw_keys if k}
+
+    clean_cron_key = (cron_key.strip(' "\'') if cron_key else None)
+    clean_admin_key = (admin_key.strip(' "\'') if admin_key else None)
+
+    is_admin = session.get('role') == 'admin' or session.get('super_admin') or session.get('is_super_admin')
+    is_authorized = (
+        (clean_cron_key and clean_cron_key in valid_keys)
+        or (clean_admin_key and clean_admin_key == 'fym_promo_override_2026')
+        or is_admin
+    )
+    if not is_authorized:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    force = request.args.get('force', '').lower() in ['true', '1', 'yes'] or bool(request.json and request.json.get('force'))
+    week_key = request.args.get('week') or (request.json and request.json.get('week'))
+
+    from app.payout_service import disburse_weekly_lady_earnings
+    res = disburse_weekly_lady_earnings(week_key=week_key, force=force)
+    return jsonify(res)
+
+
+@app.route('/api/admin/launch-ladies-campaign', methods=['POST'])
+@csrf.exempt
+def api_admin_launch_ladies_campaign():
+    """Admin switch to launch the Chat-to-Earn & NGL onboarding campaign to all ladies."""
+    is_admin = session.get('is_super_admin') or session.get('role') == 'admin' or session.get('super_admin')
+    if not is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized. Admin access required.'}), 403
+
+    from app.services.ladies_reward_service import dispatch_ladies_launch_campaign
+    admin_name = session.get('name') or "Super Admin"
+    res = dispatch_ladies_launch_campaign(
+        admin_name=admin_name,
+        push_fn=send_push_notification
+    )
+    return jsonify(res)
+
+
+@app.route('/api/admin/ladies-campaign-status', methods=['GET'])
+def api_admin_ladies_campaign_status():
+    """Returns the current dispatch status and metrics for the ladies campaign."""
+    is_admin = session.get('is_super_admin') or session.get('role') == 'admin' or session.get('super_admin')
+    if not is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized. Admin access required.'}), 403
+
+    from app.services.ladies_reward_service import get_ladies_campaign_status
+    status = get_ladies_campaign_status()
+    return jsonify({"success": True, "status": status})
+
+
+# ==========================================
+# 2. NGL VIRAL ANONYMOUS LINK & CONFESSIONS
+# ==========================================
+
+@app.route('/ngl/<slug>')
+def ngl_public_page(slug):
+    """
+    Public zero-login anonymous confession page.
+    Renders receiver info, game prompt, interactive form, and viral CTA.
+    """
+    from app.services.ngl_service import get_public_ngl_profile
+    profile_data = get_public_ngl_profile(slug)
+    if not profile_data.get('found'):
+        return render_template('404.html', message=profile_data.get('error', 'Link not found')), 404
+    return render_template('ngl_respond.html', data=profile_data)
+
+
+@app.route('/api/ngl/submit', methods=['POST'])
+@csrf.exempt
+def api_ngl_submit():
+    """
+    Public endpoint for submitting anonymous confessions without login.
+    """
+    data = request.get_json(silent=True) or {}
+    slug = data.get('slug', '').strip()
+    message_text = data.get('text', '').strip()
+    user_agent = request.headers.get('User-Agent', '')
+    ip_addr = request.remote_addr or request.headers.get('X-Forwarded-For', '')
+
+    from app.services.ngl_service import submit_anonymous_confession
+    res = submit_anonymous_confession(
+        slug=slug,
+        message_text=message_text,
+        user_agent=user_agent,
+        ip_address=ip_addr
+    )
+    return jsonify(res)
+
+
+@app.route('/ngl')
+@login_required
+def ngl_inbox_hub():
+    """
+    User's private NGL inbox, link generator, and Canvas story card replier.
+    """
+    user_id = session.get('user_id')
+    user_data = db.reference(f'profiles/{user_id}').get() or {}
+    from app.services.ngl_service import get_or_create_user_link, get_user_inbox
+    link_info = get_or_create_user_link(user_id)
+    inbox_messages = get_user_inbox(user_id)
+
+    full_link = url_for('ngl_public_page', slug=link_info['slug'], _external=True)
+
+    return render_template(
+        'ngl_inbox.html',
+        user=user_data,
+        link_info=link_info,
+        full_link=full_link,
+        messages=inbox_messages
+    )
+
+
+@app.route('/api/ngl/my-link', methods=['GET'])
+@login_required
+def api_ngl_my_link():
+    """Returns user link settings and prompts."""
+    user_id = session.get('user_id')
+    from app.services.ngl_service import get_or_create_user_link
+    link_info = get_or_create_user_link(user_id)
+    link_info['full_link'] = url_for('ngl_public_page', slug=link_info['slug'], _external=True)
+    return jsonify(link_info)
+
+
+@app.route('/api/ngl/update-link', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_ngl_update_link():
+    """Updates slug, game type, or custom prompt."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    new_slug = data.get('slug')
+    game_type = data.get('game_type')
+    custom_prompt = data.get('custom_prompt')
+
+    from app.services.ngl_service import update_user_link
+    res = update_user_link(
+        user_id=user_id,
+        new_slug=new_slug,
+        game_type=game_type,
+        custom_prompt=custom_prompt
+    )
+    if res.get('success'):
+        res['full_link'] = url_for('ngl_public_page', slug=res['slug'], _external=True)
+    return jsonify(res)
+
+
+@app.route('/api/ngl/inbox', methods=['GET'])
+@login_required
+def api_ngl_inbox():
+    """Fetches user's anonymous inbox messages."""
+    user_id = session.get('user_id')
+    from app.services.ngl_service import get_user_inbox
+    messages = get_user_inbox(user_id)
+    return jsonify({"success": True, "messages": messages})
+
+
+@app.route('/api/ngl/inbox/read', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_ngl_inbox_read():
+    """Marks an anonymous message as opened/read."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    message_id = data.get('message_id')
+    from app.services.ngl_service import mark_inbox_message_read
+    ok = mark_inbox_message_read(user_id, message_id)
+    return jsonify({"success": ok})
+
+
+@app.route('/api/ngl/inbox/delete', methods=['POST'])
+@login_required
+@csrf.exempt
+def api_ngl_inbox_delete():
+    """Deletes an anonymous message."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    message_id = data.get('message_id')
+    from app.services.ngl_service import delete_inbox_message
+    ok = delete_inbox_message(user_id, message_id)
+    return jsonify({"success": ok})
 
 
 # ==========================================
