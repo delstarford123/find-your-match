@@ -356,10 +356,20 @@ def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=Non
     
     current_status = campaign_ref.get() or {}
     if isinstance(current_status, dict) and current_status.get('status') == 'in_progress':
-        return {
-            "success": False,
-            "error": "A campaign broadcast is currently in progress. Please wait for it to complete."
-        }
+        started_str = current_status.get('last_launched_at', '')
+        is_stale = False
+        try:
+            started_dt = datetime.strptime(started_str.replace(' EAT', '').strip(), '%Y-%m-%d %H:%M:%S').replace(tzinfo=EAT)
+            if (now_eat - started_dt).total_seconds() > 300:
+                is_stale = True
+        except Exception:
+            is_stale = True
+
+        if not is_stale:
+            return {
+                "success": False,
+                "error": "A campaign broadcast is currently in progress. Please wait for it to complete."
+            }
 
     # Fetch all registered user profiles
     all_profiles = db.reference('profiles').get() or {}
@@ -425,8 +435,8 @@ def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=Non
             # 1. Dispatch In-App Notification
             try:
                 db.reference(f'notifications/{uid}').push({
-                    "title": "🚂 Chat-to-Earn Squad Launched (50 KES Daily)!",
-                    "message": "We've officially launched the Chat-to-Earn Train! Reply to 10 men daily to earn 50 KES to your M-Pesa every Sunday. Only 10 spots open this week — claim yours now!",
+                    "title": "👑 Ladies Squad (10/Wk) PAYOUT • 🚀 LAUNCH (0/10 Claimed)",
+                    "message": "Ladies Squad (10/Wk) PAYOUT 🚀 LAUNCH: 0 / 10 Spots Claimed! 50 KES/day • Weekly M-Pesa Disbursal. Reply to 10 men daily to earn KES 50 to your M-Pesa. Claim your spot now!",
                     "type": "ladies_campaign_launch",
                     "click_url": "/matches",
                     "timestamp": datetime.now(EAT).isoformat(),
@@ -442,8 +452,8 @@ def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=Non
                 try:
                     push_fn(
                         receiver_id=uid,
-                        title="🚂 Chat-to-Earn Squad Launched (50 KES Daily)!",
-                        body="Earn KES 50 daily to M-Pesa + get your anonymous WhatsApp link! Only 10 spots open this week.",
+                        title="👑 Ladies Squad (10/Wk) PAYOUT • 🚀 LAUNCH",
+                        body="0 / 10 Spots Claimed • 50 KES/day • Weekly M-Pesa Disbursal. Claim your spot now!",
                         click_url="/matches",
                         tag="ladies_launch"
                     )

@@ -240,7 +240,7 @@ def ensure_kalenjin_takeover_event():
         else:
             # Event exists: ensure organizer_phone, price_type, and ticket_tiers are properly configured
             updates = {}
-            if str(event.get('organizer_phone', '')).strip() != '254706695719':
+            if not event.get('organizer_phone'):
                 updates['organizer_phone'] = '254706695719'
             if event.get('price_type') != 'paid':
                 updates['price_type'] = 'paid'
@@ -1368,8 +1368,6 @@ def finalize_event_ticket(event_id: str, attendee_data: dict, receipt: str = Non
         if not organizer_phone and event.get('created_by'):
             creator_prof = db.reference(f'profiles/{event.get("created_by")}').get() or {}
             organizer_phone = creator_prof.get('phone')
-        if not organizer_phone and event_id == 'evt_7124cc20ce':
-            organizer_phone = "254706695719"
 
         logger.info(f"💰 Ticket fee of KES {amount} ({ticket_tier}) received! Executing immediate payout to organizer {organizer_phone}...")
         schedule_event_organizer_payout(
@@ -1578,8 +1576,6 @@ def rsvp_event():
         if not organizer_phone_payout and event.get('created_by'):
             creator_prof = db.reference(f'profiles/{event.get("created_by")}').get() or {}
             organizer_phone_payout = creator_prof.get('phone')
-        if not organizer_phone_payout and clean_event_id == 'evt_7124cc20ce':
-            organizer_phone_payout = "254706695719"
 
         db.reference(f'pending_event_payments/{clean_checkout}').set({
             "checkout_id": clean_checkout,

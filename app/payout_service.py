@@ -11,65 +11,103 @@ logger = logging.getLogger(__name__)
 
 EAT = timezone(timedelta(hours=3))
 
+KENYAN_BANK_PAYBILLS = {
+    'equity': '247247',
+    'kcb': '522522',
+    'co-op': '400200',
+    'coop': '400200',
+    'cooperative': '400200',
+    'absa': '303030',
+    'ncba': '888880',
+    'stanbic': '544700',
+    'dtb': '516600',
+    'diamond trust': '516600',
+    'family': '222111',
+    'family bank': '222111',
+    'standard chartered': '329329',
+    'stanchart': '329329',
+    'i&m': '542542',
+    'postbank': '200999',
+}
+
+
 # ========================================================
 # 1. EVENT ORGANIZER AUTOMATIC & INSTANT CASH PAYOUT ENGINE
 # ========================================================
 
 def resolve_payout_destination(target: str):
     """
-    Analyzes organizer's phone number or Till / Paybill number.
-    Returns: (channel, clean_dest, error_msg)
-    - 'b2b_till': 5-8 digits (Buy Goods & Services)
-    - 'b2b_paybill': 5-8 digits (Paybill shortcode)
+    Analyzes organizer's phone number, Till, Paybill, or Bank details.
+    Returns: (channel, clean_dest, account_ref, error_msg)
+    - 'b2b_till': 5-8 digits (Buy Goods & Services Till)
+    - 'b2b_paybill': 5-8 digits (Paybill or Bank Paybill) + account_ref
     - 'b2c_phone': 9-12 digits personal M-Pesa line (formatted as 254XXXXXXXXX)
     """
     if not target:
-        return None, None, "Organizer destination number is missing."
+        return None, None, None, "Organizer payout destination is missing."
 
     raw = str(target).strip()
     lower = raw.lower()
 
-    # 1. Check for explicit Till / Paybill keywords first
+    # 1. Check for Kenyan Banks (e.g. "Equity 0123456789" or "KCB: 1234567890")
+    for bank_name, paybill_code in KENYAN_BANK_PAYBILLS.items():
+        if bank_name in lower:
+            digits = ''.join(filter(str.isdigit, raw))
+            if digits.startswith(paybill_code) and len(digits) > len(paybill_code):
+                account_no = digits[len(paybill_code):]
+            else:
+                account_no = digits
+            return 'b2b_paybill', paybill_code, account_no or "TicketCash", None
+
+    # 2. Check for explicit Paybill with Account number (e.g., "Paybill 247247 Acc 12345" or "247247-12345")
+    paybill_match = re.search(r'(?:paybill\s*[:#]?\s*)?(\d{5,8})[\s\-_/:]+(?:acc(?:ount)?\s*[:#]?\s*)?([a-zA-Z0-9]{4,20})', raw, re.IGNORECASE)
+    if ('paybill' in lower or '-' in raw or '/' in raw) and paybill_match:
+        shortcode = paybill_match.group(1)
+        acc_ref = paybill_match.group(2)
+        if 5 <= len(shortcode) <= 8 and not shortcode.startswith(('07', '01', '254')):
+            return 'b2b_paybill', shortcode, acc_ref, None
+
+    # 3. Check for explicit Till / Buy Goods keywords
+    is_explicit_till = 'till' in lower or 'buy goods' in lower or 'buygoods' in lower
     is_explicit_paybill = 'paybill' in lower
-    is_explicit_till = 'till' in lower or 'buy goods' in lower
 
     digits = ''.join(filter(str.isdigit, raw))
 
     if (is_explicit_paybill or is_explicit_till) and 5 <= len(digits) <= 8:
         if is_explicit_paybill:
-            return 'b2b_paybill', digits, None
-        return 'b2b_till', digits, None
+            return 'b2b_paybill', digits, "TicketCash", None
+        return 'b2b_till', digits, None, None
 
-    # 2. Extract Kenyan mobile phone number using regex
-    # Handles e.g. "0706695719", "+254706695719", "BK OFFICIAL (0706695719)", "0112345678"
+    # 4. Extract Kenyan mobile phone number using regex
     phone_match = re.search(r'(?:254|\+254|0)?([17]\d{8})', raw)
     if phone_match and not (is_explicit_paybill or is_explicit_till):
         clean_phone = '254' + phone_match.group(1)
-        return 'b2c_phone', clean_phone, None
+        return 'b2c_phone', clean_phone, None, None
 
     if not digits:
-        return None, None, f"No digits found in destination '{target}'."
+        return None, None, None, f"No digits found in destination '{target}'."
 
-    # 3. 5 to 8 digits is an M-Pesa Till or Paybill shortcode
+    # 5. 5 to 8 digits is an M-Pesa Till or Paybill shortcode
     if 5 <= len(digits) <= 8:
         if is_explicit_paybill:
-            return 'b2b_paybill', digits, None
-        return 'b2b_till', digits, None
+            return 'b2b_paybill', digits, "TicketCash", None
+        return 'b2b_till', digits, None, None
 
-    # 4. Standard mobile number format fallback
+    # 6. Standard mobile number format fallback
     fmt = format_phone_number(digits)
     if fmt and len(fmt) == 12 and fmt.startswith('254'):
-        return 'b2c_phone', fmt, None
+        return 'b2c_phone', fmt, None, None
 
-    return None, None, f"Invalid M-Pesa phone or Till number: '{target}'."
+    return None, None, None, f"Invalid M-Pesa phone, Till, or Bank detail: '{target}'."
 
 
 def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: float or int, organizer_phone: str = None, delay_seconds: int = 0):
     """
     Schedules and executes automated cash transfer of the event ticket fee directly to the organizer.
-    - If delay_seconds <= 0: Transfers immediately in real-time.
-    - If delay_seconds > 0: Schedules with background execution and DB fallback persistence.
-    - Detects whether destination is a personal phone (B2C) or venue Till/Paybill (B2B).
+    - Automatically deducts platform commission (retained in Till!)
+    - If auto_instant_event_payouts is enabled (default), executes instant B2C/B2B to organizer in real-time.
+    - If disabled, holds net amount safely in escrow for Super Admin verification & disbursement.
+    - Detects whether destination is personal phone (B2C), Buy Goods Till (B2B), or Paybill/Bank (B2B).
     """
     try:
         event_data = db.reference(f'events/{event_id}').get() or {}
@@ -82,16 +120,11 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
             if not organizer_phone and event_data.get('created_by'):
                 creator_prof = db.reference(f'profiles/{event_data.get("created_by")}').get() or {}
                 organizer_phone = creator_prof.get('phone')
-            if not organizer_phone and event_id == 'evt_7124cc20ce':
-                organizer_phone = "254706695719"
 
-        channel, clean_dest, err = resolve_payout_destination(organizer_phone)
+        channel, clean_dest, account_ref, err = resolve_payout_destination(organizer_phone)
         if not channel or not clean_dest:
-            if event_id == 'evt_7124cc20ce':
-                channel, clean_dest, err = 'b2c_phone', '254706695719', None
-            else:
-                logger.error(f"❌ Cannot execute ticket payout for event {event_id}: {err}")
-                return False
+            logger.error(f"❌ Cannot execute ticket payout for event {event_id}: {err}")
+            return False
 
         # Ensure event document has valid organizer phone persisted
         if clean_dest and not event_data.get('organizer_phone'):
@@ -118,32 +151,51 @@ def schedule_event_organizer_payout(event_id: str, ticket_code: str, amount: flo
         now_ms = int(time.time() * 1000)
         scheduled_at_ms = now_ms + (max(0, delay_seconds) * 1000)
 
-        # Fetch event title
-        event_data = db.reference(f'events/{event_id}').get() or {}
+        # Fetch event title & system settings
         event_title = event_data.get('title', 'Campus Event')
+        system_settings = db.reference('system_settings').get() or {}
+        
+        # Check if instant automatic payouts are enabled (default True as requested by user)
+        auto_instant_enabled = system_settings.get('auto_instant_event_payouts', True)
+        
+        # Calculate Platform Commission (Disabled by default: 0% cut unless admin toggles ON)
+        comm_enabled = system_settings.get('platform_commission_enabled', False)
+        configured_pct = int(event_data.get('platform_commission_pct') or system_settings.get('platform_ticket_commission_pct', 10))
+        comm_pct = configured_pct if comm_enabled else 0
+        comm_amount = int(round(clean_amount * (comm_pct / 100.0)))
+        net_organizer_amount = max(0, clean_amount - comm_amount)
 
         record = {
             "id": payout_id,
             "event_id": event_id,
             "event_title": event_title,
             "ticket_code": ticket_code,
-            "amount": clean_amount,
+            "amount": net_organizer_amount,
+            "gross_amount": clean_amount,
+            "commission_pct": comm_pct,
+            "commission_amount": comm_amount,
             "organizer_phone": clean_dest,
             "raw_destination": organizer_phone,
             "channel": channel,
+            "account_reference": account_ref or "TicketCash",
             "created_at": now_ms,
             "scheduled_at": scheduled_at_ms,
-            "status": "scheduled",
+            "status": "scheduled" if auto_instant_enabled else "held_for_admin_approval",
             "delay_seconds": delay_seconds
         }
 
         # Persist to Firebase Realtime Database
         db.reference(f'pending_organizer_payouts/{payout_id}').set(record)
-        logger.info(f"💰 Ticket payout registered: KES {clean_amount} -> {clean_dest} ({channel}) for ticket {ticket_code}")
+        logger.info(f"💰 Ticket payout registered: Gross KES {clean_amount} | Commission KES {comm_amount} ({comm_pct}%) | Net KES {net_organizer_amount} -> {clean_dest} ({channel})")
 
-        # If zero delay (immediate mode), disburse right now
+        # If instant auto-payout is disabled, keep funds held in escrow
+        if not auto_instant_enabled:
+            logger.info(f"🔒 Ticket payout {payout_id} held securely in escrow pending Super Admin verification.")
+            return True
+
+        # If zero delay (immediate mode) and auto-payout is enabled: disburse right now
         if delay_seconds <= 0:
-            logger.info(f"⚡ Instant disbursement triggered for payout {payout_id}...")
+            logger.info(f"⚡ Instant disbursement triggered for payout {payout_id} (Net: KES {net_organizer_amount})...")
             return execute_single_organizer_payout(payout_id)
 
         # Otherwise, spawn background timer thread for delayed execution
@@ -190,11 +242,11 @@ def execute_single_organizer_payout(payout_id: str):
     channel = payout.get('channel')
 
     # Always re-resolve and sanitize destination to catch any legacy failed records
-    ch, clean_dest, _ = resolve_payout_destination(dest or payout.get('raw_destination'))
+    ch, clean_dest, acc_ref, _ = resolve_payout_destination(dest or payout.get('raw_destination'))
     if ch and clean_dest:
         channel, dest = ch, clean_dest
-    elif event_id == 'evt_7124cc20ce':
-        channel, dest = 'b2c_phone', '254706695719'
+        if acc_ref and not payout.get('account_reference'):
+            payout['account_reference'] = acc_ref
 
     if channel == 'b2c_phone' and dest:
         dest = format_phone_number(dest)
@@ -221,7 +273,7 @@ def execute_single_organizer_payout(payout_id: str):
             amount=amount,
             command_id="BusinessBuyGoods",
             remarks=remarks,
-            account_reference=clean_ref
+            account_reference=(payout.get('account_reference') or clean_ref)
         )
         # If Safaricom notes receiver is Paybill instead, retry with BusinessPayBill
         if not res.get('success') and 'PayBill' in str(res.get('error', '')):
@@ -230,7 +282,7 @@ def execute_single_organizer_payout(payout_id: str):
                 amount=amount,
                 command_id="BusinessPayBill",
                 remarks=remarks,
-                account_reference=clean_ref
+                account_reference=(payout.get('account_reference') or clean_ref)
             )
 
     elif channel == 'b2b_paybill':
@@ -240,7 +292,7 @@ def execute_single_organizer_payout(payout_id: str):
             amount=amount,
             command_id="BusinessPayBill",
             remarks=remarks,
-            account_reference=clean_ref
+            account_reference=(payout.get('account_reference') or clean_ref)
         )
 
     else:
@@ -318,8 +370,6 @@ def disburse_event_organizer_payouts_now(event_id: str):
     if not organizer_phone and event.get('created_by'):
         creator_prof = db.reference(f'profiles/{event.get("created_by")}').get() or {}
         organizer_phone = creator_prof.get('phone')
-    if not organizer_phone and event_id == 'evt_7124cc20ce':
-        organizer_phone = "254706695719"
 
     if not organizer_phone:
         return {"success": False, "error": "Event does not have an organizer payout phone number configured."}
@@ -344,7 +394,7 @@ def disburse_event_organizer_payouts_now(event_id: str):
                     already_handled_tickets.add(t_code)
 
                 status = precord.get('status')
-                if status in ['scheduled', 'failed']:
+                if status in ['scheduled', 'failed', 'held_for_admin_approval', 'held_in_escrow']:
                     logger.info(f"⚡ Immediate sweep disbursing payout {pid} for event {event_id}...")
                     res = execute_single_organizer_payout(pid)
                     results.append({"payout_id": pid, "result": res})
@@ -385,19 +435,29 @@ def disburse_event_organizer_payouts_now(event_id: str):
                 if amt > 0 and t_code and t_code not in already_handled_tickets:
                     logger.info(f"⚡ Creating and executing missing payout for ticket {t_code} ({tier_str}: KES {amt})...")
                     p_id = f"evt_payout_{event_id}_{t_code.replace('-', '_')}"
-                    channel, clean_dest, _ = resolve_payout_destination(organizer_phone)
+                    channel, clean_dest, acc_ref, _ = resolve_payout_destination(organizer_phone)
                     if not channel or not clean_dest:
-                        if event_id == 'evt_7124cc20ce':
-                            channel, clean_dest = 'b2c_phone', '254706695719'
+                        logger.warning(f"Could not resolve destination for {organizer_phone}")
+                        continue
+                    sys_settings = db.reference('system_settings').get() or {}
+                    comm_enabled = sys_settings.get('platform_commission_enabled', False)
+                    configured_pct = int(event.get('platform_commission_pct') or sys_settings.get('platform_ticket_commission_pct', 10))
+                    comm_pct = configured_pct if comm_enabled else 0
+                    comm_amt = int(round(amt * (comm_pct / 100.0)))
+                    net_amt = max(0, amt - comm_amt)
                     rec = {
                         "id": p_id,
                         "event_id": event_id,
                         "event_title": event.get('title', 'Campus Event'),
                         "ticket_code": t_code,
-                        "amount": amt,
+                        "amount": net_amt,
+                        "gross_amount": amt,
+                        "commission_pct": comm_pct,
+                        "commission_amount": comm_amt,
                         "organizer_phone": clean_dest or organizer_phone,
                         "raw_destination": organizer_phone,
                         "channel": channel or 'b2c_phone',
+                        "account_reference": acc_ref or "TicketCash",
                         "created_at": now_ms,
                         "scheduled_at": now_ms,
                         "status": "scheduled",
@@ -408,7 +468,7 @@ def disburse_event_organizer_payouts_now(event_id: str):
                     results.append({"payout_id": p_id, "ticket_code": t_code, "result": res})
                     if res.get('success'):
                         disbursed_count += 1
-                        total_amount += amt
+                        total_amount += net_amt
                     already_handled_tickets.add(t_code)
 
     return {
@@ -551,7 +611,7 @@ def calculate_active_month_commission(manager_id: str, month_key: str = None):
     return active_paid_subs, commission_rate, amount, payout_phone
 
 
-def disburse_monthly_salaries(month_key: str = None, force: bool = False):
+def disburse_monthly_salaries(month_key: str = None, force: bool = False, target_manager_id: str = None):
     """
     Disburses monthly salaries automatically via M-Pesa B2C to all active Campus Managers
     and Ambassadors on the 31st of every month (or if force=True for testing/admin trigger).
@@ -576,7 +636,13 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False):
             "message": f"Monthly salary payouts run on the 31st of every month. (Today is {now.strftime('%Y-%m-%d')})"
         }
 
-    managers = db.reference('campus_managers').get() or {}
+    if target_manager_id:
+        single_mgr = db.reference(f'campus_managers/{target_manager_id}').get()
+        if not single_mgr or not isinstance(single_mgr, dict):
+            return {'success': False, 'error': f'Manager {target_manager_id} not found.'}
+        managers = {target_manager_id: single_mgr}
+    else:
+        managers = db.reference('campus_managers').get() or {}
     results = []
 
     if isinstance(managers, dict):
@@ -670,6 +736,25 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False):
                     "phone": payout_phone,
                     "conversation_id": b2c_res.get('ConversationID')
                 })
+
+                # 📧 SEND INSTANT CONFIRMATION EMAIL TO MANAGER GUIDING TO DASHBOARD
+                mgr_email = mgr.get('email')
+                if mgr_email:
+                    try:
+                        from app.email_service import send_manager_payout_confirmation_email
+                        send_manager_payout_confirmation_email(
+                            recipient_email=mgr_email,
+                            recipient_name=mgr_name,
+                            institution=mgr.get('institution', 'Campus'),
+                            month_display=month_name,
+                            amount_paid=amount,
+                            phone_number=payout_phone,
+                            transaction_ref=b2c_res.get('ConversationID'),
+                            role=role
+                        )
+                        logger.info(f"📧 Payout confirmation email dispatched to {mgr_email}")
+                    except Exception as em_err:
+                        logger.warning(f"Could not send payout confirmation email to {mgr_email}: {em_err}")
             else:
                 err_msg = b2c_res.get('error', 'Daraja error')
                 db.reference(f'campus_manager_ledgers/{mid}/{month_name}').update({
@@ -692,6 +777,96 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False):
         "success": True,
         "month": month_name,
         "processed_at": now.strftime("%Y-%m-%d %H:%M:%S EAT"),
+        "results": results
+    }
+
+
+def dispatch_all_manager_month_end_emails(month_key: str = None):
+    now = datetime.now(EAT)
+    if not month_key:
+        month_key, month_display = get_current_month_keys()
+    else:
+        try:
+            dt = datetime.strptime(month_key, '%Y-%m')
+            month_display = dt.strftime('%B %Y')
+        except:
+            month_display = month_key
+
+    managers = db.reference('campus_managers').get() or {}
+    all_profiles = db.reference('profiles').get() or {}
+    manager_ledgers = db.reference('campus_manager_ledgers').get() or {}
+
+    results = []
+    if isinstance(managers, dict):
+        for mid, mgr in managers.items():
+            if not isinstance(mgr, dict):
+                continue
+            mgr_email = mgr.get('email')
+            if not mgr_email:
+                continue
+
+            mgr_name = mgr.get('name', 'Campus Lead')
+            inst = mgr.get('institution', 'Campus')
+            role = (mgr.get('role') or 'manager').lower()
+            role_title = role.title()
+            inst_norm = str(inst).strip().lower()
+
+            total_users = sum(
+                1 for p in all_profiles.values()
+                if isinstance(p, dict) and str(p.get('institution') or p.get('institution_name', '')).strip().lower() == inst_norm
+            )
+
+            subs, comm_rate, supposed_amount, payout_phone = calculate_active_month_commission(mid, month_key)
+
+            already_paid = 0
+            m_ledger = manager_ledgers.get(mid, {}) if isinstance(manager_ledgers, dict) else {}
+            if isinstance(m_ledger, dict) and month_key in m_ledger:
+                month_entry = m_ledger[month_key]
+                if isinstance(month_entry, dict) and month_entry.get('status') == 'Paid':
+                    already_paid = int(month_entry.get('amount', 0) or 0)
+            elif isinstance(m_ledger, dict) and month_display in m_ledger:
+                month_entry = m_ledger[month_display]
+                if isinstance(month_entry, dict) and month_entry.get('status') == 'Paid':
+                    already_paid = int(month_entry.get('amount', 0) or 0)
+
+            will_get = max(0, supposed_amount - already_paid)
+
+            try:
+                from app.email_service import send_manager_monthly_forecast_email
+                sent = send_manager_monthly_forecast_email(
+                    recipient_email=mgr_email,
+                    recipient_name=mgr_name,
+                    institution=inst,
+                    month_display=month_display,
+                    total_users=total_users,
+                    active_subscribers=subs,
+                    will_get_amount=will_get,
+                    supposed_to_get=supposed_amount,
+                    already_paid=already_paid,
+                    payout_phone=payout_phone,
+                    role=role_title,
+                    commission_rate_pct=int(round(comm_rate * 100))
+                )
+            except Exception as e:
+                logger.error(f"Error sending monthly forecast to {mgr_email}: {e}")
+                sent = False
+
+            results.append({
+                "manager_id": mid,
+                "email": mgr_email,
+                "name": mgr_name,
+                "institution": inst,
+                "total_users": total_users,
+                "active_subs": subs,
+                "supposed_to_get": supposed_amount,
+                "will_get": will_get,
+                "sent": sent
+            })
+
+    return {
+        "success": True,
+        "month": month_display,
+        "dispatched_count": len([r for r in results if r.get('sent')]),
         "results": results
     }
 

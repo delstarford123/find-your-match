@@ -387,8 +387,8 @@ def login():
             if email and password:
                 import os
                 # Check Super Admin
-                ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS", "FYMADMIN520226")
-                if email == 'info@findyourmatch.co.ke' and password == ADMIN_PASSWORD:
+                ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
+                if ADMIN_PASSWORD and email == 'info@findyourmatch.co.ke' and password == ADMIN_PASSWORD:
                     session['is_super_admin'] = True
                     session.permanent = False
                     flash("Welcome to God Mode, Creator.", "success")

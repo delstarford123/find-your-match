@@ -3095,10 +3095,10 @@ EAT = timezone(timedelta(hours=3))
 def super_admin():
     # 1. Handle Login Attempt
     if request.method == 'POST':
-        ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS", "FYMADMIN520226")
+        ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASS")
 
         entered_password = request.form.get('password')
-        if entered_password == ADMIN_PASSWORD:
+        if ADMIN_PASSWORD and entered_password == ADMIN_PASSWORD:
             session['is_super_admin'] = True
             session.permanent = False
             flash("Welcome to God Mode, Creator.", "success")
@@ -3557,7 +3557,115 @@ def super_admin():
         from app.services.ladies_reward_service import get_ladies_campaign_status, get_cohort_status
         ladies_campaign_status = get_ladies_campaign_status()
         ladies_cohort_status = get_cohort_status()
-        
+
+        # Enrich Campus Managers with Live Earnings, Student Counts & Payout Status
+        from app.payout_service import (
+            get_current_month_keys,
+            calculate_active_month_commission,
+            resolve_payout_destination
+        )
+        curr_month_key, curr_month_display = get_current_month_keys()
+        campus_managers_raw = get_campus_managers()
+        campus_managers = []
+        for mgr in campus_managers_raw:
+            m_id = mgr.get('id')
+            m_inst = mgr.get('institution') or 'Unknown'
+            inst_norm = str(m_inst).strip().lower()
+            m_total_students = sum(
+                1 for p in all_profiles.values()
+                if isinstance(p, dict) and str(p.get('institution') or p.get('institution_name', '')).strip().lower() == inst_norm
+            )
+            active_subs, comm_rate, supposed_amount, payout_phone = calculate_active_month_commission(m_id, curr_month_key)
+            gross_sub_rev = active_subs * 50
+            already_paid = 0
+            m_ledger = manager_ledgers.get(m_id, {}) if isinstance(manager_ledgers, dict) else {}
+            if isinstance(m_ledger, dict) and curr_month_key in m_ledger:
+                month_entry = m_ledger[curr_month_key]
+                if isinstance(month_entry, dict) and month_entry.get('status') == 'Paid':
+                    already_paid = int(month_entry.get('amount', 0) or 0)
+            elif isinstance(m_ledger, dict) and curr_month_display in m_ledger:
+                month_entry = m_ledger[curr_month_display]
+                if isinstance(month_entry, dict) and month_entry.get('status') == 'Paid':
+                    already_paid = int(month_entry.get('amount', 0) or 0)
+
+            will_get = max(0, supposed_amount - already_paid)
+            payout_status = 'Paid' if (already_paid >= supposed_amount and supposed_amount > 0) else 'Pending'
+
+            enriched = dict(mgr)
+            enriched['total_students'] = m_total_students
+            enriched['active_paid_subs'] = active_subs
+            enriched['commission_rate_pct'] = int(round(comm_rate * 100))
+            enriched['gross_sub_rev'] = gross_sub_rev
+            enriched['supposed_to_get'] = supposed_amount
+            enriched['already_paid'] = already_paid
+            enriched['will_get'] = will_get
+            enriched['payout_phone'] = payout_phone or mgr.get('phone') or mgr.get('payout_phone')
+            enriched['payout_status'] = payout_status
+            enriched['current_month_name'] = curr_month_display
+            campus_managers.append(enriched)
+
+        # Process Events Escrow Hub Data
+        tickets_lookup_all = db.reference('tickets_lookup').get() or {}
+        used_receipts_all = db.reference('used_mpesa_receipts').get() or {}
+        pending_payouts_all = db.reference('pending_organizer_payouts').get() or {}
+
+        auto_instant_payouts_active = system_settings.get('auto_instant_event_payouts', True)
+        platform_commission_enabled = system_settings.get('platform_commission_enabled', False)
+        platform_commission_pct = int(system_settings.get('platform_ticket_commission_pct', 10))
+
+        events_escrow_list = []
+        total_gross_event_sales = 0
+        total_commission_earned = 0
+        total_disbursed_to_organizers = 0
+        total_escrow_in_till = 0
+
+        for evt in all_events:
+            eid = evt.get('id')
+            e_title = evt.get('title', 'Campus Event')
+            configured_pct = int(evt.get('platform_commission_pct') or platform_commission_pct)
+            e_comm_pct = configured_pct if platform_commission_enabled else 0
+
+            e_rsvps = rsvps_all.get(eid, {}) if isinstance(rsvps_all, dict) else {}
+            e_tickets = [t for t in tickets_lookup_all.values() if isinstance(t, dict) and t.get('event_id') == eid]
+            e_receipts = [r for r in used_receipts_all.values() if isinstance(r, dict) and r.get('event_id') == eid and r.get('ticket_code') != 'LISTING_FEE']
+
+            gross_sales = sum(int(r.get('amount', 0) or 0) for r in e_receipts)
+            if gross_sales == 0 and e_rsvps:
+                gross_sales = sum(int(r.get('amount_paid', 0) or 0) for r in e_rsvps.values() if isinstance(r, dict))
+
+            e_comm_retained = int(round(gross_sales * (e_comm_pct / 100.0)))
+            net_organizer_share = max(0, gross_sales - e_comm_retained)
+
+            e_payouts = [p for p in pending_payouts_all.values() if isinstance(p, dict) and p.get('event_id') == eid]
+            disbursed_so_far = sum(int(p.get('amount', 0) or 0) for p in e_payouts if p.get('status') in ['disbursed', 'paid'])
+
+            escrow_remaining = max(0, net_organizer_share - disbursed_so_far)
+
+            total_gross_event_sales += gross_sales
+            total_commission_earned += e_comm_retained
+            total_disbursed_to_organizers += disbursed_so_far
+            total_escrow_in_till += escrow_remaining
+
+            org_dest = evt.get('organizer_phone') or evt.get('phone') or 'Not Set'
+            ch, clean_dest, acc_ref, _ = resolve_payout_destination(org_dest)
+
+            events_escrow_list.append({
+                'id': eid,
+                'title': e_title,
+                'organizer_name': evt.get('organizer_name', 'Campus Organizer'),
+                'organizer_dest': clean_dest or org_dest,
+                'channel': ch or 'b2c_phone',
+                'account_ref': acc_ref,
+                'tickets_sold': len(e_receipts) or len(e_tickets),
+                'gross_sales': gross_sales,
+                'commission_pct': e_comm_pct,
+                'commission_retained': e_comm_retained,
+                'net_organizer_share': net_organizer_share,
+                'disbursed_so_far': disbursed_so_far,
+                'escrow_remaining': escrow_remaining,
+                'status': 'Fully Settled' if (gross_sales > 0 and disbursed_so_far >= net_organizer_share) else ('Held in Escrow' if gross_sales > 0 else 'No Sales')
+            })
+
         return render_template('super_admin.html',
                                manager_ledgers=manager_ledgers,
                                survey_responses=survey_responses,
@@ -3586,7 +3694,16 @@ def super_admin():
                                all_ads=all_ads,
                                all_institutions=inst_list,
                                db_institutions=get_institutions(),
-                               campus_managers=get_campus_managers(),
+                               campus_managers=campus_managers,
+                               events_escrow_list=events_escrow_list,
+                               total_gross_event_sales=total_gross_event_sales,
+                               total_commission_earned=total_commission_earned,
+                               total_disbursed_to_organizers=total_disbursed_to_organizers,
+                               total_escrow_in_till=total_escrow_in_till,
+                               auto_instant_payouts_active=auto_instant_payouts_active,
+                               platform_commission_enabled=platform_commission_enabled,
+                               platform_commission_pct=platform_commission_pct,
+                               current_month_display=curr_month_display,
                                chart_labels=months,
                                revenue_chart_data=revenue_chart_data,
                                growth_chart_data=growth_chart_data,
@@ -3981,11 +4098,194 @@ def admin_action():
                 'admin_ip': request.remote_addr
             })
             return jsonify({'success': True, 'fee': default_fee, 'is_free': (default_fee == 0)})
+
+        elif action == 'disburse_event_payout':
+            from app.payout_service import disburse_event_organizer_payouts_now
+            res = disburse_event_organizer_payouts_now(target_id)
+            db.reference('admin_audit_logs').push({
+                'action': f"Admin manually verified & triggered net payout for event {target_id}. Disbursed: KES {res.get('total_amount', 0)} ({res.get('disbursed_count', 0)} tickets)",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify(res)
+
+        elif action == 'disburse_manager_salary':
+            from app.payout_service import disburse_monthly_salaries
+            month_key = data.get('month')
+            res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=target_id)
+            db.reference('admin_audit_logs').push({
+                'action': f"Admin manually disbursed monthly salary for manager {target_id}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify(res)
+
+        elif action == 'toggle_instant_payouts':
+            curr = db.reference('system_settings/auto_instant_event_payouts').get()
+            if curr is None:
+                curr = True
+            new_val = not curr
+            db.reference('system_settings/auto_instant_event_payouts').set(new_val)
+            db.reference('admin_audit_logs').push({
+                'action': f"Toggled automatic instant event payouts: {'ENABLED (Instant B2C Active)' if new_val else 'DISABLED (Admin Escrow Manual Verification)'}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'auto_instant_event_payouts': new_val})
+
+        elif action == 'toggle_commission_enabled':
+            curr = db.reference('system_settings/platform_commission_enabled').get()
+            if curr is None:
+                curr = False
+            new_val = not curr
+            db.reference('system_settings/platform_commission_enabled').set(new_val)
+            comm_pct = int(db.reference('system_settings/platform_ticket_commission_pct').get() or 10)
+            db.reference('admin_audit_logs').push({
+                'action': f"Toggled platform ticket commission: {'ENABLED (' + str(comm_pct) + '% retained in Till)' if new_val else 'DISABLED (0% retained - 100% to organizer)'}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'platform_commission_enabled': new_val, 'commission_pct': comm_pct})
+
+        elif action == 'set_platform_commission':
+            comm = max(0, min(100, int(data.get('commission_pct', 10))))
+            db.reference('system_settings/platform_ticket_commission_pct').set(comm)
+            db.reference('admin_audit_logs').push({
+                'action': f"Set platform ticket commission to {comm}%",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'commission_pct': comm})
             
         return jsonify({'success': True})
     except Exception as e:
         logger.error(f"Admin Action Error ({action}): {e}")
         return jsonify({'success': False, 'message': "Internal server error."}), 500
+
+@app.route('/api/admin/events/<event_id>/disburse-payout', methods=['POST'])
+@csrf.exempt
+def admin_disburse_event_payout(event_id):
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        from app.payout_service import disburse_event_organizer_payouts_now
+        res = disburse_event_organizer_payouts_now(event_id)
+        db.reference('admin_audit_logs').push({
+            'action': f"Verified & disbursed net payout for event {event_id}. Total: KES {res.get('total_amount', 0)} ({res.get('disbursed_count', 0)} tickets)",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify(res)
+    except Exception as e:
+        logger.error(f"Error disbursing event payout for {event_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/managers/send-monthly-statements', methods=['POST'])
+@csrf.exempt
+def admin_send_manager_monthly_statements():
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        from app.payout_service import dispatch_all_manager_month_end_emails
+        data = request.json if request.is_json else request.form
+        month_key = data.get('month')
+        res = dispatch_all_manager_month_end_emails(month_key=month_key)
+        db.reference('admin_audit_logs').push({
+            'action': f"Dispatched month-end forecast statements to {res.get('dispatched_count', 0)} managers for {res.get('month')}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify(res)
+    except Exception as e:
+        logger.error(f"Error sending monthly statements: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/managers/<manager_id>/disburse-salary', methods=['POST'])
+@csrf.exempt
+def admin_disburse_manager_salary(manager_id):
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        from app.payout_service import disburse_monthly_salaries
+        month_key = request.json.get('month') if request.is_json else request.form.get('month')
+        res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=manager_id)
+        db.reference('admin_audit_logs').push({
+            'action': f"Verified & disbursed salary for manager {manager_id}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify(res)
+    except Exception as e:
+        logger.error(f"Error disbursing manager salary for {manager_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/settings/toggle-instant-payouts', methods=['POST'])
+@csrf.exempt
+def admin_toggle_instant_payouts_route():
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        curr = db.reference('system_settings/auto_instant_event_payouts').get()
+        if curr is None:
+            curr = True
+        new_val = not curr
+        db.reference('system_settings/auto_instant_event_payouts').set(new_val)
+        db.reference('admin_audit_logs').push({
+            'action': f"Toggled automatic instant event payouts: {'ENABLED' if new_val else 'DISABLED'}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify({'success': True, 'auto_instant_event_payouts': new_val})
+    except Exception as e:
+        logger.error(f"Error toggling instant payouts: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/settings/toggle-commission-enabled', methods=['POST'])
+@csrf.exempt
+def admin_toggle_commission_enabled_route():
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        curr = db.reference('system_settings/platform_commission_enabled').get()
+        if curr is None:
+            curr = False
+        new_val = not curr
+        db.reference('system_settings/platform_commission_enabled').set(new_val)
+        comm_pct = int(db.reference('system_settings/platform_ticket_commission_pct').get() or 10)
+        db.reference('admin_audit_logs').push({
+            'action': f"Toggled platform ticket commission: {'ENABLED (' + str(comm_pct) + '% retained in Till)' if new_val else 'DISABLED (0% retained - 100% to organizer)'}",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify({'success': True, 'platform_commission_enabled': new_val, 'commission_pct': comm_pct})
+    except Exception as e:
+        logger.error(f"Error toggling platform commission enabled: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/settings/set-platform-commission', methods=['POST'])
+@csrf.exempt
+def admin_set_platform_commission_route():
+    if not session.get('is_super_admin'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    try:
+        data = request.json if request.is_json else request.form
+        comm = max(0, min(100, int(data.get('commission_pct', 10))))
+        db.reference('system_settings/platform_ticket_commission_pct').set(comm)
+        db.reference('admin_audit_logs').push({
+            'action': f"Set platform ticket commission to {comm}%",
+            'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+            'admin_ip': request.remote_addr
+        })
+        return jsonify({'success': True, 'commission_pct': comm})
+    except Exception as e:
+        logger.error(f"Error setting platform commission: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/admin/broadcast', methods=['POST'])
 def admin_broadcast():
@@ -8539,6 +8839,19 @@ def cron_hourly_check():
         try:
             from app.payout_service import disburse_monthly_salaries, get_current_month_keys
             month_key, month_name = get_current_month_keys()
+
+            # Month-end statements to Campus Managers (Runs on the 28th-31st)
+            if now.day >= 28 and now.hour == 9:
+                stmt_dispatched_node = f'system_settings/last_manager_statement_dispatch/{month_key}'
+                if not db.reference(stmt_dispatched_node).get():
+                    from app.payout_service import dispatch_all_manager_month_end_emails
+                    stmt_res = dispatch_all_manager_month_end_emails(month_key=month_key)
+                    db.reference(stmt_dispatched_node).set({
+                        "dispatched_at": now.isoformat(),
+                        "month": month_name,
+                        "dispatched_count": stmt_res.get('dispatched_count', 0)
+                    })
+                    results.append(f"Month-end manager statement emails sent for {month_name}: {stmt_res.get('dispatched_count', 0)}")
 
             # Disburse on 31st (or last day of February)
             is_payout_day = (now.day == 31 or (now.month == 2 and now.day in [28, 29]))
