@@ -4934,6 +4934,30 @@ logger = logging.getLogger(__name__)
 # pytz requires localize() which breaks in many places - fixed here
 EAT = timezone(timedelta(hours=3))  # same as Africa/Nairobi offset
 
+@app.route('/paywall', methods=['GET'])
+@app.route('/renew', methods=['GET'])
+@app.route('/upgrade', methods=['GET'])
+def paywall_view():
+    """Renders the subscription renewal & package selection paywall."""
+    user_id = session.get('user_id')
+    user_phone = ''
+    user_data = {}
+    if user_id:
+        user_data = db.reference(f'profiles/{user_id}').get() or {}
+        if isinstance(user_data, dict):
+            user_phone = user_data.get('phone', '')
+
+    checkout_id = session.get('checkout_id') or (user_data.get('active_checkout_id') if isinstance(user_data, dict) else None)
+    
+    return render_template(
+        'paywall.html',
+        amount=50,
+        phone=user_phone,
+        checkout_id=checkout_id,
+        intent='student_renew'
+    )
+
+
 @app.route('/api/pay_student_fee', methods=['POST'])
 @limiter.limit("3 per minute") # 🚨 STOPS STK PUSH SPAM
 def pay_student_fee():
