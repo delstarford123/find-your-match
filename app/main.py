@@ -8919,6 +8919,19 @@ def cron_hourly_check():
         except Exception as lady_p_err:
             logger.error(f"Weekly lady payout sweeper error: {lady_p_err}")
 
+        # =========================================================================
+        # 4. EMAIL DISPATCH QUEUE SWEEPER (Runs hourly to flush any retried/queued emails)
+        # =========================================================================
+        try:
+            from app.email_service import flush_email_dispatch_queue
+            flush_res = flush_email_dispatch_queue(batch_size=50)
+            if flush_res.get('sent', 0) > 0:
+                results.append(f"Flushed {flush_res.get('sent')} queued emails successfully.")
+            elif flush_res.get('failed', 0) > 0:
+                results.append(f"Queue flush had {flush_res.get('failed')} failed emails.")
+        except Exception as queue_err:
+            logger.error(f"Email queue flusher error: {queue_err}")
+
         return jsonify({
             "success": True, 
             "message": "Cron check completed.", 

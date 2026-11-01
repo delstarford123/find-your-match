@@ -74,11 +74,11 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
         
         if smtp_port == 465:
             # Use context manager (with) to safely close connection even on failure
-            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=4) as server:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=12) as server:
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(smtp_server, smtp_port, timeout=4) as server:
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=12) as server:
                 server.starttls(context=context)
                 server.login(sender_email, sender_password)
                 server.send_message(msg)
@@ -106,6 +106,111 @@ def _send_email(recipient_email, subject, text_content, html_content, sender_nam
         except Exception as qe:
             logger.debug(f"Could not queue email: {qe}")
         return False
+
+
+def flush_email_dispatch_queue(batch_size=50):
+    """
+    Drains pending emails from Firebase 'email_dispatch_queue' and sends them via SMTP.
+    Safely connects once, iterates through pending messages, and updates status to 'sent' or 'failed'.
+    Returns a summary dict of results.
+    """
+    import time
+    try:
+        from firebase_admin import db
+    except ImportError:
+        logger.warning("firebase_admin not imported, skipping flush_email_dispatch_queue")
+        return {"sent": 0, "failed": 0, "pending": 0}
+
+    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('"\'')
+    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('"\'')
+    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('"\'')
+    try:
+        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('"\''))
+    except (ValueError, TypeError):
+        smtp_port = 465
+
+    if not sender_email or not sender_password:
+        logger.error("Email credentials missing in flush_email_dispatch_queue")
+        return {"sent": 0, "failed": 0, "error": "Missing credentials"}
+
+    try:
+        queue_data = db.reference('email_dispatch_queue').get() or {}
+    except Exception as qe:
+        logger.error(f"Failed to fetch email_dispatch_queue: {qe}")
+        return {"sent": 0, "failed": 0, "error": str(qe)}
+
+    pending_items = [
+        (k, v) for k, v in queue_data.items()
+        if isinstance(v, dict) and v.get('status') == 'pending'
+    ]
+
+    if not pending_items:
+        return {"sent": 0, "failed": 0, "pending": 0}
+
+    items_to_process = pending_items[:batch_size]
+    sent_count = 0
+    failed_count = 0
+    context = ssl._create_unverified_context()
+
+    try:
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=15)
+        else:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=15)
+            server.starttls(context=context)
+
+        with server:
+            server.login(sender_email, sender_password)
+
+            for key, item in items_to_process:
+                recipient = item.get('to')
+                if not recipient or "@" not in str(recipient):
+                    try:
+                        db.reference(f'email_dispatch_queue/{key}').update({'status': 'invalid_email'})
+                    except Exception:
+                        pass
+                    continue
+
+                subject = item.get('subject', 'Find Your Match Notification')
+                text_content = item.get('text', '')
+                html_content = item.get('html', '')
+                sender_name = item.get('sender_name', SENDER_NAME_DEFAULT)
+
+                try:
+                    msg = MIMEMultipart("alternative")
+                    msg['Subject'] = subject
+                    msg['From'] = formataddr((sender_name, sender_email))
+                    msg['To'] = recipient
+                    msg['Date'] = formatdate(localtime=True)
+                    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
+                    msg.attach(MIMEText(text_content, "plain", "utf-8"))
+                    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+                    server.send_message(msg)
+                    db.reference(f'email_dispatch_queue/{key}').update({
+                        'status': 'sent',
+                        'dispatched_at': datetime.now().isoformat()
+                    })
+                    sent_count += 1
+                    time.sleep(0.3)
+                except Exception as send_err:
+                    failed_count += 1
+                    logger.warning(f"Failed to flush email to {recipient}: {send_err}")
+                    try:
+                        db.reference(f'email_dispatch_queue/{key}').update({
+                            'status': 'failed',
+                            'last_error': str(send_err),
+                            'retry_count': (item.get('retry_count') or 0) + 1
+                        })
+                    except Exception:
+                        pass
+
+    except Exception as conn_err:
+        logger.error(f"Failed to connect to SMTP server during queue flush: {conn_err}")
+        return {"sent": sent_count, "failed": failed_count, "error": str(conn_err)}
+
+    logger.info(f"Flushed email queue: {sent_count} sent, {failed_count} failed out of {len(items_to_process)}")
+    return {"sent": sent_count, "failed": failed_count, "remaining": len(pending_items) - sent_count}
 
 
 def send_mutual_match_email(recipient_email, recipient_name, partner_name, partner_img=None, match_reason=None):
