@@ -416,6 +416,7 @@
 
     /* === KENYA UNIVERSITY AWARDS SPOTLIGHT BANNER === */
     .awards-hero-spotlight {
+        display: none; /* Controlled by Super Admin: Only shows when admin starts campaign */
         background: linear-gradient(135deg, #0B1120 0%, #1E1B4B 45%, #4C0519 100%);
         border-bottom: 2px solid rgba(245, 158, 11, 0.4);
         padding: 16px 20px;
@@ -752,7 +753,9 @@
         fetch('/awards/api/banner-spotlight')
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
+                const bannerEl = document.querySelector('.awards-hero-spotlight');
+                if (data.success && data.banner_active) {
+                    if (bannerEl) bannerEl.style.display = 'block';
                     if (data.battles && data.battles.length > 0) {
                         battles = data.battles;
                     }
@@ -764,9 +767,14 @@
                         if (cdElem) cdElem.innerText = `${days} Days`;
                     }
                     renderBattle(battles[0]);
+                } else {
+                    if (bannerEl) bannerEl.style.display = 'none';
                 }
             })
-            .catch(() => {});
+            .catch(() => {
+                const bannerEl = document.querySelector('.awards-hero-spotlight');
+                if (bannerEl) bannerEl.style.display = 'none';
+            });
 
         // Cycle through battles every 4.5 seconds
         setInterval(() => {

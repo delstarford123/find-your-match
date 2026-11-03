@@ -76,17 +76,26 @@ def get_awards_settings():
     if not settings or not isinstance(settings, dict):
         default_settings = {
             "title": "Campus Awards & Talent Recognition 2026",
-            "phase": "voting",          # nominations | voting | blind_freeze | closed
+            "campaign_active": False,   # Starts FALSE until Super Admin clicks Start
+            "banner_active": False,     # Controls visibility on index.html
+            "phase": "nominations",     # nominations | voting | blind_freeze | closed
             "blind_mode": False,        # If true, public vote totals are hidden for grand finale
             "registration_fee": CONTESTANT_REG_FEE,
             "cost_per_vote": 10,
             "prize_pool_kes": 50000,
+            "campaign_start_date": "",
             "finale_date": "2026-11-30T23:59:59",
             "free_votes_enabled": True,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         settings_ref.set(default_settings)
         return default_settings
+    
+    # Ensure campaign_active and banner_active exist
+    if 'campaign_active' not in settings:
+        settings['campaign_active'] = False
+    if 'banner_active' not in settings:
+        settings['banner_active'] = False
     return settings
 
 
@@ -823,6 +832,7 @@ def awards_admin():
             elif c.get('status') == 'pending_approval':
                 pending_contestants += 1
 
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     return render_template(
         'awards_admin.html',
         settings=settings,
@@ -831,7 +841,8 @@ def awards_admin():
         total_revenue=total_revenue,
         total_votes=total_votes,
         active_contestants=active_contestants,
-        pending_contestants=pending_contestants
+        pending_contestants=pending_contestants,
+        base_url=base_url
     )
 
 
@@ -1385,8 +1396,19 @@ def api_banner_spotlight():
     """
     Supplies the dynamic awards spotlight banner for index.html with live category duels.
     Spotlights the leading vs trailing contestants to spark competition.
+    Only active if Super Admin has clicked Start Campaign!
     """
     settings = get_awards_settings()
+    campaign_active = bool(settings.get('campaign_active', False))
+    banner_active = bool(settings.get('banner_active', False) and campaign_active and settings.get('phase') != 'closed')
+
+    if not banner_active:
+        return jsonify({
+            "success": True,
+            "banner_active": False,
+            "message": "Awards activity is currently not active or paused by admin."
+        }), 200
+
     all_contestants = db.reference('awards_contestants').get() or {}
 
     active_by_cat = {}
@@ -1419,10 +1441,68 @@ def api_banner_spotlight():
 
     return jsonify({
         "success": True,
+        "banner_active": True,
         "campaign_title": settings.get('title', 'Kenya University & MMUST Awards 2026'),
         "finale_date": settings.get('finale_date', '2026-11-30T23:59:59'),
         "prize_pool_kes": settings.get('prize_pool_kes', 50000),
         "battles": battles[:6]
+    }), 200
+
+
+@awards_bp.route('/api/admin/toggle-campaign', methods=['POST'])
+def api_admin_toggle_campaign():
+    """
+    Super Admin master switch to start or stop the campaign,
+    activate or deactivate the 1-month voting window, and show/hide the homepage banner.
+    """
+    if not (session.get('role') == 'admin' or session.get('super_admin') or session.get('is_super_admin')):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    action = data.get('action')
+
+    now = datetime.now(timezone.utc)
+    settings_ref = db.reference('awards_settings')
+    settings = get_awards_settings()
+
+    updates = {'updated_at': now.isoformat()}
+
+    if action == 'start':
+        finale = now + timedelta(days=30)
+        updates['campaign_active'] = True
+        updates['banner_active'] = True
+        updates['phase'] = 'voting'
+        updates['campaign_start_date'] = now.isoformat()
+        updates['finale_date'] = finale.isoformat()
+        updates['blind_mode'] = False
+        msg = f"Awards campaign STARTED! 1-Month voting window is LIVE until {finale.strftime('%d %b %Y')}. Homepage banner is now visible."
+
+    elif action == 'pause':
+        updates['banner_active'] = False
+        msg = "Awards campaign PAUSED. Homepage banner is now hidden."
+
+    elif action == 'show_banner':
+        updates['banner_active'] = True
+        msg = "Homepage voting banner is now VISIBLE."
+
+    elif action == 'hide_banner':
+        updates['banner_active'] = False
+        msg = "Homepage voting banner is now HIDDEN."
+
+    elif action == 'end':
+        updates['campaign_active'] = False
+        updates['banner_active'] = False
+        updates['phase'] = 'closed'
+        msg = "Awards campaign has been ENDED. Voting closed and banner removed."
+
+    else:
+        return jsonify({"success": False, "error": "Invalid campaign action"}), 400
+
+    settings_ref.update(updates)
+    return jsonify({
+        "success": True,
+        "message": msg,
+        "updates": updates
     }), 200
 
 

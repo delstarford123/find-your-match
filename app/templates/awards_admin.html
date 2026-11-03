@@ -14,6 +14,165 @@
         </a>
     </div>
 
+    <!-- ========================================================================= -->
+    <!-- MASTER CAMPAIGN LAUNCH & HOMEPAGE BANNER CONTROLLER -->
+    <!-- ========================================================================= -->
+    <div class="mb-8 rounded-3xl p-6 border shadow-2xl transition {% if settings.campaign_active and settings.banner_active %}bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border-emerald-500/50{% else %}bg-gradient-to-r from-rose-950/50 via-slate-900 to-slate-900 border-rose-500/40{% endif %}">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-800">
+            <div>
+                <div class="flex items-center gap-2 mb-2">
+                    {% if settings.campaign_active and settings.banner_active %}
+                    <span class="flex h-3 w-3 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-xs font-black uppercase text-emerald-400 tracking-wider">
+                        🟢 1-Month Campaign is LIVE & Banner Active on Homepage
+                    </span>
+                    {% elif settings.campaign_active and not settings.banner_active %}
+                    <span class="text-xs font-black uppercase text-amber-400 tracking-wider">
+                        🟡 Campaign Active • Banner Temporarily Hidden
+                    </span>
+                    {% else %}
+                    <span class="text-xs font-black uppercase text-rose-400 tracking-wider">
+                        🔴 Campaign Inactive • Banner Hidden (Click Start to Launch)
+                    </span>
+                    {% endif %}
+                </div>
+                <h2 class="text-xl sm:text-2xl font-black text-white">
+                    Master Campaign & Homepage Banner Switch
+                </h2>
+                <p class="text-xs text-slate-300 mt-1 max-w-2xl">
+                    {% if settings.campaign_active and settings.banner_active %}
+                    The awards campaign is officially active! The banner is live at the top of the homepage, and voting ends on <strong>{{ (settings.finale_date or '')[:10] }}</strong>.
+                    {% else %}
+                    The awards banner is currently <strong>HIDDEN</strong> from the homepage. Click <strong>"Start Campaign"</strong> below to activate the 1-month voting window and display the banner to all website visitors.
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- ACTION BUTTONS -->
+            <div class="flex flex-wrap gap-2.5">
+                {% if not (settings.campaign_active and settings.banner_active) %}
+                <button onclick="toggleCampaignAction('start')"
+                        class="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 text-xs font-black transition shadow-lg shadow-emerald-500/25 flex items-center gap-2">
+                    <span>🚀</span> START AWARDS CAMPAIGN (1 Month & Show Banner)
+                </button>
+                {% else %}
+                <button onclick="toggleCampaignAction('pause')"
+                        class="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-black transition border border-amber-500/40 flex items-center gap-1.5">
+                    <span>⏸️</span> Pause / Hide Banner
+                </button>
+                <button onclick="toggleCampaignAction('end')"
+                        class="px-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-black transition border border-rose-500/40 flex items-center gap-1.5">
+                    <span>🛑</span> End Campaign
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- ADMIN CAMPAIGN SHARING & VIRAL LAUNCH CENTER -->
+        <!-- ========================================================================= -->
+        <div class="pt-6">
+            <h3 class="text-xs font-black text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span>📢</span> Official Admin Campaign Sharing Center
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">
+                Distribute these official links to student councils (MMUSO, SONU, KUSA), campus WhatsApp groups, Telegram channels, and social media:
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <!-- VOTING HUB LINK -->
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-black text-amber-400">🗳️ Public Voting Directory</span>
+                            <span class="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-bold">Ghost Usage: No Account Needed</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-2">Comrades can browse nominees, filter by campus/category, and cast votes (10 KES / 1 free daily).</p>
+                        <input type="text" readonly value="{{ base_url or 'https://findyourmatch.co.ke' }}/awards" id="adminVotingLink"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono mb-3">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="copyAdminLink('adminVotingLink', this)"
+                                class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition border border-slate-700">
+                            📋 Copy Voting Link
+                        </button>
+                        <a href="https://api.whatsapp.com/send?text={{ ('🔥 VOTE NOW: Kenya University & MMUST Talent Awards 2026 are live! Vote for comrades here: ' ~ (base_url or 'https://findyourmatch.co.ke') ~ '/awards')|urlencode }}"
+                           target="_blank" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                            💬 WhatsApp
+                        </a>
+                    </div>
+                </div>
+
+                <!-- NOMINATION / REGISTRATION LINK -->
+                <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-black text-amber-400">⭐ Contestant Nomination & Entry</span>
+                            <span class="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded font-bold">Ghost Entry: 50 KES M-Pesa</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-2">Send this link to students, creators, DJs, and MCs who want to compete for the KES 50,000 prize.</p>
+                        <input type="text" readonly value="{{ base_url or 'https://findyourmatch.co.ke' }}/awards/register" id="adminRegLink"
+                               class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono mb-3">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="copyAdminLink('adminRegLink', this)"
+                                class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition border border-slate-700">
+                            📋 Copy Entry Link
+                        </button>
+                        <a href="https://api.whatsapp.com/send?text={{ ('⭐ NOMINATIONS OPEN: Enter the Kenya University & MMUST Awards 2026! Win KES 50,000 cash pool + trophy. Register here: ' ~ (base_url or 'https://findyourmatch.co.ke') ~ '/awards/register')|urlencode }}"
+                           target="_blank" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
+                            💬 WhatsApp
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIRAL CAMPUS ANNOUNCEMENT BROADCAST -->
+            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black text-white">📋 Official Campus WhatsApp Broadcast Text</span>
+                    <button onclick="copyBroadcastAnnouncement(this)"
+                            class="text-xs text-amber-400 hover:text-amber-300 font-bold">
+                        Copy Complete Broadcast
+                    </button>
+                </div>
+                <div id="adminBroadcastAnnouncement" class="text-xs font-mono text-slate-300 bg-slate-900 p-3 rounded-xl border border-slate-800 leading-relaxed whitespace-pre-line mb-3">
+📢 *OFFICIAL ANNOUNCEMENT: KENYA UNIVERSITY & MMUST TALENT AWARDS 2026 ARE LIVE!* 🏆
+
+Comrades across MMUST, UoN, KU, JKUAT, Strathmore & national campuses:
+
+⭐ *NOMINATE YOURSELF OR COMRADES (KES 50 via M-Pesa • No login required):*
+{{ base_url or 'https://findyourmatch.co.ke' }}/awards/register
+
+🔥 *VOTE FOR YOUR FAVORITE NOMINEES (10 KES / 1 Free daily vote • Ghost usage):*
+{{ base_url or 'https://findyourmatch.co.ke' }}/awards
+
+🎁 *Voter Bonus:* Every vote unlocks 3 Days Free VIP Matchmaking on Find Your Match!
+Voting is open for *1 MONTH ONLY*. Grand Prize: *KES 50,000 Cash + National Trophy!* 🚀
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="copyBroadcastAnnouncement(this)"
+                            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition border border-slate-700">
+                        📋 Copy Announcement
+                    </button>
+                    <a href="https://api.whatsapp.com/send?text={{ ('📢 OFFICIAL ANNOUNCEMENT: KENYA UNIVERSITY & MMUST TALENT AWARDS 2026 ARE LIVE! 🏆
+
+⭐ NOMINATE YOURSELF (KES 50): ' ~ (base_url or 'https://findyourmatch.co.ke') ~ '/awards/register
+
+🔥 VOTE FOR CONTESTANTS (10 KES / Free daily): ' ~ (base_url or 'https://findyourmatch.co.ke') ~ '/awards
+
+Voting open for 1 MONTH! 🚀')|urlencode }}"
+                       target="_blank" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5">
+                        <span>💬</span> Share Announcement to WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER & STATS -->
     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 mb-8 shadow-2xl">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-slate-800">
@@ -248,6 +407,54 @@
             }
         })
         .catch(() => alert('Network error extending campaign.'));
+    }
+
+
+    function toggleCampaignAction(action) {
+        let confirmMsg = 'Are you sure you want to proceed?';
+        if (action === 'start') {
+            confirmMsg = 'Start the awards campaign now? This will activate the 1-month voting window and display the live voting banner at the top of the homepage!';
+        } else if (action === 'pause') {
+            confirmMsg = 'Pause the campaign and hide the voting banner from the homepage?';
+        } else if (action === 'end') {
+            confirmMsg = 'End the campaign and close all voting permanently?';
+        }
+
+        if (!confirm(confirmMsg)) return;
+
+        fetch('/awards/api/admin/toggle-campaign', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(data.error || 'Action failed');
+            }
+        })
+        .catch(() => alert('Network error performing action.'));
+    }
+
+    function copyAdminLink(elemId, btn) {
+        const val = document.getElementById(elemId).value;
+        navigator.clipboard.writeText(val).then(() => {
+            const orig = btn.innerText;
+            btn.innerText = '✓ Copied!';
+            setTimeout(() => { btn.innerText = orig; }, 2500);
+        });
+    }
+
+    function copyBroadcastAnnouncement(btn) {
+        const text = document.getElementById('adminBroadcastAnnouncement').innerText.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const orig = btn.innerText;
+            btn.innerText = '✓ Announcement Copied!';
+            setTimeout(() => { btn.innerText = orig; }, 2500);
+        });
     }
 
 </script>
