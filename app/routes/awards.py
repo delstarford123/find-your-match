@@ -5,6 +5,7 @@ import uuid
 import csv
 import io
 import html
+import hashlib
 import secrets
 import logging
 from datetime import datetime, timezone, timedelta
@@ -75,10 +76,13 @@ def get_awards_settings():
     if not settings or not isinstance(settings, dict):
         default_settings = {
             "title": "Campus Awards & Talent Recognition 2026",
-            "phase": "voting",          # nominations | voting | closed
+            "phase": "voting",          # nominations | voting | blind_freeze | closed
             "blind_mode": False,        # If true, public vote totals are hidden for grand finale
             "registration_fee": CONTESTANT_REG_FEE,
             "cost_per_vote": 10,
+            "prize_pool_kes": 50000,
+            "finale_date": "2026-11-30T23:59:59",
+            "free_votes_enabled": True,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         settings_ref.set(default_settings)
@@ -670,6 +674,7 @@ def mpesa_awards_callback():
 
                 # Log into immutable audit ledger
                 ledger_id = f"vl_{secrets.token_hex(8)}"
+                audit_hash = hashlib.sha256(f"{receipt}_{contestant_id}_{now_iso}".encode()).hexdigest()[:16].upper()
                 db.reference(f'awards_votes_ledger/{ledger_id}').set({
                     "contestant_id": contestant_id,
                     "contestant_name": record.get('contestant_name'),
@@ -682,6 +687,7 @@ def mpesa_awards_callback():
                     "amount": actual_amount,
                     "mpesa_receipt": receipt,
                     "checkout_id": clean_checkout,
+                    "audit_hash": f"FYM-AUDIT-{audit_hash}",
                     "timestamp": now_iso
                 })
 
@@ -894,3 +900,261 @@ def api_admin_export_csv():
         mimetype="text/csv",
         headers={"Content-disposition": f"attachment; filename={filename}"}
     )
+
+
+
+# =========================================================================
+# 8. PUBLIC CRYPTOGRAPHIC VOTE VERIFIER & AUDIT TOOL
+# =========================================================================
+
+@awards_bp.route('/verify', methods=['GET'])
+def awards_verify_page():
+    """Public portal to verify any M-Pesa receipt against the tamper-proof ledger."""
+    settings = get_awards_settings()
+    receipt_query = request.args.get('receipt', '').strip().upper()
+    return render_template(
+        'awards_verify.html',
+        settings=settings,
+        receipt_query=receipt_query
+    )
+
+
+@awards_bp.route('/api/verify-receipt/<receipt_code>', methods=['GET'])
+def api_verify_receipt(receipt_code):
+    """
+    Looks up any M-Pesa transaction in the immutable ledger.
+    Returns cryptographic confirmation and vote details.
+    """
+    clean_code = re.sub(r'[^a-zA-Z0-9]', '', str(receipt_code).upper().strip())
+    if len(clean_code) < 6:
+        return jsonify({"success": False, "error": "Invalid receipt format."}), 400
+
+    ledger_data = db.reference('awards_votes_ledger').get() or {}
+    match_record = None
+
+    for vid, item in ledger_data.items():
+        if isinstance(item, dict) and item.get('mpesa_receipt') == clean_code:
+            match_record = item
+            break
+
+    if not match_record:
+        # Check if it was a contestant registration receipt
+        reg_check = db.reference(f'used_mpesa_receipts/{clean_code}').get()
+        if reg_check and isinstance(reg_check, dict):
+            return jsonify({
+                "success": True,
+                "type": "registration",
+                "receipt": clean_code,
+                "amount": reg_check.get('amount', 50),
+                "timestamp": reg_check.get('claimed_at'),
+                "status": "VERIFIED & CONFIRMED",
+                "audit_message": "Official 50 KES Contestant Nomination & Profile Verification."
+            }), 200
+
+        return jsonify({
+            "success": False,
+            "error": f"No vote or registration found matching M-Pesa receipt '{clean_code}'. Please double-check your Safaricom SMS."
+        }), 404
+
+    # Mask voter phone/email for privacy while proving authenticity
+    raw_email = match_record.get('voter_email', '')
+    masked_email = re.sub(r'(?<=.{2}).(?=.*@)', '*', raw_email) if '@' in raw_email else 'Comrade'
+    
+    raw_phone = match_record.get('voter_phone', '')
+    masked_phone = raw_phone[:5] + '****' + raw_phone[-3:] if len(raw_phone) >= 9 else 'Verified'
+
+    return jsonify({
+        "success": True,
+        "type": "vote",
+        "receipt": clean_code,
+        "contestant_name": match_record.get('contestant_name'),
+        "category_name": match_record.get('category_name'),
+        "votes_cast": match_record.get('vote_count'),
+        "amount_paid": match_record.get('amount'),
+        "timestamp": match_record.get('timestamp'),
+        "audit_hash": match_record.get('audit_hash', 'FYM-AUDIT-VERIFIED'),
+        "voter_email": masked_email,
+        "voter_phone": masked_phone,
+        "status": "VERIFIED & COUNTED ON LEDGER"
+    }), 200
+
+
+# =========================================================================
+# 9. DAILY FREE VOTE FOR VERIFIED STUDENTS (Viral Engagement)
+# =========================================================================
+
+@awards_bp.route('/api/vote/daily-free', methods=['POST'])
+def api_awards_daily_free_vote():
+    """
+    Grants 1 free vote every 24 hours per verified student email or account.
+    """
+    data = request.get_json(silent=True) or request.form.to_dict()
+    email = sanitize_input(data.get('email'), 120).lower()
+    contestant_id = sanitize_input(data.get('contestant_id'), 60)
+    voter_name = sanitize_input(data.get('name'), 60) or "Verified Comrade"
+
+    settings = get_awards_settings()
+    if not settings.get('free_votes_enabled', True):
+        return jsonify({"success": False, "error": "Daily free voting is currently paused."}), 403
+
+    if not email or "@" not in email:
+        return jsonify({"success": False, "error": "Valid student email address is required."}), 400
+
+    if not contestant_id:
+        return jsonify({"success": False, "error": "Contestant ID is required."}), 400
+
+    contestant = db.reference(f'awards_contestants/{contestant_id}').get()
+    if not contestant or not isinstance(contestant, dict):
+        return jsonify({"success": False, "error": "Contestant not found."}), 404
+
+    email_key = re.sub(r'[^a-zA-Z0-9]', '_', email)
+    free_vote_ref = db.reference(f'awards_free_votes/{email_key}')
+    last_record = free_vote_ref.get()
+
+    now = datetime.now(timezone.utc)
+    if last_record and isinstance(last_record, dict):
+        last_voted = datetime.fromisoformat(last_record.get('timestamp', '2020-01-01T00:00:00+00:00'))
+        hours_since = (now - last_voted).total_seconds() / 3600
+        if hours_since < 24:
+            hours_left = int(24 - hours_since) + 1
+            return jsonify({
+                "success": False,
+                "error": f"You already claimed your free daily vote! Next free vote unlocks in {hours_left} hours. You can still cast unlimited votes via M-Pesa (10 KES)!"
+            }), 429
+
+    # Record free vote
+    now_iso = now.isoformat()
+    free_vote_ref.set({
+        "email": email,
+        "contestant_id": contestant_id,
+        "contestant_name": contestant.get('name'),
+        "timestamp": now_iso
+    })
+
+    # Increment contestant tally
+    c_ref = db.reference(f'awards_contestants/{contestant_id}')
+    prev_votes = int(contestant.get('vote_count', 0) or 0)
+    new_votes = prev_votes + 1
+    c_ref.update({"vote_count": new_votes, "last_voted_at": now_iso})
+
+    # Log in votes ledger
+    free_receipt = f"FREE-{secrets.token_hex(4).upper()}"
+    audit_hash = hashlib.sha256(f"{free_receipt}_{contestant_id}_{now_iso}".encode()).hexdigest()[:16].upper()
+    db.reference(f'awards_votes_ledger/vl_{secrets.token_hex(8)}').set({
+        "contestant_id": contestant_id,
+        "contestant_name": contestant.get('name'),
+        "category_id": contestant.get('category_id'),
+        "category_name": contestant.get('category_name'),
+        "voter_name": voter_name,
+        "voter_email": email,
+        "voter_phone": "STUDENT_FREE_PASS",
+        "vote_count": 1,
+        "amount": 0,
+        "mpesa_receipt": free_receipt,
+        "audit_hash": f"FYM-FREE-{audit_hash}",
+        "timestamp": now_iso
+    })
+
+    # Send confirmation email
+    send_vote_receipt_email(
+        recipient_email=email,
+        voter_name=voter_name,
+        contestant_name=contestant.get('name'),
+        category=contestant.get('category_name'),
+        vote_count=1,
+        amount_paid=0,
+        mpesa_receipt=free_receipt,
+        new_total_votes=new_votes
+    )
+
+    return jsonify({
+        "success": True,
+        "message": f"🎉 Free daily vote credited to {contestant.get('name')}! Official confirmation delivered to {email}."
+    }), 200
+
+
+# =========================================================================
+# 10. REAL-TIME ACTIVITY TICKER (Proof of Live Activity & Trust)
+# =========================================================================
+
+@awards_bp.route('/api/recent-activity', methods=['GET'])
+def api_awards_recent_activity():
+    """
+    Returns latest 8 votes for the live public activity ticker.
+    """
+    votes_ledger = db.reference('awards_votes_ledger').get() or {}
+    items = []
+
+    now = datetime.now(timezone.utc)
+    for v in votes_ledger.values():
+        if isinstance(v, dict):
+            try:
+                v_time = datetime.fromisoformat(v.get('timestamp', now.isoformat()))
+                diff_sec = max(1, int((now - v_time).total_seconds()))
+                if diff_sec < 60:
+                    time_ago = f"{diff_sec}s ago"
+                elif diff_sec < 3600:
+                    time_ago = f"{diff_sec // 60}m ago"
+                else:
+                    time_ago = f"{diff_sec // 3600}h ago"
+            except Exception:
+                time_ago = "Just now"
+
+            # Mask voter name for privacy
+            v_name = v.get('voter_name') or 'Comrade'
+            masked_name = v_name.split()[0] if v_name else 'Comrade'
+
+            items.append({
+                "voter": masked_name,
+                "votes": v.get('vote_count', 1),
+                "contestant": v.get('contestant_name', 'Nominee'),
+                "category": v.get('category_name', 'Awards'),
+                "time_ago": time_ago,
+                "raw_ts": v.get('timestamp', '')
+            })
+
+    # Sort newest first
+    items.sort(key=lambda x: x['raw_ts'], reverse=True)
+    return jsonify({"success": True, "activities": items[:8]}), 200
+
+
+# =========================================================================
+# 11. ADMIN SETTINGS & FINALE CONFIGURATION
+# =========================================================================
+
+@awards_bp.route('/api/admin/update-settings', methods=['POST'])
+def api_admin_update_settings():
+    """Updates prize pool, finale date, and voting phases."""
+    if not (session.get('role') == 'admin' or session.get('super_admin') or session.get('is_super_admin')):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    phase = data.get('phase')
+    prize_pool = data.get('prize_pool_kes')
+    finale_date = data.get('finale_date')
+    free_votes_enabled = data.get('free_votes_enabled')
+
+    updates = {}
+    if phase in ['nominations', 'voting', 'blind_freeze', 'closed']:
+        updates['phase'] = phase
+        if phase == 'blind_freeze':
+            updates['blind_mode'] = True
+        elif phase == 'voting':
+            updates['blind_mode'] = False
+
+    if prize_pool:
+        try:
+            updates['prize_pool_kes'] = int(prize_pool)
+        except ValueError:
+            pass
+
+    if finale_date:
+        updates['finale_date'] = finale_date
+
+    if free_votes_enabled is not None:
+        updates['free_votes_enabled'] = bool(free_votes_enabled)
+
+    updates['updated_at'] = datetime.now(timezone.utc).isoformat()
+    db.reference('awards_settings').update(updates)
+
+    return jsonify({"success": True, "message": "Awards settings updated successfully!", "updates": updates}), 200

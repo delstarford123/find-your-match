@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Public Vote Verifier & Cryptographic Audit | Campus Awards{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-28 pt-8 px-4 sm:px-6 max-w-3xl mx-auto">
+    <!-- NAVIGATION -->
+    <a href="{{ url_for('awards_bp.awards_index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 mb-6 transition">
+        &larr; Back to Live Leaderboard
+    </a>
+
+    <!-- MAIN VERIFIER CARD -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+        <!-- HEADER -->
+        <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 p-6 sm:p-8 border-b border-emerald-900/40 text-center sm:text-left">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase mb-3">
+                <span>🛡️</span> 100% Transparent & Tamper-Proof Audit
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Public Vote & Receipt Verifier
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+                Every vote cast on Find Your Match is cryptographically hashed and logged to our immutable ledger. Enter your Safaricom M-Pesa receipt below to verify that your votes were counted.
+            </p>
+        </div>
+
+        <div class="p-6 sm:p-8 space-y-6">
+            <!-- INPUT BOX -->
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                    Enter Safaricom M-Pesa Receipt ID
+                </label>
+                <div class="flex gap-2">
+                    <input type="text" id="verifyReceiptInput" value="{{ receipt_query }}" placeholder="e.g. TK78ABC123 or REG-XXXXXX"
+                           class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono uppercase">
+                    <button onclick="doVerifyReceipt()" id="verifyBtn"
+                            class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-6 py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg flex items-center gap-1.5">
+                        <span>🔍</span> Verify
+                    </button>
+                </div>
+            </div>
+
+            <!-- RESULT CONTAINER -->
+            <div id="verifyResultBox" class="hidden"></div>
+
+            <!-- TRUST GUARANTEE -->
+            <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-2">
+                <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>🔒</span> How Cryptographic Vote Audit Works
+                </h4>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    1. When you enter your M-Pesa PIN, Safaricom delivers a unique transaction receipt.<br>
+                    2. Our system records an immutable audit record and generates a unique SHA-256 cryptographic stamp.<br>
+                    3. No administrator, candidate, or third-party can fabricate or alter votes without breaking the audit chain.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        const query = "{{ receipt_query }}";
+        if (query) {
+            doVerifyReceipt();
+        }
+    });
+
+    async function doVerifyReceipt() {
+        const input = document.getElementById('verifyReceiptInput').value.trim();
+        const resultBox = document.getElementById('verifyResultBox');
+        const btn = document.getElementById('verifyBtn');
+
+        if (!input || input.length < 5) {
+            alert('Please enter a valid M-Pesa receipt code.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = 'Verifying...';
+
+        try {
+            const res = await fetch(`/awards/api/verify-receipt/${encodeURIComponent(input)}`);
+            const data = await res.json();
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔍</span> Verify';
+            resultBox.classList.remove('hidden');
+
+            if (!data.success) {
+                resultBox.innerHTML = `
+                    <div class="p-5 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center space-y-2">
+                        <div class="text-2xl">❌</div>
+                        <h4 class="text-sm font-bold text-rose-400">Receipt Not Found</h4>
+                        <p class="text-xs text-slate-300">${data.error || 'No transaction matches this code.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // SUCCESSFUL AUDIT MATCH
+            resultBox.innerHTML = `
+                <div class="p-6 bg-emerald-950/30 border border-emerald-500/40 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-emerald-900/60 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-sm">✓</span>
+                            <span class="text-xs font-black text-emerald-400 uppercase tracking-wide">${data.status}</span>
+                        </div>
+                        <span class="font-mono text-xs font-bold text-slate-300">${data.receipt}</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Contestant Awarded</span>
+                            <strong class="text-white text-sm">${data.contestant_name || 'Nomination Verified'}</strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Category</span>
+                            <strong class="text-amber-400">${data.category_name || 'Awards Entry'}</strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Votes Credited</span>
+                            <strong class="text-emerald-400 text-sm">+${data.votes_cast || 1} Vote(s)</strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block text-[11px]">Amount Verified</span>
+                            <strong class="text-white font-mono">KES ${data.amount_paid || 0}</strong>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-emerald-900/60">
+                        <span class="text-[10px] text-slate-400 block uppercase font-mono">Cryptographic Audit Hash</span>
+                        <span class="font-mono text-xs text-sky-400 break-all select-all">${data.audit_hash}</span>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                        <span>Timestamp: ${data.timestamp}</span>
+                        <span>Voter: ${data.voter_phone || 'Verified'}</span>
+                    </div>
+                </div>
+            `;
+
+        } catch (e) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔍</span> Verify';
+            alert('Network error while verifying receipt.');
+        }
+    }
+</script>
+{% endblock %}

@@ -62,6 +62,53 @@
 </style>
 
 <div class="min-h-screen pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto">
+
+    <!-- LIVE VOTE TICKER & PROOF OF ACTIVITY -->
+    <div class="mb-4 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2 flex items-center justify-between text-xs overflow-hidden shadow-lg">
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span class="font-black text-emerald-400 uppercase tracking-wide text-[11px]">LIVE ACTIVITY</span>
+        </div>
+        <div id="liveTickerContent" class="text-slate-300 font-medium truncate mx-3 text-[11px] sm:text-xs">
+            Loading real-time campus vote tally...
+        </div>
+        <a href="{{ url_for('awards_bp.awards_verify_page') }}" class="flex-shrink-0 text-[11px] font-bold text-amber-400 hover:underline flex items-center gap-1">
+            <span>🛡️</span> Verify Receipt
+        </a>
+    </div>
+
+    <!-- GRAND FINALE COUNTDOWN & PRIZE POOL BANNER -->
+    <div class="mb-6 bg-gradient-to-r from-purple-950/60 via-slate-900 to-amber-950/60 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="text-center md:text-left">
+            <div class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-1.5">
+                <span>🏆</span> Category Grand Finale Prize Pool: <strong class="text-white text-sm">KES {{ settings.prize_pool_kes or 50000 | int }}</strong>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-0.5">Top-voted winners awarded cash prizes, official trophies, and national media coverage!</p>
+        </div>
+
+        <div class="flex items-center gap-2 font-mono">
+            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
+                <div id="cdDays" class="text-lg font-black text-amber-400">00</div>
+                <div class="text-[9px] text-slate-500 uppercase">Days</div>
+            </div>
+            <span class="text-slate-600 font-bold">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
+                <div id="cdHours" class="text-lg font-black text-white">00</div>
+                <div class="text-[9px] text-slate-500 uppercase">Hours</div>
+            </div>
+            <span class="text-slate-600 font-bold">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
+                <div id="cdMins" class="text-lg font-black text-white">00</div>
+                <div class="text-[9px] text-slate-500 uppercase">Mins</div>
+            </div>
+            <span class="text-slate-600 font-bold">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
+                <div id="cdSecs" class="text-lg font-black text-emerald-400">00</div>
+                <div class="text-[9px] text-slate-500 uppercase">Secs</div>
+            </div>
+        </div>
+    </div>
+
     <!-- HERO HEADER -->
     <div class="text-center py-8 relative">
         <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3 awards-glow">
@@ -327,7 +374,22 @@
         </div>
 
         <div class="p-5">
-            <!-- STEP 1: QUANTITY TABS -->
+            
+        <!-- MODE SELECTOR: PAID VS FREE -->
+        <div class="px-5 pt-4">
+            <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button type="button" onclick="switchVoteTab('paid')" id="tabPaidBtn"
+                        class="py-2 text-xs font-black rounded-lg bg-amber-500 text-slate-950 transition">
+                    ⚡ M-Pesa Votes (10 KES)
+                </button>
+                <button type="button" onclick="switchVoteTab('free')" id="tabFreeBtn"
+                        class="py-2 text-xs font-black rounded-lg text-slate-400 hover:text-white transition">
+                    🎁 Daily Free Vote (1/day)
+                </button>
+            </div>
+        </div>
+
+<!-- STEP 1: QUANTITY TABS -->
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
                 1. Select Vote Package
             </label>
@@ -364,7 +426,26 @@
             </div>
 
             <!-- ERROR DISPLAY -->
-            <div id="voteModalError" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2.5 mb-3"></div>
+            
+            <!-- FREE VOTE BOX (HIDDEN BY DEFAULT) -->
+            <div id="freeVoteSection" class="hidden space-y-3 mb-4">
+                <div class="bg-purple-950/20 border border-purple-500/30 rounded-xl p-3 text-xs text-purple-200">
+                    🎁 <strong>Every verified comrade gets 1 Free Vote every 24 hours!</strong> Enter your student email to claim.
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">
+                        Your Student Email
+                    </label>
+                    <input type="email" id="freeVoterEmail" placeholder="e.g. comrade@mmust.ac.ke or gmail.com"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500">
+                </div>
+                <button type="button" id="claimFreeVoteBtn" onclick="claimDailyFreeVote()"
+                        class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg">
+                    Claim +1 Free Vote Now
+                </button>
+            </div>
+
+<div id="voteModalError" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2.5 mb-3"></div>
 
             <!-- ACTION BUTTON -->
             <button id="triggerStkBtn" onclick="submitVote()"
@@ -531,5 +612,124 @@
             } catch (e) {}
         }, 2500);
     }
+
+    // LIVE TICKER SCRIPT
+    async function updateRecentActivity() {
+        try {
+            const res = await fetch('/awards/api/recent-activity');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.activities && data.activities.length > 0) {
+                    const item = data.activities[Math.floor(Math.random() * data.activities.length)];
+                    document.getElementById('liveTickerContent').innerHTML = `
+                        ⚡ <strong>${item.voter}</strong> just cast <strong class="text-amber-400">+${item.votes} vote(s)</strong> for <strong>${item.contestant}</strong> (${item.category}) &bull; <span class="text-slate-400">${item.time_ago}</span>
+                    `;
+                }
+            }
+        } catch (e) {}
+    }
+    setInterval(updateRecentActivity, 8000);
+    updateRecentActivity();
+
+    // GRAND FINALE COUNTDOWN
+    function updateCountdown() {
+        const finaleDate = new Date("{{ settings.finale_date or '2026-11-30T23:59:59' }}").getTime();
+        const now = new Date().getTime();
+        const diff = finaleDate - now;
+
+        if (diff > 0) {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+            document.getElementById('cdDays').innerText = String(days).padStart(2, '0');
+            document.getElementById('cdHours').innerText = String(hours).padStart(2, '0');
+            document.getElementById('cdMins').innerText = String(mins).padStart(2, '0');
+            document.getElementById('cdSecs').innerText = String(secs).padStart(2, '0');
+        }
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // TAB SWITCHER
+    let activeVoteMode = 'paid';
+    function switchVoteTab(mode) {
+        activeVoteMode = mode;
+        const paidBtn = document.getElementById('tabPaidBtn');
+        const freeBtn = document.getElementById('tabFreeBtn');
+        const freeSec = document.getElementById('freeVoteSection');
+        const paidBtnElem = document.getElementById('triggerStkBtn');
+        const paidInputs = document.querySelectorAll('.vote-pkg-btn, #voterEmail, #voterPhone');
+
+        if (mode === 'paid') {
+            paidBtn.classList.add('bg-amber-500', 'text-slate-950');
+            paidBtn.classList.remove('text-slate-400');
+            freeBtn.classList.remove('bg-purple-600', 'text-white');
+            freeBtn.classList.add('text-slate-400');
+            freeSec.classList.add('hidden');
+            paidBtnElem.classList.remove('hidden');
+            paidInputs.forEach(i => i.closest('div').classList.remove('hidden'));
+        } else {
+            freeBtn.classList.add('bg-purple-600', 'text-white');
+            freeBtn.classList.remove('text-slate-400');
+            paidBtn.classList.remove('bg-amber-500', 'text-slate-950');
+            paidBtn.classList.add('text-slate-400');
+            freeSec.classList.remove('hidden');
+            paidBtnElem.classList.add('hidden');
+            paidInputs.forEach(i => i.closest('div').classList.add('hidden'));
+        }
+    }
+
+    // DAILY FREE VOTE HANDLER
+    async function claimDailyFreeVote() {
+        const email = document.getElementById('freeVoterEmail').value.trim();
+        const errBox = document.getElementById('voteModalError');
+        const claimBtn = document.getElementById('claimFreeVoteBtn');
+        errBox.classList.add('hidden');
+
+        if (!email || !email.includes('@')) {
+            errBox.innerText = 'Please provide a valid student email address.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+
+        claimBtn.disabled = true;
+        claimBtn.innerText = 'Verifying & Crediting Vote...';
+
+        try {
+            const res = await fetch("{{ url_for('awards_bp.api_awards_daily_free_vote') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contestant_id: activeContestantId,
+                    email: email
+                })
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                errBox.innerText = data.error || 'Failed to claim free vote.';
+                errBox.classList.remove('hidden');
+                claimBtn.disabled = false;
+                claimBtn.innerText = 'Claim +1 Free Vote Now';
+                return;
+            }
+
+            // SUCCESS!
+            document.getElementById('freeVoteSection').classList.add('hidden');
+            document.getElementById('stkSuccessBox').classList.remove('hidden');
+            document.getElementById('successDetailsMsg').innerText = data.message;
+            if (typeof confetti === 'function') confetti({ particleCount: 100, spread: 70 });
+
+        } catch (e) {
+            errBox.innerText = 'Network error. Please try again.';
+            errBox.classList.remove('hidden');
+            claimBtn.disabled = false;
+            claimBtn.innerText = 'Claim +1 Free Vote Now';
+        }
+    }
+
 </script>
 {% endblock %}
+

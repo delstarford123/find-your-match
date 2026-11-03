@@ -107,7 +107,24 @@
                 </a>
             </div>
 
-            <!-- MANIFESTO / BIO -->
+            
+            <!-- POSTER GENERATOR ACTION -->
+            <div class="bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-extrabold text-amber-400 flex items-center gap-1.5">
+                        <span>🎨</span> Auto-Generated Campaign Poster
+                    </h4>
+                    <p class="text-xs text-slate-300 mt-0.5">
+                        Generate a customized social media poster with your photo, category rank, and scannable QR code!
+                    </p>
+                </div>
+                <button onclick="generatePoster()"
+                        class="flex-shrink-0 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-lg">
+                    <span>🖼️</span> Generate Poster
+                </button>
+            </div>
+
+<!-- MANIFESTO / BIO -->
             <div>
                 <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
                     Manifesto & Vision
@@ -139,6 +156,28 @@
                 </div>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+
+<!-- POSTER PREVIEW & DOWNLOAD MODAL -->
+<div id="posterModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl relative text-center p-5">
+        <button onclick="closePosterModal()" class="absolute top-3 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
+        <h3 class="text-sm font-black text-amber-400 uppercase tracking-wide mb-3">Your WhatsApp Campaign Card</h3>
+        
+        <div class="flex justify-center mb-4">
+            <canvas id="posterCanvas" width="400" height="520" class="w-full max-w-[280px] rounded-xl shadow-2xl border border-slate-700"></canvas>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="downloadPoster()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow">
+                📥 Download Poster
+            </button>
+            <button onclick="closePosterModal()" class="bg-slate-800 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-700 transition">
+                Close
+            </button>
         </div>
     </div>
 </div>
@@ -324,3 +363,4 @@
     }
 </script>
 {% endblock %}
+

@@ -65,6 +65,46 @@
         </div>
     </div>
 
+    
+    <!-- AWARDS CAMPAIGN & FINALE SETTINGS -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl mb-8">
+        <h2 class="text-base font-black text-white uppercase tracking-wider mb-4 flex items-center justify-between">
+            <span>⚙️ Campaign Phase & Grand Finale Settings</span>
+            <span class="text-xs text-amber-400 font-bold">Phase: {{ settings.phase|upper }}</span>
+        </h2>
+
+        <form id="awardsConfigForm" onsubmit="saveAwardsConfig(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Voting Phase</label>
+                <select id="cfgPhase" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+                    <option value="nominations" {% if settings.phase == 'nominations' %}selected{% endif %}>Nominations Open</option>
+                    <option value="voting" {% if settings.phase == 'voting' %}selected{% endif %}>Live Voting Active</option>
+                    <option value="blind_freeze" {% if settings.phase == 'blind_freeze' %}selected{% endif %}>Blind Mode (Totals Frozen)</option>
+                    <option value="closed" {% if settings.phase == 'closed' %}selected{% endif %}>Voting Closed</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Category Prize Pool (KES)</label>
+                <input type="number" id="cfgPrizePool" value="{{ settings.prize_pool_kes or 50000 }}"
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Grand Finale Date</label>
+                <input type="datetime-local" id="cfgFinaleDate" value="{{ (settings.finale_date or '2026-11-30T23:59:59')[:16] }}"
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white">
+            </div>
+
+            <div>
+                <button type="submit" id="saveCfgBtn"
+                        class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+                    Save Campaign Settings
+                </button>
+            </div>
+        </form>
+    </div>
+
     <!-- CONTESTANTS TABLE -->
     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl mb-8">
         <h2 class="text-base font-black text-white uppercase tracking-wider mb-4 flex items-center justify-between">
@@ -174,3 +214,4 @@
     }
 </script>
 {% endblock %}
+
