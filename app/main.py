@@ -463,6 +463,12 @@ csrf.exempt(events_bp)
 app.register_blueprint(awards_bp, url_prefix='/awards')
 csrf.exempt(awards_bp)
 
+@app.route('/awards', methods=['GET'])
+@app.route('/awards/', methods=['GET'])
+def awards_root():
+    from app.routes.awards import awards_index
+    return awards_index()
+
 # ==========================================
 # 5. SECURITY DECORATORS & HELPERS
 # ==========================================
@@ -3103,6 +3109,11 @@ def super_admin():
         entered_password = request.form.get('password')
         if ADMIN_PASSWORD and entered_password == ADMIN_PASSWORD:
             session['is_super_admin'] = True
+            session['super_admin'] = True
+            session['role'] = 'admin'
+            session['admin'] = True
+            session['name'] = 'Super Admin'
+            session['user_id'] = session.get('user_id') or 'SUPER_ADMIN'
             session.permanent = False
             flash("Welcome to God Mode, Creator.", "success")
             return redirect(url_for('super_admin'))
@@ -3111,6 +3122,11 @@ def super_admin():
             flash("Access Denied. Incorrect Master Password.", "error")
             return redirect(url_for('super_admin'))
         
+    if session.get('is_super_admin'):
+        session['super_admin'] = True
+        session['role'] = 'admin'
+        session['admin'] = True
+
     if not session.get('is_super_admin'):
         
         # Fetch manager ledgers
@@ -3669,7 +3685,62 @@ def super_admin():
                 'status': 'Fully Settled' if (gross_sales > 0 and disbursed_so_far >= net_organizer_share) else ('Held in Escrow' if gross_sales > 0 else 'No Sales')
             })
 
+        # ------------------------------------------
+        # AWARDS & VOTING PLATFORM DATA
+        # ------------------------------------------
+        try:
+            awards_settings = db.reference('awards_settings').get() or {}
+            awards_contestants = db.reference('awards_contestants').get() or {}
+            awards_categories = db.reference('awards_categories').get() or {}
+            awards_ledger = db.reference('awards_votes_ledger').get() or {}
+
+            awards_total_rev = 0
+            awards_total_votes = 0
+            awards_active_cnt = 0
+            awards_pending_cnt = 0
+
+            if isinstance(awards_ledger, dict):
+                for v in awards_ledger.values():
+                    if isinstance(v, dict):
+                        awards_total_rev += int(v.get('amount', 0) or 0)
+                        awards_total_votes += int(v.get('vote_count', 0) or 0)
+
+            if isinstance(awards_contestants, dict):
+                for c in awards_contestants.values():
+                    if isinstance(c, dict):
+                        if c.get('status') == 'active':
+                            awards_active_cnt += 1
+                            awards_total_rev += 50  # Registration fee KES
+                        elif c.get('status') == 'pending_approval':
+                            awards_pending_cnt += 1
+
+            awards_metrics = {
+                'total_revenue': awards_total_rev,
+                'total_votes': awards_total_votes,
+                'active_contestants': awards_active_cnt,
+                'pending_contestants': awards_pending_cnt,
+                'total_categories': len(awards_categories) if isinstance(awards_categories, dict) else 0
+            }
+        except Exception as awe:
+            logger.warning(f"Could not load awards metrics: {awe}")
+            awards_settings = {}
+            awards_contestants = {}
+            awards_categories = {}
+            awards_ledger = {}
+            awards_metrics = {
+                'total_revenue': 0,
+                'total_votes': 0,
+                'active_contestants': 0,
+                'pending_contestants': 0,
+                'total_categories': 0
+            }
+
         return render_template('super_admin.html',
+                               awards_settings=awards_settings,
+                               awards_contestants=awards_contestants,
+                               awards_categories=awards_categories,
+                               awards_ledger=awards_ledger,
+                               awards_metrics=awards_metrics,
                                manager_ledgers=manager_ledgers,
                                survey_responses=survey_responses,
  
@@ -3958,6 +4029,100 @@ def admin_action():
                     count += 1
             logger.info(f"Broadcasted apology email to {count} users.")
             return jsonify({'success': True, 'message': f'Apology email broadcasted to {count} users'})
+
+        elif action == 'restart_server':
+            try:
+                os.makedirs('tmp', exist_ok=True)
+                with open(os.path.join('tmp', 'restart.txt'), 'w') as f:
+                    f.write(str(time.time()))
+                logger.info("⚡ Touched tmp/restart.txt to trigger Passenger reload.")
+                return jsonify({'success': True, 'message': 'Passenger server restart triggered successfully via tmp/restart.txt'})
+            except Exception as se:
+                return jsonify({'success': False, 'message': f'Restart failed: {se}'}), 500
+
+        elif action == 'git_pull_and_restart':
+            import subprocess
+            try:
+                res = subprocess.run(['git', 'pull', 'origin', 'main'], capture_output=True, text=True, timeout=30)
+                os.makedirs('tmp', exist_ok=True)
+                with open(os.path.join('tmp', 'restart.txt'), 'w') as f:
+                    f.write(str(time.time()))
+                out_msg = res.stdout.strip() or res.stderr.strip() or 'Git pulled successfully.'
+                logger.info(f"🔄 Git pull executed: {out_msg}")
+                return jsonify({'success': (res.returncode == 0), 'message': out_msg})
+            except Exception as ge:
+                return jsonify({'success': False, 'message': f'Git pull failed: {ge}'}), 500
+
+        elif action == 'toggle_awards_campaign':
+            from app.routes.awards import get_awards_settings
+            sub_action = data.get('sub_action', 'start')
+            settings_ref = db.reference('awards_settings')
+            settings = get_awards_settings()
+            now_utc = datetime.now(timezone.utc)
+            updates = {'updated_at': now_utc.isoformat()}
+            if sub_action == 'start':
+                finale = now_utc + timedelta(days=30)
+                updates['campaign_active'] = True
+                updates['banner_active'] = True
+                updates['phase'] = 'voting'
+                updates['campaign_start_date'] = now_utc.isoformat()
+                updates['finale_date'] = finale.isoformat()
+                updates['blind_mode'] = False
+                msg = f"Awards campaign STARTED! 1-Month voting window is LIVE until {finale.strftime('%d %b %Y')}."
+            elif sub_action == 'pause':
+                updates['banner_active'] = False
+                msg = "Awards campaign PAUSED. Banner hidden."
+            elif sub_action == 'show_banner':
+                updates['banner_active'] = True
+                msg = "Homepage voting banner is now VISIBLE."
+            elif sub_action == 'hide_banner':
+                updates['banner_active'] = False
+                msg = "Homepage voting banner is now HIDDEN."
+            elif sub_action == 'end':
+                updates['campaign_active'] = False
+                updates['banner_active'] = False
+                updates['phase'] = 'closed'
+                msg = "Awards campaign ENDED."
+            settings_ref.update(updates)
+            return jsonify({'success': True, 'message': msg, 'updates': updates})
+
+        elif action == 'toggle_awards_blind_mode':
+            curr = db.reference('awards_settings/blind_mode').get() or False
+            new_val = not curr
+            db.reference('awards_settings/blind_mode').set(new_val)
+            status_str = "FROZEN (Blind Mode Active)" if new_val else "UNFROZEN (Public Totals Visible)"
+            return jsonify({'success': True, 'blind_mode': new_val, 'message': f"Vote counts are now {status_str}."})
+
+        elif action == 'approve_awards_contestant':
+            c_id = data.get('contestant_id')
+            c_status = data.get('status', 'active')
+            if c_id:
+                db.reference(f'awards_contestants/{c_id}/status').set(c_status)
+                return jsonify({'success': True, 'message': f"Contestant status updated to {c_status}."})
+            return jsonify({'success': False, 'message': "Contestant ID required"}), 400
+
+        elif action == 'delete_awards_contestant':
+            c_id = data.get('contestant_id')
+            if c_id:
+                db.reference(f'awards_contestants/{c_id}').delete()
+                return jsonify({'success': True, 'message': f"Contestant {c_id} deleted."})
+            return jsonify({'success': False, 'message': "Contestant ID required"}), 400
+
+        elif action == 'add_awards_category':
+            cat_name = sanitize_input(data.get('name', ''))
+            cat_icon = sanitize_input(data.get('icon', '🏆'))
+            cat_desc = sanitize_input(data.get('desc', ''))
+            if not cat_name:
+                return jsonify({'success': False, 'message': 'Category name required'}), 400
+            clean_id = 'cat_' + re.sub(r'[^a-z0-9_]', '', cat_name.lower().replace(' ', '_'))
+            db.reference(f'awards_categories/{clean_id}').set({
+                'name': cat_name,
+                'icon': cat_icon,
+                'desc': cat_desc,
+                'status': 'active',
+                'created_at': datetime.now(timezone.utc).isoformat()
+            })
+            return jsonify({'success': True, 'message': f"Category '{cat_name}' added successfully."})
 
         elif action == 'launch_ladies_campaign':
             from app.services.ladies_reward_service import dispatch_ladies_launch_campaign

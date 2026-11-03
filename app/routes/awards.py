@@ -151,6 +151,7 @@ def claim_awards_mpesa_receipt(receipt: str, contestant_id: str, checkout_id: st
 # 1. PUBLIC AWARDS PORTAL & LEADERBOARD
 # =========================================================================
 
+@awards_bp.route('', methods=['GET'])
 @awards_bp.route('/', methods=['GET'])
 @awards_bp.route('/hub', methods=['GET'])
 def awards_index():
@@ -805,7 +806,7 @@ def api_awards_leaderboard():
 def awards_admin():
     """Admin console to oversee nominations, category configs, revenue, and audits."""
     if not (session.get('role') == 'admin' or session.get('super_admin') or session.get('is_super_admin')):
-        return redirect(url_for('admin_login'))
+        return redirect(url_for('super_admin'))
 
     settings = get_awards_settings()
     categories = ensure_categories_exist() or {}
