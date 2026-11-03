@@ -35,19 +35,32 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    main.container {
+        max-width: 1200px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding-left: clamp(8px, 2.5vw, 24px) !important;
+        padding-right: clamp(8px, 2.5vw, 24px) !important;
+        padding-top: calc(var(--nav-height, 65px) + 10px) !important;
+        padding-bottom: 90px !important;
+        overflow-x: hidden !important;
+    }
+
+    .hidden { display: none !important; }
+
     /* Core Layout Flex & Grid */
-    .flex { display: flex !important; }
-    .inline-flex { display: inline-flex !important; }
-    .flex-col { flex-direction: column !important; }
-    .flex-row { flex-direction: row !important; }
-    .flex-wrap { flex-wrap: wrap !important; }
-    .flex-1 { flex: 1 1 0% !important; }
-    .items-center { align-items: center !important; }
-    .items-start { align-items: flex-start !important; }
-    .justify-center { justify-content: center !important; }
-    .justify-between { justify-content: space-between !important; }
-    .justify-end { justify-content: flex-end !important; }
-    .grid { display: grid !important; }
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .grid { display: grid; }
 
     /* Gap Utilities */
     .gap-1 { gap: 0.25rem !important; }
@@ -116,7 +129,7 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 
-<div class="min-h-screen pb-28 pt-6 px-4 sm:px-6 max-w-3xl mx-auto">
+<div class="min-h-screen pb-28 pt-4 sm:pt-6 px-2 sm:px-6 max-w-3xl mx-auto w-full">
     <!-- BACK BUTTON -->
     <a href="{{ url_for('awards_bp.awards_index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 mb-6 transition">
         &larr; Back to Live Leaderboard
@@ -125,7 +138,7 @@
     <!-- REGISTRATION CARD -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <!-- HEADER -->
-        <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-6 sm:p-8 border-b border-purple-800/40">
+        <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-4 sm:p-8 border-b border-purple-800/40">
             <div class="flex flex-wrap items-center gap-2 mb-2">
                 <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold uppercase">
                     <span>⭐</span> Official Entry Portal
@@ -143,14 +156,14 @@
         </div>
 
         <!-- FORM -->
-        <form id="contestantRegForm" onsubmit="submitContestantReg(event)" class="p-6 sm:p-8 space-y-5">
+        <form id="contestantRegForm" onsubmit="submitContestantReg(event)" class="p-4 sm:p-8 space-y-5">
             <!-- FULL NAME -->
             <div>
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
                     Full Name / Stage Name <span class="text-rose-500">*</span>
                 </label>
                 <input type="text" id="regName" required placeholder="e.g. MC Bright, DJ Vortex, Janet Mwangi"
-                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
             </div>
 
             <!-- EMAIL & PHONE -->
@@ -160,7 +173,7 @@
                         Your Email <span class="text-rose-500">*</span>
                     </label>
                     <input type="email" id="regEmail" required placeholder="name@gmail.com"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                     <span class="text-[11px] text-slate-400 mt-1 block">Your campaign link and milestone alerts will be sent here.</span>
                 </div>
 
@@ -169,7 +182,7 @@
                         M-Pesa Phone Number <span class="text-rose-500">*</span>
                     </label>
                     <input type="tel" id="regPhone" required placeholder="07XXXXXXXX or 254XXXXXXXX"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
                     <span class="text-[11px] text-emerald-400 mt-1 block">50 KES registration fee prompt sent here.</span>
                 </div>
             </div>
@@ -181,7 +194,7 @@
                         Award Category <span class="text-rose-500">*</span>
                     </label>
                     <select id="regCategory" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500">
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
                         <option value="" disabled selected>Select Category...</option>
                         {% for cid, cat in categories.items() %}
                         <option value="{{ cid }}">{{ cat.icon }} {{ cat.name }}</option>
@@ -194,7 +207,7 @@
                         University / Campus <span class="text-rose-500">*</span>
                     </label>
                     <select id="regInstitution" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500">
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
                         {% for inst in institutions %}
                         <option value="{{ inst }}" {% if inst == 'MMUST' %}selected{% endif %}>{{ inst }}</option>
                         {% endfor %}
@@ -208,7 +221,7 @@
                     Profile Photo Link <span class="text-slate-400 font-normal">(Direct image URL or post link)</span>
                 </label>
                 <input type="url" id="regPhoto" placeholder="https://example.com/photo.jpg (or leave blank for placeholder)"
-                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
             </div>
 
             <!-- MANIFESTO / BIO -->
@@ -227,14 +240,14 @@
                         Instagram Username
                     </label>
                     <input type="text" id="regInstagram" placeholder="@yourhandle"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
                         TikTok Username
                     </label>
                     <input type="text" id="regTiktok" placeholder="@yourhandle"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
             </div>
 

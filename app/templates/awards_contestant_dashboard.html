@@ -38,19 +38,32 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    main.container {
+        max-width: 1200px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding-left: clamp(8px, 2.5vw, 24px) !important;
+        padding-right: clamp(8px, 2.5vw, 24px) !important;
+        padding-top: calc(var(--nav-height, 65px) + 10px) !important;
+        padding-bottom: 90px !important;
+        overflow-x: hidden !important;
+    }
+
+    .hidden { display: none !important; }
+
     /* Core Layout Flex & Grid */
-    .flex { display: flex !important; }
-    .inline-flex { display: inline-flex !important; }
-    .flex-col { flex-direction: column !important; }
-    .flex-row { flex-direction: row !important; }
-    .flex-wrap { flex-wrap: wrap !important; }
-    .flex-1 { flex: 1 1 0% !important; }
-    .items-center { align-items: center !important; }
-    .items-start { align-items: flex-start !important; }
-    .justify-center { justify-content: center !important; }
-    .justify-between { justify-content: space-between !important; }
-    .justify-end { justify-content: flex-end !important; }
-    .grid { display: grid !important; }
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .grid { display: grid; }
 
     /* Gap Utilities */
     .gap-1 { gap: 0.25rem !important; }

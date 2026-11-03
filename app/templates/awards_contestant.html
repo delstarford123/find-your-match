@@ -52,6 +52,17 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    main.container {
+        max-width: 1000px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding-left: clamp(8px, 2.5vw, 24px) !important;
+        padding-right: clamp(8px, 2.5vw, 24px) !important;
+        padding-top: calc(var(--nav-height, 65px) + 10px) !important;
+        padding-bottom: 90px !important;
+        overflow-x: hidden !important;
+    }
+
     .hidden { display: none !important; }
 
     /* Core Layout Flex & Grid */
@@ -220,7 +231,7 @@
                 </div>
                 <a href="https://api.whatsapp.com/send?text=Hey%20fam!%20Please%20vote%20for%20{{ contestant.name|urlencode }}%20for%20{{ contestant.category_name|urlencode }}%20at%20{{ contestant.institution|urlencode }}!%20🏆%20Vote%20here:%20{{ share_url|urlencode }}"
                    target="_blank"
-                   class="flex-shrink-0 bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg">
+                   class="flex-shrink-0 w-full sm:w-auto bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-xs px-5 py-3 sm:py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
                     <span>💬</span> Share to WhatsApp
                 </a>
             </div>
@@ -237,7 +248,7 @@
                     </p>
                 </div>
                 <button onclick="generatePoster()"
-                        class="flex-shrink-0 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-lg">
+                        class="flex-shrink-0 w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-5 py-3 sm:py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg">
                     <span>🖼️</span> Generate Poster
                 </button>
             </div>
@@ -340,14 +351,14 @@
                         Your Email <span class="text-amber-400 font-normal">(Receipt & audit code sent here)</span>
                     </label>
                     <input type="email" id="cEmail" placeholder="comrade@gmail.com"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-amber-500">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-400 mb-1">
                         M-Pesa Number <span class="text-emerald-400 font-normal">(STK PIN prompt)</span>
                     </label>
                     <input type="tel" id="cPhone" placeholder="07XXXXXXXX or 254XXXXXXXX"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
                 </div>
             </div>
 

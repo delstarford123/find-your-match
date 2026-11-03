@@ -39,6 +39,17 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    main.container {
+        max-width: 1240px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding-left: clamp(8px, 2.5vw, 24px) !important;
+        padding-right: clamp(8px, 2.5vw, 24px) !important;
+        padding-top: calc(var(--nav-height, 65px) + 10px) !important;
+        padding-bottom: 90px !important;
+        overflow-x: hidden !important;
+    }
+
     .hidden { display: none !important; }
 
     /* Core Layout Flex & Grid */
@@ -190,82 +201,82 @@
     <!-- GRAND FINALE COUNTDOWN & PRIZE POOL BANNER -->
     <div class="mb-6 bg-gradient-to-r from-purple-950/60 via-slate-900 to-amber-950/60 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="text-center md:text-left">
-            <div class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-1.5">
+            <div class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center justify-center md:justify-start gap-1.5 flex-wrap">
                 <span>🏆</span> Category Grand Finale Prize Pool: <strong class="text-white text-sm">KES {{ settings.prize_pool_kes or 50000 | int }}</strong>
             </div>
             <p class="text-[11px] text-slate-400 mt-0.5">Top-voted winners awarded cash prizes, official trophies, and national media coverage!</p>
         </div>
 
-        <div class="flex items-center gap-2 font-mono">
-            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
-                <div id="cdDays" class="text-lg font-black text-amber-400">00</div>
-                <div class="text-[9px] text-slate-500 uppercase">Days</div>
+        <div class="flex items-center justify-center gap-1.5 sm:gap-2 font-mono flex-nowrap">
+            <div class="bg-slate-950 border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-center min-w-[46px] sm:min-w-[52px]">
+                <div id="cdDays" class="text-base sm:text-lg font-black text-amber-400">00</div>
+                <div class="text-[8px] sm:text-[9px] text-slate-500 uppercase">Days</div>
             </div>
-            <span class="text-slate-600 font-bold">:</span>
-            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
-                <div id="cdHours" class="text-lg font-black text-white">00</div>
-                <div class="text-[9px] text-slate-500 uppercase">Hours</div>
+            <span class="text-slate-600 font-bold text-xs">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-center min-w-[46px] sm:min-w-[52px]">
+                <div id="cdHours" class="text-base sm:text-lg font-black text-white">00</div>
+                <div class="text-[8px] sm:text-[9px] text-slate-500 uppercase">Hours</div>
             </div>
-            <span class="text-slate-600 font-bold">:</span>
-            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
-                <div id="cdMins" class="text-lg font-black text-white">00</div>
-                <div class="text-[9px] text-slate-500 uppercase">Mins</div>
+            <span class="text-slate-600 font-bold text-xs">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-center min-w-[46px] sm:min-w-[52px]">
+                <div id="cdMins" class="text-base sm:text-lg font-black text-white">00</div>
+                <div class="text-[8px] sm:text-[9px] text-slate-500 uppercase">Mins</div>
             </div>
-            <span class="text-slate-600 font-bold">:</span>
-            <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-center min-w-[50px]">
-                <div id="cdSecs" class="text-lg font-black text-emerald-400">00</div>
-                <div class="text-[9px] text-slate-500 uppercase">Secs</div>
+            <span class="text-slate-600 font-bold text-xs">:</span>
+            <div class="bg-slate-950 border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-center min-w-[46px] sm:min-w-[52px]">
+                <div id="cdSecs" class="text-base sm:text-lg font-black text-emerald-400">00</div>
+                <div class="text-[8px] sm:text-[9px] text-slate-500 uppercase">Secs</div>
             </div>
         </div>
     </div>
 
     <!-- HERO HEADER -->
-    <div class="text-center py-8 relative">
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3 awards-glow">
+    <div class="text-center py-6 sm:py-8 relative">
+        <div class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3 awards-glow">
             <span>🏆</span> Official Universities & National Awards
         </div>
-        <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight mb-2">
+        <h1 class="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight mb-2 px-2">
             Campus Awards & <span class="awards-hero-gradient">Talent 2026</span>
         </h1>
-        <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+        <p class="text-slate-400 text-xs sm:text-base max-w-2xl mx-auto px-2">
             Vote for top campus MCs, DJs, creators, leaders, and trendsetters across MMUST, UoN, KU, JKUAT & nationwide!
         </p>
 
         <!-- TOP STATS BAR -->
-        <div class="flex flex-wrap justify-center items-center gap-4 sm:gap-8 mt-6">
-            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
-                <span class="text-amber-400 font-bold text-lg">{{ contestants|length }}</span>
-                <span class="text-xs text-slate-400 uppercase font-semibold">Nominees</span>
+        <div class="flex flex-wrap justify-center items-center gap-2.5 sm:gap-4 mt-6 px-1">
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 sm:py-2 rounded-xl">
+                <span class="text-amber-400 font-bold text-base sm:text-lg">{{ contestants|length }}</span>
+                <span class="text-[11px] sm:text-xs text-slate-400 uppercase font-semibold">Nominees</span>
             </div>
-            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
-                <span class="text-emerald-400 font-bold text-lg">10 KES</span>
-                <span class="text-xs text-slate-400 uppercase font-semibold">Per Vote</span>
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 sm:py-2 rounded-xl">
+                <span class="text-emerald-400 font-bold text-base sm:text-lg">10 KES</span>
+                <span class="text-[11px] sm:text-xs text-slate-400 uppercase font-semibold">Per Vote</span>
             </div>
-            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
-                <span class="text-purple-400 font-bold text-lg">M-Pesa</span>
-                <span class="text-xs text-slate-400 uppercase font-semibold">Instant STK</span>
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 sm:py-2 rounded-xl">
+                <span class="text-purple-400 font-bold text-base sm:text-lg">M-Pesa</span>
+                <span class="text-[11px] sm:text-xs text-slate-400 uppercase font-semibold">Instant STK</span>
             </div>
-            <div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-2 rounded-xl">
-                <span class="text-emerald-400 font-black text-xs uppercase tracking-wide">👻 Ghost Mode Active: No Account Needed To Vote</span>
+            <div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 sm:py-2 rounded-xl">
+                <span class="text-emerald-400 font-black text-[11px] sm:text-xs uppercase tracking-wide">👻 Ghost Mode Active</span>
             </div>
             {% if settings.blind_mode %}
-            <div class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 px-4 py-2 rounded-xl">
-                <span class="text-rose-400 font-bold text-xs uppercase tracking-wide">🔒 Finale Blind Mode Active</span>
+            <div class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 px-3 py-1.5 sm:py-2 rounded-xl">
+                <span class="text-rose-400 font-bold text-[11px] sm:text-xs uppercase tracking-wide">🔒 Finale Blind Mode Active</span>
             </div>
             {% endif %}
         </div>
 
         <!-- HERO CALL TO ACTION -->
-        <div class="mt-7 flex flex-wrap items-center justify-center gap-3.5">
+        <div class="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md sm:max-w-xl mx-auto px-2">
             <a href="#classroomSection"
                onclick="document.getElementById('classroomSection').scrollIntoView({behavior: 'smooth', block: 'start'}); return false;"
-               class="px-7 py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:opacity-95 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-amber-500/30 flex items-center gap-2 transform active:scale-95 transition awards-glow cursor-pointer">
+               class="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:opacity-95 text-slate-950 font-black rounded-2xl text-xs sm:text-sm shadow-xl shadow-amber-500/30 flex items-center justify-center gap-2 transform active:scale-95 transition awards-glow cursor-pointer">
                 <span class="text-base">⚡</span>
                 <span>Cast Your Vote (Classroom Roster)</span>
                 <span>&darr;</span>
             </a>
             <a href="{{ url_for('awards_bp.awards_register_page') }}"
-               class="px-6 py-3.5 bg-slate-900/90 hover:bg-slate-800 text-white font-extrabold rounded-2xl text-sm border border-slate-700 hover:border-amber-500/50 flex items-center gap-2 transition">
+               class="w-full sm:w-auto px-6 py-3.5 bg-slate-900/90 hover:bg-slate-800 text-white font-extrabold rounded-2xl text-xs sm:text-sm border border-slate-700 hover:border-amber-500/50 flex items-center justify-center gap-2 transition">
                 <span>⭐</span>
                 <span>Register as Contestant (50 KES)</span>
             </a>
@@ -456,9 +467,9 @@
 
         <!-- CLASSROOM DESKS GRID (CIRCULAR AVATARS) -->
         {% if all_active_contestants %}
-        <div id="classroomGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div id="classroomGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {% for c in all_active_contestants %}
-            <div class="classroom-desk glass-card rounded-2xl p-5 flex flex-col justify-between group relative border border-slate-800 hover:border-amber-500/70 hover:shadow-2xl transition duration-300"
+            <div class="classroom-desk glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between group relative border border-slate-800 hover:border-amber-500/70 hover:shadow-2xl transition duration-300"
                  data-category-id="{{ c.category_id }}">
                 
                 <!-- Desk Header: Seat # and Campus -->
@@ -567,13 +578,13 @@
     </div>
 
     <!-- FLOATING BOTTOM CTA: NOMINATE YOURSELF -->
-    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 w-11/12 max-w-md">
+    <div class="fixed left-1/2 transform -translate-x-1/2 z-40 w-[92%] sm:w-full max-w-md" style="bottom: calc(1rem + env(safe-area-inset-bottom, 0px));">
         <a href="{{ url_for('awards_bp.awards_register_page') }}"
-           class="flex items-center justify-between w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 text-white px-5 py-3.5 rounded-2xl font-black text-sm shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition awards-glow border border-white/20">
+           class="flex items-center justify-between w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 text-white px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl font-black text-xs sm:text-sm shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition awards-glow border border-white/20">
             <span class="flex items-center gap-2">
-                <span class="text-lg">⭐</span> Join as a Contestant
+                <span class="text-base sm:text-lg">⭐</span> Join as a Contestant
             </span>
-            <span class="text-xs bg-slate-950/40 px-3 py-1 rounded-xl text-amber-300 font-extrabold">
+            <span class="text-[11px] sm:text-xs bg-slate-950/40 px-2.5 sm:px-3 py-1 rounded-xl text-amber-300 font-extrabold">
                 50 KES M-Pesa &rarr;
             </span>
         </a>
@@ -583,7 +594,7 @@
 <!-- ========================================================================= -->
 <!-- INTERACTIVE VOTING MODAL (10 KES / VOTE + EMAIL RECEIPT + MPESA PIN PROMPT) -->
 <!-- ========================================================================= -->
-<div id="voteModal" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 items-center justify-center p-4 overflow-y-auto">
+<div id="voteModal" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 items-center justify-center p-3 sm:p-4 overflow-y-auto">
     <div class="bg-slate-900 border border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl relative animate-scaleUp my-auto">
         <!-- Close Button -->
         <button type="button" onclick="closeVoteModal()" class="absolute top-4 right-4 z-20 text-slate-400 hover:text-white text-xl font-bold p-1 leading-none rounded-lg hover:bg-slate-800 transition">
@@ -681,7 +692,7 @@
                         2. Your Email <span class="text-amber-400 font-normal">(Official M-Pesa Receipt sent here)</span>
                     </label>
                     <input type="email" id="voterEmail" placeholder="e.g. comrade@gmail.com"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-amber-500">
                 </div>
 
                 <div>
@@ -689,7 +700,7 @@
                         3. M-Pesa Phone Number <span class="text-emerald-400 font-normal">(STK Prompt sent here)</span>
                     </label>
                     <input type="tel" id="voterPhone" placeholder="07XXXXXXXX or 2547XXXXXXXX"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
                 </div>
             </div>
 
@@ -705,7 +716,7 @@
                         Your Student Email
                     </label>
                     <input type="email" id="freeVoterEmail" placeholder="e.g. comrade@mmust.ac.ke or gmail.com"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500">
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
                 </div>
                 <button type="button" id="claimFreeVoteBtn" onclick="claimDailyFreeVote()"
                         class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition shadow-lg">
