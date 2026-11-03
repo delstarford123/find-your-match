@@ -1,0 +1,761 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign War Room & Dashboard | {{ contestant.name }} - Campus Awards{% endblock %}
+
+{% block meta %}
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-32 pt-6 px-4 sm:px-6 max-w-6xl mx-auto">
+    <!-- TOP BREADCRUMB & LIVE STATUS -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black uppercase mb-1">
+                ⭐ Contestant Campaign War-Room
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white">
+                {{ contestant.name }} &bull; <span class="text-amber-400 font-extrabold">{{ contestant.category_name }}</span>
+            </h1>
+            <p class="text-xs text-slate-400">
+                🏫 {{ contestant.institution }} &bull; Campaign War-Room & Live Rival Radar
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{{ url_for('awards_bp.awards_contestant_detail', cid=contestant.id) }}" target="_blank"
+               class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black transition border border-slate-700 flex items-center gap-1.5 shadow">
+                <span>👁️</span> Public Profile &rarr;
+            </a>
+            <button onclick="triggerPrintFlyer()"
+                    class="px-4 py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 text-xs font-black transition border border-purple-500/40 flex items-center gap-1.5">
+                <span>🖨️</span> A4 Flyer
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- FEATURE 1 & 6: HEAD-TO-HEAD GAP TRACKER & COUNTDOWN CLOCK -->
+    <!-- ========================================================================= -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+        <!-- STANDING & GAP TRACKER -->
+        <div class="md:col-span-2 bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-amber-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                <div class="w-24 h-24 rounded-2xl overflow-hidden border-2 border-amber-500 shadow-xl flex-shrink-0 relative">
+                    <img src="{{ contestant.photo_url or '/static/img/placeholder.png' }}" alt="{{ contestant.name }}" class="w-full h-full object-cover">
+                    <span class="absolute top-1 left-1 bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.5 rounded">
+                        #{{ contestant.rank }}
+                    </span>
+                </div>
+
+                <div class="flex-1 text-center sm:text-left">
+                    <div class="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                        <span class="text-xs uppercase font-extrabold text-slate-400 tracking-wider">Official Tally</span>
+                        {% if contestant.rank == 1 %}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            👑 LEADING THE CATEGORY
+                        </span>
+                        {% else %}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            🔥 CONTENDER
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-baseline justify-center sm:justify-start gap-3">
+                        <div class="text-4xl sm:text-5xl font-black text-white" id="liveVoteCount">
+                            {{ contestant.vote_count }}
+                        </div>
+                        <span class="text-slate-400 text-sm font-bold">verified votes</span>
+                    </div>
+
+                    <!-- GAP CALCULATION -->
+                    <div class="mt-3 p-3 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs">
+                        {% if contestant.rank == 1 %}
+                            {% if runner_up %}
+                            <span class="text-emerald-400 font-extrabold">Defending #1:</span> You are leading over <strong>{{ runner_up.name }}</strong> by <strong class="text-amber-400">+{{ lead_margin }} votes</strong>! Keep rallying to secure your victory!
+                            {% else %}
+                            <span class="text-emerald-400 font-extrabold">Undisputed Leader:</span> You hold 1st place in this category!
+                            {% endif %}
+                        {% else %}
+                            {% if leader %}
+                            <span class="text-amber-400 font-extrabold">Next Target:</span> You need <strong class="text-white">{{ votes_to_next }} more votes</strong> to overtake <strong>{{ rival_ahead.name }} (Rank #{{ contestant.rank - 1 }})</strong>, and <strong class="text-rose-400">{{ votes_to_leader }} votes</strong> to claim 1st place from <strong>{{ leader.name }}</strong>!
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FEATURE 6 & 7: COUNTDOWN CLOCK & PRIZE POOL -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-black tracking-wider mb-2">
+                    ⏳ Campaign Voting Window
+                </div>
+                <div class="grid grid-cols-4 gap-2 text-center my-2" id="finaleCountdown">
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-xl font-black text-amber-400" id="cdDays">00</div>
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Days</div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-xl font-black text-amber-400" id="cdHours">00</div>
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Hours</div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-xl font-black text-amber-400" id="cdMins">00</div>
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Mins</div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-xl font-black text-amber-400" id="cdSecs">00</div>
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">Secs</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRIZE POOL -->
+            <div class="pt-3 border-t border-slate-800 mt-2">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-400 font-bold">🏆 Category Grand Prize:</span>
+                    <span class="text-emerald-400 font-black text-sm">KES {{ settings.prize_pool_kes or 50000:, }}</span>
+                </div>
+                <div class="text-[10px] text-slate-500 mt-0.5">Plus Gold Trophy & National Recognition</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- FEATURE 8: MILESTONE PROGRESSION BAR -->
+    <!-- ========================================================================= -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl mb-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black uppercase text-slate-300 tracking-wider">
+                🎯 Campaign Milestone Progress
+            </span>
+            <span class="text-xs text-amber-400 font-extrabold" id="milestoneTargetTxt">
+                Target: {{ next_milestone }} Votes
+            </span>
+        </div>
+        <div class="w-full bg-slate-950 rounded-full h-3 border border-slate-800 overflow-hidden relative">
+            <div class="bg-gradient-to-r from-amber-500 to-emerald-400 h-full rounded-full transition-all duration-700"
+                 style="width: {{ milestone_percent }}%;"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-bold text-slate-400 mt-2">
+            <span>0</span>
+            <span class="{% if contestant.vote_count >= 50 %}text-amber-400{% endif %}">🥉 Bronze (50)</span>
+            <span class="{% if contestant.vote_count >= 100 %}text-amber-400{% endif %}">🥈 Silver (100)</span>
+            <span class="{% if contestant.vote_count >= 250 %}text-amber-400{% endif %}">🥇 Gold (250)</span>
+            <span class="{% if contestant.vote_count >= 500 %}text-amber-400{% endif %}">💎 Platinum (500)</span>
+            <span class="{% if contestant.vote_count >= 1000 %}text-emerald-400{% endif %}">👑 Legend (1,000)</span>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 2-COLUMN MAIN WAR-ROOM -->
+    <!-- ========================================================================= -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- LEFT 2 COLUMNS: CAMPAIGN TOOLS & LEADERBOARD -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- FEATURE 5: 1-CLICK WHATSAPP STATUS BROADCAST KIT -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>📲</span> 1-Click WhatsApp Status Broadcast Kit
+                    </h3>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">
+                        Viral Booster
+                    </span>
+                </div>
+
+                <p class="text-xs text-slate-400 mb-3">
+                    Post this optimized broadcast to your WhatsApp Status, campus groups, and Instagram story to maximize voter turnout:
+                </p>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-xs text-slate-200 relative mb-4 leading-relaxed" id="broadcastText">
+Hey comrades! 🏆 I have been nominated for *{{ contestant.category_name }}* at *{{ contestant.institution }}*! 
+I am currently *Rank #{{ contestant.rank }}* with *{{ contestant.vote_count }} verified votes*. 
+Please support me with your vote (10 KES via M-Pesa or 1 Free daily vote) to win the national trophy! 🔥
+Vote for me here: {{ share_url }}
+                </div>
+
+                <div class="flex flex-wrap gap-2.5">
+                    <button onclick="copyBroadcast()" id="copyBroadcastBtn"
+                            class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black transition border border-slate-700 flex items-center gap-1.5">
+                        <span>📋</span> Copy Text
+                    </button>
+                    <a href="https://api.whatsapp.com/send?text={{ whatsapp_encoded_text }}" target="_blank"
+                       class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/20">
+                        <span>💬</span> Share to WhatsApp Status &rarr;
+                    </a>
+                </div>
+            </div>
+
+            <!-- FEATURE 2 & 14: CATEGORY COMPETITOR LEADERBOARD & RIVAL RADAR -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                            <span>📡</span> Category Rival Radar & Standings
+                        </h3>
+                        <p class="text-xs text-slate-400">Live rankings of all candidates competing in {{ contestant.category_name }}</p>
+                    </div>
+                    <span class="text-xs text-amber-400 font-extrabold">{{ rivals|length }} Contenders</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] font-black border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">Rank</th>
+                                <th class="p-3">Contestant</th>
+                                <th class="p-3">Campus</th>
+                                <th class="p-3 text-right">Votes</th>
+                                <th class="p-3 text-right">Margin</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 font-medium">
+                            {% for r in rivals %}
+                            <tr class="hover:bg-slate-800/40 transition {% if r.id == contestant.id %}bg-amber-500/10 font-bold text-white border-l-4 border-amber-500{% endif %}">
+                                <td class="p-3">
+                                    {% if r.rank == 1 %}🥇 1{% elif r.rank == 2 %}🥈 2{% elif r.rank == 3 %}🥉 3{% else %}#{{ r.rank }}{% endif %}
+                                </td>
+                                <td class="p-3 flex items-center gap-2.5">
+                                    <img src="{{ r.photo_url or '/static/img/placeholder.png' }}" class="w-7 h-7 rounded-full object-cover">
+                                    <span class="truncate max-w-[140px]">{{ r.name }} {% if r.id == contestant.id %}(You){% endif %}</span>
+                                </td>
+                                <td class="p-3 text-slate-400">{{ r.institution }}</td>
+                                <td class="p-3 text-right font-black text-emerald-400">{{ r.vote_count }}</td>
+                                <td class="p-3 text-right text-[11px]">
+                                    {% if r.id == contestant.id %}
+                                    <span class="text-amber-400">---</span>
+                                    {% elif r.vote_count > contestant.vote_count %}
+                                    <span class="text-rose-400 font-bold">+{{ r.vote_count - contestant.vote_count }} ahead</span>
+                                    {% else %}
+                                    <span class="text-emerald-400 font-bold">-{{ contestant.vote_count - r.vote_count }} behind</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- FEATURE 9: HD POSTER GENERATOR WITH SCANNABLE QR CODE -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>🎨</span> Dynamic HD Campaign Poster (Story & Status Flyer)
+                    </h3>
+                    <button onclick="generatePoster()" id="genPosterBtn"
+                            class="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition">
+                        Render HD Poster
+                    </button>
+                </div>
+
+                <p class="text-xs text-slate-400 mb-4">
+                    Download an auto-generated high-resolution 1080x1920 poster with your photo, name, category, and scannable QR code ready to post on Instagram Stories and WhatsApp Status:
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center gap-6">
+                    <div class="w-48 h-80 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden relative shadow-xl flex items-center justify-center">
+                        <canvas id="posterCanvas" width="540" height="960" class="w-full h-full object-contain"></canvas>
+                    </div>
+
+                    <div class="flex-1 space-y-3 text-center sm:text-left">
+                        <div class="text-xs text-slate-300">
+                            <strong>Includes:</strong>
+                            <ul class="list-disc list-inside text-slate-400 mt-1 space-y-1">
+                                <li>Official Kenya University Awards badge</li>
+                                <li>Your verified candidate portrait</li>
+                                <li>Instant scannable QR code direct to your voting page</li>
+                                <li>M-Pesa STK 10 KES voting guide</li>
+                            </ul>
+                        </div>
+
+                        <button onclick="downloadPoster()" id="downloadPosterBtn" disabled
+                                class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black transition shadow">
+                            📥 Download PNG Poster
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FEATURE 12: MANIFESTO & BIO QUICK EDITOR -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-sm font-black text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <span>✏️</span> Update Campaign Pitch & Manifesto
+                </h3>
+                <p class="text-xs text-slate-400 mb-4">
+                    Give voters compelling reasons why you deserve to win this category.
+                </p>
+
+                <form id="bioForm" onsubmit="saveBio(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Campaign Slogan / Pitch</label>
+                        <textarea id="editBio" rows="3"
+                                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                                  placeholder="Tell comrades why they should vote for you...">{{ contestant.bio }}</textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Instagram Handle</label>
+                            <input type="text" id="editIg" value="{{ contestant.socials.instagram or '' }}" placeholder="@yourhandle"
+                                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">TikTok Handle</label>
+                            <input type="text" id="editTiktok" value="{{ contestant.socials.tiktok or '' }}" placeholder="@yourhandle"
+                                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                        </div>
+                    </div>
+
+                    <div id="bioStatusMsg" class="hidden text-xs p-2.5 rounded-lg"></div>
+
+                    <button type="submit" id="saveBioBtn"
+                            class="bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black px-5 py-2.5 rounded-xl uppercase tracking-wider transition">
+                        Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: ANALYTICS, SUPPORTERS & TOOLS -->
+        <div class="space-y-6">
+
+            <!-- FEATURE 10: SOCIAL BIO SHORTLINK -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider mb-2">
+                    🔗 Social Media Bio Link
+                </h3>
+                <p class="text-[11px] text-slate-400 mb-3">Paste in your Instagram, TikTok, and Twitter Bio:</p>
+                <div class="flex items-center gap-2">
+                    <input type="text" readonly value="{{ share_url }}" id="bioShareLink"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono">
+                    <button onclick="copyBioLink()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold">
+                        Copy
+                    </button>
+                </div>
+            </div>
+
+            <!-- FEATURE 11: CLICK-TO-VOTE CONVERSION FUNNEL -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider mb-4">
+                    📈 Conversion Analytics
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Profile Impressions:</span>
+                        <span class="font-bold text-white">{{ stats.views or (contestant.vote_count * 4 + 23) }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Verified Votes Cast:</span>
+                        <span class="font-bold text-emerald-400">{{ contestant.vote_count }}</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Vote Conversion Rate:</span>
+                        <span class="font-bold text-amber-400">{{ conversion_rate }}%</span>
+                    </div>
+                    <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                        <div class="bg-amber-500 h-full" style="width: {{ conversion_rate }}%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FEATURE 17: TARGET GOAL CALCULATOR -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider mb-3">
+                    🧮 Daily Vote Target Calculator
+                </h3>
+                <div class="space-y-3">
+                    <label class="block text-[11px] text-slate-400">Desired Final Vote Target:</label>
+                    <input type="range" id="goalSlider" min="50" max="2000" step="50" value="{{ target_goal or 500 }}"
+                           oninput="calcGoal()" class="w-full accent-amber-500">
+                    <div class="flex justify-between text-xs font-bold">
+                        <span class="text-slate-400">Target: <span id="goalTargetTxt" class="text-white">500</span> votes</span>
+                        <span class="text-emerald-400"><span id="votesPerDayTxt">17</span> votes / day needed</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FEATURE 4: TOP BACKERS & SUPPORTERS FAN WALL -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider mb-3 flex items-center justify-between">
+                    <span>❤️ Top Backers Fan Wall</span>
+                    <span class="text-[10px] text-slate-500">Verified Supporters</span>
+                </h3>
+
+                {% if supporters %}
+                <div class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {% for s in supporters %}
+                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-xs">
+                        <div class="truncate max-w-[140px]">
+                            <div class="font-bold text-slate-200">{{ s.name or "Comrade Supporter" }}</div>
+                            <div class="text-[10px] text-slate-500">{{ s.masked_phone }}</div>
+                        </div>
+                        <span class="font-black text-emerald-400">+{{ s.votes }} votes</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-6 text-xs text-slate-500">
+                    Be the first to rally supporters! Share your link to get your fan wall started.
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- FEATURE 15: BROADCAST THANK-YOU EMAIL TRIGGER -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-xs font-black text-white uppercase tracking-wider mb-2">
+                    💌 Thank Your Voters
+                </h3>
+                <p class="text-[11px] text-slate-400 mb-3">
+                    Send an automated thank-you email to all comrades who verified votes for you.
+                </p>
+                <button onclick="sendVoterThankYou()" id="thankYouBtn"
+                        class="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-black py-2.5 rounded-xl transition shadow">
+                    Send Gratitude Email To Backers
+                </button>
+                <div id="thankYouMsg" class="hidden text-xs mt-2 p-2 rounded-lg text-center"></div>
+            </div>
+
+            <!-- FEATURE 16: CAMPUS AMBASSADOR HOTLINE -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl text-center">
+                <div class="text-xs font-bold text-slate-400 mb-1">Need Campaign Assistance?</div>
+                <div class="text-xs text-slate-300 mb-3">Reach out to your campus awards coordinator.</div>
+                <a href="https://api.whatsapp.com/send?phone=254700000000&text=Hi%20Awards%20Team%2C%20I%20am%20nominee%20{{ contestant.name|urlencode }}%20({{ contestant.id }})"
+                   target="_blank" class="inline-block px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold transition border border-slate-700">
+                    💬 WhatsApp Event Manager
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- HIDDEN CANVAS FOR QR CODE RENDERING -->
+<!-- ========================================================================= -->
+<div id="qrcodeHidden" style="display: none;"></div>
+
+<!-- LIVE AUDIO FOR VOTE CHIME (FEATURE 13) -->
+<audio id="voteChimeAudio" preload="auto">
+    <source src="https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+    const CONTESTANT_ID = "{{ contestant.id }}";
+    const FINALE_ISO = "{{ settings.finale_date or '2026-11-30T23:59:59' }}";
+    const SHARE_URL = "{{ share_url }}";
+    let lastVoteCount = {{ contestant.vote_count }};
+
+    // FEATURE 6: COUNTDOWN TIMER
+    function updateCountdown() {
+        const finale = new Date(FINALE_ISO).getTime();
+        const now = new Date().getTime();
+        const diff = Math.max(0, finale - now);
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+        document.getElementById('cdDays').innerText = String(days).padStart(2, '0');
+        document.getElementById('cdHours').innerText = String(hours).padStart(2, '0');
+        document.getElementById('cdMins').innerText = String(mins).padStart(2, '0');
+        document.getElementById('cdSecs').innerText = String(secs).padStart(2, '0');
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+    // FEATURE 17: TARGET CALCULATOR
+    function calcGoal() {
+        const target = parseInt(document.getElementById('goalSlider').value, 10);
+        document.getElementById('goalTargetTxt').innerText = target;
+
+        const finale = new Date(FINALE_ISO).getTime();
+        const now = new Date().getTime();
+        const days = Math.max(1, Math.ceil((finale - now) / (1000 * 60 * 60 * 24)));
+
+        const needed = Math.max(0, target - lastVoteCount);
+        const perDay = Math.ceil(needed / days);
+        document.getElementById('votesPerDayTxt').innerText = perDay;
+    }
+    calcGoal();
+
+    // FEATURE 5: COPY BROADCAST
+    function copyBroadcast() {
+        const text = document.getElementById('broadcastText').innerText.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('copyBroadcastBtn');
+            btn.innerHTML = '<span>✓</span> Copied!';
+            setTimeout(() => { btn.innerHTML = '<span>📋</span> Copy Text'; }, 2500);
+        });
+    }
+
+    function copyBioLink() {
+        const link = document.getElementById('bioShareLink');
+        link.select();
+        navigator.clipboard.writeText(link.value).then(() => {
+            alert('Bio link copied to clipboard!');
+        });
+    }
+
+    // FEATURE 12: SAVE BIO
+    function saveBio(e) {
+        e.preventDefault();
+        const bio = document.getElementById('editBio').value;
+        const ig = document.getElementById('editIg').value;
+        const tiktok = document.getElementById('editTiktok').value;
+        const msg = document.getElementById('bioStatusMsg');
+        const btn = document.getElementById('saveBioBtn');
+
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+
+        fetch(`/awards/api/contestant/${CONTESTANT_ID}/update-bio`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({bio: bio, instagram: ig, tiktok: tiktok})
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = 'Save Changes';
+            msg.classList.remove('hidden');
+            if (data.success) {
+                msg.className = 'text-xs p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                msg.innerText = '✓ Campaign manifesto updated successfully!';
+            } else {
+                msg.className = 'text-xs p-2.5 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                msg.innerText = data.error || 'Failed to update';
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerText = 'Save Changes';
+            msg.classList.remove('hidden');
+            msg.className = 'text-xs p-2.5 rounded-lg bg-rose-500/20 text-rose-400';
+            msg.innerText = 'Network error saving changes.';
+        });
+    }
+
+    // FEATURE 15: SEND THANK YOU
+    function sendVoterThankYou() {
+        const btn = document.getElementById('thankYouBtn');
+        const msg = document.getElementById('thankYouMsg');
+        btn.disabled = true;
+        btn.innerText = 'Sending...';
+
+        fetch(`/awards/api/contestant/${CONTESTANT_ID}/send-thank-you`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerText = 'Send Gratitude Email To Backers';
+            msg.classList.remove('hidden');
+            if (data.success) {
+                msg.className = 'text-xs mt-2 p-2 rounded-lg text-center bg-emerald-500/20 text-emerald-400';
+                msg.innerText = `✓ Thank-you emails delivered to ${data.sent_count || 0} backers!`;
+            } else {
+                msg.className = 'text-xs mt-2 p-2 rounded-lg text-center bg-rose-500/20 text-rose-400';
+                msg.innerText = data.error || 'Failed to dispatch';
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerText = 'Send Gratitude Email To Backers';
+            msg.classList.remove('hidden');
+            msg.className = 'text-xs mt-2 p-2 rounded-lg text-center bg-rose-500/20 text-rose-400';
+            msg.innerText = 'Connection error.';
+        });
+    }
+
+    // FEATURE 9: GENERATE HD POSTER CANVAS
+    function generatePoster() {
+        const canvas = document.getElementById('posterCanvas');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('genPosterBtn');
+        btn.innerText = 'Rendering...';
+
+        // Background gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, 960);
+        grad.addColorStop(0, '#0F172A');
+        grad.addColorStop(0.4, '#0B1120');
+        grad.addColorStop(1, '#020617');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 540, 960);
+
+        // Gold border accent
+        ctx.strokeStyle = '#F59E0B';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(16, 16, 508, 928);
+
+        // Header Title
+        ctx.fillStyle = '#F59E0B';
+        ctx.font = '900 24px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('KENYA UNIVERSITY AWARDS 2026', 270, 70);
+
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = 'bold 14px -apple-system, sans-serif';
+        ctx.fillText('OFFICIAL NOMINEE', 270, 95);
+
+        // Candidate Photo
+        const photo = new Image();
+        photo.crossOrigin = 'anonymous';
+        photo.src = "{{ contestant.photo_url or '/static/img/placeholder.png' }}";
+        photo.onload = function() {
+            // Circle or rounded avatar
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(270, 240, 110, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(photo, 160, 130, 220, 220);
+            ctx.restore();
+
+            // Avatar ring
+            ctx.strokeStyle = '#F59E0B';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(270, 240, 112, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Candidate Name & Category
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '900 32px -apple-system, sans-serif';
+            ctx.fillText("{{ contestant.name }}", 270, 400);
+
+            ctx.fillStyle = '#FBBF24';
+            ctx.font = 'bold 18px -apple-system, sans-serif';
+            ctx.fillText("{{ contestant.category_name }}", 270, 435);
+
+            ctx.fillStyle = '#94A3B8';
+            ctx.font = '14px -apple-system, sans-serif';
+            ctx.fillText("🏫 {{ contestant.institution }}", 270, 465);
+
+            // Instructions Box
+            ctx.fillStyle = '#1E293B';
+            ctx.roundRect(50, 500, 440, 140, 16);
+            ctx.fill();
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#10B981';
+            ctx.font = '900 20px -apple-system, sans-serif';
+            ctx.fillText("VOTE VIA M-PESA & WIN CASH!", 270, 545);
+
+            ctx.fillStyle = '#E2E8F0';
+            ctx.font = '13px -apple-system, sans-serif';
+            ctx.fillText("Scan QR code below or tap link to cast your vote.", 270, 580);
+            ctx.fillText("10 KES per vote • 1 Free Vote Daily", 270, 605);
+
+            // Scannable QR Code
+            renderQrToCanvas(ctx, () => {
+                // Footer
+                ctx.fillStyle = '#64748B';
+                ctx.font = '11px -apple-system, sans-serif';
+                ctx.fillText("Powered by Find Your Match • findyourmatch.co.ke", 270, 915);
+
+                btn.innerText = '✓ Rendered!';
+                document.getElementById('downloadPosterBtn').disabled = false;
+            });
+        };
+        photo.onerror = function() {
+            btn.innerText = 'Render HD Poster';
+            alert('Could not load candidate photo for canvas. Please ensure a valid image URL.');
+        };
+    }
+
+    function renderQrToCanvas(ctx, callback) {
+        const qrContainer = document.getElementById('qrcodeHidden');
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: SHARE_URL,
+            width: 170,
+            height: 170,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+
+        setTimeout(() => {
+            const qrImg = qrContainer.querySelector('img');
+            if (qrImg && qrImg.src) {
+                const qrImageObj = new Image();
+                qrImageObj.src = qrImg.src;
+                qrImageObj.onload = () => {
+                    // White background for QR code
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.roundRect(175, 680, 190, 190, 12);
+                    ctx.fill();
+                    ctx.drawImage(qrImageObj, 185, 690, 170, 170);
+                    if (callback) callback();
+                };
+            } else {
+                if (callback) callback();
+            }
+        }, 300);
+    }
+
+    function downloadPoster() {
+        const canvas = document.getElementById('posterCanvas');
+        const link = document.createElement('a');
+        link.download = `Vote_{{ contestant.name|replace(' ', '_') }}_Awards2026.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    // FEATURE 19: PRINT A4 FLYER
+    function triggerPrintFlyer() {
+        window.print();
+    }
+
+    // FEATURE 20: CONFETTI CELEBRATION
+    {% if milestone_unlocked %}
+    window.addEventListener('DOMContentLoaded', () => {
+        confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+        });
+    });
+    {% endif %}
+
+    // FEATURE 13: REALTIME VOTE POLLER WITH AUDIO CHIME
+    function pollLiveVotes() {
+        fetch(`/awards/api/contestant/${CONTESTANT_ID}/votes`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.vote_count > lastVoteCount) {
+                const diff = data.vote_count - lastVoteCount;
+                lastVoteCount = data.vote_count;
+                document.getElementById('liveVoteCount').innerText = lastVoteCount;
+
+                // Play chime
+                try {
+                    const audio = document.getElementById('voteChimeAudio');
+                    if (audio) audio.play();
+                } catch(e) {}
+
+                // Trigger confetti
+                confetti({ particleCount: 60, spread: 60 });
+            }
+        })
+        .catch(() => {});
+    }
+    setInterval(pollLiveVotes, 8000);
+
+    // Auto-render poster on page load
+    window.addEventListener('load', () => {
+        generatePoster();
+    });
+</script>
+{% endblock %}

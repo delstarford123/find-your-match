@@ -3,12 +3,15 @@
 {% block title %}Vote for {{ contestant.name }} | {{ contestant.category_name }} - Campus Awards{% endblock %}
 
 {% block meta %}
+{% set share_img = contestant.photo_url if (contestant.photo_url and contestant.photo_url.startswith('http')) else (request.url_root.rstrip('/') ~ (contestant.photo_url or '/static/img/icon-512.png')) %}
 <!-- Open Graph / WhatsApp Status Preview Meta Tags -->
 <meta property="og:type" content="profile">
 <meta property="og:url" content="{{ share_url }}">
 <meta property="og:title" content="Vote for {{ contestant.name }} in {{ contestant.category_name }} 🏆">
 <meta property="og:description" content="Support {{ contestant.name }} ({{ contestant.institution }}) on the Campus Awards! Currently Rank #{{ contestant.rank }} with {{ contestant.vote_count }} votes. Tap to cast your vote!">
-<meta property="og:image" content="{{ contestant.photo_url or '/static/img/icon-512.png' }}">
+<meta property="og:image" content="{{ share_img }}">
+<meta property="og:image:secure_url" content="{{ share_img }}">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="600">
 <meta property="og:image:height" content="600">
 
@@ -16,7 +19,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Vote for {{ contestant.name }} | {{ contestant.category_name }}">
 <meta name="twitter:description" content="Support {{ contestant.name }} on the Campus Awards! Tap to cast your vote via M-Pesa.">
-<meta name="twitter:image" content="{{ contestant.photo_url or '/static/img/icon-512.png' }}">
+<meta name="twitter:image" content="{{ share_img }}">
 {% endblock %}
 
 {% block content %}
@@ -245,6 +248,14 @@
                 <div class="text-4xl">🎉</div>
                 <h4 class="text-base font-black text-emerald-400">Votes Credited!</h4>
                 <p class="text-xs text-slate-300">Thank you for voting! Your official receipt was delivered to your email.</p>
+                <div class="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3.5 my-3 text-center">
+                    <div class="text-[10px] text-rose-400 uppercase font-black tracking-wider">🎁 Special Voter Bonus Unlocked</div>
+                    <div class="text-xs font-black text-white mt-0.5">3 Days Free VIP Matchmaking Pass!</div>
+                    <p class="text-[11px] text-rose-200/80 mt-1">Connect with verified campus singles and discover your crush.</p>
+                    <a href="/register?ref=awards_voter" class="inline-block mt-2.5 px-4 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow-lg">
+                        Claim Free VIP Pass &rarr;
+                    </a>
+                </div>
                 <button onclick="window.location.reload()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">
                     Done
                 </button>

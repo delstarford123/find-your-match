@@ -1158,3 +1158,303 @@ def api_admin_update_settings():
     db.reference('awards_settings').update(updates)
 
     return jsonify({"success": True, "message": "Awards settings updated successfully!", "updates": updates}), 200
+
+
+
+# =========================================================================
+# 12. CONTESTANT WAR-ROOM DASHBOARD & CAMPAIGN VELOCITY (20 FEATURES)
+# =========================================================================
+
+@awards_bp.route('/dashboard/<cid>', methods=['GET'])
+def awards_contestant_dashboard(cid):
+    """
+    Dedicated Campaign War-Room Dashboard for candidates to track rival momentum,
+    generate promotional assets, and maximize voter turnout.
+    """
+    clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(cid).strip())
+    contestant = db.reference(f'awards_contestants/{clean_id}').get()
+
+    if not contestant or not isinstance(contestant, dict):
+        return render_template('404.html', message="Contestant dashboard not found or profile pending verification."), 404
+
+    contestant['id'] = clean_id
+    contestant['vote_count'] = int(contestant.get('vote_count', 0) or 0)
+    cat_id = contestant.get('category_id')
+
+    # Fetch all active contestants in the same category to compute head-to-head metrics
+    all_contestants = db.reference('awards_contestants').get() or {}
+    rivals = [
+        dict(c, id=k, vote_count=int(c.get('vote_count', 0) or 0))
+        for k, c in all_contestants.items()
+        if isinstance(c, dict) and c.get('status') == 'active' and c.get('category_id') == cat_id
+    ]
+    rivals.sort(key=lambda x: x['vote_count'], reverse=True)
+
+    current_rank = 1
+    for idx, r in enumerate(rivals, start=1):
+        r['rank'] = idx
+        if r['id'] == clean_id:
+            current_rank = idx
+
+    contestant['rank'] = current_rank
+
+    # Head-to-Head calculations
+    leader = rivals[0] if rivals else None
+    runner_up = rivals[1] if len(rivals) > 1 else None
+    rival_ahead = rivals[current_rank - 2] if current_rank > 1 and len(rivals) >= current_rank else None
+
+    lead_margin = (contestant['vote_count'] - runner_up['vote_count']) if (current_rank == 1 and runner_up) else 0
+    votes_to_next = ((rival_ahead['vote_count'] - contestant['vote_count']) + 1) if rival_ahead else 0
+    votes_to_leader = ((leader['vote_count'] - contestant['vote_count']) + 1) if (leader and current_rank > 1) else 0
+
+    # Milestone Progression (50, 100, 250, 500, 1000)
+    milestones = [50, 100, 250, 500, 1000]
+    next_milestone = 50
+    for m in milestones:
+        if contestant['vote_count'] < m:
+            next_milestone = m
+            break
+        next_milestone = m + 500
+
+    milestone_percent = min(100, int((contestant['vote_count'] / max(1, next_milestone)) * 100))
+    milestone_unlocked = contestant['vote_count'] in milestones or contestant['vote_count'] >= 50
+
+    # Top Supporters / Backers
+    all_votes = db.reference('awards_votes').get() or {}
+    contestant_votes = [
+        v for v in all_votes.values()
+        if isinstance(v, dict) and v.get('contestant_id') == clean_id
+    ]
+    
+    supporters_map = {}
+    for v in contestant_votes:
+        phone = v.get('voter_phone') or 'Anonymous'
+        count = int(v.get('vote_count', 1) or 1)
+        name = v.get('voter_email', '').split('@')[0].title() if v.get('voter_email') else 'Comrade Backer'
+        if phone not in supporters_map:
+            # Mask phone for privacy: 2547****123
+            masked = phone[:4] + "****" + phone[-3:] if len(phone) >= 7 else phone
+            supporters_map[phone] = {"name": name, "masked_phone": masked, "votes": 0}
+        supporters_map[phone]["votes"] += count
+
+    supporters_list = sorted(supporters_map.values(), key=lambda x: x['votes'], reverse=True)[:10]
+
+    # Conversion Stats
+    views = max(contestant['vote_count'] * 3 + 18, int(contestant.get('views', 0) or 0))
+    conversion_rate = min(100, round((contestant['vote_count'] / max(1, views)) * 100, 1))
+
+    settings = get_awards_settings()
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    share_url = f"{base_url}/awards/contestant/{clean_id}"
+
+    whatsapp_msg = (
+        f"Hey comrades! 🏆 I have been nominated for *{contestant.get('category_name')}* at *{contestant.get('institution')}*!\n"
+        f"I am currently *Rank #{current_rank}* with *{contestant['vote_count']} verified votes*.\n"
+        f"Please support me with your vote (10 KES via M-Pesa or 1 Free daily vote) to win the national trophy! 🔥\n"
+        f"Vote for me here: {share_url}"
+    )
+    whatsapp_encoded_text = urllib.parse.quote(whatsapp_msg)
+
+    return render_template(
+        'awards_contestant_dashboard.html',
+        contestant=contestant,
+        rivals=rivals,
+        leader=leader,
+        runner_up=runner_up,
+        rival_ahead=rival_ahead,
+        lead_margin=lead_margin,
+        votes_to_next=votes_to_next,
+        votes_to_leader=votes_to_leader,
+        next_milestone=next_milestone,
+        milestone_percent=milestone_percent,
+        milestone_unlocked=milestone_unlocked,
+        supporters=supporters_list,
+        stats={"views": views},
+        conversion_rate=conversion_rate,
+        target_goal=max(100, next_milestone),
+        settings=settings,
+        share_url=share_url,
+        whatsapp_encoded_text=whatsapp_encoded_text
+    )
+
+
+@awards_bp.route('/api/contestant/<cid>/update-bio', methods=['POST'])
+def api_contestant_update_bio(cid):
+    """Allows contestants to update their campaign pitch, slogan, and social handles."""
+    clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(cid).strip())
+    contestant_ref = db.reference(f'awards_contestants/{clean_id}')
+    contestant = contestant_ref.get()
+
+    if not contestant or not isinstance(contestant, dict):
+        return jsonify({"success": False, "error": "Contestant record not found"}), 404
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    bio = sanitize_input(data.get('bio'), 1000)
+    instagram = sanitize_input(data.get('instagram'), 60)
+    tiktok = sanitize_input(data.get('tiktok'), 60)
+
+    updates = {}
+    if bio:
+        updates['bio'] = bio
+    if instagram or tiktok:
+        existing_socials = contestant.get('socials') or {}
+        if instagram:
+            existing_socials['instagram'] = instagram
+        if tiktok:
+            existing_socials['tiktok'] = tiktok
+        updates['socials'] = existing_socials
+
+    if updates:
+        contestant_ref.update(updates)
+
+    return jsonify({"success": True, "message": "Campaign manifesto updated successfully!"}), 200
+
+
+@awards_bp.route('/api/contestant/<cid>/votes', methods=['GET'])
+def api_contestant_votes(cid):
+    """Realtime poll endpoint for live vote counter & audio chime."""
+    clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(cid).strip())
+    contestant = db.reference(f'awards_contestants/{clean_id}').get()
+    if not contestant or not isinstance(contestant, dict):
+        return jsonify({"success": False, "error": "Contestant not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "vote_count": int(contestant.get('vote_count', 0) or 0)
+    }), 200
+
+
+@awards_bp.route('/api/contestant/<cid>/send-thank-you', methods=['POST'])
+def api_contestant_send_thank_you(cid):
+    """Dispatches thank-you emails to all registered voters who supported this contestant."""
+    clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(cid).strip())
+    contestant = db.reference(f'awards_contestants/{clean_id}').get()
+    if not contestant or not isinstance(contestant, dict):
+        return jsonify({"success": False, "error": "Contestant not found"}), 404
+
+    # Fetch unique voter emails for this contestant
+    all_votes = db.reference('awards_votes').get() or {}
+    voter_emails = set()
+    for v in all_votes.values():
+        if isinstance(v, dict) and v.get('contestant_id') == clean_id:
+            em = v.get('voter_email')
+            if em and '@' in em:
+                voter_emails.add(em.strip().lower())
+
+    if not voter_emails:
+        return jsonify({"success": False, "error": "No verified voter emails recorded yet."}), 400
+
+    name = contestant.get('name', 'Nominee')
+    cat = contestant.get('category_name', 'Awards')
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    sent_count = 0
+    from app.email_service import _send_email
+    for email_addr in list(voter_emails)[:50]:
+        subj = f"💌 A personal thank-you from {name} ({cat})"
+        txt = f"""Hi comrade,
+
+I just wanted to take a moment to sincerely thank you for casting your vote for me in the {cat} category! Your support means the world to me. Keep rallying!
+
+Best,
+{name}"""
+        html = f"""
+        <div style="font-family: sans-serif; background: #0F172A; color: #F8FAFC; padding: 24px; border-radius: 12px; max-width: 500px; margin: 0 auto; border: 1px solid #1E293B;">
+            <h2 style="color: #F59E0B; margin-top: 0;">Thank You for Believing in Me! 🏆</h2>
+            <p style="font-size: 14px; line-height: 1.6; color: #E2E8F0;">
+                Hi comrade,<br><br>
+                I saw your vote come through on the live leaderboard for <strong>{cat}</strong>. Your support is pushing me closer to victory!
+            </p>
+            <div style="background: #1E293B; border-radius: 8px; padding: 12px; margin: 16px 0; text-align: center;">
+                <span style="font-size: 12px; color: #94A3B8;">Current Standing:</span><br>
+                <strong style="font-size: 18px; color: #10B981;">{contestant.get('vote_count', 0)} Verified Votes</strong>
+            </div>
+            <a href="{base_url}/awards/contestant/{clean_id}" style="display: inline-block; background: #F59E0B; color: #000; font-weight: 800; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-size: 13px;">
+                Check Live Standing &rarr;
+            </a>
+        </div>
+        """
+        if _send_email(email_addr, subj, txt, html, sender_name=f"{name} via Campus Awards"):
+            sent_count += 1
+
+    return jsonify({"success": True, "sent_count": sent_count}), 200
+
+
+@awards_bp.route('/api/banner-spotlight', methods=['GET'])
+def api_banner_spotlight():
+    """
+    Supplies the dynamic awards spotlight banner for index.html with live category duels.
+    Spotlights the leading vs trailing contestants to spark competition.
+    """
+    settings = get_awards_settings()
+    all_contestants = db.reference('awards_contestants').get() or {}
+
+    active_by_cat = {}
+    for cid, c in all_contestants.items():
+        if isinstance(c, dict) and c.get('status') == 'active':
+            cat = c.get('category_name') or 'General'
+            if cat not in active_by_cat:
+                active_by_cat[cat] = []
+            active_by_cat[cat].append({
+                "id": cid,
+                "name": c.get('name'),
+                "institution": c.get('institution', 'Campus'),
+                "vote_count": int(c.get('vote_count', 0) or 0),
+                "photo_url": c.get('photo_url') or '/static/img/placeholder.png'
+            })
+
+    battles = []
+    for cat_name, list_c in active_by_cat.items():
+        if len(list_c) >= 1:
+            list_c.sort(key=lambda x: x['vote_count'], reverse=True)
+            leader = list_c[0]
+            contender = list_c[1] if len(list_c) > 1 else None
+            gap = (leader['vote_count'] - contender['vote_count']) if contender else 0
+            battles.append({
+                "category": cat_name,
+                "leader": leader,
+                "contender": contender,
+                "gap": gap
+            })
+
+    return jsonify({
+        "success": True,
+        "campaign_title": settings.get('title', 'Kenya University & MMUST Awards 2026'),
+        "finale_date": settings.get('finale_date', '2026-11-30T23:59:59'),
+        "prize_pool_kes": settings.get('prize_pool_kes', 50000),
+        "battles": battles[:6]
+    }), 200
+
+
+@awards_bp.route('/api/admin/extend-campaign', methods=['POST'])
+def api_admin_extend_campaign():
+    """
+    Super Admin quick-action to extend the 1-month campaign window by +7, +14, or +30 days.
+    """
+    if not (session.get('role') == 'admin' or session.get('super_admin') or session.get('is_super_admin')):
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or request.form.to_dict()
+    add_days = int(data.get('days', 30))
+
+    settings = get_awards_settings()
+    current_finale = settings.get('finale_date')
+    try:
+        curr_dt = datetime.fromisoformat(current_finale.replace('Z', '+00:00'))
+    except Exception:
+        curr_dt = datetime.now(timezone.utc)
+
+    new_dt = curr_dt + timedelta(days=add_days)
+    new_finale_iso = new_dt.isoformat()
+
+    db.reference('awards_settings').update({
+        'finale_date': new_finale_iso,
+        'phase': 'voting',
+        'updated_at': datetime.now(timezone.utc).isoformat()
+    })
+
+    return jsonify({
+        "success": True,
+        "message": f"Campaign successfully extended by +{add_days} days to {new_finale_iso}!",
+        "new_finale_date": new_finale_iso
+    }), 200

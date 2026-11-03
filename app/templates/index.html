@@ -413,7 +413,370 @@
             font-size: 16px;
         }
     }
+
+    /* === KENYA UNIVERSITY AWARDS SPOTLIGHT BANNER === */
+    .awards-hero-spotlight {
+        background: linear-gradient(135deg, #0B1120 0%, #1E1B4B 45%, #4C0519 100%);
+        border-bottom: 2px solid rgba(245, 158, 11, 0.4);
+        padding: 16px 20px;
+        color: #F8FAFC;
+        position: relative;
+        z-index: 10;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .awards-spotlight-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .awards-badge-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .awards-live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #FCA5A5;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background: #EF4444;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #EF4444;
+        animation: pulseLike 1.5s infinite;
+    }
+    .awards-headline {
+        font-size: clamp(14px, 2.5vw, 18px);
+        font-weight: 900;
+        color: #FBBF24;
+        letter-spacing: -0.3px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .awards-timer-pill {
+        font-size: 11px;
+        font-weight: 800;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        padding: 4px 12px;
+        border-radius: 20px;
+        color: #FCD34D;
+    }
+    .awards-duel-container {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        padding: 14px 18px;
+        backdrop-blur-md: blur(10px);
+    }
+    .duel-cat-tag {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #F59E0B;
+        margin-bottom: 10px;
+        letter-spacing: 0.8px;
+    }
+    .duel-fighters {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .fighter-card {
+        flex: 1;
+        min-width: 180px;
+        background: rgba(30, 41, 59, 0.7);
+        border-radius: 14px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: transform 0.2s;
+    }
+    .leader-card {
+        border-color: rgba(245, 158, 11, 0.4);
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%);
+    }
+    .contender-card {
+        border-color: rgba(244, 63, 94, 0.4);
+        background: linear-gradient(135deg, rgba(244, 63, 94, 0.1) 0%, rgba(30, 41, 59, 0.8) 100%);
+    }
+    .fighter-badge {
+        font-size: 9px;
+        font-weight: 900;
+        padding: 3px 8px;
+        border-radius: 10px;
+        text-transform: uppercase;
+    }
+    .leader-badge { background: #F59E0B; color: #000; }
+    .contender-badge { background: #F43F5E; color: #FFF; }
+    .fighter-info strong {
+        display: block;
+        font-size: 13px;
+        color: #FFF;
+    }
+    .fighter-info span {
+        font-size: 10px;
+        color: #94A3B8;
+    }
+    .fighter-votes {
+        font-size: 13px;
+        font-weight: 900;
+        color: #10B981;
+    }
+    .duel-vs {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+    .vs-circle {
+        background: #F59E0B;
+        color: #000;
+        font-size: 10px;
+        font-weight: 900;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .vs-gap {
+        font-size: 10px;
+        color: #FCD34D;
+        font-weight: 700;
+    }
+    .awards-cta-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-top: 6px;
+    }
+    .awards-perks {
+        font-size: 12px;
+        color: #FDA4AF;
+    }
+    .awards-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .btn-awards-vote {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        color: #000;
+        font-size: 12px;
+        font-weight: 900;
+        padding: 10px 18px;
+        border-radius: 20px;
+        text-decoration: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+    }
+    .btn-awards-vote:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+        color: #000;
+    }
+    .btn-awards-enter {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #F8FAFC;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 10px 16px;
+        border-radius: 20px;
+        text-decoration: none;
+        transition: background 0.2s;
+    }
+    .btn-awards-enter:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #FFF;
+    }
+    @media (max-width: 640px) {
+        .duel-fighters { flex-direction: column; align-items: stretch; }
+        .duel-vs { flex-direction: row; justify-content: center; margin: 4px 0; }
+        .awards-cta-bar { flex-direction: column; align-items: stretch; text-align: center; }
+        .awards-actions { justify-content: center; }
+        .btn-awards-vote, .btn-awards-enter { width: 100%; text-align: center; }
+    }
+
 </style>
+
+
+<!-- ========================================================================= -->
+<!-- KENYA UNIVERSITY & MMUST AWARDS 2026 HERO SPOTLIGHT BANNER -->
+<!-- ========================================================================= -->
+<div class="awards-hero-spotlight">
+    <div class="awards-spotlight-inner">
+        <div class="awards-badge-bar">
+            <div class="awards-live-pill">
+                <span class="pulse-dot"></span>
+                <span>VOTING IS LIVE • 1 MONTH CAMPAIGN</span>
+            </div>
+            <div class="awards-headline">
+                🏆 KENYA UNIVERSITY & MMUST TALENT AWARDS 2026
+            </div>
+            <div class="awards-timer-pill" id="bannerTimerPill">
+                ⏳ Finale in: <strong id="bannerCd">27 Days</strong>
+            </div>
+        </div>
+
+        <!-- DYNAMIC DUEL SPOTLIGHT CAROUSEL -->
+        <div class="awards-duel-container" id="awardsDuelCard">
+            <div class="duel-cat-tag" id="duelCatTag">🔥 FEATURED BATTLE: Best Campus MC</div>
+            
+            <div class="duel-fighters">
+                <!-- LEADER -->
+                <div class="fighter-card leader-card" id="fighterLeader">
+                    <span class="fighter-badge leader-badge">👑 LEADING</span>
+                    <div class="fighter-info">
+                        <strong id="leaderName">Brian Kip</strong>
+                        <span id="leaderCampus">🏫 MMUST</span>
+                    </div>
+                    <div class="fighter-votes" id="leaderVotes">142 votes</div>
+                </div>
+
+                <!-- VS ACCENT -->
+                <div class="duel-vs">
+                    <span class="vs-circle">VS</span>
+                    <span class="vs-gap" id="duelGap">14 votes apart!</span>
+                </div>
+
+                <!-- CONTENDER -->
+                <div class="fighter-card contender-card" id="fighterContender">
+                    <span class="fighter-badge contender-badge">⚡ CONTENDER</span>
+                    <div class="fighter-info">
+                        <strong id="contenderName">Sharon Achieng</strong>
+                        <span id="contenderCampus">🏫 UoN</span>
+                    </div>
+                    <div class="fighter-votes" id="contenderVotes">128 votes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM CTA BAR & DATING CONVERSION PROMISE -->
+        <div class="awards-cta-bar">
+            <div class="awards-perks">
+                🎁 <strong>Voter Perk:</strong> Every vote unlocks <strong>3 Days Free VIP Matchmaking</strong> to find campus crushes!
+            </div>
+            <div class="awards-actions">
+                <a href="/awards" class="btn-awards-vote">
+                    <span>🔥 Cast Your Vote (10 KES / Free Daily) &rarr;</span>
+                </a>
+                <a href="/awards/register" class="btn-awards-enter">
+                    <span>⭐ Nominate / Enter (50 KES)</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Live Spotlight Ticker Hydration
+    (function initAwardsBanner() {
+        let battles = [
+            {
+                category: "Best Male MC",
+                leader: {name: "Brian Kip", institution: "MMUST", vote_count: 142},
+                contender: {name: "Sharon Achieng", institution: "UoN", vote_count: 128},
+                gap: 14
+            },
+            {
+                category: "Best Campus DJ",
+                leader: {name: "DJ Flexx", institution: "KU", vote_count: 210},
+                contender: {name: "DJ Flame", institution: "MMUST", vote_count: 195},
+                gap: 15
+            },
+            {
+                category: "Campus Fashion Icon",
+                leader: {name: "Vanessa Moraa", institution: "JKUAT", vote_count: 168},
+                contender: {name: "Cynthia Chebet", institution: "Strathmore", vote_count: 152},
+                gap: 16
+            }
+        ];
+        let curIdx = 0;
+
+        function renderBattle(b) {
+            if (!b) return;
+            const catTag = document.getElementById('duelCatTag');
+            const lName = document.getElementById('leaderName');
+            const lCampus = document.getElementById('leaderCampus');
+            const lVotes = document.getElementById('leaderVotes');
+
+            const cName = document.getElementById('contenderName');
+            const cCampus = document.getElementById('contenderCampus');
+            const cVotes = document.getElementById('contenderVotes');
+            const gapTxt = document.getElementById('duelGap');
+
+            if (catTag) catTag.innerText = `🔥 FEATURED BATTLE: ${b.category}`;
+            if (lName && b.leader) {
+                lName.innerText = b.leader.name;
+                lCampus.innerText = `🏫 ${b.leader.institution}`;
+                lVotes.innerText = `${b.leader.vote_count} votes`;
+            }
+            if (cName && b.contender) {
+                cName.innerText = b.contender.name;
+                cCampus.innerText = `🏫 ${b.contender.institution}`;
+                cVotes.innerText = `${b.contender.vote_count} votes`;
+                if (gapTxt) gapTxt.innerText = `${b.gap} votes apart!`;
+            } else if (cName) {
+                cName.innerText = "Challenger Wanted";
+                cCampus.innerText = "Be the next nominee!";
+                cVotes.innerText = "0 votes";
+                if (gapTxt) gapTxt.innerText = "No rival yet!";
+            }
+        }
+
+        // Fetch live spotlight data
+        fetch('/awards/api/banner-spotlight')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.battles && data.battles.length > 0) {
+                        battles = data.battles;
+                    }
+                    if (data.finale_date) {
+                        const finale = new Date(data.finale_date).getTime();
+                        const diff = Math.max(0, finale - Date.now());
+                        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                        const cdElem = document.getElementById('bannerCd');
+                        if (cdElem) cdElem.innerText = `${days} Days`;
+                    }
+                    renderBattle(battles[0]);
+                }
+            })
+            .catch(() => {});
+
+        // Cycle through battles every 4.5 seconds
+        setInterval(() => {
+            if (battles.length > 1) {
+                curIdx = (curIdx + 1) % battles.length;
+                renderBattle(battles[curIdx]);
+            }
+        }, 4500);
+    })();
+</script>
 
 <div class="hero-wrapper">
     <div class="hero-section">

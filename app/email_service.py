@@ -4504,6 +4504,22 @@ def send_vote_receipt_email(recipient_email: str, voter_name: str, contestant_na
                         </table>
                     </div>
 
+                    <!-- SPECIAL VOTER REWARD: 3-DAY VIP DATING PASS -->
+                    <div style="background: linear-gradient(135deg, rgba(230, 0, 38, 0.12) 0%, rgba(114, 0, 0, 0.25) 100%); border: 1.5px dashed #E60026; border-radius: 14px; padding: 18px; text-align: center; margin-bottom: 22px;">
+                        <div style="font-size: 11px; color: #FDA4AF; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                            🎁 Exclusive Voter Reward &bull; Find Your Match
+                        </div>
+                        <div style="font-size: 16px; font-weight: 900; color: #FFFFFF; margin-bottom: 6px;">
+                            You've Unlocked 3 Days of Free VIP Matchmaking!
+                        </div>
+                        <p style="font-size: 12px; color: #FECDD3; margin: 0 0 14px 0; line-height: 1.5;">
+                            Meet authentic comrades, sync timetables, and discover who has a crush on you across Kenyan universities.
+                        </p>
+                        <a href="{base_url}/register?ref=awards_voter&email={urllib.parse.quote(recipient_email)}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: #FFFFFF; font-weight: 800; font-size: 13px; padding: 11px 24px; border-radius: 20px; text-decoration: none; box-shadow: 0 4px 15px rgba(230,0,38,0.4);">
+                            ❤️ Claim 3-Day Free VIP Pass &rarr;
+                        </a>
+                    </div>
+
                     <!-- LEADERBOARD CTA -->
                     <div style="text-align: center; margin-bottom: 16px;">
                         <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
