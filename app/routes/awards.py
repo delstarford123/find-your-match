@@ -118,6 +118,114 @@ def ensure_categories_exist():
     return existing
 
 
+# =========================================================================
+# MOCK CONTESTANTS & AUTO-DISAPPEARANCE SYSTEM
+# =========================================================================
+MOCK_CONTESTANTS = {
+    "mock_mc_bright": {
+        "id": "mock_mc_bright",
+        "name": "Brian 'MC Bright' Otieno",
+        "email": "mcbright@mmust.ac.ke",
+        "phone": "0712345678",
+        "institution": "MMUST",
+        "category_id": "cat_best_male_mc",
+        "category_name": "Best Male MC",
+        "bio": "Energetic campus MC & stage hype master. Keeping MMUST & western events lively since 2023! Vote for authentic campus energy.",
+        "photo_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80",
+        "video_url": "",
+        "socials": {
+            "instagram": "@mcbright_ke",
+            "tiktok": "@mcbright_official"
+        },
+        "vote_count": 42,
+        "status": "active",
+        "is_mock": True,
+        "referral_link": "https://findyourmatch.co.ke/awards/contestant/mock_mc_bright",
+        "created_at": "2026-11-01T10:00:00+00:00"
+    },
+    "mock_dj_vortex": {
+        "id": "mock_dj_vortex",
+        "name": "Valerie 'DJ Vortex' Chebet",
+        "email": "djvortex@mmust.ac.ke",
+        "phone": "0723456789",
+        "institution": "MMUST",
+        "category_id": "cat_best_dj",
+        "category_name": "Best Campus DJ",
+        "bio": "Turntable wizardess rocking campus festivals, fresher's bashes, and western club gigs. The rhythm of Kakamega.",
+        "photo_url": "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=500&auto=format&fit=crop&q=80",
+        "video_url": "",
+        "socials": {
+            "instagram": "@djvortex_mix",
+            "tiktok": "@djvortex_ke"
+        },
+        "vote_count": 38,
+        "status": "active",
+        "is_mock": True,
+        "referral_link": "https://findyourmatch.co.ke/awards/contestant/mock_dj_vortex",
+        "created_at": "2026-11-01T11:00:00+00:00"
+    }
+}
+
+
+def purge_mock_contestants():
+    """Removes all mock contestants from Firebase database."""
+    try:
+        for mid in list(MOCK_CONTESTANTS.keys()):
+            ref = db.reference(f'awards_contestants/{mid}')
+            if ref.get() is not None:
+                ref.delete()
+        logger.info("🧹 Auto-disappearance: Mock contestants purged because real active contestants exist.")
+    except Exception as e:
+        logger.error(f"Error purging mock contestants: {e}")
+
+
+def get_all_contestants_synced():
+    """
+    Retrieves all contestants from Firebase.
+    Auto-disappearance logic:
+    - If real active contestants exist (status == 'active' and not is_mock),
+      purge mock contestants from Firebase and return only authentic contestants.
+    - If NO real active contestants exist, seed/ensure the 2 mock contestants
+      exist with full details, and return them so the directory is never empty.
+    """
+    contestants_data = db.reference('awards_contestants').get() or {}
+    if not isinstance(contestants_data, dict):
+        contestants_data = {}
+
+    real_active = [
+        c for cid, c in contestants_data.items()
+        if isinstance(c, dict) and c.get('status') == 'active' and not c.get('is_mock')
+    ]
+
+    if len(real_active) > 0:
+        # Real contestants are active! Purge any mock contestants immediately
+        has_mock = any(cid in MOCK_CONTESTANTS or (isinstance(c, dict) and c.get('is_mock')) for cid, c in contestants_data.items())
+        if has_mock:
+            purge_mock_contestants()
+            contestants_data = {
+                cid: c for cid, c in contestants_data.items()
+                if not (cid in MOCK_CONTESTANTS or (isinstance(c, dict) and c.get('is_mock')))
+            }
+        return contestants_data
+    else:
+        # No real active contestants. Ensure mock contestants are seeded in Firebase
+        mock_needs_write = False
+        for mid, mdata in MOCK_CONTESTANTS.items():
+            if mid not in contestants_data:
+                try:
+                    db.reference(f'awards_contestants/{mid}').set(mdata)
+                    contestants_data[mid] = mdata
+                    mock_needs_write = True
+                except Exception as e:
+                    logger.error(f"Failed to seed mock contestant {mid}: {e}")
+                    contestants_data[mid] = mdata
+            else:
+                contestants_data[mid] = contestants_data[mid]
+        if mock_needs_write:
+            logger.info("🎭 Seeded 2 mock contestants (MC Bright & DJ Vortex) for live testing.")
+        return contestants_data
+
+
 def claim_awards_mpesa_receipt(receipt: str, contestant_id: str, checkout_id: str, amount: int, transaction_type: str = "vote"):
     """
     Cryptographic deduplication ledger to prevent receipt replay attacks.
@@ -166,8 +274,8 @@ def awards_index():
     selected_inst = request.args.get('institution', 'all')
     search_query = request.args.get('q', '').strip().lower()
 
-    # Fetch contestants
-    contestants_data = db.reference('awards_contestants').get() or {}
+    # Fetch contestants with auto-synced mock fallback
+    contestants_data = get_all_contestants_synced()
     contestants = []
 
     for cid, c in contestants_data.items():
@@ -221,7 +329,8 @@ def awards_contestant_detail(cid):
     Dedicated shareable profile page for a contestant (optimized for WhatsApp Status & IG).
     """
     clean_id = re.sub(r'[^a-zA-Z0-9_\-]', '', str(cid).strip())
-    contestant = db.reference(f'awards_contestants/{clean_id}').get()
+    all_contestants = get_all_contestants_synced()
+    contestant = all_contestants.get(clean_id) or db.reference(f'awards_contestants/{clean_id}').get()
 
     if not contestant or not isinstance(contestant, dict):
         return render_template('404.html', message="Contestant not found or not yet approved."), 404
@@ -230,7 +339,6 @@ def awards_contestant_detail(cid):
     contestant['vote_count'] = int(contestant.get('vote_count', 0) or 0)
 
     # Calculate rank in their category
-    all_contestants = db.reference('awards_contestants').get() or {}
     same_cat = [
         c for c in all_contestants.values()
         if isinstance(c, dict) and c.get('status') == 'active' and c.get('category_id') == contestant.get('category_id')
@@ -650,6 +758,8 @@ def mpesa_awards_callback():
                     "registration_receipt": receipt,
                     "activated_at": now_iso
                 })
+                # Auto-disappearance: remove mock contestants the moment a real contestant is activated
+                purge_mock_contestants()
 
                 pending_ref.update({
                     "status": "success",
@@ -764,7 +874,7 @@ def api_awards_leaderboard():
     institution = request.args.get('institution', 'all')
     settings = get_awards_settings()
 
-    contestants_data = db.reference('awards_contestants').get() or {}
+    contestants_data = get_all_contestants_synced()
     results = []
 
     for cid, c in contestants_data.items():
@@ -810,7 +920,7 @@ def awards_admin():
 
     settings = get_awards_settings()
     categories = ensure_categories_exist() or {}
-    contestants_data = db.reference('awards_contestants').get() or {}
+    contestants_data = get_all_contestants_synced()
     votes_ledger = db.reference('awards_votes_ledger').get() or {}
 
     total_revenue = 0
@@ -873,6 +983,8 @@ def api_admin_approve_contestant():
 
     new_status = 'active' if action == 'approve' else 'rejected'
     db.reference(f'awards_contestants/{contestant_id}/status').set(new_status)
+    if new_status == 'active' and not str(contestant_id).startswith('mock_'):
+        purge_mock_contestants()
 
     return jsonify({"success": True, "message": f"Contestant marked as {new_status}."}), 200
 
@@ -1194,7 +1306,7 @@ def awards_contestant_dashboard(cid):
     cat_id = contestant.get('category_id')
 
     # Fetch all active contestants in the same category to compute head-to-head metrics
-    all_contestants = db.reference('awards_contestants').get() or {}
+    all_contestants = get_all_contestants_synced()
     rivals = [
         dict(c, id=k, vote_count=int(c.get('vote_count', 0) or 0))
         for k, c in all_contestants.items()
@@ -1410,7 +1522,7 @@ def api_banner_spotlight():
             "message": "Awards activity is currently not active or paused by admin."
         }), 200
 
-    all_contestants = db.reference('awards_contestants').get() or {}
+    all_contestants = get_all_contestants_synced()
 
     active_by_cat = {}
     for cid, c in all_contestants.items():

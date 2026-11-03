@@ -306,6 +306,14 @@
         </button>
 
         <div class="p-6">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="inline-flex items-center gap-1 font-mono text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-md">
+                    ID: #{{ contestant.id }}
+                </span>
+                <span class="text-xs font-black text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-md">
+                    🔥 {{ contestant.vote_count }} Votes
+                </span>
+            </div>
             <h3 class="text-lg font-black text-white mb-1">Vote for {{ contestant.name }}</h3>
             <p class="text-xs text-amber-400 mb-4">{{ contestant.category_name }} &bull; {{ contestant.institution }}</p>
 

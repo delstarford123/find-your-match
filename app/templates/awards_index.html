@@ -278,7 +278,15 @@
                 <div class="mt-3 py-1.5 px-3 bg-slate-800/80 rounded-lg inline-block text-xs font-black text-slate-200">
                     {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[1].vote_count }} Votes{% endif %}
                 </div>
-                <button onclick="openVoteModal('{{ podium[1].id }}', '{{ podium[1].name }}', '{{ podium[1].category_name }}', '{{ podium[1].photo_url }}')"
+                <button onclick="openVoteModalFromBtn(this)"
+                        data-cid="{{ podium[1].id }}"
+                        data-name="{{ podium[1].name }}"
+                        data-category="{{ podium[1].category_name }}"
+                        data-photo="{{ podium[1].photo_url or '' }}"
+                        data-institution="{{ podium[1].institution }}"
+                        data-votes="{{ podium[1].vote_count }}"
+                        data-bio="{{ podium[1].bio or '' }}"
+                        data-rank="2"
                         class="w-full mt-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white rounded-xl text-xs font-extrabold transition shadow">
                     Vote (10 KES)
                 </button>
@@ -298,7 +306,15 @@
                 <div class="mt-3 py-2 px-4 bg-amber-500/20 border border-amber-500/40 rounded-xl inline-block text-sm font-black text-amber-300">
                     {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[0].vote_count }} Votes{% endif %}
                 </div>
-                <button onclick="openVoteModal('{{ podium[0].id }}', '{{ podium[0].name }}', '{{ podium[0].category_name }}', '{{ podium[0].photo_url }}')"
+                <button onclick="openVoteModalFromBtn(this)"
+                        data-cid="{{ podium[0].id }}"
+                        data-name="{{ podium[0].name }}"
+                        data-category="{{ podium[0].category_name }}"
+                        data-photo="{{ podium[0].photo_url or '' }}"
+                        data-institution="{{ podium[0].institution }}"
+                        data-votes="{{ podium[0].vote_count }}"
+                        data-bio="{{ podium[0].bio or '' }}"
+                        data-rank="1"
                         class="w-full mt-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-sm font-black transition shadow-lg shadow-amber-500/30">
                     ⚡ Vote For Leader
                 </button>
@@ -318,7 +334,15 @@
                 <div class="mt-3 py-1.5 px-3 bg-slate-800/80 rounded-lg inline-block text-xs font-black text-slate-200">
                     {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[2].vote_count }} Votes{% endif %}
                 </div>
-                <button onclick="openVoteModal('{{ podium[2].id }}', '{{ podium[2].name }}', '{{ podium[2].category_name }}', '{{ podium[2].photo_url }}')"
+                <button onclick="openVoteModalFromBtn(this)"
+                        data-cid="{{ podium[2].id }}"
+                        data-name="{{ podium[2].name }}"
+                        data-category="{{ podium[2].category_name }}"
+                        data-photo="{{ podium[2].photo_url or '' }}"
+                        data-institution="{{ podium[2].institution }}"
+                        data-votes="{{ podium[2].vote_count }}"
+                        data-bio="{{ podium[2].bio or '' }}"
+                        data-rank="3"
                         class="w-full mt-3 py-2 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-extrabold transition shadow">
                     Vote (10 KES)
                 </button>
@@ -426,7 +450,15 @@
                            class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
                             Bio
                         </a>
-                        <button onclick="openVoteModal('{{ c.id }}', '{{ c.name }}', '{{ c.category_name }}', '{{ c.photo_url }}')"
+                        <button onclick="openVoteModalFromBtn(this)"
+                                data-cid="{{ c.id }}"
+                                data-name="{{ c.name }}"
+                                data-category="{{ c.category_name }}"
+                                data-photo="{{ c.photo_url or '' }}"
+                                data-institution="{{ c.institution }}"
+                                data-votes="{{ c.vote_count }}"
+                                data-bio="{{ c.bio or '' }}"
+                                data-rank="{{ c.rank }}"
                                 class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow">
                             Vote ⚡
                         </button>
@@ -475,12 +507,51 @@
             ✕
         </button>
 
-        <!-- Header -->
-        <div class="bg-gradient-to-r from-amber-600/30 via-slate-900 to-slate-900 p-5 border-b border-slate-800 flex items-center gap-3">
-            <img id="modalContestantImg" src="" class="w-12 h-12 rounded-full object-cover border-2 border-amber-400">
-            <div>
-                <h3 id="modalContestantName" class="text-base font-black text-white truncate max-w-[240px]">Contestant Name</h3>
-                <p id="modalContestantCategory" class="text-xs text-amber-400 font-semibold">Category</p>
+        <!-- Header with Full Contestant Details -->
+        <div class="bg-gradient-to-r from-amber-600/25 via-slate-900 to-slate-900 p-5 border-b border-slate-800">
+            <div class="flex items-start gap-3.5">
+                <!-- Avatar with Fallback & Rank -->
+                <div class="relative flex-shrink-0">
+                    <img id="modalContestantImg" src="/static/img/placeholder.png"
+                         onerror="this.onerror=null; this.src='/static/img/placeholder.png';"
+                         class="w-14 h-14 rounded-full object-cover border-2 border-amber-400 ring-4 ring-amber-500/20 shadow-md">
+                    <div id="modalRankPill" class="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.2 rounded-full border border-slate-900 shadow">
+                        #1
+                    </div>
+                </div>
+
+                <!-- Identity Details -->
+                <div class="flex-1 min-w-0 pr-6">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span class="inline-flex items-center gap-1 font-mono text-[11px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md">
+                            <span id="modalContestantId">#---</span>
+                        </span>
+                        <span id="modalContestantVotes" class="text-[11px] font-black text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                            0 Votes
+                        </span>
+                    </div>
+
+                    <h3 id="modalContestantName" class="text-base font-black text-white truncate">Contestant Name</h3>
+                    
+                    <div class="flex items-center gap-1.5 text-xs text-slate-300 mt-0.5">
+                        <span id="modalContestantCategory" class="text-amber-400 font-bold truncate">Category</span>
+                        <span class="text-slate-600">&bull;</span>
+                        <span id="modalContestantInst" class="text-slate-300 font-medium truncate">Campus</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bio / Quote Snippet -->
+            <div id="modalContestantBioBox" class="mt-3 bg-slate-950/70 border border-slate-800 rounded-xl p-2.5">
+                <p id="modalContestantBio" class="text-xs text-slate-300 italic line-clamp-2 leading-relaxed">
+                    "Vote for me and support campus talent!"
+                </p>
+                <div class="mt-1 flex justify-end">
+                    <a id="modalContestantProfileLink" href="#" target="_blank"
+                       class="text-[11px] text-amber-400 hover:text-amber-300 font-bold inline-flex items-center gap-1 hover:underline">
+                        <span>View Full Profile & Manifesto</span> &rarr;
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -603,11 +674,64 @@
     let selectedAmount = 100;
     let pollInterval = null;
 
-    function openVoteModal(cid, name, category, photo) {
+    function openVoteModal(cid, name, category, photo, inst, votes, bio, rank) {
         activeContestantId = cid;
-        document.getElementById('modalContestantName').innerText = name;
-        document.getElementById('modalContestantCategory').innerText = category;
-        document.getElementById('modalContestantImg').src = photo || '/static/img/placeholder.png';
+
+        // Populate Contestant ID badge
+        const idEl = document.getElementById('modalContestantId');
+        if (idEl) idEl.innerText = cid ? ('ID: #' + cid) : 'ID: #---';
+
+        // Populate Name, Category, Institution
+        document.getElementById('modalContestantName').innerText = name || 'Campus Nominee';
+        document.getElementById('modalContestantCategory').innerText = category || 'Category Nominee';
+        const instEl = document.getElementById('modalContestantInst');
+        if (instEl) instEl.innerText = inst || 'MMUST';
+
+        // Populate Vote Count
+        const votesEl = document.getElementById('modalContestantVotes');
+        if (votesEl) {
+            if (votes !== undefined && votes !== null && votes !== '') {
+                votesEl.innerText = '🔥 ' + votes + ' Votes';
+                votesEl.classList.remove('hidden');
+            } else {
+                votesEl.classList.add('hidden');
+            }
+        }
+
+        // Rank pill
+        const rankEl = document.getElementById('modalRankPill');
+        if (rankEl) {
+            if (rank) {
+                rankEl.innerText = '#' + rank;
+                rankEl.classList.remove('hidden');
+            } else {
+                rankEl.classList.add('hidden');
+            }
+        }
+
+        // Bio quote snippet
+        const bioBox = document.getElementById('modalContestantBioBox');
+        const bioEl = document.getElementById('modalContestantBio');
+        if (bio && bio.trim()) {
+            bioEl.innerText = '"' + bio.trim() + '"';
+            bioBox.classList.remove('hidden');
+        } else {
+            bioBox.classList.add('hidden');
+        }
+
+        // Profile link
+        const profileLink = document.getElementById('modalContestantProfileLink');
+        if (profileLink && cid) {
+            profileLink.href = '/awards/contestant/' + encodeURIComponent(cid);
+        }
+
+        // Photo with fallback
+        const imgEl = document.getElementById('modalContestantImg');
+        imgEl.onerror = function() {
+            this.onerror = null;
+            this.src = '/static/img/placeholder.png';
+        };
+        imgEl.src = photo || '/static/img/placeholder.png';
 
         document.getElementById('voteModalError').classList.add('hidden');
         document.getElementById('stkWaitBox').classList.add('hidden');
@@ -615,6 +739,19 @@
         document.getElementById('triggerStkBtn').classList.remove('hidden');
 
         document.getElementById('voteModal').classList.remove('hidden');
+    }
+
+    function openVoteModalFromBtn(btn) {
+        if (!btn) return;
+        const cid = btn.getAttribute('data-cid') || '';
+        const name = btn.getAttribute('data-name') || 'Campus Nominee';
+        const category = btn.getAttribute('data-category') || 'Awards Nominee';
+        const photo = btn.getAttribute('data-photo') || '';
+        const inst = btn.getAttribute('data-institution') || 'MMUST';
+        const votes = btn.getAttribute('data-votes') || '0';
+        const bio = btn.getAttribute('data-bio') || '';
+        const rank = btn.getAttribute('data-rank') || '';
+        openVoteModal(cid, name, category, photo, inst, votes, bio, rank);
     }
 
     function closeVoteModal() {

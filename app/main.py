@@ -4098,6 +4098,12 @@ def admin_action():
             c_status = data.get('status', 'active')
             if c_id:
                 db.reference(f'awards_contestants/{c_id}/status').set(c_status)
+                if c_status == 'active' and not str(c_id).startswith('mock_'):
+                    try:
+                        from app.routes.awards import purge_mock_contestants
+                        purge_mock_contestants()
+                    except Exception as p_err:
+                        logger.warning(f"Could not purge mock contestants: {p_err}")
                 return jsonify({'success': True, 'message': f"Contestant status updated to {c_status}."})
             return jsonify({'success': False, 'message': "Contestant ID required"}), 400
 
