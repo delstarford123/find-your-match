@@ -4316,3 +4316,404 @@ def send_manager_payout_confirmation_email(
         html_content=html_content,
         sender_name="Find Your Match Finance"
     )
+
+
+def send_voter_otp_email(recipient_email: str, voter_name: str, otp_code: str, contestant_name: str = None) -> bool:
+    """
+    Sends a 6-digit One-Time PIN (OTP) to verify legitimate human voters and prevent bot ballot stuffing.
+    Replaces SMS OTP with zero-cost, high-reliability HostPinnacle SMTP delivery.
+    """
+    clean_voter = (voter_name or "Comrade").strip().title()
+    subject = f"🗳️ Your Voter Verification Code: {otp_code} - Campus Awards"
+
+    contestant_line = f"voting for <strong>{contestant_name}</strong>" if contestant_name else "casting your vote"
+    text_content = f"""
+    Hello {clean_voter},
+
+    Your voter verification code is: {otp_code}
+
+    You requested this code while {contestant_line} on the Campus Awards Platform.
+    This code expires in 10 minutes.
+
+    If you did not request this code, please ignore this email.
+
+    Find Your Match & Campus Awards Platform
+    """
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Voter Verification Code</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #3730A3;">
+                    <div style="font-size: 32px; margin-bottom: 8px;">🗳️</div>
+                    <h1 style="color: #F8FAFC; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+                        Voter Verification PIN
+                    </h1>
+                    <p style="color: #A5B4FC; font-size: 13px; margin: 6px 0 0 0;">
+                        Official Campus Awards & Talent Platform
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 28px 24px; text-align: left;">
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+                        Hello <strong>{clean_voter}</strong>,
+                    </p>
+                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
+                        To confirm your human voter authenticity and protect the integrity of the vote tally, please enter the one-time verification code below:
+                    </p>
+
+                    <!-- OTP DISPLAY BOX -->
+                    <div style="background: #1E293B; border: 2px dashed #6366F1; border-radius: 14px; padding: 22px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 11px; color: #94A3B8; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">
+                            One-Time Security Code
+                        </div>
+                        <div style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; color: #F59E0B; letter-spacing: 8px; margin: 0;">
+                            {otp_code}
+                        </div>
+                        <div style="color: #A5B4FC; font-size: 11px; margin-top: 8px; font-weight: 600;">
+                            ⏱️ Code expires in 10 minutes
+                        </div>
+                    </div>
+
+                    <div style="background: rgba(99, 102, 241, 0.08); border-radius: 10px; border-left: 4px solid #6366F1; padding: 12px 16px; margin-bottom: 24px;">
+                        <p style="color: #CBD5E1; font-size: 12px; line-height: 1.5; margin: 0;">
+                            🔒 <strong>Anti-Fraud Protection:</strong> Never share this code with anyone. Contestants or agents will never ask for your verification code.
+                        </p>
+                    </div>
+
+                    <p style="color: #64748B; font-size: 11px; line-height: 1.5; margin: 0;">
+                        If you did not initiate this vote, you can safely ignore this email — no votes will be counted without this PIN.
+                    </p>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+                    <p style="margin: 0;">Campus Awards & Talent Voting Engine &bull; Find Your Match</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Campus Awards Verification"
+    )
+
+
+def send_vote_receipt_email(recipient_email: str, voter_name: str, contestant_name: str, category: str, vote_count: int, amount_paid: int, mpesa_receipt: str, new_total_votes: int = None) -> bool:
+    """
+    Sends an official M-Pesa vote confirmation and financial voucher.
+    Replaces SMS receipts with full digital receipts containing live leaderboard links.
+    """
+    clean_voter = (voter_name or "Comrade").strip().title()
+    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    leaderboard_url = f"{base_url}/awards"
+
+    vote_plural = "vote" if vote_count == 1 else "votes"
+    subject = f"✅ Vote Confirmed! {vote_count} {vote_plural} cast for {contestant_name} ({clean_receipt})"
+
+    text_content = f"""
+    OFFICIAL VOTE CONFIRMATION & RECEIPT
+    --------------------------------------------------
+    Voter: {clean_voter}
+    Contestant: {contestant_name}
+    Category: {category}
+    Votes Cast: {vote_count}
+    Amount Paid: KES {amount_paid}
+    M-Pesa Receipt: {clean_receipt}
+    Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+    View Live Leaderboard: {leaderboard_url}
+
+    Thank you for participating in the Campus Awards!
+    """
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Official Vote Confirmation</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #047857;">
+                    <div style="display: inline-block; background: #10B981; color: #064E3B; width: 48px; height: 48px; line-height: 48px; border-radius: 50%; font-size: 24px; font-weight: 900; margin-bottom: 10px;">
+                        ✓
+                    </div>
+                    <h1 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+                        Vote Cast & Recorded!
+                    </h1>
+                    <p style="color: #A7F3D0; font-size: 13px; margin: 6px 0 0 0;">
+                        Official M-Pesa Payment Receipt & Cryptographic Audit
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 28px 24px; text-align: left;">
+                    <!-- HIGHLIGHT HERO -->
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.25) 100%); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 11px; color: #6EE7B7; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;">
+                            Votes Successfully Credited
+                        </div>
+                        <div style="font-size: 38px; font-weight: 900; color: #FFFFFF; letter-spacing: -1px; margin-bottom: 4px;">
+                            +{vote_count} {vote_plural.upper()}
+                        </div>
+                        <div style="color: #FBBF24; font-size: 14px; font-weight: 700;">
+                            Awarded to: {contestant_name}
+                        </div>
+                    </div>
+
+                    <!-- TRANSACTION TABLE -->
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
+                        <div style="font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
+                            🧾 Payment Verification Details
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">📱 M-Pesa Receipt</td>
+                                <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: 800; color: #38BDF8;">{clean_receipt}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Category</td>
+                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{category}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">💵 Amount Paid</td>
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">KES {amount_paid:,}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94A3B8;">📅 Timestamp</td>
+                                <td style="padding: 8px 0; text-align: right; color: #94A3B8;">{datetime.now().strftime('%d %b %Y, %I:%M %p')}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- LEADERBOARD CTA -->
+                    <div style="text-align: center; margin-bottom: 16px;">
+                        <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+                            📊 View Live Leaderboard &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+                    <p style="margin: 0;">Campus Awards Platform &bull; Powered by Safaricom Daraja M-Pesa Integration</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Campus Awards Tally"
+    )
+
+
+def send_contestant_registration_email(recipient_email: str, contestant_name: str, category: str, institution: str, referral_link: str, mpesa_receipt: str) -> bool:
+    """
+    Sends contestant registration confirmation and custom WhatsApp campaign link upon 50 KES payment verification.
+    """
+    clean_name = (contestant_name or "Nominee").strip().title()
+    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
+    whatsapp_share_text = urllib.parse.quote(f"Hey fam! I have been nominated for {category} at {institution}! 🏆 Please vote for me here: {referral_link}")
+    whatsapp_share_url = f"https://api.whatsapp.com/send?text={whatsapp_share_text}"
+
+    subject = f"🌟 You're Official! Contestant Registration Verified - {category}"
+
+    text_content = f"""
+    CONGRATULATIONS {clean_name}!
+    --------------------------------------------------
+    Your nomination for {category} at {institution} is now active and verified!
+    M-Pesa Registration Fee (50 KES): Confirmed ({clean_receipt})
+
+    Your Unique Voting & Campaign Link:
+    {referral_link}
+
+    Share this link on your WhatsApp Status and Instagram stories to start collecting votes!
+    """
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Contestant Registration Verified</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid #7C3AED;">
+                    <div style="font-size: 38px; margin-bottom: 6px;">🌟</div>
+                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
+                        You're In The Race!
+                    </h1>
+                    <p style="color: #DDD6FE; font-size: 13px; margin: 6px 0 0 0;">
+                        Contestant Registration & 50 KES Payment Verified
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 28px 24px; text-align: left;">
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+                        Congratulations <strong>{clean_name}</strong>!
+                    </p>
+                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
+                        Your contestant profile is now live on the official awards directory. Comrades and fans across campus can now discover your bio and cast their votes for you!
+                    </p>
+
+                    <!-- DETAILS CARD -->
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Nominated Category</td>
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #F59E0B;">{category}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">🏫 Campus / Institution</td>
+                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{institution}</td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid #1E293B;">
+                                <td style="padding: 8px 0; color: #94A3B8;">💳 Registration Fee</td>
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">KES 50 (PAID)</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px 0; color: #94A3B8;">🧾 Safaricom M-Pesa ID</td>
+                                <td style="padding: 8px 0; text-align: right; font-family: monospace; color: #38BDF8;">{clean_receipt}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- CAMPAIGN SHARE CALLOUT -->
+                    <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(76, 29, 149, 0.25) 100%); border: 1px solid #7C3AED; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 11px; color: #C4B5FD; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                            🚀 Your Official Campaign Link
+                        </div>
+                        <div style="background: #0B1120; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; color: #38BDF8; word-break: break-all; margin-bottom: 16px;">
+                            {referral_link}
+                        </div>
+                        <a href="{whatsapp_share_url}" target="_blank" style="display: inline-block; background: #25D366; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
+                            💬 Share to WhatsApp Status &rarr;
+                        </a>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+                    <p style="margin: 0;">Campus Awards & Talent Voting Platform &bull; Find Your Match</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Campus Awards Team"
+    )
+
+
+def send_contestant_milestone_email(recipient_email: str, contestant_name: str, milestone_votes: int, current_rank: int, category: str, live_leaderboard_url: str = None) -> bool:
+    """
+    Sends high-engagement rank climb & milestone alert to keep contestants actively campaigning.
+    """
+    clean_name = (contestant_name or "Nominee").strip().title()
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+    leaderboard_url = live_leaderboard_url or f"{base_url}/awards"
+
+    subject = f"🔥 Milestone Alert! You reached {milestone_votes} votes in {category} (Rank #{current_rank})"
+
+    text_content = f"""
+    MILESTONE REACHED!
+    --------------------------------------------------
+    Congratulations {clean_name}!
+    You just hit {milestone_votes} votes in {category}!
+    Current Standing: Rank #{current_rank}
+
+    Keep pushing! View the live leaderboard here: {leaderboard_url}
+    """
+
+    html_content = textwrap.dedent(f"""\
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Milestone Alert</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <!-- HEADER -->
+                <div style="background: linear-gradient(135deg, #B45309 0%, #D97706 100%); padding: 30px 24px; text-align: center; border-bottom: 1px solid #F59E0B;">
+                    <div style="font-size: 38px; margin-bottom: 6px;">🏆</div>
+                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
+                        Milestone Unlocked!
+                    </h1>
+                    <p style="color: #FEF3C7; font-size: 13px; margin: 6px 0 0 0;">
+                        {milestone_votes} Votes Reached &bull; Rank #{current_rank} in {category}
+                    </p>
+                </div>
+
+                <!-- BODY -->
+                <div style="padding: 28px 24px; text-align: center;">
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+                        Way to go <strong>{clean_name}</strong>! Your campaign is gaining massive momentum!
+                    </p>
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 22px; margin-bottom: 24px;">
+                        <div style="font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                            Current Standing
+                        </div>
+                        <div style="font-size: 42px; font-weight: 900; color: #F59E0B; margin-bottom: 6px;">
+                            Rank #{current_rank}
+                        </div>
+                        <div style="color: #10B981; font-weight: 700; font-size: 14px;">
+                            ⭐ {milestone_votes:,} Total Verified Votes
+                        </div>
+                    </div>
+
+                    <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+                        Check Live Leaderboard &rarr;
+                    </a>
+                </div>
+
+                <!-- FOOTER -->
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+                    <p style="margin: 0;">Campus Awards Platform &bull; Find Your Match</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    """)
+
+    return _send_email(
+        recipient_email=recipient_email,
+        subject=subject,
+        text_content=text_content,
+        html_content=html_content,
+        sender_name="Campus Awards Alerts"
+    )
