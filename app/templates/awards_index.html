@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+
+{% block title %}{{ settings.title }} | Find Your Match Awards{% endblock %}
+
+{% block meta %}
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ settings.title }} 🏆">
+<meta property="og:description" content="Discover top campus talents, vote for your favorite nominees across universities in Kenya, and watch the live leaderboard!">
+<meta property="og:image" content="/static/img/icon-512.png">
+{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --awards-gold: #F59E0B;
+        --awards-gold-dark: #D97706;
+        --awards-gold-light: #FEF3C7;
+        --awards-bg: #090D16;
+        --awards-card: #0F172A;
+        --awards-card-border: #1E293B;
+        --awards-purple: #8B5CF6;
+        --awards-emerald: #10B981;
+    }
+
+    body {
+        background-color: var(--awards-bg) !important;
+        color: #F8FAFC;
+    }
+
+    .awards-glow {
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+    }
+
+    .glass-card {
+        background: rgba(15, 23, 42, 0.75);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .podium-card-1 {
+        border-color: #F59E0B !important;
+        box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2);
+    }
+
+    .podium-card-2 {
+        border-color: #94A3B8 !important;
+        box-shadow: 0 10px 25px rgba(148, 163, 184, 0.15);
+    }
+
+    .podium-card-3 {
+        border-color: #CD7F32 !important;
+        box-shadow: 0 10px 25px rgba(205, 127, 50, 0.15);
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+
+<div class="min-h-screen pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto">
+    <!-- HERO HEADER -->
+    <div class="text-center py-8 relative">
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold tracking-wide uppercase mb-3 awards-glow">
+            <span>🏆</span> Official Universities & National Awards
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight mb-2">
+            Campus Awards & <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">Talent 2026</span>
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+            Vote for top campus MCs, DJs, creators, leaders, and trendsetters across MMUST, UoN, KU, JKUAT & nationwide!
+        </p>
+
+        <!-- TOP STATS BAR -->
+        <div class="flex flex-wrap justify-center items-center gap-4 sm:gap-8 mt-6">
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
+                <span class="text-amber-400 font-bold text-lg">{{ contestants|length }}</span>
+                <span class="text-xs text-slate-400 uppercase font-semibold">Nominees</span>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
+                <span class="text-emerald-400 font-bold text-lg">10 KES</span>
+                <span class="text-xs text-slate-400 uppercase font-semibold">Per Vote</span>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-4 py-2 rounded-xl">
+                <span class="text-purple-400 font-bold text-lg">M-Pesa</span>
+                <span class="text-xs text-slate-400 uppercase font-semibold">Instant STK</span>
+            </div>
+            {% if settings.blind_mode %}
+            <div class="flex items-center gap-2 bg-rose-500/10 border border-rose-500/30 px-4 py-2 rounded-xl">
+                <span class="text-rose-400 font-bold text-xs uppercase tracking-wide">🔒 Finale Blind Mode Active</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- TOP 3 PODIUM (IF CONTESTANTS >= 3) -->
+    {% if podium and podium|length >= 3 and not search_query and selected_category == 'all' and selected_institution == 'all' %}
+    <div class="my-8">
+        <div class="text-center mb-6">
+            <h2 class="text-lg font-extrabold text-slate-200 uppercase tracking-wider flex items-center justify-center gap-2">
+                <span>🔥</span> Current Podium Leaders
+            </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto items-end">
+            <!-- RANK 2 (SILVER) -->
+            <div class="order-2 md:order-1 glass-card rounded-2xl p-5 text-center podium-card-2 relative overflow-hidden">
+                <div class="absolute top-3 left-3 bg-slate-700/80 text-slate-200 text-xs font-black px-2.5 py-1 rounded-full">
+                    #2 SILVER
+                </div>
+                <div class="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-slate-400 mb-3 relative">
+                    <img src="{{ podium[1].photo_url or '/static/img/placeholder.png' }}" alt="{{ podium[1].name }}" class="w-full h-full object-cover">
+                </div>
+                <h3 class="font-extrabold text-white text-base truncate">{{ podium[1].name }}</h3>
+                <p class="text-xs text-amber-400 font-medium">{{ podium[1].category_name }}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">{{ podium[1].institution }}</p>
+                <div class="mt-3 py-1.5 px-3 bg-slate-800/80 rounded-lg inline-block text-xs font-black text-slate-200">
+                    {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[1].vote_count }} Votes{% endif %}
+                </div>
+                <button onclick="openVoteModal('{{ podium[1].id }}', '{{ podium[1].name }}', '{{ podium[1].category_name }}', '{{ podium[1].photo_url }}')"
+                        class="w-full mt-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white rounded-xl text-xs font-extrabold transition shadow">
+                    Vote (10 KES)
+                </button>
+            </div>
+
+            <!-- RANK 1 (GOLD) -->
+            <div class="order-1 md:order-2 glass-card rounded-2xl p-6 text-center podium-card-1 relative overflow-hidden transform md:-translate-y-4">
+                <div class="absolute top-3 left-3 bg-amber-500 text-slate-950 text-xs font-black px-3 py-1 rounded-full shadow-lg">
+                    👑 #1 LEADER
+                </div>
+                <div class="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-amber-400 mb-3 relative awards-glow">
+                    <img src="{{ podium[0].photo_url or '/static/img/placeholder.png' }}" alt="{{ podium[0].name }}" class="w-full h-full object-cover">
+                </div>
+                <h3 class="font-black text-white text-lg truncate">{{ podium[0].name }}</h3>
+                <p class="text-sm text-amber-400 font-bold">{{ podium[0].category_name }}</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ podium[0].institution }}</p>
+                <div class="mt-3 py-2 px-4 bg-amber-500/20 border border-amber-500/40 rounded-xl inline-block text-sm font-black text-amber-300">
+                    {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[0].vote_count }} Votes{% endif %}
+                </div>
+                <button onclick="openVoteModal('{{ podium[0].id }}', '{{ podium[0].name }}', '{{ podium[0].category_name }}', '{{ podium[0].photo_url }}')"
+                        class="w-full mt-4 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-sm font-black transition shadow-lg shadow-amber-500/30">
+                    ⚡ Vote For Leader
+                </button>
+            </div>
+
+            <!-- RANK 3 (BRONZE) -->
+            <div class="order-3 md:order-3 glass-card rounded-2xl p-5 text-center podium-card-3 relative overflow-hidden">
+                <div class="absolute top-3 left-3 bg-amber-800 text-amber-100 text-xs font-black px-2.5 py-1 rounded-full">
+                    #3 BRONZE
+                </div>
+                <div class="w-20 h-20 mx-auto rounded-full overflow-hidden border-2 border-amber-700 mb-3 relative">
+                    <img src="{{ podium[2].photo_url or '/static/img/placeholder.png' }}" alt="{{ podium[2].name }}" class="w-full h-full object-cover">
+                </div>
+                <h3 class="font-extrabold text-white text-base truncate">{{ podium[2].name }}</h3>
+                <p class="text-xs text-amber-400 font-medium">{{ podium[2].category_name }}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">{{ podium[2].institution }}</p>
+                <div class="mt-3 py-1.5 px-3 bg-slate-800/80 rounded-lg inline-block text-xs font-black text-slate-200">
+                    {% if settings.blind_mode %}🔒 Hidden{% else %}{{ podium[2].vote_count }} Votes{% endif %}
+                </div>
+                <button onclick="openVoteModal('{{ podium[2].id }}', '{{ podium[2].name }}', '{{ podium[2].category_name }}', '{{ podium[2].photo_url }}')"
+                        class="w-full mt-3 py-2 bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-extrabold transition shadow">
+                    Vote (10 KES)
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- SEARCH & FILTER TOOLBAR -->
+    <div class="my-6 glass-card rounded-2xl p-4 sm:p-5">
+        <form method="GET" action="{{ url_for('awards_bp.awards_index') }}" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+            <!-- Search bar -->
+            <div class="sm:col-span-5 relative">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="🔍 Search nominee, category or campus..."
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+            </div>
+
+            <!-- Campus Filter Dropdown -->
+            <div class="sm:col-span-4">
+                <select name="institution" onchange="this.form.submit()"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+                    <option value="all" {% if selected_institution == 'all' %}selected{% endif %}>🏫 All Institutions / National</option>
+                    {% for inst in institutions %}
+                    <option value="{{ inst }}" {% if selected_institution == inst %}selected{% endif %}>{{ inst }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Submit button -->
+            <div class="sm:col-span-3 flex gap-2">
+                <button type="submit" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition">
+                    Filter
+                </button>
+                {% if search_query or selected_institution != 'all' or selected_category != 'all' %}
+                <a href="{{ url_for('awards_bp.awards_index') }}" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
+                    Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+
+        <!-- CATEGORY PILLS HORIZONTAL SCROLL -->
+        <div class="flex gap-2 overflow-x-auto hide-scrollbar pt-4 mt-3 border-t border-slate-800">
+            <a href="{{ url_for('awards_bp.awards_index', category='all', institution=selected_institution, q=search_query) }}"
+               class="px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition {% if selected_category == 'all' %}bg-amber-500 text-slate-950{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
+                🌟 All Categories
+            </a>
+            {% for cid, cat in categories.items() %}
+            <a href="{{ url_for('awards_bp.awards_index', category=cid, institution=selected_institution, q=search_query) }}"
+               class="px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition flex items-center gap-1.5 {% if selected_category == cid %}bg-amber-500 text-slate-950{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
+                <span>{{ cat.icon }}</span> {{ cat.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- CONTESTANTS GRID -->
+    {% if contestants %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        {% for c in contestants %}
+        <div class="glass-card rounded-2xl overflow-hidden hover:border-amber-500/50 transition duration-300 flex flex-col justify-between group relative">
+            <!-- Rank Tag -->
+            <div class="absolute top-3 left-3 z-10 bg-slate-950/80 border border-slate-800 text-white font-black text-xs px-2.5 py-1 rounded-lg backdrop-blur-md">
+                #{{ c.rank }}
+            </div>
+
+            <!-- Image with Overlay -->
+            <div class="relative w-full h-56 bg-slate-900 overflow-hidden">
+                <img src="{{ c.photo_url or '/static/img/placeholder.png' }}" alt="{{ c.name }}"
+                     class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+                <div class="absolute bottom-2.5 left-3 right-3 flex items-center justify-between">
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/90 text-slate-950 truncate max-w-[150px]">
+                        {{ c.category_name }}
+                    </span>
+                    <span class="text-[11px] font-medium text-slate-300 bg-slate-900/80 px-2 py-0.5 rounded">
+                        {{ c.institution }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Contestant Details -->
+            <div class="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-white truncate">{{ c.name }}</h3>
+                    <p class="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                        {{ c.bio or "Nominated campus leader and creative talent. Tap to read manifesto and vote!" }}
+                    </p>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                    <div>
+                        <div class="text-[10px] text-slate-500 uppercase font-extrabold tracking-wide">Tally</div>
+                        <div class="text-sm font-black text-emerald-400">
+                            {% if settings.blind_mode %}
+                            🔒 Hidden
+                            {% else %}
+                            {{ c.vote_count }} <span class="text-[11px] text-slate-400 font-normal">votes</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="flex gap-1.5">
+                        <a href="{{ url_for('awards_bp.awards_contestant_detail', cid=c.id) }}"
+                           class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                            Bio
+                        </a>
+                        <button onclick="openVoteModal('{{ c.id }}', '{{ c.name }}', '{{ c.category_name }}', '{{ c.photo_url }}')"
+                                class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow">
+                            Vote ⚡
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- EMPTY STATE -->
+    <div class="text-center py-16 glass-card rounded-2xl my-8">
+        <div class="text-5xl mb-3">🌟</div>
+        <h3 class="text-lg font-bold text-white mb-1">No nominees found</h3>
+        <p class="text-xs text-slate-400 max-w-md mx-auto mb-5">
+            Be the first to step into the spotlight or nominate a talented comrade from your campus!
+        </p>
+        <a href="{{ url_for('awards_bp.awards_register_page') }}"
+           class="inline-block bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+            🚀 Enter Nomination (50 KES)
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- FLOATING BOTTOM CTA: NOMINATE YOURSELF -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 w-11/12 max-w-md">
+        <a href="{{ url_for('awards_bp.awards_register_page') }}"
+           class="flex items-center justify-between w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 text-white px-5 py-3.5 rounded-2xl font-black text-sm shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition awards-glow border border-white/20">
+            <span class="flex items-center gap-2">
+                <span class="text-lg">⭐</span> Join as a Contestant
+            </span>
+            <span class="text-xs bg-slate-950/40 px-3 py-1 rounded-xl text-amber-300 font-extrabold">
+                50 KES M-Pesa &rarr;
+            </span>
+        </a>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- INTERACTIVE VOTING MODAL (10 KES / VOTE + EMAIL RECEIPT + MPESA PIN PROMPT) -->
+<!-- ========================================================================= -->
+<div id="voteModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative animate-scaleUp">
+        <!-- Close Button -->
+        <button onclick="closeVoteModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">
+            ✕
+        </button>
+
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-amber-600/30 via-slate-900 to-slate-900 p-5 border-b border-slate-800 flex items-center gap-3">
+            <img id="modalContestantImg" src="" class="w-12 h-12 rounded-full object-cover border-2 border-amber-400">
+            <div>
+                <h3 id="modalContestantName" class="text-base font-black text-white truncate max-w-[240px]">Contestant Name</h3>
+                <p id="modalContestantCategory" class="text-xs text-amber-400 font-semibold">Category</p>
+            </div>
+        </div>
+
+        <div class="p-5">
+            <!-- STEP 1: QUANTITY TABS -->
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                1. Select Vote Package
+            </label>
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                {% for pkg in vote_packages %}
+                <button type="button" onclick="selectVotePackage({{ pkg.votes }}, {{ pkg.amount }}, this)"
+                        class="vote-pkg-btn p-3 rounded-xl border border-slate-700 bg-slate-800 text-left hover:border-amber-500 transition {% if pkg.popular %}border-amber-500/80 bg-amber-500/10{% endif %}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-black text-white">+{{ pkg.votes }} {% if pkg.votes == 1 %}Vote{% else %}Votes{% endif %}</span>
+                        <span class="text-xs font-extrabold text-emerald-400">KES {{ pkg.amount }}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-1">{{ pkg.badge }}</div>
+                </button>
+                {% endfor %}
+            </div>
+
+            <!-- STEP 2: VOTER EMAIL (FOR VERIFIED RECEIPT - NO SMS COST) -->
+            <div class="space-y-3 mb-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">
+                        2. Your Email <span class="text-amber-400 font-normal">(Official M-Pesa Receipt sent here)</span>
+                    </label>
+                    <input type="email" id="voterEmail" placeholder="e.g. comrade@gmail.com"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">
+                        3. M-Pesa Phone Number <span class="text-emerald-400 font-normal">(STK Prompt sent here)</span>
+                    </label>
+                    <input type="tel" id="voterPhone" placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
+                </div>
+            </div>
+
+            <!-- ERROR DISPLAY -->
+            <div id="voteModalError" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2.5 mb-3"></div>
+
+            <!-- ACTION BUTTON -->
+            <button id="triggerStkBtn" onclick="submitVote()"
+                    class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3 rounded-xl text-sm transition shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+                <span>Cast <span id="btnVotesDisplay">10</span> Votes (KES <span id="btnAmountDisplay">100</span>)</span>
+            </button>
+
+            <!-- POLLING / WAITING SCREEN -->
+            <div id="stkWaitBox" class="hidden text-center py-4 space-y-3">
+                <div class="inline-block animate-spin text-3xl">⏳</div>
+                <h4 class="text-sm font-bold text-amber-400">Check Your Phone!</h4>
+                <p class="text-xs text-slate-400 max-w-xs mx-auto">
+                    An M-Pesa PIN prompt has been sent to your phone. Enter your PIN to verify payment.
+                </p>
+                <div class="text-xs font-mono text-emerald-400" id="countdownDisplay">Waiting for confirmation (60s)...</div>
+            </div>
+
+            <!-- SUCCESS SCREEN -->
+            <div id="stkSuccessBox" class="hidden text-center py-4 space-y-3">
+                <div class="text-4xl">🎉</div>
+                <h4 class="text-base font-black text-emerald-400">Vote Cast Successfully!</h4>
+                <p class="text-xs text-slate-300" id="successDetailsMsg">
+                    Your votes have been added to the live leaderboard. An official receipt has been sent to your email!
+                </p>
+                <button onclick="window.location.reload()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">
+                    Close & Refresh Leaderboard
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeContestantId = null;
+    let selectedVotes = 10;
+    let selectedAmount = 100;
+    let pollInterval = null;
+
+    function openVoteModal(cid, name, category, photo) {
+        activeContestantId = cid;
+        document.getElementById('modalContestantName').innerText = name;
+        document.getElementById('modalContestantCategory').innerText = category;
+        document.getElementById('modalContestantImg').src = photo || '/static/img/placeholder.png';
+
+        document.getElementById('voteModalError').classList.add('hidden');
+        document.getElementById('stkWaitBox').classList.add('hidden');
+        document.getElementById('stkSuccessBox').classList.add('hidden');
+        document.getElementById('triggerStkBtn').classList.remove('hidden');
+
+        document.getElementById('voteModal').classList.remove('hidden');
+    }
+
+    function closeVoteModal() {
+        if (pollInterval) clearInterval(pollInterval);
+        document.getElementById('voteModal').classList.add('hidden');
+    }
+
+    function selectVotePackage(votes, amount, elem) {
+        selectedVotes = votes;
+        selectedAmount = amount;
+        document.getElementById('btnVotesDisplay').innerText = votes;
+        document.getElementById('btnAmountDisplay').innerText = amount;
+
+        document.querySelectorAll('.vote-pkg-btn').forEach(b => {
+            b.classList.remove('border-amber-500', 'bg-amber-500/10');
+            b.classList.add('border-slate-700', 'bg-slate-800');
+        });
+        elem.classList.remove('border-slate-700', 'bg-slate-800');
+        elem.classList.add('border-amber-500', 'bg-amber-500/10');
+    }
+
+    async function submitVote() {
+        const email = document.getElementById('voterEmail').value.trim();
+        const phone = document.getElementById('voterPhone').value.trim();
+        const errorBox = document.getElementById('voteModalError');
+
+        errorBox.classList.add('hidden');
+
+        if (!email || !email.includes('@')) {
+            errorBox.innerText = 'Please enter a valid email address to receive your official vote receipt.';
+            errorBox.classList.remove('hidden');
+            return;
+        }
+
+        if (!phone || phone.length < 9) {
+            errorBox.innerText = 'Please enter a valid Safaricom phone number for STK push.';
+            errorBox.classList.remove('hidden');
+            return;
+        }
+
+        const submitBtn = document.getElementById('triggerStkBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Sending M-Pesa Prompt...';
+
+        try {
+            const res = await fetch("{{ url_for('awards_bp.api_awards_vote_stk_push') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contestant_id: activeContestantId,
+                    email: email,
+                    phone: phone,
+                    vote_count: selectedVotes
+                })
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                errorBox.innerText = data.error || 'Failed to trigger payment.';
+                errorBox.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `Cast ${selectedVotes} Votes (KES ${selectedAmount})`;
+                return;
+            }
+
+            // STK Push sent! Begin polling
+            submitBtn.classList.add('hidden');
+            document.getElementById('stkWaitBox').classList.remove('hidden');
+            startPolling(data.checkout_id);
+
+        } catch (err) {
+            errorBox.innerText = 'Network error. Please try again.';
+            errorBox.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `Cast ${selectedVotes} Votes (KES ${selectedAmount})`;
+        }
+    }
+
+    function startPolling(checkoutId) {
+        let timeLeft = 60;
+        const countdownElem = document.getElementById('countdownDisplay');
+
+        pollInterval = setInterval(async () => {
+            timeLeft -= 2;
+            if (timeLeft <= 0) {
+                clearInterval(pollInterval);
+                countdownElem.innerText = 'Time expired. If you entered PIN, your vote is processing!';
+                return;
+            }
+            countdownElem.innerText = `Waiting for PIN confirmation (${timeLeft}s)...`;
+
+            try {
+                const res = await fetch(`/awards/api/check-payment/${checkoutId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(pollInterval);
+                        document.getElementById('stkWaitBox').classList.add('hidden');
+                        document.getElementById('stkSuccessBox').classList.remove('hidden');
+
+                        if (typeof confetti === 'function') {
+                            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                        }
+                    } else if (data.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        document.getElementById('stkWaitBox').classList.add('hidden');
+                        const errorBox = document.getElementById('voteModalError');
+                        errorBox.innerText = data.message || 'Payment cancelled or timed out.';
+                        errorBox.classList.remove('hidden');
+                        document.getElementById('triggerStkBtn').classList.remove('hidden');
+                        document.getElementById('triggerStkBtn').disabled = false;
+                    }
+                }
+            } catch (e) {}
+        }, 2500);
+    }
+</script>
+{% endblock %}

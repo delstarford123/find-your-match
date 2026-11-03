@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block title %}Contestant Nomination & Registration | Find Your Match Awards{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-28 pt-6 px-4 sm:px-6 max-w-3xl mx-auto">
+    <!-- BACK BUTTON -->
+    <a href="{{ url_for('awards_bp.awards_index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 mb-6 transition">
+        &larr; Back to Live Leaderboard
+    </a>
+
+    <!-- REGISTRATION CARD -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+        <!-- HEADER -->
+        <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-6 sm:p-8 border-b border-purple-800/40">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold uppercase mb-2">
+                <span>⭐</span> Official Entry Portal
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Nominate Yourself or a Candidate
+            </h1>
+            <p class="text-xs sm:text-sm text-purple-200 mt-1 max-w-xl">
+                Enter the race for campus recognition! Verified contestants receive an official campaign profile, real-time leaderboard stats, and a custom WhatsApp shareable card.
+            </p>
+        </div>
+
+        <!-- FORM -->
+        <form id="contestantRegForm" onsubmit="submitContestantReg(event)" class="p-6 sm:p-8 space-y-5">
+            <!-- FULL NAME -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                    Full Name / Stage Name <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="regName" required placeholder="e.g. MC Bright, DJ Vortex, Janet Mwangi"
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+            </div>
+
+            <!-- EMAIL & PHONE -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        Your Email <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="email" id="regEmail" required placeholder="name@gmail.com"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                    <span class="text-[11px] text-slate-400 mt-1 block">Your campaign link and milestone alerts will be sent here.</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        M-Pesa Phone Number <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="tel" id="regPhone" required placeholder="07XXXXXXXX or 254XXXXXXXX"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
+                    <span class="text-[11px] text-emerald-400 mt-1 block">50 KES registration fee prompt sent here.</span>
+                </div>
+            </div>
+
+            <!-- CATEGORY & UNIVERSITY -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        Award Category <span class="text-rose-500">*</span>
+                    </label>
+                    <select id="regCategory" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500">
+                        <option value="" disabled selected>Select Category...</option>
+                        {% for cid, cat in categories.items() %}
+                        <option value="{{ cid }}">{{ cat.icon }} {{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        University / Campus <span class="text-rose-500">*</span>
+                    </label>
+                    <select id="regInstitution" required
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500">
+                        {% for inst in institutions %}
+                        <option value="{{ inst }}" {% if inst == 'MMUST' %}selected{% endif %}>{{ inst }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- PROFILE PHOTO URL -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                    Profile Photo Link <span class="text-slate-400 font-normal">(Direct image URL or post link)</span>
+                </label>
+                <input type="url" id="regPhoto" placeholder="https://example.com/photo.jpg (or leave blank for placeholder)"
+                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+            </div>
+
+            <!-- MANIFESTO / BIO -->
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                    Manifesto / Pitch <span class="text-slate-400 font-normal">(Why comrades should vote for you)</span>
+                </label>
+                <textarea id="regBio" rows="3" placeholder="Tell your story, your achievements on campus, and why you represent this category best..."
+                          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"></textarea>
+            </div>
+
+            <!-- SOCIAL MEDIA LINKS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        Instagram Username
+                    </label>
+                    <input type="text" id="regInstagram" placeholder="@yourhandle"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
+                        TikTok Username
+                    </label>
+                    <input type="text" id="regTiktok" placeholder="@yourhandle"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                </div>
+            </div>
+
+            <!-- REGISTRATION FEE CALLOUT -->
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold text-amber-400">One-Time Registration & Verification Fee</div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Prevents bot registrations & activates your live campaign page</div>
+                </div>
+                <div class="text-lg font-black text-white">
+                    KES {{ registration_fee }}
+                </div>
+            </div>
+
+            <!-- ERROR MSG -->
+            <div id="regErrorBox" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3"></div>
+
+            <!-- SUBMIT BUTTON -->
+            <button type="submit" id="regSubmitBtn"
+                    class="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 hover:opacity-90 text-white font-black py-4 rounded-xl text-sm transition shadow-xl awards-glow flex items-center justify-center gap-2">
+                <span>🚀 Complete & Pay KES {{ registration_fee }} via M-Pesa</span>
+            </button>
+
+            <!-- WAITING STATE -->
+            <div id="regWaitBox" class="hidden text-center py-6 space-y-3 bg-slate-950 rounded-xl border border-slate-800 p-6">
+                <div class="animate-spin text-3xl">⏳</div>
+                <h4 class="text-base font-bold text-amber-400">Check Your Phone!</h4>
+                <p class="text-xs text-slate-300 max-w-sm mx-auto">
+                    A Safaricom STK prompt for <strong>KES 50</strong> has been sent to your phone. Enter your PIN to finalize your nomination.
+                </p>
+                <div class="text-xs font-mono text-emerald-400" id="regCountdown">Waiting for confirmation (60s)...</div>
+            </div>
+
+            <!-- SUCCESS STATE -->
+            <div id="regSuccessBox" class="hidden text-center py-6 space-y-4 bg-emerald-950/20 border border-emerald-500/40 rounded-xl p-6">
+                <div class="text-4xl">🌟</div>
+                <h4 class="text-lg font-black text-emerald-400">Nomination Confirmed!</h4>
+                <p class="text-xs text-slate-200" id="regSuccessMsg">
+                    Your profile is live! A confirmation email and campaign link have been sent to your email.
+                </p>
+                <a id="viewCampaignBtn" href="#" class="inline-block bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition">
+                    View Your Campaign Page &rarr;
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let pollTimer = null;
+
+    async function submitContestantReg(e) {
+        e.preventDefault();
+        const errorBox = document.getElementById('regErrorBox');
+        const submitBtn = document.getElementById('regSubmitBtn');
+
+        errorBox.classList.add('hidden');
+
+        const payload = {
+            name: document.getElementById('regName').value.trim(),
+            email: document.getElementById('regEmail').value.trim(),
+            phone: document.getElementById('regPhone').value.trim(),
+            category_id: document.getElementById('regCategory').value,
+            institution: document.getElementById('regInstitution').value,
+            photo_url: document.getElementById('regPhoto').value.trim(),
+            bio: document.getElementById('regBio').value.trim(),
+            instagram: document.getElementById('regInstagram').value.trim(),
+            tiktok: document.getElementById('regTiktok').value.trim()
+        };
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Sending M-Pesa Prompt...';
+
+        try {
+            const res = await fetch("{{ url_for('awards_bp.api_awards_register') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                errorBox.innerText = data.error || 'Failed to initiate nomination payment.';
+                errorBox.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🚀 Complete & Pay KES 50 via M-Pesa';
+                return;
+            }
+
+            // STK Sent! Show waiting box
+            submitBtn.classList.add('hidden');
+            document.getElementById('regWaitBox').classList.remove('hidden');
+
+            // Begin polling for PIN confirmation
+            startRegPolling(data.checkout_id, data.contestant_id);
+
+        } catch (err) {
+            errorBox.innerText = 'Network error. Please try again.';
+            errorBox.classList.remove('hidden');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '🚀 Complete & Pay KES 50 via M-Pesa';
+        }
+    }
+
+    function startRegPolling(checkoutId, contestantId) {
+        let timeLeft = 60;
+        const countdownElem = document.getElementById('regCountdown');
+
+        pollTimer = setInterval(async () => {
+            timeLeft -= 2;
+            if (timeLeft <= 0) {
+                clearInterval(pollTimer);
+                countdownElem.innerText = 'Time expired. If you completed PIN entry, your profile will be active shortly!';
+                return;
+            }
+            countdownElem.innerText = `Waiting for PIN confirmation (${timeLeft}s)...`;
+
+            try {
+                const res = await fetch(`/awards/api/check-payment/${checkoutId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(pollTimer);
+                        document.getElementById('regWaitBox').classList.add('hidden');
+                        document.getElementById('regSuccessBox').classList.remove('hidden');
+                        document.getElementById('viewCampaignBtn').href = `/awards/contestant/${contestantId}`;
+
+                        if (typeof confetti === 'function') {
+                            confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                        }
+                    } else if (data.status === 'FAILED') {
+                        clearInterval(pollTimer);
+                        document.getElementById('regWaitBox').classList.add('hidden');
+                        const errorBox = document.getElementById('regErrorBox');
+                        errorBox.innerText = data.message || 'Payment was cancelled or timed out.';
+                        errorBox.classList.remove('hidden');
+                        document.getElementById('regSubmitBtn').classList.remove('hidden');
+                        document.getElementById('regSubmitBtn').disabled = false;
+                    }
+                }
+            } catch (e) {}
+        }, 2500);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Vote for {{ contestant.name }} | {{ contestant.category_name }} - Campus Awards{% endblock %}
+
+{% block meta %}
+<!-- Open Graph / WhatsApp Status Preview Meta Tags -->
+<meta property="og:type" content="profile">
+<meta property="og:url" content="{{ share_url }}">
+<meta property="og:title" content="Vote for {{ contestant.name }} in {{ contestant.category_name }} 🏆">
+<meta property="og:description" content="Support {{ contestant.name }} ({{ contestant.institution }}) on the Campus Awards! Currently Rank #{{ contestant.rank }} with {{ contestant.vote_count }} votes. Tap to cast your vote!">
+<meta property="og:image" content="{{ contestant.photo_url or '/static/img/icon-512.png' }}">
+<meta property="og:image:width" content="600">
+<meta property="og:image:height" content="600">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Vote for {{ contestant.name }} | {{ contestant.category_name }}">
+<meta name="twitter:description" content="Support {{ contestant.name }} on the Campus Awards! Tap to cast your vote via M-Pesa.">
+<meta name="twitter:image" content="{{ contestant.photo_url or '/static/img/icon-512.png' }}">
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pb-28 pt-6 px-4 sm:px-6 max-w-3xl mx-auto">
+    <!-- TOP NAVIGATION -->
+    <div class="flex items-center justify-between mb-6">
+        <a href="{{ url_for('awards_bp.awards_index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 transition">
+            &larr; All Nominees
+        </a>
+        <a href="{{ url_for('awards_bp.awards_index', category=contestant.category_id) }}" class="text-xs text-slate-400 hover:text-white transition">
+            Category: <span class="text-slate-200 font-bold">{{ contestant.category_name }}</span> &rarr;
+        </a>
+    </div>
+
+    <!-- PROFILE HERO CARD -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl relative">
+        <!-- COVER / HEADER -->
+        <div class="bg-gradient-to-r from-amber-600/30 via-purple-900/40 to-slate-950 p-6 sm:p-8 border-b border-slate-800 relative">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+                <!-- AVATAR -->
+                <div class="w-32 h-32 rounded-2xl overflow-hidden border-4 border-amber-500 shadow-xl flex-shrink-0 relative">
+                    <img src="{{ contestant.photo_url or '/static/img/placeholder.png' }}" alt="{{ contestant.name }}"
+                         class="w-full h-full object-cover">
+                </div>
+
+                <!-- INFO -->
+                <div class="flex-1">
+                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-2">
+                        <span class="px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-slate-950">
+                            {{ contestant.category_name }}
+                        </span>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-300">
+                            🏫 {{ contestant.institution }}
+                        </span>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            ✓ Verified Nominee
+                        </span>
+                    </div>
+
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                        {{ contestant.name }}
+                    </h1>
+
+                    <!-- RANK & VOTES STATS -->
+                    <div class="flex items-center justify-center sm:justify-start gap-6 mt-4">
+                        <div class="text-center sm:text-left">
+                            <div class="text-[10px] text-slate-400 uppercase font-black tracking-wider">Current Standing</div>
+                            <div class="text-xl font-black text-amber-400">Rank #{{ contestant.rank }}</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-800"></div>
+                        <div class="text-center sm:text-left">
+                            <div class="text-[10px] text-slate-400 uppercase font-black tracking-wider">Verified Votes</div>
+                            <div class="text-xl font-black text-emerald-400">
+                                {% if settings.blind_mode %}
+                                🔒 Hidden
+                                {% else %}
+                                {{ contestant.vote_count }}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACTION BAR -->
+        <div class="p-6 sm:p-8 space-y-6">
+            <!-- VOTE NOW CTA -->
+            <button onclick="openContestantVoteModal()"
+                    class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-4 rounded-2xl text-base transition shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transform active:scale-98">
+                <span>⚡ Vote For {{ contestant.name }} (from 10 KES)</span>
+            </button>
+
+            <!-- WHATSAPP CAMPAIGN SHARING -->
+            <div class="bg-purple-950/20 border border-purple-500/30 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-extrabold text-white flex items-center gap-1.5">
+                        <span>📢</span> Campaign For {{ contestant.name }}
+                    </h4>
+                    <p class="text-xs text-purple-200 mt-0.5">
+                        Share this campaign poster link with friends and campus groups on WhatsApp!
+                    </p>
+                </div>
+                <a href="https://api.whatsapp.com/send?text=Hey%20fam!%20Please%20vote%20for%20{{ contestant.name|urlencode }}%20for%20{{ contestant.category_name|urlencode }}%20at%20{{ contestant.institution|urlencode }}!%20🏆%20Vote%20here:%20{{ share_url|urlencode }}"
+                   target="_blank"
+                   class="flex-shrink-0 bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg">
+                    <span>💬</span> Share to WhatsApp
+                </a>
+            </div>
+
+            <!-- MANIFESTO / BIO -->
+            <div>
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                    Manifesto & Vision
+                </h3>
+                <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 text-sm text-slate-300 leading-relaxed">
+                    {{ contestant.bio or "This nominee represents dedication, talent, and leadership on campus. Tap 'Vote Now' to support their journey!" }}
+                </div>
+            </div>
+
+            <!-- SOCIAL MEDIA CHANNELS -->
+            {% if contestant.socials and (contestant.socials.instagram or contestant.socials.tiktok) %}
+            <div>
+                <h3 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">
+                    Connect With Nominee
+                </h3>
+                <div class="flex flex-wrap gap-3">
+                    {% if contestant.socials.instagram %}
+                    <a href="https://instagram.com/{{ contestant.socials.instagram.lstrip('@') }}" target="_blank"
+                       class="px-4 py-2 bg-slate-950 border border-slate-800 hover:border-pink-500 text-pink-400 text-xs font-bold rounded-xl transition flex items-center gap-2">
+                        <span>📸</span> Instagram ({{ contestant.socials.instagram }})
+                    </a>
+                    {% endif %}
+                    {% if contestant.socials.tiktok %}
+                    <a href="https://tiktok.com/@{{ contestant.socials.tiktok.lstrip('@') }}" target="_blank"
+                       class="px-4 py-2 bg-slate-950 border border-slate-800 hover:border-cyan-500 text-cyan-400 text-xs font-bold rounded-xl transition flex items-center gap-2">
+                        <span>🎵</span> TikTok ({{ contestant.socials.tiktok }})
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- VOTE MODAL -->
+<div id="cVoteModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative">
+        <button onclick="closeContestantVoteModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">
+            ✕
+        </button>
+
+        <div class="p-6">
+            <h3 class="text-lg font-black text-white mb-1">Vote for {{ contestant.name }}</h3>
+            <p class="text-xs text-amber-400 mb-4">{{ contestant.category_name }} &bull; {{ contestant.institution }}</p>
+
+            <!-- PACKAGE SELECTOR -->
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
+                Choose Vote Tier
+            </label>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                {% for pkg in vote_packages %}
+                <button type="button" onclick="setPkg({{ pkg.votes }}, {{ pkg.amount }}, this)"
+                        class="cpkg-btn p-3 rounded-xl border border-slate-700 bg-slate-800 text-left hover:border-amber-500 transition {% if pkg.popular %}border-amber-500/80 bg-amber-500/10{% endif %}">
+                    <div class="text-sm font-black text-white">+{{ pkg.votes }} Votes</div>
+                    <div class="text-xs font-bold text-emerald-400">KES {{ pkg.amount }}</div>
+                </button>
+                {% endfor %}
+            </div>
+
+            <!-- EMAIL & PHONE -->
+            <div class="space-y-3 mb-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">
+                        Your Email <span class="text-amber-400 font-normal">(Receipt & audit code sent here)</span>
+                    </label>
+                    <input type="email" id="cEmail" placeholder="comrade@gmail.com"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">
+                        M-Pesa Number <span class="text-emerald-400 font-normal">(STK PIN prompt)</span>
+                    </label>
+                    <input type="tel" id="cPhone" placeholder="07XXXXXXXX or 254XXXXXXXX"
+                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-amber-500 font-mono">
+                </div>
+            </div>
+
+            <div id="cError" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-2.5 mb-3"></div>
+
+            <button id="cSubmitBtn" onclick="doSubmitVote()"
+                    class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-3 rounded-xl text-sm transition shadow-lg">
+                Cast <span id="cVotesTxt">10</span> Votes (KES <span id="cAmountTxt">100</span>)
+            </button>
+
+            <!-- WAITING -->
+            <div id="cWait" class="hidden text-center py-4 space-y-2">
+                <div class="animate-spin text-3xl">⏳</div>
+                <h4 class="text-sm font-bold text-amber-400">Check Your Phone!</h4>
+                <p class="text-xs text-slate-400">Enter your M-Pesa PIN on your phone to complete your vote.</p>
+                <div class="text-xs font-mono text-emerald-400" id="cCountdown">Waiting for confirmation...</div>
+            </div>
+
+            <!-- SUCCESS -->
+            <div id="cSuccess" class="hidden text-center py-4 space-y-3">
+                <div class="text-4xl">🎉</div>
+                <h4 class="text-base font-black text-emerald-400">Votes Credited!</h4>
+                <p class="text-xs text-slate-300">Thank you for voting! Your official receipt was delivered to your email.</p>
+                <button onclick="window.location.reload()" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cVotes = 10;
+    let cAmount = 100;
+    let cTimer = null;
+
+    function openContestantVoteModal() {
+        document.getElementById('cVoteModal').classList.remove('hidden');
+    }
+
+    function closeContestantVoteModal() {
+        if (cTimer) clearInterval(cTimer);
+        document.getElementById('cVoteModal').classList.add('hidden');
+    }
+
+    function setPkg(v, a, elem) {
+        cVotes = v;
+        cAmount = a;
+        document.getElementById('cVotesTxt').innerText = v;
+        document.getElementById('cAmountTxt').innerText = a;
+
+        document.querySelectorAll('.cpkg-btn').forEach(b => {
+            b.classList.remove('border-amber-500', 'bg-amber-500/10');
+            b.classList.add('border-slate-700', 'bg-slate-800');
+        });
+        elem.classList.remove('border-slate-700', 'bg-slate-800');
+        elem.classList.add('border-amber-500', 'bg-amber-500/10');
+    }
+
+    async function doSubmitVote() {
+        const email = document.getElementById('cEmail').value.trim();
+        const phone = document.getElementById('cPhone').value.trim();
+        const errBox = document.getElementById('cError');
+        errBox.classList.add('hidden');
+
+        if (!email || !email.includes('@')) {
+            errBox.innerText = 'Please provide an email address for your official receipt.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+        if (!phone || phone.length < 9) {
+            errBox.innerText = 'Please provide a valid M-Pesa phone number.';
+            errBox.classList.remove('hidden');
+            return;
+        }
+
+        const btn = document.getElementById('cSubmitBtn');
+        btn.disabled = true;
+        btn.innerHTML = 'Sending M-Pesa Prompt...';
+
+        try {
+            const res = await fetch("{{ url_for('awards_bp.api_awards_vote_stk_push') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contestant_id: '{{ contestant.id }}',
+                    email: email,
+                    phone: phone,
+                    vote_count: cVotes
+                })
+            });
+
+            const data = await res.json();
+            if (!data.success) {
+                errBox.innerText = data.error || 'Failed to trigger payment.';
+                errBox.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = `Cast ${cVotes} Votes (KES ${cAmount})`;
+                return;
+            }
+
+            btn.classList.add('hidden');
+            document.getElementById('cWait').classList.remove('hidden');
+
+            let count = 60;
+            cTimer = setInterval(async () => {
+                count -= 2;
+                if (count <= 0) {
+                    clearInterval(cTimer);
+                    document.getElementById('cCountdown').innerText = 'Time expired. If PIN was entered, your vote will appear shortly!';
+                    return;
+                }
+                document.getElementById('cCountdown').innerText = `Waiting for confirmation (${count}s)...`;
+
+                const chk = await fetch(`/awards/api/check-payment/${data.checkout_id}`);
+                if (chk.ok) {
+                    const chkData = await chk.json();
+                    if (chkData.status === 'SUCCESS') {
+                        clearInterval(cTimer);
+                        document.getElementById('cWait').classList.add('hidden');
+                        document.getElementById('cSuccess').classList.remove('hidden');
+                        if (typeof confetti === 'function') confetti();
+                    } else if (chkData.status === 'FAILED') {
+                        clearInterval(cTimer);
+                        document.getElementById('cWait').classList.add('hidden');
+                        errBox.innerText = chkData.message || 'Payment cancelled.';
+                        errBox.classList.remove('hidden');
+                        btn.classList.remove('hidden');
+                        btn.disabled = false;
+                    }
+                }
+            }, 2500);
+
+        } catch (e) {
+            errBox.innerText = 'Network error. Please try again.';
+            errBox.classList.remove('hidden');
+            btn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

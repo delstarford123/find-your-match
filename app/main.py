@@ -448,6 +448,7 @@ from app.routes.matches import matches_bp
 from app.routes.v3.matching import v3_matching_bp
 from app.routes.gamification import gamification_v4_bp
 from app.routes.events import events_bp
+from app.routes.awards import awards_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(auth_v2_bp)
@@ -459,6 +460,8 @@ app.register_blueprint(v3_matching_bp)
 app.register_blueprint(gamification_v4_bp)
 app.register_blueprint(events_bp)
 csrf.exempt(events_bp)
+app.register_blueprint(awards_bp, url_prefix='/awards')
+csrf.exempt(awards_bp)
 
 # ==========================================
 # 5. SECURITY DECORATORS & HELPERS
