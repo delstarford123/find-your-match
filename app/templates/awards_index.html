@@ -20,33 +20,25 @@
 
 {% block content %}
 <style>
-    :root {
-        --awards-gold: #F59E0B;
-        --awards-gold-dark: #D97706;
-        --awards-gold-light: #FEF3C7;
-        --awards-bg: #090D16;
-        --awards-card: #0F172A;
-        --awards-card-border: #1E293B;
-        --awards-purple: #8B5CF6;
-        --awards-emerald: #10B981;
+    html, body {
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
     }
 
-    .love-orb { display: none !important; }
-
-    body {
-        background-color: var(--awards-bg) !important;
-        color: #F8FAFC !important;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    *, *::before, *::after {
+        box-sizing: border-box !important;
     }
 
     main.container {
         max-width: 1240px !important;
         width: 100% !important;
         box-sizing: border-box !important;
-        padding-left: clamp(8px, 2.5vw, 24px) !important;
-        padding-right: clamp(8px, 2.5vw, 24px) !important;
-        padding-top: calc(var(--nav-height, 65px) + 10px) !important;
+        padding-left: clamp(8px, 2.5vw, 20px) !important;
+        padding-right: clamp(8px, 2.5vw, 20px) !important;
+        padding-top: calc(var(--nav-height, 65px) + 8px) !important;
         padding-bottom: 90px !important;
+        min-width: 0 !important;
         overflow-x: hidden !important;
     }
 
@@ -66,7 +58,40 @@
     .justify-end { justify-content: flex-end; }
     .grid { display: grid; }
 
-    /* Gap Utilities */
+    /* Touch-friendly horizontal scroll strips that never blow out viewport */
+    .scroll-strip {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Classroom desk card strict vertical stacking */
+    .classroom-desk {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+
+    /* Text contrast guarantees on orange/amber buttons */
+    .text-slate-950 { color: #020617 !important; }
+    .text-slate-900 { color: #0f172a !important; }
+    .text-black { color: #000000 !important; }
+    .cast-vote-btn, button.bg-amber-500, a.bg-amber-500, .btn-amber, button[type="submit"].bg-amber-500 {
+        color: #020617 !important;
+        font-weight: 900 !important;
+    }
+
+
     .gap-1 { gap: 0.25rem !important; }
     .gap-1\.5 { gap: 0.375rem !important; }
     .gap-2 { gap: 0.5rem !important; }
@@ -75,14 +100,12 @@
     .gap-6 { gap: 1.5rem !important; }
     .gap-8 { gap: 2rem !important; }
 
-    /* Radii */
     .rounded-md { border-radius: 0.375rem !important; }
     .rounded-lg { border-radius: 0.5rem !important; }
     .rounded-xl { border-radius: 0.75rem !important; }
     .rounded-2xl { border-radius: 1rem !important; }
     .rounded-full { border-radius: 9999px !important; }
 
-    /* Colors & Backgrounds */
     .bg-slate-900 { background-color: #0f172a !important; }
     .bg-slate-950 { background-color: #020617 !important; }
     .border-slate-800 { border-color: #1e293b !important; }
@@ -109,80 +132,26 @@
     .tracking-tight { letter-spacing: -0.025em !important; }
     .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important; }
 
-    /* Glows & Cards */
-    .awards-glow {
-        box-shadow: 0 0 25px rgba(245, 158, 11, 0.25) !important;
-    }
-    .awards-glow-lg {
-        box-shadow: 0 0 40px rgba(245, 158, 11, 0.35) !important;
-    }
+    .awards-glow { box-shadow: 0 0 25px rgba(245, 158, 11, 0.25) !important; }
+    .awards-glow-lg { box-shadow: 0 0 40px rgba(245, 158, 11, 0.35) !important; }
     .glass-card {
         background: rgba(15, 23, 42, 0.85) !important;
         backdrop-filter: blur(14px) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
-
-    /* Hero Gradient Title */
     .awards-hero-gradient {
         background: linear-gradient(135deg, #ffffff 40%, #fbbf24 80%, #f59e0b 100%) !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
     }
-
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    :root {
-        --awards-gold: #F59E0B;
-        --awards-gold-dark: #D97706;
-        --awards-gold-light: #FEF3C7;
-        --awards-bg: #090D16;
-        --awards-card: #0F172A;
-        --awards-card-border: #1E293B;
-        --awards-purple: #8B5CF6;
-        --awards-emerald: #10B981;
-    }
-
-    body {
-        background-color: var(--awards-bg) !important;
-        color: #F8FAFC;
-    }
-
-    .awards-glow {
-        box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
-    }
-
-    .glass-card {
-        background: rgba(15, 23, 42, 0.75);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .podium-card-1 {
-        border-color: #F59E0B !important;
-        box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2);
-    }
-
-    .podium-card-2 {
-        border-color: #94A3B8 !important;
-        box-shadow: 0 10px 25px rgba(148, 163, 184, 0.15);
-    }
-
-    .podium-card-3 {
-        border-color: #CD7F32 !important;
-        box-shadow: 0 10px 25px rgba(205, 127, 50, 0.15);
-    }
-
-    .hide-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
-    .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-    }
+    .podium-card-1 { border-color: #F59E0B !important; box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2); }
+    .podium-card-2 { border-color: #94A3B8 !important; box-shadow: 0 10px 25px rgba(148, 163, 184, 0.15); }
+    .podium-card-3 { border-color: #CD7F32 !important; box-shadow: 0 10px 25px rgba(205, 127, 50, 0.15); }
 </style>
 
-<div class="min-h-screen pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto">
+<div class="w-full max-w-7xl mx-auto pb-28 pt-2 sm:pt-4 px-1 sm:px-4 min-w-0 overflow-x-hidden">
 
     <!-- LIVE VOTE TICKER & PROOF OF ACTIVITY -->
     <div class="mb-4 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2 flex items-center justify-between text-xs overflow-hidden shadow-lg">
@@ -414,7 +383,7 @@
         </form>
 
         <!-- CATEGORY PILLS HORIZONTAL SCROLL -->
-        <div class="flex gap-2 overflow-x-auto hide-scrollbar pt-4 mt-3 border-t border-slate-800">
+        <div class="scroll-strip gap-2 hide-scrollbar pt-4 mt-3 border-t border-slate-800">
             <a href="{{ url_for('awards_bp.awards_index', category='all', institution=selected_institution, q=search_query) }}"
                class="px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition {% if selected_category == 'all' %}bg-amber-500 text-slate-950{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
                 🌟 All Categories
@@ -447,7 +416,7 @@
 
         <!-- CATEGORY DESKS SELECTOR (INTERACTIVE TABS) -->
         <div class="glass-card rounded-2xl p-3 sm:p-4 mb-8">
-            <div class="flex gap-2.5 overflow-x-auto hide-scrollbar py-1">
+            <div class="scroll-strip gap-2.5 hide-scrollbar py-1">
                 <button type="button" onclick="filterClassroomCategory('all', this)"
                         class="classroom-cat-tab flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs whitespace-nowrap transition bg-amber-500 text-slate-950 border border-amber-400 shadow-lg">
                     <span>🌟</span> All Categories 
@@ -488,7 +457,7 @@
                     <div class="w-28 h-28 rounded-full overflow-hidden border-4 border-amber-400 shadow-xl ring-4 ring-amber-500/20 awards-glow">
                         <img src="{{ c.photo_url or '/static/img/placeholder.png' }}"
                              alt="{{ c.name }}"
-                             onerror="this.onerror=null; this.src='/static/img/placeholder.png';"
+                             onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%231e293b\' width=\'100\' height=\'100\'/%3E%3Ctext fill=\'%23fbbf24\' font-family=\'sans-serif\' font-size=\'38\' font-weight=\'bold\' x=\'50%25\' y=\'55%25\' dominant-baseline=\'central\' text-anchor=\'middle\'%3E🎓%3C/text%3E%3C/svg%3E';"
                              class="w-full h-full object-cover">
                     </div>
                     <!-- Active Nominee Status Pulse -->
