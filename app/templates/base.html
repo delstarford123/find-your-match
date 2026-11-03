@@ -61,6 +61,23 @@
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
+    <!-- Tailwind CSS Engine for Campus Awards & Voting -->
+    {% if request.path and request.path.startswith('/awards') %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: {
+                preflight: false
+            }
+        };
+    </script>
+    <style>
+        .love-orb { display: none !important; }
+        body { background: #090D16 !important; }
+    </style>
+    {% endif %}
+
+
     <!-- FIREBASE GLOBAL REALTIME ENGINE (Replaces Socket.IO) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>

@@ -2,10 +2,9 @@
   "rules": {
     ".read": false,
     ".write": false,
-
     "merchant_alerts": {
       "$restaurant_id": {
-        ".read": true, 
+        ".read": true,
         "$alert_id": {
           "status": {
             ".write": "newData.val() === 'read'"
@@ -13,13 +12,13 @@
         }
       }
     },
-
     "party_participants": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["joined_at"]
+      ".indexOn": [
+        "joined_at"
+      ]
     },
-
     "profiles": {
       "$user_id": {
         "is_online": {
@@ -32,23 +31,22 @@
         }
       },
       ".indexOn": [
-        "email", 
-        "phone", 
-        "referral_code", 
-        "wingman_code", 
-        "is_paid", 
-        "is_online", 
-        "gender", 
-        "daily_streak", 
-        "class_code", 
-        "created_at", 
-        "institution_name", 
+        "email",
+        "phone",
+        "referral_code",
+        "wingman_code",
+        "is_paid",
+        "is_online",
+        "gender",
+        "daily_streak",
+        "class_code",
+        "created_at",
+        "institution_name",
         "institution_type",
         "crush_votes",
         "tribe"
       ]
     },
-
     "sponsor_profiles": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -60,215 +58,265 @@
         "gender"
       ]
     },
-    
-    
     "notifications": {
       ".read": true,
       ".write": true,
       "$user_id": {
-        ".indexOn": ["status", "timestamp"]
+        ".indexOn": [
+          "status",
+          "timestamp"
+        ]
       }
     },
-    
     "schedules": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["user_id"]
+      ".indexOn": [
+        "user_id"
+      ]
     },
-    
     "swipes": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["user_id", "target_id", "timestamp"]
+      ".indexOn": [
+        "user_id",
+        "target_id",
+        "timestamp"
+      ]
     },
-    
     "bookings": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["restaurant_id", "user_a_id", "user_b_id", "status", "timestamp"]
+      ".indexOn": [
+        "restaurant_id",
+        "user_a_id",
+        "user_b_id",
+        "status",
+        "timestamp"
+      ]
     },
-    
     "restaurants": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["subscription_active", "email"]
+      ".indexOn": [
+        "subscription_active",
+        "email"
+      ]
     },
-    
     "matches": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["users"]
+      ".indexOn": [
+        "users"
+      ]
     },
-
     "messages": {
       ".read": true,
       ".write": true,
       "$match_id": {
-        ".indexOn": ["timestamp"]
+        ".indexOn": [
+          "timestamp"
+        ]
       }
     },
-
     "chats": {
       ".read": true,
       ".write": true,
       "$room_id": {
-        ".indexOn": ["timestamp"]
+        ".indexOn": [
+          "timestamp"
+        ]
       }
     },
-
     "confessions": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "score"]
+      ".indexOn": [
+        "timestamp",
+        "score"
+      ]
     },
-
     "ngl_links": {
       ".read": true,
       ".write": "auth != null",
-      ".indexOn": ["user_id", "active"]
+      ".indexOn": [
+        "user_id",
+        "active"
+      ]
     },
-
     "ngl_inbox": {
       ".read": "auth != null",
       ".write": true,
       "$user_id": {
-        ".indexOn": ["timestamp", "is_read"]
+        ".indexOn": [
+          "timestamp",
+          "is_read"
+        ]
       }
     },
-
     "lady_weekly_cohorts": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["is_full", "enrolled_count"]
+      ".indexOn": [
+        "is_full",
+        "enrolled_count"
+      ]
     },
-
     "lady_daily_engagements": {
       ".read": "auth != null",
       ".write": "auth != null",
       "$user_id": {
-        ".indexOn": ["count", "goal_reached"]
+        ".indexOn": [
+          "count",
+          "goal_reached"
+        ]
       }
     },
-
     "lady_wallets": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["unpaid_balance"]
+      ".indexOn": [
+        "unpaid_balance"
+      ]
     },
-
     "lady_payout_history": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["user_id", "week_key", "status"]
+      ".indexOn": [
+        "user_id",
+        "week_key",
+        "status"
+      ]
     },
-
     "missed_connections": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "upvotes"]
+      ".indexOn": [
+        "timestamp",
+        "upvotes"
+      ]
     },
-
     "gossip": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "upvotes"]
+      ".indexOn": [
+        "timestamp",
+        "upvotes"
+      ]
     },
-
     "secret_crushes": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["status", "timestamp"]
+      ".indexOn": [
+        "status",
+        "timestamp"
+      ]
     },
-
     "daily_prompts": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["date"]
+      ".indexOn": [
+        "date"
+      ]
     },
-
     "prompt_answers": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
-
     "admin_alerts": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
-    
     "call_requests": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "status"]
+      ".indexOn": [
+        "timestamp",
+        "status"
+      ]
     },
-    
     "feedbacks": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "type"]
+      ".indexOn": [
+        "timestamp",
+        "type"
+      ]
     },
-
     "call_reviews": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp", "quality"]
+      ".indexOn": [
+        "timestamp",
+        "quality"
+      ]
     },
-
     "admin_audit_logs": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
-
     "active_ads": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["status"]
+      ".indexOn": [
+        "status"
+      ]
     },
-
     "party_chat": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_chat_main": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_chat_dj": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_chat_vip": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_chat_chill": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_chat_live_video": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp_ms"]
+      ".indexOn": [
+        "timestamp_ms"
+      ]
     },
-
     "party_typing": {
       ".read": true,
       ".write": true
     },
-    
     "users": {
       "$user_id": {
         "is_online": {
@@ -276,13 +324,16 @@
           ".write": true
         }
       },
-      ".indexOn": ["is_online"]
+      ".indexOn": [
+        "is_online"
+      ]
     },
-    
     "lights_out_queue": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "lights_out_rooms": {
       ".read": true,
@@ -303,12 +354,16 @@
     "emergency_alerts": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "campus_managers": {
       ".read": false,
       ".write": false,
-      ".indexOn": ["email"]
+      ".indexOn": [
+        "email"
+      ]
     },
     "campus_manager_ledgers": {
       ".read": false,
@@ -317,22 +372,32 @@
     "groups": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["created_by", "name"]
+      ".indexOn": [
+        "created_by",
+        "name"
+      ]
     },
     "group_messages": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "group_calls": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["status", "created_at"]
+      ".indexOn": [
+        "status",
+        "created_at"
+      ]
     },
     "chat_notifications": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "balloon_room": {
       ".read": true,
@@ -341,62 +406,155 @@
     "balloon_chat": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "events": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["created_at", "status", "category", "date"]
+      ".indexOn": [
+        "created_at",
+        "status",
+        "category",
+        "date"
+      ]
     },
     "events_rsvps": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp", "event_id", "user_id"]
+      ".indexOn": [
+        "timestamp",
+        "event_id",
+        "user_id"
+      ]
     },
     "events_discussions": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "hotspots": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["name", "count"]
+      ".indexOn": [
+        "name",
+        "count"
+      ]
     },
     "hotspot_checkins": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["timestamp"]
+      ".indexOn": [
+        "timestamp"
+      ]
     },
     "tickets_lookup": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["ticket_code", "event_id", "timestamp"]
+      ".indexOn": [
+        "ticket_code",
+        "event_id",
+        "timestamp"
+      ]
     },
     "lovi_lookup": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["lovi_code", "ticket_code", "event_id"]
+      ".indexOn": [
+        "lovi_code",
+        "ticket_code",
+        "event_id"
+      ]
     },
     "pending_organizer_payouts": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["scheduled_at", "status", "event_id"]
+      ".indexOn": [
+        "scheduled_at",
+        "status",
+        "event_id"
+      ]
     },
     "pending_event_payments": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["status", "event_id"]
+      ".indexOn": [
+        "status",
+        "event_id"
+      ]
     },
     "pending_event_creation_payments": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["status", "event_id"]
+      ".indexOn": [
+        "status",
+        "event_id"
+      ]
     },
     "b2c_payout_results": {
       ".read": true,
       ".write": true,
-      ".indexOn": ["result_code", "received_at"]
+      ".indexOn": [
+        "result_code",
+        "received_at"
+      ]
+    },
+    "awards_settings": {
+      ".read": true,
+      ".write": true
+    },
+    "awards_categories": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "status"
+      ]
+    },
+    "awards_contestants": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "category_id",
+        "institution",
+        "status",
+        "vote_count"
+      ]
+    },
+    "awards_votes_ledger": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "timestamp",
+        "contestant_id",
+        "mpesa_receipt"
+      ]
+    },
+    "pending_awards_payments": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "status",
+        "checkout_id",
+        "contestant_id"
+      ]
+    },
+    "awards_voter_otps": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "timestamp"
+      ]
+    },
+    "used_mpesa_receipts": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": [
+        "receipt",
+        "claimed_at"
+      ]
     }
   }
 }

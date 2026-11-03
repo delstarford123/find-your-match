@@ -3,6 +3,15 @@
 {% block title %}{{ settings.title }} | Find Your Match Awards{% endblock %}
 
 {% block meta %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        corePlugins: {
+            preflight: false
+        }
+    };
+</script>
+
 <meta property="og:type" content="website">
 <meta property="og:title" content="{{ settings.title }} 🏆">
 <meta property="og:description" content="Discover top campus talents, vote for your favorite nominees across universities in Kenya, and watch the live leaderboard!">
@@ -11,6 +20,105 @@
 
 {% block content %}
 <style>
+    :root {
+        --awards-gold: #F59E0B;
+        --awards-gold-dark: #D97706;
+        --awards-gold-light: #FEF3C7;
+        --awards-bg: #090D16;
+        --awards-card: #0F172A;
+        --awards-card-border: #1E293B;
+        --awards-purple: #8B5CF6;
+        --awards-emerald: #10B981;
+    }
+
+    .love-orb { display: none !important; }
+
+    body {
+        background-color: var(--awards-bg) !important;
+        color: #F8FAFC !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+
+    /* Core Layout Flex & Grid */
+    .flex { display: flex !important; }
+    .inline-flex { display: inline-flex !important; }
+    .flex-col { flex-direction: column !important; }
+    .flex-row { flex-direction: row !important; }
+    .flex-wrap { flex-wrap: wrap !important; }
+    .flex-1 { flex: 1 1 0% !important; }
+    .items-center { align-items: center !important; }
+    .items-start { align-items: flex-start !important; }
+    .justify-center { justify-content: center !important; }
+    .justify-between { justify-content: space-between !important; }
+    .justify-end { justify-content: flex-end !important; }
+    .grid { display: grid !important; }
+
+    /* Gap Utilities */
+    .gap-1 { gap: 0.25rem !important; }
+    .gap-1\.5 { gap: 0.375rem !important; }
+    .gap-2 { gap: 0.5rem !important; }
+    .gap-3 { gap: 0.75rem !important; }
+    .gap-4 { gap: 1rem !important; }
+    .gap-6 { gap: 1.5rem !important; }
+    .gap-8 { gap: 2rem !important; }
+
+    /* Radii */
+    .rounded-md { border-radius: 0.375rem !important; }
+    .rounded-lg { border-radius: 0.5rem !important; }
+    .rounded-xl { border-radius: 0.75rem !important; }
+    .rounded-2xl { border-radius: 1rem !important; }
+    .rounded-full { border-radius: 9999px !important; }
+
+    /* Colors & Backgrounds */
+    .bg-slate-900 { background-color: #0f172a !important; }
+    .bg-slate-950 { background-color: #020617 !important; }
+    .border-slate-800 { border-color: #1e293b !important; }
+    .border-slate-700 { border-color: #334155 !important; }
+    .text-white { color: #ffffff !important; }
+    .text-amber-400 { color: #fbbf24 !important; }
+    .text-amber-300 { color: #fcd34d !important; }
+    .text-amber-200 { color: #fde68a !important; }
+    .text-emerald-400 { color: #34d399 !important; }
+    .text-purple-400 { color: #c084fc !important; }
+    .text-purple-300 { color: #d8b4fe !important; }
+    .text-purple-200 { color: #e9d5ff !important; }
+    .text-slate-300 { color: #cbd5e1 !important; }
+    .text-slate-400 { color: #94a3b8 !important; }
+    .text-slate-500 { color: #64748b !important; }
+
+    .font-black { font-weight: 900 !important; }
+    .font-bold { font-weight: 700 !important; }
+    .font-semibold { font-weight: 600 !important; }
+    .font-medium { font-weight: 500 !important; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
+    .uppercase { text-transform: uppercase !important; }
+    .tracking-wide { letter-spacing: 0.025em !important; }
+    .tracking-tight { letter-spacing: -0.025em !important; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important; }
+
+    /* Glows & Cards */
+    .awards-glow {
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.25) !important;
+    }
+    .awards-glow-lg {
+        box-shadow: 0 0 40px rgba(245, 158, 11, 0.35) !important;
+    }
+    .glass-card {
+        background: rgba(15, 23, 42, 0.85) !important;
+        backdrop-filter: blur(14px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* Hero Gradient Title */
+    .awards-hero-gradient {
+        background: linear-gradient(135deg, #ffffff 40%, #fbbf24 80%, #f59e0b 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
     :root {
         --awards-gold: #F59E0B;
         --awards-gold-dark: #D97706;
@@ -115,7 +223,7 @@
             <span>🏆</span> Official Universities & National Awards
         </div>
         <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight mb-2">
-            Campus Awards & <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200">Talent 2026</span>
+            Campus Awards & <span class="awards-hero-gradient">Talent 2026</span>
         </h1>
         <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
             Vote for top campus MCs, DJs, creators, leaders, and trendsetters across MMUST, UoN, KU, JKUAT & nationwide!
