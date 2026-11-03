@@ -341,7 +341,7 @@ def get_ladies_campaign_status() -> dict:
     }
 
 
-def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=None) -> dict:
+def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=None, sync: bool = False) -> dict:
     """
     Launches the Ladies Chat-to-Earn & NGL activity by dispatching:
     1. Rich HTML onboarding email with CTA to jump in
@@ -490,7 +490,18 @@ def dispatch_ladies_launch_campaign(admin_name: str = "Super Admin", push_fn=Non
         logger.info(f"✅ Ladies launch campaign finished. Targeted: {total_count}, Emails: {emails_sent}, Notifs: {notifs_sent}, Errors: {errors}")
 
     # Fire background worker
-    worker_thread = threading.Thread(target=_broadcast_worker, daemon=True)
+    if sync:
+        _broadcast_worker()
+        return {
+            "success": True,
+            "message": f"Activity launch completed! {total_count} ladies notified via email and in-app alerts.",
+            "target_count": total_count,
+            "launched_at": launch_meta["last_launched_at"],
+            "status": "completed"
+        }
+
+    # Fire background worker
+    worker_thread = threading.Thread(target=_broadcast_worker, daemon=False)
     worker_thread.start()
 
     return {
