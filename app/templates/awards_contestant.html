@@ -52,19 +52,21 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    .hidden { display: none !important; }
+
     /* Core Layout Flex & Grid */
-    .flex { display: flex !important; }
-    .inline-flex { display: inline-flex !important; }
-    .flex-col { flex-direction: column !important; }
-    .flex-row { flex-direction: row !important; }
-    .flex-wrap { flex-wrap: wrap !important; }
-    .flex-1 { flex: 1 1 0% !important; }
-    .items-center { align-items: center !important; }
-    .items-start { align-items: flex-start !important; }
-    .justify-center { justify-content: center !important; }
-    .justify-between { justify-content: space-between !important; }
-    .justify-end { justify-content: flex-end !important; }
-    .grid { display: grid !important; }
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .grid { display: grid; }
 
     /* Gap Utilities */
     .gap-1 { gap: 0.25rem !important; }
@@ -278,8 +280,8 @@
 
 
 <!-- POSTER PREVIEW & DOWNLOAD MODAL -->
-<div id="posterModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl relative text-center p-5">
+<div id="posterModal" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl relative text-center p-5 my-auto">
         <button onclick="closePosterModal()" class="absolute top-3 right-4 text-slate-400 hover:text-white text-lg font-bold">✕</button>
         <h3 class="text-sm font-black text-amber-400 uppercase tracking-wide mb-3">Your WhatsApp Campaign Card</h3>
         
@@ -299,8 +301,8 @@
 </div>
 
 <!-- VOTE MODAL -->
-<div id="cVoteModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative">
+<div id="cVoteModal" style="display: none;" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl relative my-auto">
         <button onclick="closeContestantVoteModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">
             ✕
         </button>
@@ -391,13 +393,128 @@
     let cTimer = null;
 
     function openContestantVoteModal() {
-        document.getElementById('cVoteModal').classList.remove('hidden');
+        const modal = document.getElementById('cVoteModal');
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
     }
 
     function closeContestantVoteModal() {
         if (cTimer) clearInterval(cTimer);
-        document.getElementById('cVoteModal').classList.add('hidden');
+        const modal = document.getElementById('cVoteModal');
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
     }
+
+    function closePosterModal() {
+        const m = document.getElementById('posterModal');
+        m.style.display = 'none';
+        m.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function generatePoster() {
+        const canvas = document.getElementById('posterCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Background gradient
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, 520);
+        bgGrad.addColorStop(0, '#0f172a');
+        bgGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, 400, 520);
+
+        // Gold border
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(8, 8, 384, 504);
+
+        // Header Title
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏆 CAMPUS AWARDS & TALENT 2026', 200, 42);
+
+        // Contestant Name
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 22px sans-serif';
+        ctx.fillText('{{ contestant.name }}', 200, 95);
+
+        // Category & Institution
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('{{ contestant.category_name }}', 200, 122);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px sans-serif';
+        ctx.fillText('{{ contestant.institution }} &bull; ID: #{{ contestant.id }}', 200, 142);
+
+        // Center Avatar Box / Placeholder
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(200, 240, 75, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.font = '65px sans-serif';
+        ctx.fillText('🎓', 200, 260);
+
+        // Call to action
+        ctx.fillStyle = '#34d399';
+        ctx.font = '900 16px sans-serif';
+        ctx.fillText('⚡ VOTE FOR ME VIA M-PESA', 200, 365);
+
+        ctx.fillStyle = '#cbd5e1';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('Visit findyourmatch.co.ke/awards', 200, 395);
+        ctx.fillText('Search Nominee ID: #{{ contestant.id }}', 200, 415);
+
+        // Footer badge
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+        ctx.fillRect(40, 450, 320, 38);
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('Support Campus Talent & Creativity!', 200, 474);
+
+        // Show modal
+        const m = document.getElementById('posterModal');
+        m.style.display = 'flex';
+        m.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function downloadPoster() {
+        const canvas = document.getElementById('posterCanvas');
+        if (!canvas) return;
+        const link = document.createElement('a');
+        link.download = 'Vote_{{ contestant.name|replace(" ", "_") }}_Campus_Awards.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        ['cVoteModal', 'posterModal'].forEach(id => {
+            const m = document.getElementById(id);
+            if (m) {
+                m.addEventListener('click', function(e) {
+                    if (e.target === m) {
+                        m.style.display = 'none';
+                        m.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    }
+                });
+            }
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeContestantVoteModal();
+                closePosterModal();
+            }
+        });
+    });
 
     function setPkg(v, a, elem) {
         cVotes = v;

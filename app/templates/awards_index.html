@@ -39,19 +39,21 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
+    .hidden { display: none !important; }
+
     /* Core Layout Flex & Grid */
-    .flex { display: flex !important; }
-    .inline-flex { display: inline-flex !important; }
-    .flex-col { flex-direction: column !important; }
-    .flex-row { flex-direction: row !important; }
-    .flex-wrap { flex-wrap: wrap !important; }
-    .flex-1 { flex: 1 1 0% !important; }
-    .items-center { align-items: center !important; }
-    .items-start { align-items: flex-start !important; }
-    .justify-center { justify-content: center !important; }
-    .justify-between { justify-content: space-between !important; }
-    .justify-end { justify-content: flex-end !important; }
-    .grid { display: grid !important; }
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .grid { display: grid; }
 
     /* Gap Utilities */
     .gap-1 { gap: 0.25rem !important; }
@@ -256,7 +258,8 @@
         <!-- HERO CALL TO ACTION -->
         <div class="mt-7 flex flex-wrap items-center justify-center gap-3.5">
             <a href="#classroomSection"
-               class="px-7 py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:opacity-95 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-amber-500/30 flex items-center gap-2 transform active:scale-95 transition awards-glow">
+               onclick="document.getElementById('classroomSection').scrollIntoView({behavior: 'smooth', block: 'start'}); return false;"
+               class="px-7 py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 hover:opacity-95 text-slate-950 font-black rounded-2xl text-sm shadow-xl shadow-amber-500/30 flex items-center gap-2 transform active:scale-95 transition awards-glow cursor-pointer">
                 <span class="text-base">⚡</span>
                 <span>Cast Your Vote (Classroom Roster)</span>
                 <span>&darr;</span>
@@ -580,20 +583,20 @@
 <!-- ========================================================================= -->
 <!-- INTERACTIVE VOTING MODAL (10 KES / VOTE + EMAIL RECEIPT + MPESA PIN PROMPT) -->
 <!-- ========================================================================= -->
-<div id="voteModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative animate-scaleUp">
+<div id="voteModal" style="display: none;" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl relative animate-scaleUp my-auto">
         <!-- Close Button -->
-        <button onclick="closeVoteModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold">
+        <button type="button" onclick="closeVoteModal()" class="absolute top-4 right-4 z-20 text-slate-400 hover:text-white text-xl font-bold p-1 leading-none rounded-lg hover:bg-slate-800 transition">
             ✕
         </button>
 
         <!-- Header with Full Contestant Details -->
-        <div class="bg-gradient-to-r from-amber-600/25 via-slate-900 to-slate-900 p-5 border-b border-slate-800">
+        <div class="bg-gradient-to-r from-amber-600/25 via-slate-900 to-slate-900 p-5 border-b border-slate-800 sticky top-0 z-10 backdrop-blur-md">
             <div class="flex items-start gap-3.5">
                 <!-- Avatar with Fallback & Rank -->
                 <div class="relative flex-shrink-0">
                     <img id="modalContestantImg" src="/static/img/placeholder.png"
-                         onerror="this.onerror=null; this.src='/static/img/placeholder.png';"
+                         onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%231e293b\' width=\'100\' height=\'100\'/%3E%3Ctext fill=\'%23fbbf24\' font-family=\'sans-serif\' font-size=\'38\' font-weight=\'bold\' x=\'50%25\' y=\'55%25\' dominant-baseline=\'central\' text-anchor=\'middle\'%3E🎓%3C/text%3E%3C/svg%3E';"
                          class="w-14 h-14 rounded-full object-cover border-2 border-amber-400 ring-4 ring-amber-500/20 shadow-md">
                     <div id="modalRankPill" class="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 font-black text-[10px] px-1.5 py-0.2 rounded-full border border-slate-900 shadow">
                         #1
@@ -636,16 +639,14 @@
         </div>
 
         <!-- CLASSROOM COMRADES IN THIS CATEGORY QUICK-SWITCHER -->
-        <div id="modalRosterStrip" class="hidden bg-slate-950/90 px-5 py-2.5 border-b border-slate-800 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+        <div id="modalRosterStrip" style="display: none;" class="bg-slate-950/90 px-5 py-2.5 border-b border-slate-800 items-center gap-3 overflow-x-auto hide-scrollbar">
             <span class="text-[10px] uppercase font-black text-slate-500 whitespace-nowrap">Classmates:</span>
             <div id="modalRosterAvatars" class="flex items-center gap-2"></div>
         </div>
 
         <div class="p-5">
-            
-        <!-- MODE SELECTOR: PAID VS FREE -->
-        <div class="px-5 pt-4">
-            <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <!-- MODE SELECTOR: PAID VS FREE -->
+            <div class="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 mb-4">
                 <button type="button" onclick="switchVoteTab('paid')" id="tabPaidBtn"
                         class="py-2 text-xs font-black rounded-lg bg-amber-500 text-slate-950 transition">
                     ⚡ M-Pesa Votes (10 KES)
@@ -655,7 +656,6 @@
                     🎁 Daily Free Vote (1/day)
                 </button>
             </div>
-        </div>
 
 <!-- STEP 1: QUANTITY TABS -->
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">
@@ -799,7 +799,10 @@
         }
     }
 
+    const DEFAULT_AVATAR = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%231e293b' width='100' height='100'/%3E%3Ctext fill='%23fbbf24' font-family='sans-serif' font-size='38' font-weight='bold' x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle'%3E🎓%3C/text%3E%3C/svg%3E";
+
     function openVoteModal(cid, name, category, photo, inst, votes, bio, rank) {
+        if (!cid) return; // Never open modal without a valid contestant
         activeContestantId = cid;
 
         // Populate Contestant ID badge
@@ -858,9 +861,9 @@
         const imgEl = document.getElementById('modalContestantImg');
         imgEl.onerror = function() {
             this.onerror = null;
-            this.src = '/static/img/placeholder.png';
+            this.src = DEFAULT_AVATAR;
         };
-        imgEl.src = photo || '/static/img/placeholder.png';
+        imgEl.src = photo || DEFAULT_AVATAR;
 
         // Populate Classroom Comrades Mini-Roster inside modal
         try {
@@ -871,17 +874,19 @@
                     (c.category_name === category || c.category_id === category) && c.id !== cid
                 );
                 if (otherComrades.length > 0) {
+                    rosterStrip.style.display = 'flex';
                     rosterStrip.classList.remove('hidden');
                     rosterAvatars.innerHTML = otherComrades.map(c => `
                         <button type="button"
                                 onclick="openVoteModal('${c.id}', '${escapeAttr(c.name)}', '${escapeAttr(c.category_name)}', '${c.photo_url || ''}', '${escapeAttr(c.institution)}', '${c.vote_count}', '${escapeAttr(c.bio || '')}', '${c.rank}')"
                                 class="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 border border-slate-700 hover:border-amber-400 rounded-full text-xs transition flex-shrink-0"
                                 title="Vote for ${c.name}">
-                            <img src="${c.photo_url || '/static/img/placeholder.png'}" onerror="this.src='/static/img/placeholder.png';" class="w-6 h-6 rounded-full object-cover border border-amber-400">
+                            <img src="${c.photo_url || DEFAULT_AVATAR}" onerror="this.src=DEFAULT_AVATAR;" class="w-6 h-6 rounded-full object-cover border border-amber-400">
                             <span class="text-slate-200 font-bold text-[11px]">${c.name.split(' ')[0]}</span>
                         </button>
                     `).join('');
                 } else {
+                    rosterStrip.style.display = 'none';
                     rosterStrip.classList.add('hidden');
                 }
             }
@@ -889,17 +894,32 @@
             console.error('Error populating modal roster:', e);
         }
 
-        document.getElementById('voteModalError').classList.add('hidden');
-        document.getElementById('stkWaitBox').classList.add('hidden');
-        document.getElementById('stkSuccessBox').classList.add('hidden');
-        document.getElementById('triggerStkBtn').classList.remove('hidden');
+        const errBox = document.getElementById('voteModalError');
+        errBox.classList.add('hidden');
+        errBox.style.display = 'none';
 
-        document.getElementById('voteModal').classList.remove('hidden');
+        const waitBox = document.getElementById('stkWaitBox');
+        waitBox.classList.add('hidden');
+        waitBox.style.display = 'none';
+
+        const successBox = document.getElementById('stkSuccessBox');
+        successBox.classList.add('hidden');
+        successBox.style.display = 'none';
+
+        const submitBtn = document.getElementById('triggerStkBtn');
+        submitBtn.classList.remove('hidden');
+        submitBtn.style.display = '';
+
+        const modal = document.getElementById('voteModal');
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
     }
 
     function openVoteModalFromBtn(btn) {
         if (!btn) return;
         const cid = btn.getAttribute('data-cid') || '';
+        if (!cid) return; // Never open without a valid contestant id
         const name = btn.getAttribute('data-name') || 'Campus Nominee';
         const category = btn.getAttribute('data-category') || 'Awards Nominee';
         const photo = btn.getAttribute('data-photo') || '';
@@ -912,8 +932,28 @@
 
     function closeVoteModal() {
         if (pollInterval) clearInterval(pollInterval);
-        document.getElementById('voteModal').classList.add('hidden');
+        const modal = document.getElementById('voteModal');
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
     }
+
+    // Modal background click and Escape key dismissal
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('voteModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeVoteModal();
+                }
+            });
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeVoteModal();
+            }
+        });
+    });
 
     function selectVotePackage(votes, amount, elem) {
         selectedVotes = votes;
