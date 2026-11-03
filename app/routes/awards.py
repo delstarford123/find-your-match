@@ -277,12 +277,19 @@ def awards_index():
     # Fetch contestants with auto-synced mock fallback
     contestants_data = get_all_contestants_synced()
     contestants = []
+    all_active_contestants = []
+    cat_counts = {}
 
     for cid, c in contestants_data.items():
         if isinstance(c, dict) and c.get('status') == 'active':
-            c['id'] = cid
-            c['vote_count'] = int(c.get('vote_count', 0) or 0)
-            
+            c_copy = dict(c)
+            c_copy['id'] = cid
+            c_copy['vote_count'] = int(c_copy.get('vote_count', 0) or 0)
+            all_active_contestants.append(c_copy)
+
+            cat_id = c_copy.get('category_id') or 'other'
+            cat_counts[cat_id] = cat_counts.get(cat_id, 0) + 1
+
             # Category filter
             if selected_cat != 'all' and c.get('category_id') != selected_cat:
                 continue
@@ -297,13 +304,16 @@ def awards_index():
                 if not (name_match or cat_match or inst_match):
                     continue
 
-            contestants.append(c)
+            contestants.append(c_copy)
 
     # Sort by votes descending (Leaderboard)
     contestants.sort(key=lambda x: x['vote_count'], reverse=True)
+    all_active_contestants.sort(key=lambda x: x['vote_count'], reverse=True)
 
     # Assign current dynamic ranks
     for rank, contestant in enumerate(contestants, start=1):
+        contestant['rank'] = rank
+    for rank, contestant in enumerate(all_active_contestants, start=1):
         contestant['rank'] = rank
 
     # Extract top 3 for the visual podium
@@ -315,6 +325,8 @@ def awards_index():
         categories=categories_dict,
         institutions=DEFAULT_INSTITUTIONS,
         contestants=contestants,
+        all_active_contestants=all_active_contestants,
+        cat_counts=cat_counts,
         podium=podium,
         selected_category=selected_cat,
         selected_institution=selected_inst,
