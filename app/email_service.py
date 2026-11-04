@@ -4550,6 +4550,7 @@ def send_contestant_registration_email(recipient_email: str, contestant_name: st
     """
     Sends contestant registration confirmation and custom WhatsApp campaign link upon 50 KES payment verification.
     """
+    import urllib.parse
     clean_name = (contestant_name or "Nominee").strip().title()
     clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
     whatsapp_share_text = urllib.parse.quote(f"Hey fam! I have been nominated for {category} at {institution}! 🏆 Please vote for me here: {referral_link}")

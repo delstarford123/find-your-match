@@ -201,7 +201,7 @@
                     </label>
                     <input type="tel" id="regPhone" required placeholder="07XXXXXXXX or 254XXXXXXXX"
                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
-                    <span class="text-[11px] text-emerald-400 mt-1 block">50 KES registration fee prompt sent here.</span>
+                    <span class="text-[11px] text-emerald-400 mt-1 block">Official contact number for your campaign profile & winner notifications.</span>
                 </div>
             </div>
 
@@ -315,14 +315,16 @@
                 </div>
             </div>
 
-            <!-- REGISTRATION FEE CALLOUT -->
-            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
+            <!-- 100% FREE REGISTRATION CALLOUT -->
+            <div class="bg-gradient-to-r from-emerald-500/20 via-slate-900 to-amber-500/15 border border-emerald-500/40 rounded-xl p-4 flex items-center justify-between">
                 <div>
-                    <div class="text-xs font-bold text-amber-400">One-Time Registration & Verification Fee</div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">Prevents bot registrations & activates your live campaign page</div>
+                    <div class="text-xs font-black text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
+                        <span>🎁</span> 100% Free Nominee Registration (Limited Time)
+                    </div>
+                    <div class="text-[11px] text-slate-300 mt-0.5">Instant activation: Claim your classroom seat, profile link, and voting poster for KES 0!</div>
                 </div>
-                <div class="text-lg font-black text-white">
-                    KES {{ registration_fee }}
+                <div class="text-xl font-black text-emerald-400 font-mono">
+                    FREE
                 </div>
             </div>
 
@@ -331,8 +333,9 @@
 
             <!-- SUBMIT BUTTON -->
             <button type="submit" id="regSubmitBtn"
-                    class="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 hover:opacity-90 text-white font-black py-4 rounded-xl text-sm transition shadow-xl awards-glow flex items-center justify-center gap-2">
-                <span>🚀 Complete & Pay KES {{ registration_fee }} via M-Pesa</span>
+                    class="w-full bg-gradient-to-r from-emerald-500 via-amber-500 to-amber-600 hover:opacity-95 text-slate-950 font-black py-4 rounded-xl text-sm transition shadow-xl awards-glow flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                    style="color: #020617 !important; font-weight: 900 !important;">
+                <span>🎉 Register Free & Claim My Classroom Seat</span>
             </button>
 
             <!-- WAITING STATE -->
@@ -400,10 +403,32 @@
 
             const data = await res.json();
             if (!data.success) {
-                errorBox.innerText = data.error || 'Failed to initiate nomination payment.';
+                errorBox.innerText = data.error || 'Failed to complete nomination.';
                 errorBox.classList.remove('hidden');
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '🚀 Complete & Pay KES 50 via M-Pesa';
+                submitBtn.innerHTML = '🎉 Register Free & Claim My Classroom Seat';
+                return;
+            }
+
+            // If registration is FREE (0 KES), activate immediately!
+            if (data.free) {
+                submitBtn.classList.add('hidden');
+                const successBox = document.getElementById('regSuccessBox');
+                const viewBtn = document.getElementById('viewCampaignBtn');
+                const successMsg = document.getElementById('regSuccessMsg');
+                
+                successBox.classList.remove('hidden');
+                if (data.message && successMsg) successMsg.innerText = data.message;
+                if (viewBtn) viewBtn.href = data.redirect_url || `/awards/contestant/${data.contestant_id}`;
+                
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                }
+                
+                // Automatically redirect to contestant profile after 2.5 seconds
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || `/awards/contestant/${data.contestant_id}`;
+                }, 2500);
                 return;
             }
 

@@ -59,7 +59,7 @@ VOTE_PACKAGES = [
     {"votes": 100, "amount": 1000, "badge": "Champions Pack", "popular": False}
 ]
 
-CONTESTANT_REG_FEE = 50  # KES
+CONTESTANT_REG_FEE = 0  # KES (100% Free Nomination!)  # KES
 
 
 def sanitize_input(text: str, max_len: int = 500) -> str:
@@ -485,6 +485,39 @@ def api_awards_register():
         "referral_link": referral_link,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
+
+    # If registration fee is 0, activate contestant immediately without M-Pesa STK
+    if CONTESTANT_REG_FEE == 0:
+        contestant_record["status"] = "active"
+        db.reference(f'awards_contestants/{contestant_id}').set(contestant_record)
+        logger.info(f"🎉 Free awards nomination activated: {contestant_id} ({name})")
+
+        # Purge any mock contestants now that an authentic contestant is registered
+        try:
+            purge_mock_contestants()
+        except Exception as p_err:
+            logger.warning(f"Purge mock contestants notice: {p_err}")
+
+        # Send welcome email with referral link & campaign tools
+        try:
+            send_contestant_registration_email(
+                recipient_email=email,
+                contestant_name=name,
+                category=category_name,
+                institution=institution or "MMUST",
+                referral_link=referral_link,
+                mpesa_receipt=f"FREE-{secrets.token_hex(4).upper()}"
+            )
+        except Exception as email_err:
+            logger.warning(f"Awards free registration email notice: {email_err}")
+
+        return jsonify({
+            "success": True,
+            "free": True,
+            "contestant_id": contestant_id,
+            "redirect_url": f"/awards/contestant/{contestant_id}",
+            "message": f"Congratulations {name}! Your nomination is active and your classroom seat is claimed!"
+        }), 200
 
     db.reference(f'awards_contestants/{contestant_id}').set(contestant_record)
 
