@@ -149,6 +149,98 @@
     .podium-card-1 { border-color: #F59E0B !important; box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2); }
     .podium-card-2 { border-color: #94A3B8 !important; box-shadow: 0 10px 25px rgba(148, 163, 184, 0.15); }
     .podium-card-3 { border-color: #CD7F32 !important; box-shadow: 0 10px 25px rgba(205, 127, 50, 0.15); }
+
+    /* Clean background - hide base floating love orbs */
+    .love-orb { display: none !important; }
+
+    /* Heading Contrast Fix - ensure headings are pure white, never style.css dark red */
+    h1, h2, h3, h4, h5, h6 {
+        color: #ffffff !important;
+    }
+
+    /* Countdown horizontal timer lock */
+    .countdown-strip {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+    }
+
+    /* Circular candidate classroom portraits */
+    .classroom-avatar-box {
+        width: 104px !important;
+        height: 104px !important;
+        border-radius: 9999px !important;
+        overflow: hidden !important;
+        border: 4px solid #f59e0b !important;
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.3) !important;
+        background-color: #020617 !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    .classroom-avatar-img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        border-radius: 9999px !important;
+        display: block !important;
+    }
+
+    /* Responsive Touch-Friendly Category Cards Grid */
+    .classroom-cat-card {
+        background: #0f172a !important;
+        border: 1px solid #1e293b !important;
+        color: #f1f5f9 !important;
+        min-height: 94px !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        border-radius: 14px !important;
+        text-align: left !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        padding: 12px 14px !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+        user-select: none !important;
+    }
+    .classroom-cat-card:hover {
+        border-color: rgba(245, 158, 11, 0.6) !important;
+        transform: translateY(-2px);
+    }
+    .classroom-cat-card .cat-badge {
+        background: #1e293b !important;
+        color: #fbbf24 !important;
+        border: 1px solid #334155 !important;
+        font-size: 10px !important;
+        font-weight: 800 !important;
+        padding: 2px 7px !important;
+        border-radius: 9999px !important;
+    }
+    .classroom-cat-card.active-cat-card {
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+        border: 2px solid #f59e0b !important;
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.35) !important;
+    }
+    .classroom-cat-card.active-cat-card .cat-title {
+        color: #fbbf24 !important;
+    }
+    .classroom-cat-card.active-cat-card .cat-badge {
+        background: #f59e0b !important;
+        color: #020617 !important;
+        border-color: #f59e0b !important;
+        font-weight: 900 !important;
+    }
+
+    @media (max-width: 640px) {
+        #supportTriggerBtn, .support-trigger-btn {
+            bottom: 84px !important;
+        }
+    }
+
 </style>
 
 <div class="w-full max-w-7xl mx-auto pb-28 pt-2 sm:pt-4 px-1 sm:px-4 min-w-0 overflow-x-hidden">
@@ -176,7 +268,7 @@
             <p class="text-[11px] text-slate-400 mt-0.5">Top-voted winners awarded cash prizes, official trophies, and national media coverage!</p>
         </div>
 
-        <div class="flex items-center justify-center gap-1.5 sm:gap-2 font-mono flex-nowrap">
+        <div class="countdown-strip font-mono">
             <div class="bg-slate-950 border border-slate-800 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-center min-w-[46px] sm:min-w-[52px]">
                 <div id="cdDays" class="text-base sm:text-lg font-black text-amber-400">00</div>
                 <div class="text-[8px] sm:text-[9px] text-slate-500 uppercase">Days</div>
@@ -371,9 +463,7 @@
 
             <!-- Submit button -->
             <div class="sm:col-span-3 flex gap-2">
-                <button type="submit" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition">
-                    Filter
-                </button>
+                <button type="submit" style="color: #020617 !important; font-weight: 900 !important; background-color: #f59e0b !important;" class="flex-1 hover:bg-amber-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md">Filter Nominees</button>
                 {% if search_query or selected_institution != 'all' or selected_category != 'all' %}
                 <a href="{{ url_for('awards_bp.awards_index') }}" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 px-3 rounded-xl text-xs transition">
                     Reset
@@ -382,20 +472,7 @@
             </div>
         </form>
 
-        <!-- CATEGORY PILLS HORIZONTAL SCROLL -->
-        <div class="scroll-strip gap-2 hide-scrollbar pt-4 mt-3 border-t border-slate-800">
-            <a href="{{ url_for('awards_bp.awards_index', category='all', institution=selected_institution, q=search_query) }}"
-               class="px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition {% if selected_category == 'all' %}bg-amber-500 text-slate-950{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
-                🌟 All Categories
-            </a>
-            {% for cid, cat in categories.items() %}
-            <a href="{{ url_for('awards_bp.awards_index', category=cid, institution=selected_institution, q=search_query) }}"
-               class="px-3.5 py-1.5 rounded-full text-xs font-extrabold whitespace-nowrap transition flex items-center gap-1.5 {% if selected_category == cid %}bg-amber-500 text-slate-950{% else %}bg-slate-800 text-slate-300 hover:bg-slate-700{% endif %}">
-                <span>{{ cat.icon }}</span> {{ cat.name }}
-            </a>
-            {% endfor %}
         </div>
-    </div>
 
     <!-- ========================================================================= -->
     <!-- 🎓 CAMPUS VOTING CLASSROOM (CIRCULAR AVATARS & CATEGORY SELECTION) -->
@@ -414,21 +491,52 @@
             </p>
         </div>
 
-        <!-- CATEGORY DESKS SELECTOR (INTERACTIVE TABS) -->
-        <div class="glass-card rounded-2xl p-3 sm:p-4 mb-8">
-            <div class="scroll-strip gap-2.5 hide-scrollbar py-1">
+        <!-- CATEGORY SELECTION HUB (TOUCH-OPTIMIZED GRID FOR ALL SCREENS) -->
+        <div class="glass-card rounded-2xl p-4 sm:p-6 mb-8 border border-amber-500/20">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div>
+                    <h3 class="text-sm sm:text-base font-black text-white flex items-center gap-2 m-0" style="color: #ffffff !important;">
+                        <span>🏷️</span> Tap an Award Category to Vote
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Click any category below to immediately see candidates in that category:</p>
+                </div>
+                <span class="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
+                    {{ categories|length }} Categories Active
+                </span>
+            </div>
+
+            <!-- RESPONSIVE CATEGORY CARDS GRID: 2 cols on mobile, 3 on tablet, 4 on desktop -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" id="categoryCardsGrid">
+                <!-- All Categories Card -->
                 <button type="button" onclick="filterClassroomCategory('all', this)"
-                        class="classroom-cat-tab flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs whitespace-nowrap transition bg-amber-500 text-slate-950 border border-amber-400 shadow-lg">
-                    <span>🌟</span> All Categories 
-                    <span class="text-[10px] bg-slate-950/30 px-2 py-0.5 rounded-full font-extrabold">{{ all_active_contestants|length }}</span>
+                        class="classroom-cat-card active-cat-card">
+                    <div class="flex items-start justify-between gap-1 mb-2">
+                        <span class="text-2xl sm:text-3xl">🌟</span>
+                        <span class="cat-badge">
+                            {{ all_active_contestants|length }} Total
+                        </span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs sm:text-sm leading-snug cat-title">All Categories</div>
+                        <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5">Full Classroom Roster</div>
+                    </div>
                 </button>
+
+                <!-- Dynamic Categories Cards -->
                 {% for cid, cat in categories.items() %}
                 <button type="button" onclick="filterClassroomCategory('{{ cid }}', this)"
-                        class="classroom-cat-tab flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs whitespace-nowrap transition bg-slate-900 text-slate-300 border border-slate-800 hover:border-amber-400/50 hover:text-white">
-                    <span>{{ cat.icon }}</span> {{ cat.name }}
-                    <span class="text-[10px] bg-slate-800 text-amber-400 px-2 py-0.5 rounded-full font-extrabold border border-slate-700">
-                        {{ cat_counts.get(cid, 0) }}
-                    </span>
+                        data-cat-id="{{ cid }}"
+                        class="classroom-cat-card">
+                    <div class="flex items-start justify-between gap-1 mb-2">
+                        <span class="text-2xl sm:text-3xl">{{ cat.icon or '🏆' }}</span>
+                        <span class="cat-badge">
+                            {{ cat_counts.get(cid, 0) }} {% if cat_counts.get(cid, 0) == 1 %}Nominee{% else %}Nominees{% endif %}
+                        </span>
+                    </div>
+                    <div>
+                        <div class="font-black text-xs sm:text-sm leading-snug cat-title">{{ cat.name }}</div>
+                        <div class="text-[10px] sm:text-xs text-slate-400 mt-0.5 truncate">{{ cat.desc or 'Official Award' }}</div>
+                    </div>
                 </button>
                 {% endfor %}
             </div>
@@ -454,11 +562,11 @@
                 <!-- CIRCULAR AVATAR (Prominent Classroom Student Portrait) -->
                 <div class="relative w-28 h-28 mx-auto my-2 cursor-pointer group-hover:scale-105 transition-transform duration-300"
                      onclick="openVoteModalFromBtn(this.closest('.classroom-desk').querySelector('.cast-vote-btn'))">
-                    <div class="w-28 h-28 rounded-full overflow-hidden border-4 border-amber-400 shadow-xl ring-4 ring-amber-500/20 awards-glow">
+                    <div class="classroom-avatar-box awards-glow">
                         <img src="{{ c.photo_url or '/static/img/placeholder.png' }}"
                              alt="{{ c.name }}"
                              onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Crect fill=\'%231e293b\' width=\'100\' height=\'100\'/%3E%3Ctext fill=\'%23fbbf24\' font-family=\'sans-serif\' font-size=\'38\' font-weight=\'bold\' x=\'50%25\' y=\'55%25\' dominant-baseline=\'central\' text-anchor=\'middle\'%3E🎓%3C/text%3E%3C/svg%3E';"
-                             class="w-full h-full object-cover">
+                             class="classroom-avatar-img">
                     </div>
                     <!-- Active Nominee Status Pulse -->
                     <div class="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-950 shadow" title="Active Nominee"></div>
@@ -509,7 +617,7 @@
                                 data-votes="{{ c.vote_count }}"
                                 data-bio="{{ c.bio or '' }}"
                                 data-rank="{{ c.rank }}"
-                                class="cast-vote-btn flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs transition shadow-lg shadow-amber-500/25 flex items-center justify-center gap-1.5 active:scale-95">
+                                style="color: #020617 !important; font-weight: 900 !important; background: #f59e0b !important;" class="cast-vote-btn flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs transition shadow-lg shadow-amber-500/25 flex items-center justify-center gap-1.5 active:scale-95">
                             <span>⚡</span> Vote For {{ c.name.split(' ')[0] }}
                         </button>
                     </div>
@@ -747,14 +855,15 @@
     }
 
     function filterClassroomCategory(catId, btn) {
-        // Toggle tab visual styling
-        document.querySelectorAll('.classroom-cat-tab').forEach(t => {
-            t.classList.remove('bg-amber-500', 'text-slate-950', 'border-amber-400', 'shadow-lg');
-            t.classList.add('bg-slate-900', 'text-slate-300', 'border-slate-800');
+        // Update category cards active styling
+        document.querySelectorAll('.classroom-cat-card').forEach(c => {
+            c.classList.remove('active-cat-card');
         });
         if (btn) {
-            btn.classList.remove('bg-slate-900', 'text-slate-300', 'border-slate-800');
-            btn.classList.add('bg-amber-500', 'text-slate-950', 'border-amber-400', 'shadow-lg');
+            btn.classList.add('active-cat-card');
+        } else {
+            const matchBtn = document.querySelector(`.classroom-cat-card[data-cat-id="${catId}"]`);
+            if (matchBtn) matchBtn.classList.add('active-cat-card');
         }
 
         const desks = document.querySelectorAll('.classroom-desk');
@@ -762,9 +871,11 @@
         desks.forEach(desk => {
             const deskCat = desk.getAttribute('data-category-id');
             if (catId === 'all' || deskCat === catId) {
+                desk.style.display = 'flex';
                 desk.classList.remove('hidden');
                 visibleCount++;
             } else {
+                desk.style.display = 'none';
                 desk.classList.add('hidden');
             }
         });
@@ -772,9 +883,25 @@
         const emptyBox = document.getElementById('classroomEmptyState');
         if (emptyBox) {
             if (visibleCount === 0) {
+                emptyBox.style.display = 'block';
                 emptyBox.classList.remove('hidden');
+                const titleSpan = btn ? btn.querySelector('.cat-title') : null;
+                const catName = titleSpan ? titleSpan.innerText : 'this category';
+                const emptyH3 = emptyBox.querySelector('h3');
+                if (emptyH3) {
+                    emptyH3.innerText = `No nominees enrolled in "${catName}" yet`;
+                }
             } else {
+                emptyBox.style.display = 'none';
                 emptyBox.classList.add('hidden');
+            }
+        }
+
+        // Smooth scroll to candidates grid on mobile when category tapped
+        if (catId !== 'all' && window.innerWidth < 768) {
+            const grid = document.getElementById('classroomGrid');
+            if (grid) {
+                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
     }

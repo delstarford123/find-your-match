@@ -16128,7 +16128,10 @@ function toggleAmbassador(id) {
                                 <span style="font-size: 16px;">{{ cat.icon or '🏆' }}</span>
                                 <span style="font-weight: 700; color: white; font-size: 13px;">{{ cat.name }}</span>
                             </div>
-                            <span style="font-size: 10px; color: #94a3b8; background: #334155; padding: 2px 6px; border-radius: 4px;">{{ cat.status or 'active' }}</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-size: 10px; color: #94a3b8; background: #334155; padding: 2px 6px; border-radius: 4px;">{{ cat.status or 'active' }}</span>
+                                <button type="button" onclick="deleteAwardsCategory('{{ cat_id }}', '{{ cat.name }}')" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;" title="Delete Category">🗑️</button>
+                            </div>
                         </div>
                         {% endfor %}
                     {% endif %}
@@ -30356,6 +30359,25 @@ Status: ${r.status}`);
             .then(data => {
                 if (data.success) {
                     alert(data.message || 'Category added!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || data.message));
+                }
+            })
+            .catch(err => alert('Network error: ' + err));
+        }
+
+        function deleteAwardsCategory(catId, catName) {
+            if (!confirm(`Are you sure you want to delete category "${catName}"?`)) return;
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify({ action: 'delete_awards_category', category_id: catId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || 'Category deleted');
                     location.reload();
                 } else {
                     alert('Error: ' + (data.error || data.message));

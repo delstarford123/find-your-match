@@ -28,6 +28,7 @@
     }
 
     .love-orb { display: none !important; }
+    h1, h2, h3, h4, h5, h6 { color: #ffffff !important; }
 
     body {
         background-color: var(--awards-bg) !important;
@@ -232,13 +233,59 @@
                 </div>
             </div>
 
-            <!-- PROFILE PHOTO URL -->
-            <div>
-                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
-                    Profile Photo Link <span class="text-slate-400 font-normal">(Direct image URL or post link)</span>
+            <!-- CONTESTANT PROFILE PHOTO UPLOAD (FIREBASE STORAGE) -->
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5">
+                <label class="block text-xs font-bold text-amber-400 uppercase tracking-wide mb-2.5 flex items-center justify-between">
+                    <span>📸 Nominee Profile Photo / Selfie</span>
+                    <span class="text-[10px] text-emerald-400 font-normal bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">Firebase Storage</span>
                 </label>
-                <input type="url" id="regPhoto" placeholder="https://example.com/photo.jpg (or leave blank for placeholder)"
-                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <!-- Circular Live Image Preview -->
+                    <div class="relative flex-shrink-0 cursor-pointer group" onclick="document.getElementById('regPhotoFile').click()" title="Click to choose a photo">
+                        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-amber-400 ring-4 ring-amber-500/20 bg-slate-950 flex items-center justify-center shadow-xl transition transform group-hover:scale-105">
+                            <img id="photoPreviewImg" 
+                                 src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%230f172a' width='100' height='100'/%3E%3Ctext fill='%23f59e0b' font-family='sans-serif' font-size='36' font-weight='bold' x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E" 
+                                 class="w-full h-full object-cover">
+                        </div>
+                        <div class="absolute bottom-0 right-0 bg-amber-500 text-slate-950 p-1.5 rounded-full shadow-lg border-2 border-slate-950 text-xs font-black" title="Click to choose photo">
+                            ✏️
+                        </div>
+                    </div>
+
+                    <!-- Upload Controls & File Input -->
+                    <div class="flex-1 w-full text-center sm:text-left">
+                        <input type="file" id="regPhotoFile" accept="image/png, image/jpeg, image/jpg, image/webp" class="hidden" onchange="previewContestantPhoto(this)">
+                        
+                        <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
+                            <button type="button" onclick="document.getElementById('regPhotoFile').click()"
+                                    class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer active:scale-95">
+                                <span>📁</span> Upload From Gallery / Camera
+                            </button>
+                            <button type="button" id="removePhotoBtn" onclick="removeSelectedPhoto()"
+                                    class="hidden bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-3 py-2.5 rounded-xl text-xs transition cursor-pointer">
+                                ✕ Clear
+                            </button>
+                        </div>
+                        
+                        <p id="photoFileName" class="text-xs text-slate-400 mt-2">
+                            Tap above to choose your best portrait. Uploads directly to Firebase Storage bucket. Max 10MB.
+                        </p>
+
+                        <!-- Optional URL fallback -->
+                        <div class="mt-2 text-center sm:text-left">
+                            <button type="button" onclick="toggleUrlInput()"
+                                    class="text-[11px] text-slate-500 hover:text-amber-400 underline transition cursor-pointer">
+                                Or use an image URL link instead
+                            </button>
+                            <div id="urlInputContainer" class="hidden mt-2">
+                                <input type="url" id="regPhotoUrl" placeholder="https://example.com/your-photo.jpg"
+                                       oninput="previewUrlPhoto(this.value)"
+                                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- MANIFESTO / BIO -->
@@ -323,26 +370,32 @@
 
         errorBox.classList.add('hidden');
 
-        const payload = {
-            name: document.getElementById('regName').value.trim(),
-            email: document.getElementById('regEmail').value.trim(),
-            phone: document.getElementById('regPhone').value.trim(),
-            category_id: document.getElementById('regCategory').value,
-            institution: document.getElementById('regInstitution').value,
-            photo_url: document.getElementById('regPhoto').value.trim(),
-            bio: document.getElementById('regBio').value.trim(),
-            instagram: document.getElementById('regInstagram').value.trim(),
-            tiktok: document.getElementById('regTiktok').value.trim()
-        };
+        const formData = new FormData();
+        formData.append('name', document.getElementById('regName').value.trim());
+        formData.append('email', document.getElementById('regEmail').value.trim());
+        formData.append('phone', document.getElementById('regPhone').value.trim());
+        formData.append('category_id', document.getElementById('regCategory').value);
+        formData.append('institution', document.getElementById('regInstitution').value);
+        formData.append('bio', document.getElementById('regBio').value.trim());
+        formData.append('instagram', document.getElementById('regInstagram').value.trim());
+        formData.append('tiktok', document.getElementById('regTiktok').value.trim());
+
+        const photoFileEl = document.getElementById('regPhotoFile');
+        if (photoFileEl && photoFileEl.files && photoFileEl.files[0]) {
+            formData.append('photo', photoFileEl.files[0]);
+        }
+        const photoUrlEl = document.getElementById('regPhotoUrl');
+        if (photoUrlEl && photoUrlEl.value.trim()) {
+            formData.append('photo_url', photoUrlEl.value.trim());
+        }
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = 'Sending M-Pesa Prompt...';
+        submitBtn.innerHTML = 'Uploading photo & sending M-Pesa prompt...';
 
         try {
             const res = await fetch("{{ url_for('awards_bp.api_awards_register') }}", {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: formData
             });
 
             const data = await res.json();
@@ -407,6 +460,48 @@
                 }
             } catch (e) {}
         }, 2500);
+    }
+
+function previewContestantPhoto(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Selected image exceeds 10MB. Please choose a smaller picture.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('photoPreviewImg').src = e.target.result;
+            document.getElementById('removePhotoBtn').classList.remove('hidden');
+            document.getElementById('photoFileName').innerHTML = `Selected: <span class="text-amber-400 font-bold">${file.name}</span> (${(file.size / (1024*1024)).toFixed(2)} MB)`;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeSelectedPhoto() {
+        const input = document.getElementById('regPhotoFile');
+        if (input) input.value = '';
+        document.getElementById('photoPreviewImg').src = "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%230f172a' width='100' height='100'/%3E%3Ctext fill='%23f59e0b' font-family='sans-serif' font-size='36' font-weight='bold' x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E";
+        document.getElementById('removePhotoBtn').classList.add('hidden');
+        document.getElementById('photoFileName').innerText = 'Tap above to choose your best portrait. Uploads directly to Firebase Storage bucket. Max 10MB.';
+        const urlInput = document.getElementById('regPhotoUrl');
+        if (urlInput) urlInput.value = '';
+    }
+
+    function toggleUrlInput() {
+        const container = document.getElementById('urlInputContainer');
+        if (container) container.classList.toggle('hidden');
+    }
+
+    function previewUrlPhoto(url) {
+        if (url && url.startsWith('http')) {
+            document.getElementById('photoPreviewImg').src = url;
+            document.getElementById('removePhotoBtn').classList.remove('hidden');
+            document.getElementById('photoFileName').innerHTML = `<span class="text-amber-400 font-bold">Image URL linked</span>`;
+        }
     }
 </script>
 {% endblock %}

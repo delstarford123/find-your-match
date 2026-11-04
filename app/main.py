@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import time
 import random
 import string
@@ -4115,6 +4116,7 @@ def admin_action():
             return jsonify({'success': False, 'message': "Contestant ID required"}), 400
 
         elif action == 'add_awards_category':
+            from app.routes.awards import sanitize_input
             cat_name = sanitize_input(data.get('name', ''))
             cat_icon = sanitize_input(data.get('icon', '🏆'))
             cat_desc = sanitize_input(data.get('desc', ''))
@@ -4129,6 +4131,14 @@ def admin_action():
                 'created_at': datetime.now(timezone.utc).isoformat()
             })
             return jsonify({'success': True, 'message': f"Category '{cat_name}' added successfully."})
+
+        elif action == 'delete_awards_category':
+            from app.routes.awards import sanitize_input
+            cat_id = sanitize_input(data.get('category_id', ''))
+            if not cat_id:
+                return jsonify({'success': False, 'message': 'Category ID required'}), 400
+            db.reference(f'awards_categories/{cat_id}').delete()
+            return jsonify({'success': True, 'message': f"Category '{cat_id}' removed successfully."})
 
         elif action == 'launch_ladies_campaign':
             from app.services.ladies_reward_service import dispatch_ladies_launch_campaign

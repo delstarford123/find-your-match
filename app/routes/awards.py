@@ -435,8 +435,36 @@ def api_awards_register():
     base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
     referral_link = f"{base_url}/awards/contestant/{contestant_id}"
 
-    # Default placeholder photo if not provided
+    # Default placeholder photo or direct uploaded file to Firebase Storage
     final_photo = photo_url or f"{base_url}/static/img/placeholder.png"
+    photo_file = request.files.get('photo')
+    if photo_file and photo_file.filename:
+        try:
+            from app.database import storage
+            bucket = storage.bucket()
+            ext = os.path.splitext(photo_file.filename)[1].lower()
+            if ext not in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
+                ext = '.jpg'
+
+            photo_file.seek(0, os.SEEK_END)
+            fsize = photo_file.tell()
+            photo_file.seek(0)
+
+            if fsize <= 10 * 1024 * 1024:  # 10MB limit
+                blob_name = f"awards_nominees/{contestant_id}_{int(time.time())}{ext}"
+                blob = bucket.blob(blob_name)
+                blob.upload_from_file(photo_file, content_type=photo_file.content_type or 'image/jpeg')
+                try:
+                    blob.make_public()
+                    final_photo = blob.public_url
+                except Exception as pub_err:
+                    logger.warning(f"Storage make_public notice: {pub_err}")
+                    final_photo = f"https://storage.googleapis.com/{bucket.name}/{blob_name}"
+                logger.info(f"📸 Uploaded awards nominee photo to Firebase Storage: {final_photo}")
+            else:
+                logger.warning(f"Uploaded photo too large ({fsize} bytes). Using default.")
+        except Exception as storage_err:
+            logger.error(f"Awards nominee photo upload error: {storage_err}")
 
     contestant_record = {
         "name": name,
@@ -1663,3 +1691,49 @@ def api_admin_extend_campaign():
         "message": f"Campaign successfully extended by +{add_days} days to {new_finale_iso}!",
         "new_finale_date": new_finale_iso
     }), 200
+
+
+@awards_bp.route('/api/contestant/<cid>/upload_photo', methods=['POST'])
+def api_contestant_upload_photo(cid):
+    """Allows updating contestant photo directly to Firebase Storage bucket."""
+    cid = sanitize_input(cid, 60)
+    contestant = db.reference(f'awards_contestants/{cid}').get()
+    if not contestant:
+        return jsonify({"success": False, "error": "Contestant not found."}), 404
+
+    photo_file = request.files.get('photo')
+    if not photo_file or not photo_file.filename:
+        return jsonify({"success": False, "error": "No image file provided."}), 400
+
+    try:
+        from app.database import storage
+        bucket = storage.bucket()
+        ext = os.path.splitext(photo_file.filename)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
+            ext = '.jpg'
+
+        photo_file.seek(0, os.SEEK_END)
+        fsize = photo_file.tell()
+        photo_file.seek(0)
+
+        if fsize > 10 * 1024 * 1024:
+            return jsonify({"success": False, "error": "Image must be under 10MB."}), 400
+
+        blob_name = f"awards_nominees/{cid}_{int(time.time())}{ext}"
+        blob = bucket.blob(blob_name)
+        blob.upload_from_file(photo_file, content_type=photo_file.content_type or 'image/jpeg')
+        try:
+            blob.make_public()
+            public_url = blob.public_url
+        except Exception:
+            public_url = f"https://storage.googleapis.com/{bucket.name}/{blob_name}"
+
+        db.reference(f'awards_contestants/{cid}').update({
+            "photo_url": public_url,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+        logger.info(f"📸 Updated photo for contestant {cid} in Firebase Storage: {public_url}")
+        return jsonify({"success": True, "photo_url": public_url})
+    except Exception as e:
+        logger.error(f"Error updating contestant photo: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500

@@ -2,6 +2,9 @@
   "database": {
     "rules": "rules.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": "public",
     "ignore": [
