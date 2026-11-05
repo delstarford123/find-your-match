@@ -505,10 +505,13 @@
                 </span>
             </div>
 
-            <!-- RESPONSIVE CATEGORY CARDS GRID: 2 cols on mobile, 3 on tablet, 4 on desktop -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" id="categoryCardsGrid">
+            <!-- RESPONSIVE CATEGORY CARDS GRID: 2 cols on mobile, 3 on tablet, 4 on desktop, 5 on wide screens -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2.5 sm:gap-3.5" id="categoryCardsGrid">
                 <!-- All Categories Card -->
                 <button type="button" onclick="filterClassroomCategory('all', this)"
+                        data-cat-id="all"
+                        data-cat-name="All Categories"
+                        data-cat-icon="🌟"
                         class="classroom-cat-card active-cat-card">
                     <div class="flex items-start justify-between gap-1 mb-2">
                         <span class="text-2xl sm:text-3xl">🌟</span>
@@ -526,6 +529,8 @@
                 {% for cid, cat in categories.items() %}
                 <button type="button" onclick="filterClassroomCategory('{{ cid }}', this)"
                         data-cat-id="{{ cid }}"
+                        data-cat-name="{{ cat.name }}"
+                        data-cat-icon="{{ cat.icon or '🏆' }}"
                         class="classroom-cat-card">
                     <div class="flex items-start justify-between gap-1 mb-2">
                         <span class="text-2xl sm:text-3xl">{{ cat.icon or '🏆' }}</span>
@@ -539,6 +544,37 @@
                     </div>
                 </button>
                 {% endfor %}
+            </div>
+        </div>
+
+        <!-- ACTIVE CATEGORY FILTER STATUS HEADER -->
+        <div id="activeCategoryBanner" class="glass-card rounded-2xl p-4 sm:p-5 mb-6 border border-amber-500/30 bg-slate-900/95 shadow-xl flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3.5 min-w-0">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-2xl flex-shrink-0 shadow-inner" id="activeFilterIconBox">
+                    <span id="activeFilterIcon">🌟</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400">Classroom Category Filter</span>
+                        <span id="activeFilterCountBadge" class="bg-amber-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow">
+                            {{ all_active_contestants|length }} Total Nominees
+                        </span>
+                    </div>
+                    <h3 id="activeFilterTitle" class="text-base sm:text-xl font-black text-white m-0 truncate">
+                        All Categories
+                    </h3>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button type="button" id="resetCatFilterBtn" onclick="filterClassroomCategory('all')"
+                        style="display: none;"
+                        class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 hover:border-slate-500 transition items-center gap-1.5">
+                    <span>✕</span> Show All
+                </button>
+                <a href="{{ url_for('awards_bp.awards_register_page') }}" id="bannerNominateBtn"
+                   class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-black transition shadow-lg shadow-amber-500/20 flex items-center gap-1.5 whitespace-nowrap">
+                    <span>⭐</span> Nominate Here (FREE)
+                </a>
             </div>
         </div>
 
@@ -641,16 +677,23 @@
         {% endif %}
 
         <!-- Empty state container for client-side category filtering -->
-        <div id="classroomEmptyState" class="hidden text-center py-14 glass-card rounded-2xl my-6">
+        <div id="classroomEmptyState" class="hidden text-center py-14 glass-card rounded-2xl my-6 border border-amber-500/20">
             <div class="text-5xl mb-3">🎓</div>
-            <h3 class="text-base font-bold text-white mb-1">No nominees enrolled in this classroom category yet</h3>
-            <p class="text-xs text-slate-400 max-w-md mx-auto mb-5">
+            <h3 id="emptyStateTitle" class="text-base sm:text-lg font-bold text-white mb-1">No nominees enrolled in this classroom category yet</h3>
+            <p class="text-xs text-slate-400 max-w-md mx-auto mb-5 leading-relaxed">
                 Be the first comrade to step into this category, rally your campus, and take the crown!
             </p>
-            <a href="{{ url_for('awards_bp.awards_register_page') }}"
-               class="inline-block bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg">
-                ⭐ Register Free for this Category
-            </a>
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+                <a href="{{ url_for('awards_bp.awards_register_page') }}"
+                   id="emptyStateNominateBtn"
+                   class="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-6 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20">
+                    <span>⭐</span> Register Free for this Category
+                </a>
+                <button type="button" onclick="filterClassroomCategory('all')"
+                        class="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs transition border border-slate-700">
+                    <span>👁️</span> View All Nominees
+                </button>
+            </div>
         </div>
     </div>
 
@@ -854,22 +897,43 @@
         return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
     }
 
+    function normalizeCategoryId(id) {
+        if (!id) return 'all';
+        if (id === 'cat_best_content_creator') return 'cat_content_creator';
+        return id;
+    }
+
     function filterClassroomCategory(catId, btn) {
+        catId = normalizeCategoryId(catId);
+
         // Update category cards active styling
         document.querySelectorAll('.classroom-cat-card').forEach(c => {
             c.classList.remove('active-cat-card');
         });
-        if (btn) {
-            btn.classList.add('active-cat-card');
-        } else {
-            const matchBtn = document.querySelector(`.classroom-cat-card[data-cat-id="${catId}"]`);
-            if (matchBtn) matchBtn.classList.add('active-cat-card');
+
+        let targetBtn = btn;
+        if (!targetBtn) {
+            targetBtn = document.querySelector(`.classroom-cat-card[data-cat-id="${catId}"]`);
+            if (!targetBtn && catId === 'all') {
+                targetBtn = document.querySelector('.classroom-cat-card[data-cat-id="all"]') || document.querySelector('.classroom-cat-card');
+            }
+        }
+        if (targetBtn) {
+            targetBtn.classList.add('active-cat-card');
+        }
+
+        // Extract category Name and Icon
+        let catName = 'All Categories';
+        let catIcon = '🌟';
+        if (targetBtn) {
+            catName = targetBtn.getAttribute('data-cat-name') || targetBtn.querySelector('.cat-title')?.innerText?.trim() || 'All Categories';
+            catIcon = targetBtn.getAttribute('data-cat-icon') || targetBtn.querySelector('.text-2xl, .text-3xl')?.innerText?.trim() || '🏆';
         }
 
         const desks = document.querySelectorAll('.classroom-desk');
         let visibleCount = 0;
         desks.forEach(desk => {
-            const deskCat = desk.getAttribute('data-category-id');
+            const deskCat = normalizeCategoryId(desk.getAttribute('data-category-id'));
             if (catId === 'all' || deskCat === catId) {
                 desk.style.display = 'flex';
                 desk.classList.remove('hidden');
@@ -880,16 +944,46 @@
             }
         });
 
+        // Update Active Category Banner
+        const activeTitle = document.getElementById('activeFilterTitle');
+        const activeIcon = document.getElementById('activeFilterIcon');
+        const activeCountBadge = document.getElementById('activeFilterCountBadge');
+        const resetBtn = document.getElementById('resetCatFilterBtn');
+        const bannerNomBtn = document.getElementById('bannerNominateBtn');
+
+        if (activeTitle) activeTitle.innerText = catName;
+        if (activeIcon) activeIcon.innerText = catIcon;
+        if (activeCountBadge) {
+            activeCountBadge.innerText = catId === 'all'
+                ? `${visibleCount} Total Nominees`
+                : `${visibleCount} ${visibleCount === 1 ? 'Nominee' : 'Nominees'}`;
+        }
+        if (resetBtn) {
+            if (catId === 'all') {
+                resetBtn.style.display = 'none';
+                resetBtn.classList.add('hidden');
+            } else {
+                resetBtn.style.display = 'inline-flex';
+                resetBtn.classList.remove('hidden');
+            }
+        }
+        if (bannerNomBtn) {
+            bannerNomBtn.href = catId === 'all' ? "{{ url_for('awards_bp.awards_register_page') }}" : "{{ url_for('awards_bp.awards_register_page') }}?category=" + encodeURIComponent(catId);
+        }
+
+        // Handle Empty State
         const emptyBox = document.getElementById('classroomEmptyState');
+        const emptyTitle = document.getElementById('emptyStateTitle');
+        const emptyBtn = document.getElementById('emptyStateNominateBtn');
+
         if (emptyBox) {
             if (visibleCount === 0) {
                 emptyBox.style.display = 'block';
                 emptyBox.classList.remove('hidden');
-                const titleSpan = btn ? btn.querySelector('.cat-title') : null;
-                const catName = titleSpan ? titleSpan.innerText : 'this category';
-                const emptyH3 = emptyBox.querySelector('h3');
-                if (emptyH3) {
-                    emptyH3.innerText = `No nominees enrolled in "${catName}" yet`;
+                if (emptyTitle) emptyTitle.innerText = `No nominees enrolled in "${catName}" yet`;
+                if (emptyBtn) {
+                    emptyBtn.href = "{{ url_for('awards_bp.awards_register_page') }}?category=" + encodeURIComponent(catId);
+                    emptyBtn.innerHTML = `<span>⭐</span> Be the First to Nominate in ${catName} (FREE)`;
                 }
             } else {
                 emptyBox.style.display = 'none';
@@ -897,11 +991,22 @@
             }
         }
 
-        // Smooth scroll to candidates grid on mobile when category tapped
-        if (catId !== 'all' && window.innerWidth < 768) {
-            const grid = document.getElementById('classroomGrid');
-            if (grid) {
-                grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Update browser URL query param cleanly without page reload
+        try {
+            const url = new URL(window.location.href);
+            if (catId === 'all') {
+                url.searchParams.delete('category');
+            } else {
+                url.searchParams.set('category', catId);
+            }
+            window.history.replaceState({ category: catId }, '', url.toString());
+        } catch (e) {}
+
+        // Smooth scroll to active filter banner when category clicked on mobile/tablet
+        if (catId !== 'all') {
+            const banner = document.getElementById('activeCategoryBanner');
+            if (banner && window.innerWidth < 1024) {
+                banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
     }
@@ -1288,6 +1393,15 @@
             claimBtn.innerText = 'Claim +1 Free Vote Now';
         }
     }
+
+    // Auto-filter category on page load if ?category= is present in URL
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        let catParam = urlParams.get('category');
+        if (catParam && catParam !== 'all') {
+            filterClassroomCategory(catParam);
+        }
+    });
 
 </script>
 {% endblock %}

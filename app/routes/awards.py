@@ -42,14 +42,40 @@ DEFAULT_INSTITUTIONS = [
 ]
 
 DEFAULT_CATEGORIES = [
-    {"id": "cat_best_male_mc", "name": "Best Male MC", "icon": "🎤", "desc": "Top campus event master of ceremony and hype host"},
-    {"id": "cat_best_female_mc", "name": "Best Female MC", "icon": "🎙️", "desc": "Outstanding female host and stage personality"},
-    {"id": "cat_best_dj", "name": "Best Campus DJ", "icon": "🎧", "desc": "Premier disc jockey rocking university decks and nightlife"},
-    {"id": "cat_content_creator", "name": "Best Content Creator", "icon": "📱", "desc": "Viral storytellers, skit makers, and digital influencers"},
-    {"id": "cat_spoken_word", "name": "Spoken Word & Poet", "icon": "📜", "desc": "Inspiring poets, lyricists, and spoken word performers"},
-    {"id": "cat_fashion_icon", "name": "Campus Fashion Icon", "icon": "✨", "desc": "Trendsetters, style icons, and campus aesthetic leaders"},
-    {"id": "cat_tech_innovator", "name": "Tech & Startup Innovator", "icon": "💻", "desc": "Student builders, coders, and startup visionaries"},
-    {"id": "cat_campus_influencer", "name": "Campus Role Model / Leader", "icon": "👑", "desc": "Influential comrades making real impact in student life"}
+    # 1. Content & Media
+    {"id": "cat_content_creator", "name": "Campus Content Creator Of The Year", "icon": "📱", "desc": "Digital storytellers, skit makers, and social media creators"},
+    {"id": "cat_youtuber", "name": "Campus YouTuber Of The Year", "icon": "📹", "desc": "Top student vloggers, YouTube channels, and long-form video creators"},
+    {"id": "cat_podcaster", "name": "Campus Podcaster Of The Year", "icon": "🎙️", "desc": "Campus conversationalists, insightful podcasters, and audio hosts"},
+
+    # 2. Modeling, Fashion & Art
+    {"id": "cat_male_model", "name": "Campus Male Model Of The Year", "icon": "🕺", "desc": "Top male runway, editorial, commercial, and fitness models"},
+    {"id": "cat_female_model", "name": "Campus Female Model Of The Year", "icon": "💃", "desc": "Top female fashion, editorial, commercial, and runway models"},
+    {"id": "cat_runway_model", "name": "Campus Runway Model Of The Year", "icon": "👠", "desc": "Masterful runway strut, elegance, and fashion week presence"},
+    {"id": "cat_fashionista", "name": "Campus Fashionista Of The Year", "icon": "✨", "desc": "Campus style leaders, daily drip, and wardrobe champions"},
+    {"id": "cat_designer", "name": "Campus Designer Of The Year", "icon": "🧵", "desc": "Creative fashion designers, stylists, and custom clothing creators"},
+    {"id": "cat_artist", "name": "Campus Visual Artist / Painter Of The Year", "icon": "🎨", "desc": "Outstanding campus painters, pencil artists, digital illustrators, and fine artists"},
+
+    # 3. Music & Nightlife Entertainment
+    {"id": "cat_musician", "name": "Campus Musician Of The Year", "icon": "🎵", "desc": "Top campus vocalists, solo performers, and recording artists"},
+    {"id": "cat_music_group", "name": "Campus Music Group Of The Year", "icon": "🎶", "desc": "Top campus bands, musical collectives, and harmony groups"},
+    {"id": "cat_vernacular_musician", "name": "Campus Vernacular Musician Of The Year", "icon": "🎸", "desc": "Celebrating culture, traditional roots, and vernacular campus hits"},
+    {"id": "cat_best_dj", "name": "Campus DJ Of The Year", "icon": "🎧", "desc": "Premier disc jockey rocking university decks and nightlife"},
+    {"id": "cat_best_male_mc", "name": "Best Male MC", "icon": "🎤", "desc": "Dynamic campus event master of ceremony and hype host"},
+    {"id": "cat_best_female_mc", "name": "Best Female MC", "icon": "🎙️", "desc": "Outstanding female host, emcee, and stage personality"},
+    {"id": "cat_sherehe_master", "name": "Campus Sherehe Master", "icon": "🍾", "desc": "Nightlife kings and queens, party hypemasters, and social vibe starters"},
+    {"id": "cat_event_promoter", "name": "Campus Event Promoter Of The Year", "icon": "🎟️", "desc": "Leading campus event planners, promoters, and experience creators"},
+
+    # 4. Dance & Spoken Word
+    {"id": "cat_dance_crew", "name": "Campus Dance Crew Of The Year", "icon": "💃🕺", "desc": "Electrifying dance crews and synchronized stage choreographies"},
+    {"id": "cat_best_dancer", "name": "Campus Solo Dancer Of The Year", "icon": "🕺", "desc": "Masterful solo dancers, freestylers, and choreographers"},
+    {"id": "cat_spoken_word", "name": "Spoken Word & Poet Of The Year", "icon": "📜", "desc": "Inspiring poets, lyricists, and campus spoken word performers"},
+
+    # 5. Leadership, Tech & Hustle
+    {"id": "cat_student_leader", "name": "Student Leader Of The Year", "icon": "🏛️", "desc": "Grassroots leaders, student union representatives, and comrade advocates"},
+    {"id": "cat_entrepreneur", "name": "Campus Entrepreneur Of The Year", "icon": "💼", "desc": "Campus founders, side-hustle pioneers, and student innovators"},
+    {"id": "cat_tech_innovator", "name": "Tech & Startup Innovator Of The Year", "icon": "💻", "desc": "Student software builders, innovators, and tech visionaries"},
+    {"id": "cat_popularity_icon", "name": "Campus Popularity Icon", "icon": "🌟", "desc": "Most recognized, celebrated, and charismatic campus personalities"},
+    {"id": "cat_trendsetter", "name": "Campus Trendsetter Of The Year", "icon": "🔥", "desc": "Pioneering campus trends, viral moments, and youth culture"}
 ]
 
 VOTE_PACKAGES = [
@@ -100,22 +126,38 @@ def get_awards_settings():
 
 
 def ensure_categories_exist():
-    """Seeds default categories if none are present in Firebase."""
+    """Ensures all default categories are seeded and active in Firebase."""
     cat_ref = db.reference('awards_categories')
     existing = cat_ref.get()
-    if not existing:
-        seed_data = {}
-        for c in DEFAULT_CATEGORIES:
-            seed_data[c['id']] = {
+    if not existing or not isinstance(existing, dict):
+        existing = {}
+
+    missing_updates = {}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for c in DEFAULT_CATEGORIES:
+        cid = c['id']
+        if cid not in existing or not isinstance(existing.get(cid), dict):
+            missing_updates[cid] = {
                 "name": c['name'],
                 "icon": c['icon'],
                 "desc": c['desc'],
                 "status": "active",
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "created_at": now_iso
             }
-        cat_ref.set(seed_data)
-        return seed_data
-    return existing
+            existing[cid] = missing_updates[cid]
+
+    if missing_updates:
+        try:
+            cat_ref.update(missing_updates)
+        except Exception as e:
+            logger.error(f"Error seeding missing categories: {e}")
+
+    # Return only active categories
+    active_categories = {
+        cid: cdata for cid, cdata in existing.items()
+        if isinstance(cdata, dict) and cdata.get('status') != 'deleted'
+    }
+    return active_categories
 
 
 # =========================================================================

@@ -528,6 +528,24 @@ function previewContestantPhoto(input) {
             document.getElementById('photoFileName').innerHTML = `<span class="text-amber-400 font-bold">Image URL linked</span>`;
         }
     }
+
+    // Auto-select category if passed in URL query param (?category=cat_xxx)
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        let catParam = urlParams.get('category');
+        if (catParam) {
+            if (catParam === 'cat_best_content_creator') catParam = 'cat_content_creator';
+            const catSelect = document.getElementById('regCategory');
+            if (catSelect) {
+                for (let i = 0; i < catSelect.options.length; i++) {
+                    if (catSelect.options[i].value === catParam) {
+                        catSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+    });
 </script>
 {% endblock %}
 
