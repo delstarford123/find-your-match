@@ -1,4509 +1,9015 @@
-import os
-import logging
-import smtplib
-import textwrap
-from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from email.utils import formataddr, formatdate, make_msgid
-import ssl
-from dotenv import load_dotenv
-
-# Ensure environment variables from .env are loaded immediately
-load_dotenv()
-
-logger = logging.getLogger(__name__)
-
-# Define standard sender name for consistency
-SENDER_NAME_DEFAULT = "FIND YOUR MATCH"
-
-def _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT, attachments=None):
-    """
-    Private helper function to handle the actual SMTP connection and email dispatch.
-    This prevents repeating connection and error-handling code for every email type.
-    """
-    if not recipient_email or "@" not in str(recipient_email):
-        logger.warning(f"Invalid recipient email provided: {recipient_email}")
-        return False
-
-    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('\"\'')
-    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('\"\'')
-    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('\"\'')
-    try:
-        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('\"\''))
-    except (ValueError, TypeError):
-        smtp_port = 465
-
-    if not sender_email or not sender_password:
-        logger.error("Email credentials missing in environment variables!")
-        return False
-
-    # Create the mixed message container for attachments
-    msg = MIMEMultipart("mixed")
-    msg['Subject'] = subject
-    msg['From'] = formataddr((sender_name, sender_email))
-    msg['To'] = recipient_email
-    msg['Date'] = formatdate(localtime=True)
-    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
-
-    # Create the multipart message container for body
-    msg_body = MIMEMultipart("alternative")
-    # Attach parts (Attach TEXT first, then HTML so clients prefer HTML)
-    # CRITICAL FIX: Explicitly set 'utf-8' so emojis 🚀❤️ don't crash the server
-    msg_body.attach(MIMEText(text_content, "plain", "utf-8"))
-    msg_body.attach(MIMEText(html_content, "html", "utf-8"))
-    msg.attach(msg_body)
-
-    # Handle Attachments
-    if attachments:
-        for attachment in attachments:
-            try:
-                part = MIMEBase('application', "octet-stream")
-                part.set_payload(attachment['content'])
-                encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename="{attachment["filename"]}"')
-                msg.attach(part)
-            except Exception as e:
-                logger.error(f"Failed to attach file {attachment.get('filename')}: {e}")
-
-    try:
-        # Many shared hosting providers (like cPanel) have self-signed or mismatched certs for mail.domain.com
-        context = ssl._create_unverified_context()
-        
-        if smtp_port == 465:
-            # Use context manager (with) to safely close connection even on failure
-            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=12) as server:
-                server.login(sender_email, sender_password)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port, timeout=12) as server:
-                server.starttls(context=context)
-                server.login(sender_email, sender_password)
-                server.send_message(msg)
-                
-        logger.info(f"✅ Email '{subject}' sent to {recipient_email}")
-        return True
-    except smtplib.SMTPAuthenticationError:
-        logger.error("❌ Email Auth Error: Check your SMTP App Password.")
-        return False
-    except Exception as e:
-        logger.error(f"❌ Failed to send email to {recipient_email}: {e}")
-        try:
-            from firebase_admin import db
-            db.reference('email_dispatch_queue').push({
-                'to': recipient_email,
-                'subject': subject,
-                'text': text_content,
-                'html': html_content,
-                'sender_name': sender_name,
-                'queued_at': datetime.now().isoformat(),
-                'status': 'pending',
-                'error': str(e)
-            })
-            logger.info(f"📬 Queued email for {recipient_email} into Firebase email_dispatch_queue")
-        except Exception as qe:
-            logger.debug(f"Could not queue email: {qe}")
-        return False
-
-
-def flush_email_dispatch_queue(batch_size=50):
-    """
-    Drains pending emails from Firebase 'email_dispatch_queue' and sends them via SMTP.
-    Safely connects once, iterates through pending messages, and updates status to 'sent' or 'failed'.
-    Returns a summary dict of results.
-    """
-    import time
-    try:
-        from firebase_admin import db
-    except ImportError:
-        logger.warning("firebase_admin not imported, skipping flush_email_dispatch_queue")
-        return {"sent": 0, "failed": 0, "pending": 0}
-
-    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('"\'')
-    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('"\'')
-    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('"\'')
-    try:
-        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('"\''))
-    except (ValueError, TypeError):
-        smtp_port = 465
-
-    if not sender_email or not sender_password:
-        logger.error("Email credentials missing in flush_email_dispatch_queue")
-        return {"sent": 0, "failed": 0, "error": "Missing credentials"}
-
-    try:
-        queue_data = db.reference('email_dispatch_queue').get() or {}
-    except Exception as qe:
-        logger.error(f"Failed to fetch email_dispatch_queue: {qe}")
-        return {"sent": 0, "failed": 0, "error": str(qe)}
-
-    pending_items = [
-        (k, v) for k, v in queue_data.items()
-        if isinstance(v, dict) and v.get('status') == 'pending'
-    ]
-
-    if not pending_items:
-        return {"sent": 0, "failed": 0, "pending": 0}
-
-    items_to_process = pending_items[:batch_size]
-    sent_count = 0
-    failed_count = 0
-    context = ssl._create_unverified_context()
-
-    try:
-        if smtp_port == 465:
-            server = smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=15)
-        else:
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=15)
-            server.starttls(context=context)
-
-        with server:
-            server.login(sender_email, sender_password)
-
-            for key, item in items_to_process:
-                recipient = item.get('to')
-                if not recipient or "@" not in str(recipient):
-                    try:
-                        db.reference(f'email_dispatch_queue/{key}').update({'status': 'invalid_email'})
-                    except Exception:
-                        pass
-                    continue
-
-                subject = item.get('subject', 'Find Your Match Notification')
-                text_content = item.get('text', '')
-                html_content = item.get('html', '')
-                sender_name = item.get('sender_name', SENDER_NAME_DEFAULT)
-
-                try:
-                    msg = MIMEMultipart("alternative")
-                    msg['Subject'] = subject
-                    msg['From'] = formataddr((sender_name, sender_email))
-                    msg['To'] = recipient
-                    msg['Date'] = formatdate(localtime=True)
-                    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
-                    msg.attach(MIMEText(text_content, "plain", "utf-8"))
-                    msg.attach(MIMEText(html_content, "html", "utf-8"))
-
-                    server.send_message(msg)
-                    db.reference(f'email_dispatch_queue/{key}').update({
-                        'status': 'sent',
-                        'dispatched_at': datetime.now().isoformat()
-                    })
-                    sent_count += 1
-                    time.sleep(0.3)
-                except Exception as send_err:
-                    failed_count += 1
-                    logger.warning(f"Failed to flush email to {recipient}: {send_err}")
-                    try:
-                        db.reference(f'email_dispatch_queue/{key}').update({
-                            'status': 'failed',
-                            'last_error': str(send_err),
-                            'retry_count': (item.get('retry_count') or 0) + 1
-                        })
-                    except Exception:
-                        pass
-
-    except Exception as conn_err:
-        logger.error(f"Failed to connect to SMTP server during queue flush: {conn_err}")
-        return {"sent": sent_count, "failed": failed_count, "error": str(conn_err)}
-
-    logger.info(f"Flushed email queue: {sent_count} sent, {failed_count} failed out of {len(items_to_process)}")
-    return {"sent": sent_count, "failed": failed_count, "remaining": len(pending_items) - sent_count}
-
-
-def send_mutual_match_email(recipient_email, recipient_name, partner_name, partner_img=None, match_reason=None):
-    """
-    Sends an instant email notification when two users match so they don't miss chats when offline.
-    """
-    recipient_first = (recipient_name or 'Comrade').split()[0]
-    partner_first = (partner_name or 'Someone').split()[0]
-    
-    subject = f"❤️ You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
-    
-    text_content = textwrap.dedent(f"""\
-        Hey {recipient_first}!
-        
-        You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
-        
-        You and {partner_first} just liked each other!
-        
-        Don't leave them waiting — say hi today before they log off:
-        https://findyourmatch.co.ke/matches
-        
-        — Find Your Match Team
-    """)
-    
-    avatar_html = ""
-    if partner_img and "placeholder" not in partner_img:
-        avatar_html = f"""
-        <div style="text-align: center; margin: 20px 0;">
-            <img src="{partner_img}" alt="{partner_first}" style="width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #E60026; box-shadow: 0 8px 24px rgba(230,0,38,0.25);" />
-        </div>
-        """
-        
-    reason_html = ""
-    if match_reason:
-        reason_html = f"""
-        <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 12px; padding: 12px; margin: 15px 0; text-align: center; color: #BE123C; font-weight: 700; font-size: 14px;">
-            ✨ {match_reason}
-        </div>
-        """
-        
-    html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Mutual Match</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
-  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
-    
-    <!-- Top Banner -->
-    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
-      <div style="font-size: 32px; margin-bottom: 8px;">❤️</div>
-      <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">It's a Mutual Match!</h1>
-      <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95; font-weight: 500;">You and {partner_first} liked each other!</p>
-    </div>
-
-    <!-- Main Content -->
-    <div style="padding: 32px 28px;">
-      <!-- Match Notification Alert -->
-      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
-        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
-          🔥 You have a new mutual match on Find Your Match!<br>
-          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
-        </p>
-      </div>
-
-      {avatar_html}
-      <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0F172A; text-align: center;">
-        Hey {recipient_first}! 👋
-      </h2>
-      <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569; text-align: center;">
-        Great news! You and <strong>{partner_first}</strong> liked each other on <strong>Find Your Match</strong>. The ice is already broken — now it's time to connect!
-      </p>
-
-      {reason_html}
-
-      <!-- CTA Button -->
-      <div style="text-align: center; margin: 30px 0;">
-        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 16px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35); letter-spacing: 0.5px;">
-          💬 Tap to Chat on Find Your Match
-        </a>
-      </div>
-
-      <!-- Campus Pro Tip -->
-      <div style="background: #F8FAFC; border-radius: 14px; padding: 14px 18px; margin-top: 24px; border-left: 4px solid #E60026;">
-        <p style="margin: 0; font-size: 13px; color: #64748B; line-height: 1.5;">
-          💡 <strong>Pro Tip:</strong> Matches who exchange a message within the first hour are <strong>3x more likely</strong> to meet up on campus. Say hello before they log off!
-        </p>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
-      <p style="margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #94A3B8;">
-        FIND YOUR MATCH • MMUST Student Dating & Connections
-      </p>
-      <p style="margin: 0; font-size: 11px; color: #CBD5E1;">
-        Direct link: https://findyourmatch.co.ke/matches
-      </p>
-    </div>
-
-  </div>
-</body>
-</html>"""
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_offline_chat_email(recipient_email, recipient_name, sender_name, message_preview):
-    """
-    Sends an email when an offline user receives a new message so they don't miss chats.
-    """
-    recipient_first = (recipient_name or 'Comrade').split()[0]
-    sender_first = (sender_name or 'Someone').split()[0]
-    
-    subject = f"💬 {sender_first} sent you a message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
-    
-    clean_preview = (message_preview or 'Sent you a message').strip()
-    if len(clean_preview) > 80:
-        clean_preview = clean_preview[:77] + "..."
-        
-    text_content = textwrap.dedent(f"""\
-        Hey {recipient_first}!
-        
-        You have a new message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
-        
-        {sender_first} sent you:
-        "{clean_preview}"
-        
-        Don't keep them waiting — tap here to reply:
-        https://findyourmatch.co.ke/matches
-        
-        — Find Your Match Team
-    """)
-    
-    html_content = f"""<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Message Alert</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
-  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
-    
-    <!-- Top Banner -->
-    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
-      <div style="font-size: 30px; margin-bottom: 6px;">💬</div>
-      <h1 style="margin: 0; font-size: 22px; font-weight: 900;">New Message on Campus!</h1>
-      <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.95;">{sender_first} is waiting for your reply</p>
-    </div>
-
-    <!-- Main Content -->
-    <div style="padding: 30px 26px;">
-      <!-- Offline Notice Alert -->
-      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
-        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
-          💬 You have a new message on Find Your Match!<br>
-          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
-        </p>
-      </div>
-
-      <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 800; color: #0F172A;">
-        Hey {recipient_first},
-      </h2>
-      <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.5; color: #475569;">
-        <strong>{sender_first}</strong> just sent you a message on Find Your Match:
-      </p>
-
-      <!-- Message Quote Bubble -->
-      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-left: 4px solid #E60026; border-radius: 14px; padding: 16px 20px; margin: 20px 0; color: #1E293B; font-size: 15px; font-style: italic;">
-        "{clean_preview}"
-      </div>
-
-      <!-- CTA Button -->
-      <div style="text-align: center; margin: 28px 0;">
-        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 15px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
-          💬 Reply to {sender_first} Now
-        </a>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
-      <p style="margin: 0; font-size: 12px; color: #94A3B8;">
-        FIND YOUR MATCH • https://findyourmatch.co.ke/matches
-      </p>
-    </div>
-
-  </div>
-</body>
-</html>"""
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_verification_email(recipient_email, user_name, otp_code, purpose="signup"):
-    """
-    Sends a formatted HTML verification email with a context-aware message.
-    Purposes: 'signup', 'reset', 'resend'
-    """
-    if purpose == "reset":
-        subject = "Reset Your FIND YOUR MATCH Password"
-        headline = "Password Reset Request 🔑"
-        message = "We received a request to reset your password. Use the code below to securely update your credentials. This code will expire soon."
-    elif purpose == "resend":
-        subject = "Your New Verification Code - FIND YOUR MATCH"
-        headline = "New Verification Code 📩"
-        message = "You requested a new verification code. Please enter the 6-digit code below to activate your account and start matching!"
-    else:
-        subject = "Welcome to FIND YOUR MATCH - Verify Your Email"
-        headline = f"Welcome to FYM, {user_name}! ✨"
-        message = "You are one step away from finding your perfect match. Please enter the verification code below to activate your account."
-    
-    text_content = textwrap.dedent(f"""\
-        {headline}
-        
-        {message}
-        
-        Verification Code: {otp_code}
-        
-        If you did not request this, please ignore this email.
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border: 1px solid #FFD6DD; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 35px rgba(114,0,0,0.08);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 45px 20px; text-align: center;">
-                    <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
-                        <span style="font-size: 30px;">🔥</span>
-                    </div>
-                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.2;">
-                        {headline}
-                    </h1>
-                </div>
-                
-                <div style="padding: 40px 35px; text-align: center;">
-                    <p style="font-size: 17px; color: #4A0008; line-height: 1.6; margin-top: 0; font-weight: 500;">
-                        {message}
-                    </p>
-                    
-                    <div style="font-size: 42px; font-weight: 900; color: #720000; letter-spacing: 10px; background: #FEF2F4; padding: 25px 30px; border-radius: 16px; border: 2px dashed #E60026; margin: 35px auto; width: fit-content; display: inline-block;">
-                        {otp_code}
-                    </div>
-                    
-                    <p style="font-size: 14px; color: #888; margin-top: 30px; line-height: 1.5;">
-                        If you did not request this code, you can safely ignore this email. Someone may have entered your email address by mistake.
-                    </p>
-                </div>
-                
-                <div style="background: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0 0 10px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
-                    </p>
-                    <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
-                    </p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT)
-
-
-def send_manager_otp_email(recipient_email, otp_code):
-    """Sends the 2FA OTP code to managers for secure portal access."""
-    subject = "Manager Portal 2FA Code"
-    body_text = f"Your one-time login code is: {otp_code}\nIt expires in 10 minutes."
-    body_html = f"""
-    <html>
-    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-            <!-- HEADER -->
-            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">Security Check</h1>
-            </div>
-            
-            <!-- BODY -->
-            <div style="padding: 40px 30px; text-align: center;">
-                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Verify your login</h2>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                    Please enter the following One-Time Password (OTP) to securely access the Manager Portal.
-                </p>
-                
-                <div style="background: #f8fafc; border-radius: 12px; padding: 25px; margin: 0 auto 25px; border: 1px solid #e2e8f0; max-width: 250px;">
-                    <div style="letter-spacing: 8px; font-size: 32px; font-weight: 900; color: #0ea5e9; margin: 0;">
-                        {otp_code}
-                    </div>
-                </div>
-                
-                <p style="margin: 0; color: #ef4444; font-size: 13px; font-weight: 600;">
-                    ⏱️ This code expires in 10 minutes.
-                </p>
-            </div>
-            
-            <!-- FOOTER -->
-            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return _send_email(recipient_email, subject, body_text, body_html, sender_name="FIND YOUR MATCH AI")
-
-def send_group_join_request_email(admin_email, admin_name, user_name, group_name):
-    """Notifies a group admin that a user wants to join their group."""
-    subject = f"🔔 New Join Request for {group_name}"
-    
-    text_content = textwrap.dedent(f"""\
-        Hi {admin_name},
-        
-        {user_name} has requested to join your group "{group_name}".
-        Please log in to your account to review and approve their request.
-        
-        Review Request: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                <h2 style="color: #0A2540;">New Join Request! 🔔</h2>
-                <p style="color: #333; line-height: 1.5;">Hi {admin_name},</p>
-                <p style="color: #333; line-height: 1.5;"><strong>{user_name}</strong> has requested to join your group <strong>{group_name}</strong>.</p>
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Review Request</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    return _send_email(admin_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
-
-def send_group_notification_email(member_email, member_name, sender_name, group_name, message):
-    """Notifies group members of a new message or update."""
-    subject = f"💬 New Message in {group_name}"
-    
-    text_content = textwrap.dedent(f"""\
-        Hi {member_name},
-        
-        You have a new notification in {group_name} from {sender_name}:
-        "{message}"
-        
-        Check it out: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"></head>
-        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-                <h2 style="color: #0A2540;">New Group Notification 💬</h2>
-                <p style="color: #333; line-height: 1.5;">Hi {member_name},</p>
-                <p style="color: #333; line-height: 1.5;">You have a new message in <strong>{group_name}</strong> from <strong>{sender_name}</strong>:</p>
-                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0; color: #555; font-style: italic;">"{message}"</div>
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Group</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    return _send_email(member_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
-
-def send_group_call_invite_email(to_email, user_name, caller_name, caller_img, group_name, call_type, call_url):
-    """
-    Sends an urgent email invitation to an offline group member when a live group video/audio call is started.
-    """
-    call_label = "Group Video Call 📹" if str(call_type).lower() == 'video' else "Group Voice Call 📞"
-    subject = f"📞 {caller_name} started a {call_label} in {group_name}!"
-    
-    caller_photo = caller_img or "https://findyourmatch.co.ke/static/img/placeholder.png"
-    
-    text_content = textwrap.dedent(f"""\
-        Hi {user_name},
-        
-        {caller_name} just started a live {call_label} in "{group_name}" on FindYourMatch!
-        
-        Other group members are joining now. Tap below to join the call immediately:
-        {call_url}
-        
-        (You can join with your camera or voice-only anytime.)
-        
-        Best regards,
-        FindYourMatch Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 24px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a;">
-            <div style="max-width: 560px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: #f8fafc;">
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 28px 24px; text-align: center;">
-                    <div style="display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; color: white;">
-                        LIVE GROUP CALL 🟢
-                    </div>
-                    <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: white;">{group_name}</h1>
-                    <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9; color: white;">{call_label} is happening right now</p>
-                </div>
-                
-                <div style="padding: 28px 24px; text-align: center;">
-                    <div style="position: relative; display: inline-block; margin-bottom: 16px;">
-                        <img src="{caller_photo}" alt="{caller_name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E60026; box-shadow: 0 0 20px rgba(230,0,38,0.5);">
-                    </div>
-                    
-                    <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #ffffff;">{caller_name} is calling!</h2>
-                    <p style="margin: 0 0 24px; font-size: 14px; color: #cbd5e1; line-height: 1.5;">
-                        Hey <strong>{user_name}</strong>, a live group call was initiated in <strong>{group_name}</strong>. The rest of the group is waiting for you to jump in!
-                    </p>
-                    
-                    <div style="margin: 26px 0;">
-                        <a href="{call_url}" style="display: inline-block; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color: white; padding: 16px 36px; border-radius: 50px; text-decoration: none; font-weight: 900; font-size: 16px; box-shadow: 0 8px 25px rgba(22, 163, 74, 0.45); letter-spacing: 0.5px;">
-                            📞 Answer & Join Group Call
-                        </a>
-                    </div>
-                    
-                    <div style="font-size: 12px; color: #94a3b8; margin-top: 18px;">
-                        💡 <em>Tip: You can join with camera or mute your video/mic anytime.</em>
-                    </div>
-                </div>
-                
-                <div style="background: #0f172a; padding: 16px; text-align: center; border-top: 1px solid #334155; font-size: 11px; color: #64748b;">
-                    FindYourMatch • Campus Connection & Group Calls • Kakamega, Kenya
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    return _send_email(to_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH GROUP CALL")
-
-def send_group_invite_email(to_email, user_name, group_name, admin_name):
-    """Sends a professional welcome email when added to a group."""
-    subject = f"💬 You've been invited to join {group_name}!"
-    
-    text_content = textwrap.dedent(f"""\
-        Welcome, {user_name}!
-        
-        You have been invited to join the group {group_name} by {admin_name}. 
-        We are wishing you the absolute best in finding your perfect match!
-        
-        Group Rules:
-        - Be respectful and kind to everyone.
-        - Shoot your shot, but take 'no' gracefully.
-        - Have fun and keep the vibes immaculate!
-        
-        Enter the Chat: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #0A2540; margin-top: 0; font-size: 22px;">Welcome, {user_name}! 🎉</h2>
-                <p style="color: #333; font-size: 16px; line-height: 1.5;">
-                    You have been invited to join the group <strong>{group_name}</strong> by {admin_name}. 
-                    We are wishing you the absolute best in finding your perfect match!
-                </p>
-                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0;">
-                    <strong style="color: #720000; font-size: 14px; text-transform: uppercase;">📜 Group Rules</strong>
-                    <ul style="color: #555; margin: 10px 0 0 0; font-size: 14px;">
-                        <li>Be respectful and kind to everyone.</li>
-                        <li>Shoot your shot, but take 'no' gracefully.</li>
-                        <li>Have fun and keep the vibes immaculate!</li>
-                    </ul>
-                </div>
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{{ url_for('groups', _external=True) }}" style="background: #38BDF8; color: #0A2540; font-weight: 800; text-decoration: none; padding: 15px 30px; border-radius: 50px; display: inline-block;">Enter the Chat</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    
-    return _send_email(to_email, subject, text_content, html_content)
-
-
-def send_group_approved_email(to_email, user_name, group_name, group_id):
-    """
-    Sends an instant notification when a user is granted access to a group chat,
-    with a direct link straight into the group chat.
-    """
-    subject = f"🎉 You're In! Welcome to {group_name}"
-    base_url = os.getenv('BASE_URL', 'https://findyourmatch.co.ke').rstrip('/')
-    chat_url = f"{base_url}/group/{group_id}"
-    user_first = (user_name or 'Comrade').strip().split()[0] if user_name else 'Comrade'
-    
-    text_content = textwrap.dedent(f"""\
-        Hi {user_first},
-
-        Great news! You now have direct access to the group chat: "{group_name}".
-
-        Jump right in to chat with other students, vibe, and connect:
-        {chat_url}
-
-        Happy matching!
-        Find Your Match Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 580px; margin: 0 auto; background: white; padding: 32px 28px; border-radius: 20px; border-top: 6px solid #720000; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
-                <div style="text-align: center; margin-bottom: 24px;">
-                    <span style="display: inline-block; background: #fff1f2; color: #be123c; padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        👥 Group Chat Access
-                    </span>
-                    <h2 style="color: #0f172a; margin: 14px 0 6px; font-size: 24px; font-weight: 900;">
-                        You're In! Welcome to {group_name} 🎉
-                    </h2>
-                    <p style="color: #64748b; font-size: 15px; margin: 0;">
-                        Hi <strong>{user_first}</strong>, your access has been granted!
-                    </p>
-                </div>
-
-                <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid #fecdd3; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
-                    <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
-                    <div style="font-size: 18px; font-weight: 800; color: #881337;">{group_name}</div>
-                    <div style="font-size: 13px; color: #9f1239; margin-top: 6px;">
-                        Connect, mingle, shoot your shot, and chat with comrades.
-                    </div>
-                </div>
-
-                <div style="text-align: center; margin-bottom: 26px;">
-                    <a href="{chat_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 50px; font-weight: 900; font-size: 16px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
-                        🚀 Enter Group Chat Now &rarr;
-                    </a>
-                </div>
-
-                <div style="background: #f8fafc; border-radius: 14px; padding: 16px; font-size: 12px; color: #64748b; line-height: 1.6;">
-                    💡 <strong>Quick Reminder:</strong> Be respectful, maintain good vibes, and shoot your shot respectfully!
-                </div>
-
-                <div style="text-align: center; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
-                    FindYourMatch • Campus Dating & Socials<br>
-                    <a href="{base_url}" style="color: #64748b; text-decoration: none;">findyourmatch.co.ke</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    return _send_email(to_email, subject, text_content, html_content, sender_name="FindYourMatch Groups")
-
-
-
-def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
-    """Sends a professional confirmation email to a student when a date is approved."""
-    subject = f"Your Date at {restaurant_name} is Confirmed!"
-    
-    text_content = textwrap.dedent(f"""\
-        Great news, {user_name}!
-        
-        Your upcoming date with {partner_name} has been officially approved by the management at {restaurant_name}.
-        
-        Reservation Details:
-        When: {date_day} at {date_time}
-        Where: {restaurant_name} ({location})
-        
-        A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
-        
-        Have fun and stay safe!
-        - {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #E60026; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #720000; margin-top: 0; font-size: 24px; font-weight: 900;">Great news, {user_name}! 🎉</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6;">
-                    Your upcoming date with <strong>{partner_name}</strong> has been officially approved by the management at <strong>{restaurant_name}</strong>.
-                </p>
-                
-                <div style="background: #FEF2F4; padding: 25px; border-radius: 12px; border: 1px solid #FFD6DD; margin: 25px 0;">
-                    <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px; font-weight: 900;">Your Reservation Details</h3>
-                    <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📅 When:</strong> {date_day} at {date_time}</p>
-                    <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📍 Where:</strong> {restaurant_name} ({location})</p>
-                </div>
-                
-                <p style="color: #555; font-size: 15px; line-height: 1.6;">
-                    A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
-                    Have fun and stay safe! <br>
-                    <strong>- The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(to_email, subject, text_content, html_content)
-
-
-def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
-    """Sends a notification email to a merchant when a new date is proposed at their venue."""
-    subject = f"New Date Proposal: {user_a_name} & {user_b_name}"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {merchant_name},
-        
-        A new date has been proposed at your venue!
-        
-        Couple: {user_a_name} & {user_b_name}
-        Proposed Time: {date_day} at {date_time}
-        
-        Please log in to your Merchant Dashboard to approve or decline this reservation.
-        
-        - FIND YOUR MATCH AI Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #720000; margin-top: 0; font-size: 22px; font-weight: 900;">New Date Proposal! 🍽️</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6;">
-                    Hello <strong>{merchant_name}</strong>, a new couple wants to meet at your venue.
-                </p>
-                
-                <div style="background: #fafafa; padding: 20px; border-radius: 12px; border: 1px solid #eee; margin: 25px 0;">
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Couple:</strong> {user_a_name} & {user_b_name}</p>
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Proposed Time:</strong> {date_day} at {date_time}</p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/business/login" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
-        Open Merchant Dashboard
-    </a>
-</div>
-                
-                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
-                    Manage your bookings and grow your business with FIND YOUR MATCH.
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(merchant_email, subject, text_content, html_content)
-
-
-def send_date_request_to_partner_email(partner_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
-    """Sends a notification email to the partner when a new date is proposed to them."""
-    subject = f"💌 {user_a_name} invited you on a date!"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {user_b_name},
-        
-        Exciting news! {user_a_name} has just invited you on a date.
-        
-        Venue: {merchant_name}
-        Proposed Time: {date_day} at {date_time}
-        
-        Please log in to your account and check your messages to accept the date!
-        
-        - FIND YOUR MATCH AI Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #e11d48; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #e11d48; margin-top: 0; font-size: 22px; font-weight: 900;">You have a Date Invitation! 💌</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6;">
-                    Hello <strong>{user_b_name}</strong>, big news! <strong>{user_a_name}</strong> wants to take you out on a date!
-                </p>
-                
-                <div style="background: #fff1f2; padding: 20px; border-radius: 12px; border: 1px solid #fecdd3; margin: 25px 0;">
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #e11d48; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
-                        Open Chats to Reply
-                    </a>
-                </div>
-                
-                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
-                    Don't leave them hanging! Open the app to chat and confirm the date.
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(partner_email, subject, text_content, html_content)
-
-
-def send_date_request_to_sender_email(sender_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
-    """Sends a confirmation email to the sender that their date request was dispatched."""
-    subject = f"Date Proposal Sent to {user_b_name}!"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {user_a_name},
-        
-        Your date invitation has been sent successfully to {user_b_name} and the venue ({merchant_name})!
-        
-        Venue: {merchant_name}
-        Proposed Time: {date_day} at {date_time}
-        
-        We'll let you know once they reply.
-        
-        - FIND YOUR MATCH AI Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #10b981; margin-top: 0; font-size: 22px; font-weight: 900;">Invitation Sent! 🎉</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6;">
-                    Hello <strong>{user_a_name}</strong>, your date invitation was delivered to <strong>{user_b_name}</strong> and <strong>{merchant_name}</strong>!
-                </p>
-                
-                <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; border: 1px solid #a7f3d0; margin: 25px 0;">
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
-                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #10b981; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
-                        Check Messages
-                    </a>
-                </div>
-                
-                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
-                    Fingers crossed! We'll notify you as soon as they reply.
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(sender_email, subject, text_content, html_content)
-
-def send_broadcast_email(recipient_email, recipient_name, subject, message_body, attachments=None):
-    """Sends a generic mass broadcast email to users, generated by the Admin."""
-    
-    # Format line breaks in HTML so admin paragraphs render perfectly
-    html_message_body = message_body.replace('\n', '<br>')
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-        
-        {message_body}
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                
-                <h3 style="color: #0f172a; margin-top: 0; font-size: 20px; font-weight: 900;">Hello {recipient_name},</h3>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6;">
-                    {html_message_body}
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-                    Best regards, <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, attachments=attachments)
-
-
-def send_premium_activation_email(recipient_email, recipient_name):
-    """Sends an email when a user successfully pays or activates a Premium promo."""
-    subject = "💎 Your Premium Account is Active!"
-    
-    text_content = textwrap.dedent(f"""\
-        Congratulations {recipient_name},
-        
-        Your Premium Subscription is now active! You now have full access to:
-        - Unlimited Swiping
-        - Voice & Video WebRTC Calling
-        - The AI Wingman Assistant
-        - Date Bookings at Partner Restaurants
-        
-        Log in now to see your new matches.
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 40px;">💎</span>
-                </div>
-                
-                <h3 style="color: #0f172a; margin-top: 0; font-size: 24px; font-weight: 900; text-align: center;">Welcome to Premium, {recipient_name}!</h3>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6; text-align: center;">
-                    Your account has been successfully upgraded. You now have unrestricted access to all features.
-                </p>
-                
-                <ul style="color: #4A0008; font-size: 15px; line-height: 1.8; background: #f0fdf4; padding: 20px 20px 20px 40px; border-radius: 12px; border: 1px solid #bbf7d0;">
-                    <li><strong>Unlimited Swiping</strong> (Find your perfect match)</li>
-                    <li><strong>Live Voice & Video Calls</strong> (Connect instantly)</li>
-                    <li><strong>AI Wingman</strong> (Never run out of things to say)</li>
-                    <li><strong>Book Real Dates</strong> (Exclusive restaurant reservations)</li>
-                </ul>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, latest_date_info, alert_id):
-    """Sends an high-priority emergency alert email to the super admin."""
-    recipient_email = "delstarfordworks@gmail.com"
-    subject = f"🚨 URGENT: SOS EMERGENCY ALERT - {user_name}"
-    
-    # Standalone Alert Page Link
-    # Note: Replace with actual domain in production
-    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com")
-    alert_page_url = f"{base_url}/emergency/{alert_id}"
-    
-    map_link = f"https://www.google.com/maps?q={latitude},{longitude}" if latitude else "Location not shared"
-    
-    date_context = "No recent verified dates found."
-    if latest_date_info:
-        date_context = f"Latest Verified Date: {latest_date_info['partner_name']} at {latest_date_info['venue_name']} (Scanned at: {latest_date_info['scan_time']})"
-
-    text_content = textwrap.dedent(f"""\
-        🚨 EMERGENCY SOS ALERT 🚨
-        
-        User: {user_name} (ID: {user_id})
-        Phone: {user_phone}
-        
-        LIVE MONITORING PAGE: {alert_page_url}
-        
-        Location: {map_link}
-        
-        Date Context:
-        {date_context}
-        
-        IMMEDIATE ACTION REQUIRED.
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 20px; background-color: #720000; font-family: sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; border: 5px solid #E60026;">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="background: #E60026; padding: 30px; text-align: center; color: white;">
-                    <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px;">🚨 SOS ALERT 🚨</h1>
-                </div>
-                <div style="padding: 30px;">
-                    <h2 style="color: #111; margin-top: 0;">{user_name} is in danger!</h2>
-                    
-                    <div style="text-align: center; margin: 20px 0;">
-                        <a href="{alert_page_url}" style="background: #E60026; color: white; padding: 18px 30px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 18px; display: inline-block; box-shadow: 0 10px 30px rgba(230,0,38,0.4);">
-                            🔍 VIEW LIVE MONITORING PAGE
-                        </a>
-                    </div>
-
-                    <p style="font-size: 16px; color: #333;"><strong>Student ID:</strong> {user_id}</p>
-                    <p style="font-size: 16px; color: #333;"><strong>Phone:</strong> <a href="tel:{user_phone}">+{user_phone}</a></p>
-                    
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #ddd;">
-                        <h4 style="margin: 0 0 10px; color: #E60026; text-transform: uppercase;">Real-Time Location</h4>
-                        <p style="margin: 0 0 15px; font-weight: bold;">{map_link}</p>
-                        <a href="{map_link}" style="background: #111; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Open in Google Maps</a>
-                    </div>
-
-                    <div style="background: #FFF5F6; padding: 20px; border-radius: 12px; border-left: 5px solid #E60026;">
-                        <h4 style="margin: 0 0 10px; color: #720000;">Dating History Context</h4>
-                        <p style="margin: 0; color: #4A0008; font-size: 15px; line-height: 1.5;">
-                            {date_context}
-                        </p>
-                    </div>
-
-                    <p style="color: #888; font-size: 12px; margin-top: 30px; text-align: center; font-weight: bold;">
-                        This alert was triggered via the FIND YOUR MATCH Emergency SOS system.
-                    </p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM EMERGENCY BROADCAST")
-
-
-def send_admin_alert_email(recipient_email, recipient_name, action_type, reason):
-    """Sends moderation emails (Warnings or Account Bans) from the Admin Dashboard."""
-    
-    if action_type == 'ban':
-        subject = "🚫 Account Terminated: Violation of Terms"
-        header_color = "#ef4444" # Red
-        title = "Account Terminated"
-        message = f"Your account has been permanently removed from the platform for the following reason:<br><br><strong>{reason}</strong>"
-    else:
-        subject = "⚠️ Official Warning from FYM Moderation"
-        header_color = "#f59e0b" # Yellow
-        title = "Official Warning"
-        message = f"Your account has been flagged by our AI moderation system for the following reason:<br><br><strong>{reason}</strong><br><br>Please ensure your behavior aligns with our community guidelines to avoid a permanent ban."
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-        
-        {title}
-        Reason: {reason}
-        
-        - FYM Trust & Safety Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid {header_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                
-                <h3 style="color: {header_color}; margin-top: 0; font-size: 20px; font-weight: 900;">{title}</h3>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6; background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {header_color};">
-                    {message}
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-                    This is an automated message. <br>
-                    <strong>FYM Trust & Safety Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-     """)
- 
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_monday_matches_email(recipient_email, recipient_name, perfect_matches):
-    """
-    Sends the weekly Monday Perfect Matches recommendation email containing contact details,
-    compatibility, university bio, and direct profile view links of top opposite-sex matches.
-    """
-    subject = "💌 Monday Love Sheet: Your Perfect Matches & Contact Details!"
-    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
-    
-    # 1. Build Matches HTML blocks with view profile CTA button
-    matches_html = ""
-    for m in perfect_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_html += f"""
-        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
-            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
-            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
-            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
-            
-            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
-                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
-                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
-                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
-            </div>
-            
-            <div style="text-align: center;">
-                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
-                    👤 Click to View Profile
-                </a>
-            </div>
-        </div>
-        """
-
-    # 2. Build plain text fallback
-    matches_text = ""
-    for m in perfect_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-        
-        It's Monday! The FYM perfect matchmaking algorithm has compiled your compatibility reports.
-        Below are your top perfect matches on campus along with their contact details. Click the links below to view their profiles:
-        
-        {matches_text}
-        
-        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
-        
-        Have fun!
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 45px;">💌</span>
-                </div>
-                
-                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Monday Love Match Sheet!</h2>
-                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
-                    Hello <strong>{recipient_name}</strong>, it is Monday! To help you secure a date this week, the FYM algorithm has retrieved your top opposite-sex perfect matches (>80% compatibility) with their contact cards. Click to view their profiles!
-                </p>
-                
-                <!-- === PERFECT MATCHES CARDS === -->
-                {matches_html}
-                
-                <!-- === SAFETY NOTICE === -->
-                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
-                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
-                </div>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    Have an amazing week! <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_friday_matches_email(recipient_email, recipient_name, perfect_matches):
-    """
-    Sends the weekly Friday Perfect Matches recommendation email containing contact details,
-    compatibility, university bio, and direct profile view links of top 50 opposite-sex matches.
-    """
-    subject = "💌 Friday Perfect Matches: Your Weekend Matchmaking Sheet!"
-    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
-    
-    # 1. Build Matches HTML blocks with view profile CTA button
-    matches_html = ""
-    for m in perfect_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_html += f"""
-        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
-            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
-            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
-            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
-            
-            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
-                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
-                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
-                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
-            </div>
-            
-            <div style="text-align: center;">
-                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
-                    👤 Click to View Profile
-                </a>
-            </div>
-        </div>
-        """
-
-    # 2. Build plain text fallback
-    matches_text = ""
-    for m in perfect_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-        
-        It's Friday! The FYM weekend matchmaker has compiled your compatibility reports.
-        Below are your top 50 perfect matches (>80% compatibility) on campus with contact details. Make your move before Lights Out!
-        
-        {matches_text}
-        
-        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
-        
-        Have fun!
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 45px;">💖</span>
-                </div>
-                
-                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Friday Perfect Match Sheet!</h2>
-                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
-                    Hello <strong>{recipient_name}</strong>, it is Friday! To prepare you for the weekend, the FYM algorithm has scanned the network and compiled your top 50 opposite-sex perfect matches (>80% compatibility) with contact cards. Make your move before the Friday Lights Out lobby opens!
-                </p>
-                
-                <!-- === PERFECT MATCHES CARDS === -->
-                {matches_html}
-                
-                <!-- === SAFETY NOTICE === -->
-                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
-                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
-                </div>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    Have an amazing weekend! <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_spotify_playlist_email(recipient_email, recipient_name, sender_name, playlist_url):
-    """
-    Dispatches a flirty retro mixtape cassette email when a user shares their Spotify playlist with a partner.
-    """
-    subject = f"🎵 {sender_name} sent you a romantic Spotify Playlist Mixtape!"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-        
-        {sender_name} has shared a flirty dating mixtape playlist with you on Spotify!
-        Listen to it here: {playlist_url}
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #1DB954; box-shadow: 0 15px 35px rgba(0,0,0,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 45px;">🎵</span>
-                </div>
-                
-                <h2 style="color: #1DB95Green; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px; color: #1DB954;">Spotify Mixtape Shared!</h2>
-                
-                <div style="background: #191414; color: white; border-radius: 20px; padding: 30px 20px; text-align: center; position: relative; border: 4px solid #1DB954; margin: 25px 0; box-shadow: 0 8px 25px rgba(29,185,84,0.15);">
-                    <div style="width: 120px; height: 10px; background: #333; margin: 0 auto 20px auto; border-radius: 10px;"></div>
-                    <div style="font-size: 13px; font-weight: 900; color: #1DB954; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px;">Retro Cassette Mixtape</div>
-                    <div style="font-size: 20px; font-weight: 950; color: #fff; margin-bottom: 25px;">⚡ {sender_name}'s Flirty Anthems</div>
-                    
-                    <a href="{playlist_url}" target="_blank" style="background: #1DB954; color: black; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: 950; font-size: 15px; display: inline-block; box-shadow: 0 4px 15px rgba(29,185,84,0.4);">
-                        ▶️ Play Mix on Spotify
-                    </a>
-                </div>
-                
-                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
-                    Hello <strong>{recipient_name}</strong>, music is the shortcut to connection! Your match <strong>{sender_name}</strong> wants to share their dating anthems with you. Click the green button above to connect and start listening together!
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    Listen and enjoy! <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_meetup_request_email(recipient_email, recipient_name, sender_name):
-    """
-    Emails a target student notifying them that an opposite-gender classmate wishes to meet up geographically.
-    """
-    subject = f"📍 Flirty Alert: {sender_name} wants to meet up with you near campus!"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-        
-        Exciting news! {sender_name} is geographically close and wants to meet up with you!
-        Log in to your FIND YOUR MATCH dashboard to coordinate your meetup.
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 45px;">📍</span>
-                </div>
-                
-                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Geographic Meetup Requested!</h2>
-                
-                <p style="color: #333; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500;">
-                    Hello <strong>{recipient_name}</strong>, exciting news! Your match <strong>{sender_name}</strong> is geographically nearby and has sent a premium meetup request!
-                </p>
-                
-                <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin: 25px 0; text-align: center;">
-                    <p style="color: #E60026; font-size: 16px; font-weight: 900; margin-top: 0;">📍 {sender_name} is close by!</p>
-                    <p style="color: #4A0008; font-size: 14px; margin-bottom: 20px;">Do you want to meetup with them in a verified, public spot?</p>
-                    
-                    <a href="https://match-ai.onrender.com/dashboard" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
-                        💖 Open Dashboard & Respond
-                    </a>
-                </div>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    Safe dating is happy dating! <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_proximity_meetup_email(recipient_email, recipient_name, nearby_matches):
-    """
-    Sends the Proximity Proximity Meetup Reveal email containing the profiles and images
-    of opposite-sex Diamond users located within a 1 KM radius who agreed to meet.
-    """
-    subject = "🤝 Proximity Meetup Agreed! Nearby Match Profiles Revealed!"
-    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
-    
-    # 1. Build Matches HTML blocks with view profile CTA button
-    matches_html = ""
-    for m in nearby_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_html += f"""
-        <div style="background: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(168,85,247,0.02); display: flex; align-items: center; gap: 20px;">
-            <img src="{m['img']}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E9D5FF; flex-shrink: 0;" alt="{m['name']}">
-            <div>
-                <h3 style="color: #4b0082; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
-                <p style="margin: 0 0 5px 0; font-size: 13px; font-weight: 700; color: #a855f7; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
-                <p style="margin: 0 0 10px 0; font-size: 13px; color: #666; font-style: italic;">"{m['bio']}"</p>
-                
-                <div style="background: white; border-radius: 10px; padding: 10px; border: 1px dashed #E9D5FF; font-size: 12px; color: #333; margin-bottom: 10px;">
-                    <p style="margin: 2px 0;"><strong>📞 Phone:</strong> <a href="tel:{m['phone']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">+{m['phone']}</a></p>
-                    <p style="margin: 2px 0;"><strong>✉️ Email:</strong> <a href="mailto:{m['email']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">{m['email']}</a></p>
-                </div>
-                
-                <a href="{profile_url}" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); color: white; padding: 6px 14px; text-decoration: none; border-radius: 6px; font-weight: 900; font-size: 12px; display: inline-block; box-shadow: 0 2px 8px rgba(168,85,247,0.2);">
-                    👤 View Profile
-                </a>
-            </div>
-        </div>
-        """
-
-    # 2. Build plain text fallback
-    matches_text = ""
-    for m in nearby_matches:
-        profile_url = f"{base_url}/student/{m['id']}"
-        matches_text += f"- {m['name']} ({m['compatibility']}%): {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. View: {profile_url}\n\n"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-        
-        Fantastic news! You and a nearby student have agreed to meet up and physically talk!
-        Below are the profiles and images of opposite-sex premium comrades detected within a 1 KM radius of your location:
-        
-        {matches_text}
-        
-        Enjoy your meetup! Meet in a safe, public campus spot.
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <span style="font-size: 45px;">🤝</span>
-                </div>
-                
-                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Meetup Confirmed! 📍</h2>
-                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
-                    Hello <strong>{recipient_name}</strong>! You and a nearby premium comrade have both clicked **Yes** to meet up and physically talk! 
-                    As promised, here are the profiles and pictures of active matches detected within a **1 KM radius** of your coordinates:
-                </p>
-                
-                <!-- === MATCHES CARDS === -->
-                {matches_html}
-                
-                <!-- === SAFETY NOTICE === -->
-                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
-                    🛡️ <strong>Safety Advisory:</strong> Meet for physical talks strictly in well-populated campus spots (e.g. Student Union, university Library, CBD Partner Cafes). Stay safe and enjoy your conversation!
-                </div>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    Have a wonderful conversation! <br>
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_male_campaign_email(recipient_email, recipient_name):
-    """
-    Sends the September 2025 online community campaign invitation email to male users.
-    Informs them about the Google Meet event and asks them to RSVP by replying.
-    """
-    subject = "🔥 You're Invited: Find Your Match Online Community Campaign!"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-
-        Big News from the Find Your Match Community! 🎉
-
-        We are excited to announce an exclusive online community campaign — a special virtual
-        event where members of the Find Your Match family will come together to connect,
-        interact, and get to know each other in a whole new way!
-
-        This is your moment to be part of something truly special. Whether you're looking to
-        make new friends, meaningful connections, or find your perfect match — this event was
-        made for you.
-
-        📅 EVENT DETAILS:
-        ─────────────────────────────────
-        📆 Date    : Sunday, 7th September 2025
-        🕘 Time    : 9:00 PM EAT (East Africa Time)
-        💻 Platform: Google Meet
-        🔗 Link    : https://meet.google.com/rgc-cjov-jda
-        ─────────────────────────────────
-
-        👉 ACTION REQUIRED:
-        Please reply to this email to confirm whether you will be attending.
-        Your RSVP helps us prepare adequately and ensures your spot is reserved!
-
-        We look forward to seeing you online. Let's make great connections together! 💪
-
-        Warm regards,
-        The {SENDER_NAME_DEFAULT} Team 💌
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
-                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
-                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
-                        FYM Online Community Campaign
-                    </h1>
-                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
-                        You're officially invited! 🎉
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 40px 35px;">
-                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
-                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
-                    </p>
-                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
-                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
-                    </p>
-                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
-                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
-                    </p>
-
-                    <!-- EVENT DETAILS BOX -->
-                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
-                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
-                            </tr>
-                        </table>
-                        <!-- JOIN BUTTON -->
-                        <div style="text-align: center; margin-top: 22px;">
-                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
-                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
-                                🔗 Click to Join Google Meet
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- RSVP NOTICE -->
-                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
-                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
-                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
-                        </p>
-                    </div>
-
-                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
-                        We look forward to seeing you online.<br>Let's make great connections together! 💪
-                    </p>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        FIND YOUR MATCH AI — Powered Dating
-                    </p>
-                    <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
-                    </p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_female_promo_campaign_email(recipient_email, recipient_name):
-    """
-    Sep 2026 Female Free Access Promo campaign email.
-    Informs female users of:
-      1. 1 month free access (already-registered) / 2 months free (new)
-      2. New features: opposite-gender filtering on dashboard & talk
-      3. Referral CTA - invite friends to Find Your Match
-    """
-    first_name = (recipient_name or 'there').split(' ')[0].strip()
-    referral_link = f"https://findyourmatch.co.ke/signup"
-    dashboard_link = "https://findyourmatch.co.ke/dashboard"
-
-    subject = f"🎉 {first_name}, You Have FREE Premium Access! + Exciting New Updates!"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {first_name},
-
-        Great news from the Find Your Match community!
-
-        ─────────────────────────────────────────────────
-        🎁 GIFT #1: YOU HAVE FREE PREMIUM ACCESS!
-        ─────────────────────────────────────────────────
-        As a valued female member of our community, we have
-        activated FREE Premium access on your account!
-
-          ✅ Already registered? You get 1 MONTH FREE (until Oct 23, 2026)
-          ✅ Newly joining?     You get 2 MONTHS FREE when you verify your email!
-
-        This offer is only available until October 23, 2026.
-        Log in now and enjoy full premium features for free:
-        {dashboard_link}
-
-        ─────────────────────────────────────────────────
-        ✨ NEW UPDATE #2: SEE ONLY YOUR PERFECT MATCHES!
-        ─────────────────────────────────────────────────
-        We've improved how matches work on our platform:
-
-          👩‍❤️‍👨 Dashboard  - Now shows ONLY male matches for you
-          📞 Live Talk    - Directory now shows ONLY males online
-          📱 Scroll Cards - Fixed to scroll smoothly on mobile
-
-        Your experience just got a major upgrade!
-
-        ─────────────────────────────────────────────────
-        💖 INVITE YOUR FRIENDS & GROW THE COMMUNITY!
-        ─────────────────────────────────────────────────
-        Do you have friends who are still single and looking?
-        Share Find Your Match with them! Any female friend who
-        signs up before October 23, 2026 also gets FREE access!
-
-        Share this link:
-        {referral_link}
-
-        The more, the merrier — let’s build the biggest campus
-        dating community in Kenya together! 🇰🇳
-
-        With love,
-        The Find Your Match Team 💌
-        findyourmatch.co.ke
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>You Have Free Premium Access!</title>
-        </head>
-        <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <div style="max-width:600px;margin:30px auto;background:white;border-radius:24px;overflow:hidden;box-shadow:0 15px 50px rgba(114,0,0,0.12);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-
-                <!-- ===== HEADER ===== -->
-                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 60%,#ff6b9d 100%);padding:50px 30px 40px;text-align:center;">
-                    <div style="font-size:60px;margin-bottom:12px;line-height:1;">&#x1F381;</div>
-                    <h1 style="color:white;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.3;">
-                        You Have FREE Premium Access!
-                    </h1>
-                    <p style="color:rgba(255,255,255,0.9);margin:0;font-size:16px;font-weight:500;">
-                        Plus exciting new updates just for you &#x1F31F;
-                    </p>
-                </div>
-
-                <!-- ===== GREETING ===== -->
-                <div style="padding:35px 35px 0;">
-                    <p style="font-size:17px;color:#333;line-height:1.7;margin:0 0 6px;">
-                        Hello <strong style="color:#720000;">{first_name}</strong>,
-                    </p>
-                    <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 30px;">
-                        We have some amazing news for you from the <strong>Find Your Match</strong> community!
-                        Read everything below &#x2014; there are 3 big updates just for you.
-                    </p>
-                </div>
-
-                <!-- ===== SECTION 1: FREE ACCESS ===== -->
-                <div style="margin:0 25px 25px;background:linear-gradient(135deg,#FEF2F4,#fff);border:2px solid #E60026;border-radius:20px;padding:28px 28px;">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                        <span style="font-size:36px;">&#x1F381;</span>
-                        <h2 style="margin:0;color:#720000;font-size:20px;font-weight:900;">Gift #1: FREE Premium Access!</h2>
-                    </div>
-                    <p style="margin:0 0 18px;color:#444;font-size:15px;line-height:1.7;">
-                        As a valued female member of our community, we've activated
-                        <strong>FREE Premium</strong> on your account as a special thank-you gift!
-                    </p>
-                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #FFD6DD;margin-bottom:20px;">
-                        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
-                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
-                            <div>
-                                <strong style="color:#720000;font-size:15px;display:block;">Already Registered?</strong>
-                                <span style="color:#555;font-size:14px;">1 MONTH FREE &#x2014; valid until <strong>October 23, 2026</strong></span>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:flex-start;gap:12px;">
-                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
-                            <div>
-                                <strong style="color:#720000;font-size:15px;display:block;">Friends Joining Now?</strong>
-                                <span style="color:#555;font-size:14px;">2 MONTHS FREE when they verify their email before Oct 23!</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="text-align:center;">
-                        <a href="{dashboard_link}" style="background:linear-gradient(135deg,#E60026 0%,#720000 100%);color:white;padding:15px 36px;text-decoration:none;border-radius:50px;font-weight:900;font-size:16px;display:inline-block;box-shadow:0 8px 25px rgba(230,0,38,0.35);letter-spacing:0.3px;">
-                            &#x1F680; Go to My Dashboard
-                        </a>
-                    </div>
-                </div>
-
-                <!-- ===== SECTION 2: NEW FEATURES ===== -->
-                <div style="margin:0 25px 25px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:20px;padding:28px;">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                        <span style="font-size:36px;">&#x2728;</span>
-                        <h2 style="margin:0;color:#0369a1;font-size:20px;font-weight:900;">Update #2: New Features!</h2>
-                    </div>
-                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">We've made big improvements to your experience on <strong>findyourmatch.co.ke</strong>:</p>
-                    <div style="display:flex;flex-direction:column;gap:12px;">
-                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
-                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F469;&#x200D;&#x2764;&#xFE0F;&#x200D;&#x1F468;</span>
-                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Dashboard &#x2014; Opposite Matches Only</strong><span style="color:#555;font-size:13px;">Your home feed now shows only male profiles &#x2014; no more confusion!</span></div>
-                        </div>
-                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
-                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4DE;</span>
-                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Live Talk &#x2014; Males Only Visible</strong><span style="color:#555;font-size:13px;">The live directory now shows only males who are online right now.</span></div>
-                        </div>
-                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
-                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4F1;</span>
-                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Smooth Mobile Scrolling</strong><span style="color:#555;font-size:13px;">Profile cards now scroll perfectly on your phone &#x2014; swipe to discover more!</span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ===== SECTION 3: REFERRAL ===== -->
-                <div style="margin:0 25px 30px;background:linear-gradient(135deg,#fdf4ff,#fce7f3);border:2px solid #e879f9;border-radius:20px;padding:28px;">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-                        <span style="font-size:36px;">&#x1F496;</span>
-                        <h2 style="margin:0;color:#7e22ce;font-size:20px;font-weight:900;">Update #3: Invite Your Friends!</h2>
-                    </div>
-                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
-                        Do you have friends who are single and looking for meaningful connections?
-                        <strong>Share Find Your Match with them</strong> today!
-                    </p>
-                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #f0abfc;margin-bottom:20px;">
-                        <p style="margin:0 0 10px;color:#7e22ce;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">&#x1F4E3; Share This Link</p>
-                        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">
-                            Any female friend who signs up before <strong>October 23, 2026</strong> automatically gets <strong>2 months FREE Premium</strong> &#x2014; no payment needed!
-                        </p>
-                        <div style="background:#fdf4ff;border-radius:10px;padding:12px 16px;margin-top:14px;word-break:break-all;">
-                            <code style="color:#7e22ce;font-size:14px;font-weight:700;">{referral_link}</code>
-                        </div>
-                    </div>
-                    <div style="text-align:center;">
-                        <a href="{referral_link}" style="background:linear-gradient(135deg,#a855f7 0%,#7e22ce 100%);color:white;padding:14px 32px;text-decoration:none;border-radius:50px;font-weight:900;font-size:15px;display:inline-block;box-shadow:0 6px 20px rgba(168,85,247,0.4);">
-                            &#x1F4F2; Share Find Your Match
-                        </a>
-                    </div>
-                </div>
-
-                <!-- ===== OFFER DEADLINE NOTICE ===== -->
-                <div style="margin:0 25px 30px;background:#fffbeb;border:1px solid #fef3c7;border-left:5px solid #f59e0b;border-radius:14px;padding:18px 20px;">
-                    <p style="margin:0;color:#92400e;font-size:14px;line-height:1.6;">
-                        <strong>&#x23F0; Offer Deadline:</strong> The free access promotion ends on
-                        <strong>October 23, 2026</strong>. After that, normal pricing applies.
-                        Log in and use your free access before it expires!
-                    </p>
-                </div>
-
-                <!-- ===== FOOTER ===== -->
-                <div style="background:#fafafa;padding:28px 30px;text-align:center;border-top:1px solid #eee;">
-                    <p style="margin:0 0 8px;font-size:13px;font-weight:900;color:#720000;letter-spacing:0.5px;">&#x1F496; FIND YOUR MATCH</p>
-                    <p style="margin:0 0 6px;font-size:12px;color:#aaa;">findyourmatch.co.ke &mdash; Kenya's Campus Dating Community</p>
-                    <p style="margin:0;font-size:11px;color:#ccc;">&copy; {datetime.now().year} Find Your Match. All rights reserved.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-
-        Exciting Updates from the Find Your Match Team! 🌟
-        Please read through carefully — there are 3 important things for you!
-
-        ─────────────────────────────────────────────────
-        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
-        ─────────────────────────────────────────────────
-        We are hosting an exclusive online community campaign — a special virtual event
-        where the entire Find Your Match family will come together to connect, interact,
-        and get to know each other like never before!
-
-        📅 EVENT DETAILS:
-        📆 Date    : Sunday, 7th September 2025
-        🕘 Time    : 9:00 PM EAT (East Africa Time)
-        💻 Platform: Google Meet
-        🔗 Link    : https://meet.google.com/rgc-cjov-jda
-
-        👉 Please reply to this email to confirm your attendance!
-
-        ─────────────────────────────────────────────────
-        📝 PART 2: UPDATE YOUR PROFILE
-        ─────────────────────────────────────────────────
-        We are raising the bar on profile quality! Kindly go to your Profile Section
-        and make sure the following are updated:
-          ✅ Profile Photo  — Upload a clear, recent photo of yourself
-          ✅ Phone Number   — Ensure your phone number is correctly added
-
-        A complete profile puts you front and centre for the best matches!
-
-        ─────────────────────────────────────────────────
-        💼 PART 3: EXCITING WORK OPPORTUNITY!
-        ─────────────────────────────────────────────────
-        We are looking for confident and enthusiastic ladies in our community who are
-        ready to be part of the Find Your Match team in an exciting upcoming role!
-
-        If you are ready and interested, simply reply to this email with:
-                        READY TO WORK
-        ...and our team will reach out with all the details.
-
-        ─────────────────────────────────────────────────
-
-        Thank you for being a valued part of our community. We can't wait to see you
-        at the event and hear from you! 💪
-
-        With love,
-        The {SENDER_NAME_DEFAULT} Team 💌
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
-                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
-                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
-                        Important Updates Just For You!
-                    </h1>
-                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
-                        3 exciting things inside — please read carefully 🌟
-                    </p>
-                </div>
-
-                <!-- BODY -->
-        Big News from the Find Your Match Community! 🎉
-
-        We are excited to announce an exclusive online community campaign — a special virtual
-        event where members of the Find Your Match family will come together to connect,
-        interact, and get to know each other in a whole new way!
-
-        This is your moment to be part of something truly special. Whether you're looking to
-        make new friends, meaningful connections, or find your perfect match — this event was
-        made for you.
-
-        📅 EVENT DETAILS:
-        ─────────────────────────────────
-        📆 Date    : Sunday, 7th September 2025
-        🕘 Time    : 9:00 PM EAT (East Africa Time)
-        💻 Platform: Google Meet
-        🔗 Link    : https://meet.google.com/rgc-cjov-jda
-        ─────────────────────────────────
-
-        👉 ACTION REQUIRED:
-        Please reply to this email to confirm whether you will be attending.
-        Your RSVP helps us prepare adequately and ensures your spot is reserved!
-
-        We look forward to seeing you online. Let's make great connections together! 💪
-
-        Warm regards,
-        The {SENDER_NAME_DEFAULT} Team 💌
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
-                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
-                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
-                        FYM Online Community Campaign
-                    </h1>
-                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
-                        You're officially invited! 🎉
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 40px 35px;">
-                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
-                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
-                    </p>
-                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
-                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
-                    </p>
-                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
-                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
-                    </p>
-
-                    <!-- EVENT DETAILS BOX -->
-                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
-                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
-                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
-                            </tr>
-                        </table>
-                        <!-- JOIN BUTTON -->
-                        <div style="text-align: center; margin-top: 22px;">
-                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
-                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
-                                🔗 Click to Join Google Meet
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- RSVP NOTICE -->
-                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
-                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
-                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
-                        </p>
-                    </div>
-
-                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
-                        We look forward to seeing you online.<br>Let's make great connections together! 💪
-                    </p>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
-                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-                        FIND YOUR MATCH AI — Powered Dating
-                    </p>
-                    <p style="margin: 0; font-size: 11px; color: #ccc;">
-                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
-                    </p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_female_campaign_email(recipient_email, recipient_name):
-    """
-    Sends the September 2025 online community campaign email to female users.
-    Includes the Google Meet event invite, profile update request, and work opportunity notice.
-    """
-    subject = "💌 You're Invited: FYM Online Campaign + Important Update & Opportunity!"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-
-        Exciting Updates from the Find Your Match Team! 🌟
-        Please read through carefully — there are 3 important things for you!
-
-        ─────────────────────────────────────────────────
-        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
-        ─────────────────────────────────────────────────
-        We are hosting an exclusive online community campaign — a special virtual event
-        where the entire Find Your Match family will come together to connect, interact,
-        and get to know each other like never before!
-
-        📅 EVENT DETAILS:
-        📆 Date    : Sunday, 7th September 2025
-        🕘 Time    : 9:00 PM EAT (East Africa Time)
-        💻 Platform: Google Meet
-        🔗 Link    : https://meet.google.com/rgc-cjov-jda
-
-        👉 Please reply to this email to confirm your attendance!
-
-        ─────────────────────────────────────────────────
-        📝 PART 2: UPDATE YOUR PROFILE
-        ─────────────────────────────────────────────────
-        We are raising the bar on profile quality! Kindly go to your Profile Section
-        and make sure the following are updated:
-          ✅ Profile Photo  — Upload a clear, recent photo of yourself
-          ✅ Phone Number   — Ensure your phone number is correctly added
-
-        A complete profile puts you front and centre for the best matches!
-
-        ─────────────────────────────────────────────────
-        💼 PART 3: EXCITING WORK OPPORTUNITY!
-        ─────────────────────────────────────────────────
-        We are looking for confident and enthusiastic ladies in our community who are
-        ready to be part of the Find Your Match team in an exciting upcoming role!
-
-        If you are ready and interested, simply reply to this email with:
-                        READY TO WORK
-        ...and our team will reach out with all the details.
-
-        ─────────────────────────────────────────────────
-
-        Thank you for being a valued part of our community. We can't wait to see you
-        at the event and hear from you! 💪
-
-        With love,
-        The {SENDER_NAME_DEFAULT} Team 💌
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
-                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
-                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
-                        Important Updates Just For You!
-                    </h1>
-                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
-                        3 exciting things inside — please read carefully 🌟
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 40px 35px;">
-                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
-                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
-                    </p>
-                    <p style="font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 30px;">
-                        We have some amazing news and important requests for you. Please read through all three sections below!
-                    </p>
-
-                    </p>
-                </div>
-                
-                <!-- FOOTER -->
-                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
-                    <p style="margin: 0; font-size: 11px; color: #cbd5e1;">&copy; {datetime.now().year} Delstarford Works.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-    
-    return _send_email(recipient_email, subject, body_html)
-
-
-def send_manager_welcome_email(recipient_email, recipient_name, institution, password):
-    """Sends a welcome email to a newly added Campus Manager."""
-    subject = "Welcome to the FIND YOUR MATCH Campus Manager Team! 🚀"
-    
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name},
-        
-        Welcome to the team! You have been added as a Campus Manager for {institution}.
-        
-        Here are your login credentials:
-        Email: {recipient_email}
-        Temporary Password: {password}
-        
-        Please log in to your Manager Dashboard and change your password immediately.
-        
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-    
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Welcome to the Team, {recipient_name}! 🚀</h2>
-                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
-                    You have been officially added as a Campus Manager for <strong>{institution}</strong>!
-                </p>
-                <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left;">
-                    <p style="margin: 4px 0; font-size: 15px;"><strong>Email:</strong> {recipient_email}</p>
-                    <p style="margin: 4px 0; font-size: 15px;"><strong>Temporary Password:</strong> {password}</p>
-                </div>
-                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
-                    Please log in to your Manager Dashboard and change your password immediately for security.
-                </p>
-                <div style="text-align: center; margin-top: 20px;">
-                    <a href="{os.getenv('BASE_URL', 'https://match-ai.onrender.com')}/manager_portal" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
-                        Login to Dashboard
-                    </a>
-                </div>
-                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
-                </p>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content)
-
-
-def send_survey_campaign_email(email, name):
-    """
-    Sends an email inviting users to participate in the feedback survey
-    in exchange for 1 week of free Premium access.
-    """
-    try:
-        first_name = name.split(' ')[0] if name else "there"
-        subject = "Help Us Improve & Get 1 Week of FREE Premium! 🎁"
-        
-        text_content = f"""
-        Hi {first_name},
-
-        We want to make Find Your Match better for you! 
-        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
-
-        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
-
-        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
-
-        Best,
-        The Find Your Match Team
-        """
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
-                    <div style="font-size: 40px; margin-bottom: 10px;">&#x1F381;</div>
-                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
-                </div>
-                
-                <!-- BODY -->
-                <div style="padding: 40px 30px;">
-                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
-                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-                        We are constantly working to make Find Your Match better for our campus community, and we need your help!
-                    </p>
-                    
-                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
-                    </p>
-                    
-                    <div style="text-align: center; margin-top: 20px;">
-                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
-                            Take Survey &amp; Claim Reward
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- FOOTER -->
-                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH</p>
-                    <p style="margin: 0; font-size: 11px; color: #ccc;">findyourmatch.co.ke</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return _send_email(email, subject, text_content, html_content)
-    except Exception as e:
-        logger.error(f"Failed to send survey campaign email to {email}: {e}")
-        return False
-
-        
-        text_content = f"""
-        Hi {first_name},
-
-        We want to make Find Your Match AI better for you! 
-        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
-
-        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
-
-        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
-
-        Best,
-        The Find Your Match AI Team
-        """
-        
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
-                    <div style="font-size: 40px; margin-bottom: 10px;">🎁</div>
-                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
-                </div>
-                
-                <!-- BODY -->
-                <div style="padding: 40px 30px;">
-                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
-                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-                        We are constantly working to make Find Your Match AI better for our campus community, and we need your help!
-                    </p>
-                    
-                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
-                    </p>
-                    
-                    <div style="text-align: center; margin-top: 20px;">
-                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
-                            Take Survey & Claim Reward
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- FOOTER -->
-                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return _send_email(email, subject, text_content, html_content)
-    except Exception as e:
-        logger.error(f"Failed to send survey campaign email to {email}: {e}")
-        return False
-
-def send_manager_otp_email(recipient_email, otp_code):
-    """
-    Sends a formatted HTML verification email for manager login.
-    """
-    subject = "Campus Manager Portal - Login OTP"
-    headline = "Manager Portal Verification 🏢"
-    message = "Use the verification code below to access the campus manager portal. This code expires in 10 minutes."
-    
-    text_content = f"{headline}\n\n{message}\n\nYour code is: {otp_code}\n\nPlease do not share this code."
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
-        <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0;">
-                <h2 style="color: #333333; margin: 0;">{headline}</h2>
-            </div>
-            <div style="padding: 20px 0; color: #555555; line-height: 1.6; font-size: 16px;">
-                <p>{message}</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <span style="display: inline-block; padding: 15px 30px; font-size: 24px; font-weight: bold; color: #E60026; background-color: #FEF2F4; border-radius: 8px; letter-spacing: 5px;">
-                        {otp_code}
-                    </span>
-                </div>
-                <p style="font-size: 14px; color: #888888; text-align: center;">If you didn't request this code, please ignore this email.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM Manager System")
-
-def send_apology_email(email, user_name=""):
-    """
-    Sends an apology email regarding the recent login system interruption.
-    """
-    subject = "Important Update: We've Fixed the Login Issue (And We Are Sorry!)"
-    
-    first_name = user_name.split()[0] if user_name else "there"
-    
-    text_content = f"""
-    Hi {first_name},
-
-    We are sincerely sorry for the inconvenience caused by the recent system login interruption. 
-    You are the boss, and you deserve a flawless experience. We want to assure you that such an interruption will never happen again.
-    
-    Our engineering team has completely resolved the issue. Please log in to your account and confirm that everything is working perfectly for you.
-    
-    If you ever experience any inconveniences in the future, please don't hesitate to send a support ticket. You are in control, and we are always here to serve you.
-    
-    We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you!
-    
-    Best regards,
-    The Find Your Match AI Team
-    """
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-            <!-- HEADER -->
-            <div style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); padding: 30px; text-align: center;">
-                <div style="font-size: 40px; margin-bottom: 10px;">🙏</div>
-                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">We Are Sincerely Sorry</h1>
-            </div>
-            
-            <!-- BODY -->
-            <div style="padding: 40px 30px;">
-                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-                    We are deeply sorry for the inconvenience caused by the recent system login interruption. As a valued member, <strong>you are the boss</strong>, and you deserve a completely flawless experience. 
-                </p>
-                
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-                    We want to personally assure you that our engineering team has completely resolved this issue, and an interruption like this will <strong>never happen again</strong>.
-                </p>
-                
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                    Please log in at your convenience to confirm that everything is working perfectly. If you ever experience any issues, please don't hesitate to open a support ticket. You are always in control, and we are here to serve you.
-                </p>
-                
-                <div style="text-align: center; margin-top: 20px; margin-bottom: 30px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
-                        Log In Now
-                    </a>
-                </div>
-                
-                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777;">
-                    <p style="margin: 0; color: #9d174d; font-size: 15px; line-height: 1.5; font-weight: 600;">
-                        We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you! ❤️
-                    </p>
-                </div>
-            </div>
-            
-            <!-- FOOTER -->
-            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    try:
-        return _send_email(email, subject, text_content, html_content)
-    except Exception as e:
-        logger.error(f"Failed to send apology email to {email}: {e}")
-        return False
-
-def send_system_update_email(email, user_name=""):
-    """
-    Alerts users of the new Group Chat feature and apologizes for web application issues.
-    """
-    subject = "🚀 New Feature: Group Chats + Important System Update!"
-    
-    first_name = user_name.split()[0] if user_name else "there"
-    
-    text_content = f"""
-    Hi {first_name},
-
-    We have some exciting news! We've just added a brand-new Group Chat feature to the platform! 
-    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
-
-    Important Update:
-    We are aware of the recent problems with our web application. Please know that our engineering team is working around the clock to solve it, and the system will be fully up and running soon.
-
-    We sincerely appreciate your patience and promise you an amazing experience once everything is restored.
-
-    Best regards,
-    The Find Your Match AI Team
-    """
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-            <!-- LOGO HEADER -->
-            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
-            </div>
-            <!-- HEADER -->
-            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
-                <div style="font-size: 40px; margin-bottom: 10px;">💬</div>
-                <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">New Group Chats & Updates</h1>
-            </div>
-            
-            <!-- BODY -->
-            <div style="padding: 40px 30px;">
-                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
-                    We have some exciting news! We've just added a brand-new <strong>Group Chat</strong> feature to the platform! 
-                    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
-                </p>
-                
-                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777; margin-bottom: 25px;">
-                    <strong style="color: #9d174d; font-size: 16px;">System Notice</strong>
-                    <p style="margin: 10px 0 0; color: #9d174d; font-size: 14px; line-height: 1.5; font-weight: 500;">
-                        We are fully aware of the recent problems with our web application. Please know that our engineering team is <strong>working around the clock</strong> to solve it, and the system will be fully up and running soon.
-                    </p>
-                </div>
-                
-                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
-                    We sincerely appreciate your patience and promise you an amazing experience once everything is fully restored. You are the boss, and we are here to serve you!
-                </p>
-                
-                <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
-                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);">
-                        Check out Group Chats
-                    </a>
-                </div>
-            </div>
-            <!-- FOOTER -->
-            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    try:
-        return _send_email(email, subject, text_content, html_content)
-    except Exception as e:
-        logger.error(f"Failed to send system update email to {email}: {e}")
-        return False
-
-
-# ==========================================
-# SPONSOR SYSTEM EMAILS (v2)
-# ==========================================
-
-def send_sponsor_welcome_email(recipient_email: str, recipient_name: str) -> bool:
-    """Sent to a new sponsor after their 1000 KSH registration payment is confirmed."""
-    subject = "💖 Welcome to FindYourMatch Sponsors — You're In!"
-
-    text_content = textwrap.dedent(f"""\
-        Welcome, {recipient_name}!
-
-        Your sponsor account on FindYourMatch is now active.
-        Your profile is under review and will be verified shortly.
-
-        You can now:
-        - Complete your profile and upload a photo
-        - Browse student profiles
-        - Send connection requests to students
-
-        Log in at: https://findyourmatch.co.ke/sponsor/login
-
-        Wishing you all the best,
-        — The FindYourMatch Team
-    """)
-
-    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
-                <!-- Logo -->
-                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
-                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
-                </div>
-                <!-- Hero -->
-                <div style="background:linear-gradient(135deg,#720000,#e60026);padding:40px 30px;text-align:center;color:white;">
-                    <div style="font-size:48px;margin-bottom:12px;">🌟</div>
-                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">Welcome, {recipient_name}!</h1>
-                    <p style="margin:0;font-size:15px;opacity:0.9;">Your sponsor account is now active on FindYourMatch</p>
-                </div>
-                <!-- Body -->
-                <div style="padding:35px 30px;">
-                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
-                        Congratulations! Your registration is complete and your profile is now live.
-                        Our team will verify your account shortly and you'll be discoverable by students across Kenya.
-                    </p>
-                    <div style="background:#fef2f2;border-radius:12px;padding:20px;border:1px solid #fecaca;margin:25px 0;">
-                        <h3 style="color:#720000;margin:0 0 12px;font-size:16px;">✅ What you can do now:</h3>
-                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
-                            <li>Complete your profile and upload your photo</li>
-                            <li>Browse student profiles looking for sponsors</li>
-                            <li>Send connection requests and start conversations</li>
-                            <li>Receive weekly match suggestions via email</li>
-                        </ul>
-                    </div>
-                    <div style="text-align:center;margin-top:30px;">
-                        <a href="{base_url}/sponsor/login"
-                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#720000,#e60026);
-                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
-                                  box-shadow:0 4px 15px rgba(230,0,38,0.3);">
-                            💖 Go to My Sponsor Dashboard
-                        </a>
-                    </div>
-                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
-                        May you find exactly what you're looking for. 🌹
-                    </p>
-                </div>
-                <!-- Footer -->
-                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
-                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
-
-
-def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, is_free: bool = False) -> bool:
-    """Sent to a student after gaining Sponsors Room access (paid or free)."""
-    subject = "🏠 You're In — Welcome to the FindYourMatch Sponsors Room!"
-    access_note = "as a complimentary benefit" if is_free else "for the next 30 days"
-
-    text_content = textwrap.dedent(f"""\
-        Hi {recipient_name}!
-
-        You now have access to the FindYourMatch Sponsors Room {access_note}.
-
-        Inside you'll find sponsor profiles — people outside campus who are interested
-        in connecting with students like you. Browse their profiles and say hello!
-
-        Visit: https://findyourmatch.co.ke/sponsors-room
-
-        Have a blessed day,
-        — The FindYourMatch Team
-    """)
-
-    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
-            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
-                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
-                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
-                </div>
-                <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:40px 30px;text-align:center;color:white;">
-                    <div style="font-size:48px;margin-bottom:12px;">🏠✨</div>
-                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">You're In, {recipient_name}!</h1>
-                    <p style="margin:0;font-size:15px;opacity:0.9;">The Sponsors Room is now unlocked for you {access_note}</p>
-                </div>
-                <div style="padding:35px 30px;">
-                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
-                        Welcome to the <strong>FindYourMatch Sponsors Room</strong> — an exclusive space where students
-                        connect with sponsors who are genuinely interested in meaningful relationships.
-                    </p>
-                    <div style="background:#f5f3ff;border-radius:12px;padding:20px;border:1px solid #ddd6fe;margin:25px 0;">
-                        <h3 style="color:#7c3aed;margin:0 0 12px;font-size:16px;">🎯 Inside the Sponsors Room:</h3>
-                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
-                            <li>Browse verified sponsor profiles</li>
-                            <li>See compatibility scores</li>
-                            <li>Send connection requests</li>
-                            <li>Chat directly with sponsors</li>
-                        </ul>
-                    </div>
-                    <div style="text-align:center;margin-top:30px;">
-                        <a href="{base_url}/sponsors-room"
-                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#7c3aed,#a855f7);
-                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
-                                  box-shadow:0 4px 15px rgba(124,58,237,0.3);">
-                            🚀 Enter the Sponsors Room
-                        </a>
-                    </div>
-                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
-                        Your perfect match is waiting. Have a blessed day! 💖
-                    </p>
-                </div>
-                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
-                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
-
-
-def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str, lovi_code: str = None, ticket_tier: str = None):
-    """
-    Sends a rich, digital event ticket confirmation with embedded QR code,
-    door backup LOVI code, ticket tier / entry level badge, Google Maps venue pin, dress code, and Made by FindYourMatch onboarding.
-    """
-    import urllib.parse
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
-    event_id = event_data.get("id", "")
-    event_title = event_data.get("title", "Campus Event")
-    category = event_data.get("category", "Event").upper()
-    venue = event_data.get("venue_name", "Campus Venue")
-    date_str = event_data.get("date_str", event_data.get("date", "Upcoming"))
-    time_str = event_data.get("time_str", "Doors Open 7:00 PM")
-    dress_code = event_data.get("dress_code", "Smart Casual")
-    price_str = event_data.get("price_display", "Free Admission")
-    maps_link = event_data.get("location_url") or f"https://maps.google.com/?q={venue}"
-    organizer_name = event_data.get("organizer_name", "Event Host")
-    organizer_phone = event_data.get("organizer_phone", "")
-    banner_img = event_data.get("banner_img") or f"{base_url}/static/img/icon-512.png"
-    event_url = f"{base_url}/events/{event_id}"
-    
-    tier_display = ticket_tier or event_data.get("ticket_tier") or event_data.get("tier_name") or "Standard Admission"
-    
-    # LOVI Code for door backup verification
-    lovi_code = lovi_code or event_data.get("lovi_code") or f"LOVI-{ticket_code.split('-')[1]}"
-    
-    # Scannable QR code encodes the direct admin verification URL!
-    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
-    download_qr_url = f"{base_url}/events/ticket/{ticket_code}/download-qr"
-    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
-
-    subject = f"🎟️ Ticket Confirmed: {event_title} ({tier_display}) | Pass #{ticket_code}"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {recipient_name}!
-
-        Your ticket for {event_title} has been confirmed!
-
-        ========================================
-        DIGITAL TICKET PASS
-        Pass Level  : {tier_display}
-        Ticket Code : {ticket_code}
-        LOVI Code   : {lovi_code} (Backup for door admin)
-        Event       : {event_title} ({category})
-        Date & Time : {date_str} @ {time_str}
-        Venue       : {venue}
-        Dress Code  : {dress_code}
-        Admission   : {price_str}
-        ========================================
-
-        📥 Download & Save QR Code Pass:
-        {download_qr_url}
-
-        📷 Entrance Verification Link:
-        {verify_url}
-
-        📍 Open Venue in Google Maps:
-        {maps_link}
-
-        View Event Page:
-        {event_url}
-
-        Host Contact: {organizer_name} ({organizer_phone})
-
-        INSTRUCTIONS FOR ADMISSION:
-        1. Show your downloaded QR code or this email to the event admin/manager to scan and confirm your entry.
-        2. If the admin does not scan the QR code, tell them your LOVI Code: {lovi_code} to confirm and allow you in.
-
-        ----------------------------------------
-        MADE BY FINDYOURMATCH 💖
-        Want to join FindYourMatch?
-        Connect with verified students across campus!
-        Join free here: {base_url}/signup
-        ----------------------------------------
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="margin:0;padding:20px;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-            <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.35);">
-                
-                <!-- TOP BANNER IMAGE -->
-                <div style="position:relative;background:#1e1b4b;max-height:220px;overflow:hidden;text-align:center;">
-                    <img src="{banner_img}" alt="{event_title}" style="width:100%;max-height:220px;object-fit:cover;display:block;">
-                </div>
-
-                <!-- HEADER -->
-                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);padding:28px 24px;text-align:center;color:white;">
-                    <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
-                        ✨ {category} • TICKET CONFIRMED
-                    </div>
-                    <h1 style="margin:0 0 6px;font-size:24px;font-weight:900;line-height:1.2;">{event_title}</h1>
-                    <p style="margin:0;font-size:14px;opacity:0.9;">You're on the guest list, {recipient_name}!</p>
-                </div>
-
-                <!-- TICKET PASS CARD -->
-                <div style="padding:30px 25px;">
-                    
-                    <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:20px;padding:25px;text-align:center;margin-bottom:25px;">
-                        <div style="display:inline-block;background:#720000;color:white;padding:6px 18px;border-radius:50px;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;box-shadow:0 4px 12px rgba(114,0,0,0.25);">
-                            🎟️ {tier_display} PASS
-                        </div>
-                        
-                        <!-- SCANNABLE QR CODE FOR ADMINS -->
-                        <div style="background:white;display:inline-block;padding:12px;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,0.08);margin-bottom:12px;">
-                            <a href="{download_qr_url}" target="_blank" title="Click to download QR code pass">
-                                <img src="{qr_url}" alt="Ticket QR Code" width="180" height="180" style="display:block;border-radius:8px;">
-                            </a>
-                        </div>
-                        <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">
-                            📷 SCANNABLE BY EVENT ADMIN AT ENTRANCE
-                        </div>
-
-                        <!-- 📥 DIRECT DOWNLOAD QR CODE PASS BUTTON -->
-                        <div style="margin-bottom:16px;">
-                            <a href="{download_qr_url}" download="Ticket-{ticket_code}-Pass.png" target="_blank" style="display:inline-block;background:#720000;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:50px;font-weight:800;font-size:13px;box-shadow:0 4px 14px rgba(114,0,0,0.3);">
-                                📥 Save / Download QR Code Pass (PNG)
-                            </a>
-                        </div>
-
-                        <div style="font-size:18px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:14px;">
-                            TICKET ID: {ticket_code}
-                        </div>
-
-                        <!-- LOVI BACKUP SECURITY PASSPHRASE -->
-                        <div style="background:#fff1f2;border:2px solid #fda4af;border-radius:14px;padding:14px;margin-top:10px;text-align:center;">
-                            <div style="font-size:11px;font-weight:800;color:#9f1239;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;">
-                                🔑 DOOR BACKUP: LOVI CODE
-                            </div>
-                            <div style="font-size:26px;font-weight:900;color:#be123c;letter-spacing:3px;font-family:monospace;">
-                                {lovi_code}
-                            </div>
-                            <div style="font-size:12px;color:#881337;margin-top:4px;line-height:1.4;">
-                                If the event admin cannot scan your QR code, tell them this <strong>LOVI Code</strong> to verify and allow you in.
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- EVENT SPECS GRID -->
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:25px;font-size:14px;">
-                        <tr>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🎟️ Pass Level</td>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#720000;font-weight:900;">{tier_display}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🗓️ Date & Time</td>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{date_str} @ {time_str}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">📍 Venue</td>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{venue}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">👗 Dress Code</td>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{dress_code}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">🎟️ Admission</td>
-                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{price_str}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:10px 0;color:#64748b;">👤 Organizer</td>
-                            <td style="padding:10px 0;color:#0f172a;font-weight:700;">{organizer_name} {f'({organizer_phone})' if organizer_phone else ''}</td>
-                        </tr>
-                    </table>
-
-                    <!-- BUTTONS -->
-                    <div style="text-align:center;margin-bottom:25px;">
-                        <a href="{maps_link}" target="_blank" style="display:block;background:#0f172a;color:#ffffff;text-decoration:none;padding:15px;border-radius:14px;font-weight:800;font-size:15px;margin-bottom:10px;">
-                            📍 Open Venue Pin in Google Maps
-                        </a>
-                        <a href="{verify_url}" target="_blank" style="display:block;background:#f1f5f9;color:#334155;text-decoration:none;padding:12px;border-radius:14px;font-weight:700;font-size:13px;margin-bottom:10px;">
-                            🔍 View Live Verification Status Page
-                        </a>
-                    </div>
-
-                    <!-- MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
-                    <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);border-radius:20px;padding:30px 24px;text-align:center;color:white;margin:30px 0 10px;">
-                        <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
-                            ✨ MADE BY FINDYOURMATCH
-                        </div>
-                        <h2 style="margin:0 0 10px;font-size:22px;font-weight:900;letter-spacing:-0.5px;">
-                            Want to Join FindYourMatch? 💖
-                        </h2>
-                        <p style="margin:0 0 20px;font-size:14px;opacity:0.95;line-height:1.6;max-width:460px;margin-left:auto;margin-right:auto;">
-                            Connect with verified students across campus! Experience AI matchmaking, schedule syncing, campus hotspots, and exclusive student events.
-                        </p>
-                        <a href="{base_url}/signup" target="_blank" style="display:inline-block;background:#ffffff;color:#720000;text-decoration:none;padding:14px 34px;border-radius:50px;font-weight:900;font-size:15px;box-shadow:0 8px 25px rgba(0,0,0,0.3);">
-                            🚀 Create Free Profile & Join &rarr;
-                        </a>
-                    </div>
-
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background:#f8fafc;padding:22px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;line-height:1.6;">
-                    FindYourMatch Events • Bringing Campus Social Life Together<br>
-                    &copy; {datetime.now().year} <a href="{base_url}" style="color:#64748b;text-decoration:none;">findyourmatch.co.ke</a>
-                </div>
-
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch Events")
-
-
-def build_free_trial_email_content(recipient_name: str, expiry_date_str: str):
-    """
-    Constructs both plain text and executive, responsive HTML email content
-    announcing the 48-Hour Complimentary Diamond Access.
-    """
-    first_name = recipient_name.strip().split()[0].title() if recipient_name else "there"
-    full_display_name = recipient_name.strip().title() if recipient_name else "Valued Member"
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
-    support_email = "support@findyourmatch.co.ke"
-
-    talk_url = f"{base_url}/talk"
-    groups_url = f"{base_url}/groups"
-    sponsors_room_url = f"{base_url}/sponsors-room"
-    dashboard_url = f"{base_url}/dashboard"
-
-    subject = f"🎁 {first_name}, enjoy 48 Hours of Free VIP Diamond Access on Find Your Match!"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {full_display_name},
-
-        We have exciting news! We have just upgraded your Find Your Match account with 48 Hours of Complimentary VIP Diamond Access — completely on us (Valid until: {expiry_date_str}).
-
-        Over the past few weeks, our engineering team has rolled out major real-time communication upgrades. This complimentary gift gives you 100% unrestricted access to experience every single new feature:
-
-        1. 📹 1-on-1 Live Voice & Video Calls:
-           Experience crystal-clear, private face-to-face video and voice calling directly in your browser with mutual campus matches.
-           👉 Jump to Live Calling: {talk_url}
-
-        2. 👥 Interactive Campus Group Chats:
-           Join vibrant university group chats, talk campus buzz, share stories, and connect with fellow students.
-           👉 Jump to Group Chats: {groups_url}
-
-        3. 🎙️ Group Voice & Video Hangout Rooms:
-           Enter multi-peer live audio and video hangout rooms inside any campus group.
-           👉 Join a Group Call: {groups_url}
-
-        4. 💼 Sponsor Meet (Sponsors Room):
-           Unlock exclusive access to connect directly with verified, distinguished sponsors and benefactors for mentorship and companionship.
-           👉 Enter Sponsors Room: {sponsors_room_url}
-
-        5. ⚡ AI Smart Match Feed & Instant Swiping:
-           Discover verified students matched to your exact personality and campus interests with unlimited likes.
-           👉 Open Match Feed: {dashboard_url}
-
-        YOUR 48-HOUR PASS DETAILS:
-        ---------------------------------------------
-        - Status   : ACTIVE (COMPLIMENTARY PASS)
-        - Package  : Diamond VIP Tier (All Features Unlocked)
-        - Cost     : KSh 0.00 (No payment or card required)
-        - Valid To : {expiry_date_str}
-        ---------------------------------------------
-
-        Log in now and explore everything before your complimentary access expires:
-        {dashboard_url}
-
-        Warm regards,
-        The {SENDER_NAME_DEFAULT} Team
-        Website: {base_url}
-        Support: {support_email}
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{subject}</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #f3f4f6;">
-            
-            <!-- OUTER WRAPPER -->
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #0b0f19; padding: 30px 10px;">
-                <tr>
-                    <td align="center">
-                        
-                        <!-- MAIN CONTAINER -->
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 620px; background-color: #111827; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid #1f2937;">
-                            
-                            <!-- LOGO HEADER -->
-                            <tr>
-                                <td align="center" style="padding: 28px 24px 22px; background-color: #111827; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
-                                    <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" width="130" style="width: 130px; max-width: 130px; height: auto; display: block; margin: 0 auto; border-radius: 14px;">
-                                </td>
-                            </tr>
-
-                            <!-- HERO BANNER -->
-                            <tr>
-                                <td style="background: linear-gradient(135deg, #4c0519 0%, #881337 40%, #be123c 100%); padding: 46px 36px; text-align: center;">
-                                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.18); backdrop-filter: blur(8px); color: #fecdd3; padding: 7px 18px; border-radius: 50px; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px; border: 1px solid rgba(255, 255, 255, 0.25);">
-                                        👑 48-Hour Complimentary VIP Pass
-                                    </div>
-                                    <h1 style="color: #ffffff; margin: 0; font-size: 27px; font-weight: 900; line-height: 1.25; letter-spacing: -0.6px;">
-                                        Full Diamond Access Unlocked!
-                                    </h1>
-                                    <p style="color: rgba(255, 255, 255, 0.92); margin: 14px auto 0; font-size: 15px; line-height: 1.6; max-width: 500px;">
-                                        We're giving you <strong>2 full days of free VIP access</strong> to test-drive all our brand new video, voice, group, and sponsor features.
-                                    </p>
-                                </td>
-                            </tr>
-
-                            <!-- MAIN BODY -->
-                            <tr>
-                                <td style="padding: 38px 34px 28px;">
-                                    
-                                    <p style="font-size: 18px; color: #f9fafb; line-height: 1.5; margin: 0 0 16px; font-weight: 700;">
-                                        Hello <span style="color: #fb7185;">{full_display_name}</span>,
-                                    </p>
-
-                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 24px;">
-                                        Over the past few weeks, we've rolled out massive upgrades to make <strong>Find Your Match</strong> the most thrilling, real-time campus dating and social platform in Kenya.
-                                    </p>
-                                    
-                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 28px;">
-                                        To make sure you experience the best of these features firsthand, your account has been automatically upgraded to <strong style="color: #f43f5e;">Diamond VIP Tier</strong> for the next <strong>48 Hours</strong>. No card, no M-Pesa prompt, no commitment — just jump in and enjoy!
-                                    </p>
-
-                                    <!-- VIP SUMMARY CALLOUT TICKET -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(145deg, #18181b 0%, #1f1f23 100%); border: 1px solid #f43f5e; border-radius: 16px; margin-bottom: 34px; box-shadow: 0 10px 25px rgba(244, 63, 94, 0.15);">
-                                        <tr>
-                                            <td style="padding: 22px 24px;">
-                                                <div style="font-size: 11px; font-weight: 800; color: #fb7185; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
-                                                    ✦ Your VIP Pass Details
-                                                </div>
-                                                <div style="font-size: 18px; font-weight: 800; color: #ffffff; margin-bottom: 12px;">
-                                                    💎 2-Day Diamond Membership (Free Gift)
-                                                </div>
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size: 13px; color: #d1d5db; line-height: 1.8;">
-                                                    <tr>
-                                                        <td width="35%" style="color: #9ca3af;">Status:</td>
-                                                        <td style="color: #34d399; font-weight: 700;">● Active (Complimentary)</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td style="color: #9ca3af;">Valid Until:</td>
-                                                        <td style="color: #fef08a; font-weight: 700;">{expiry_date_str}</td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td style="color: #9ca3af;">Cost:</td>
-                                                        <td style="color: #ffffff; font-weight: 700;">KSh 0.00 (Gift from Find Your Match)</td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- SECTION TITLE -->
-                                    <h2 style="font-size: 16px; color: #ffffff; margin: 0 0 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; border-left: 3px solid #f43f5e; padding-left: 12px;">
-                                        Explore Your New Features (Click to Jump In):
-                                    </h2>
-
-                                    <!-- FEATURE 1: 1-on-1 VIDEO & VOICE -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
-                                                            📹
-                                                        </td>
-                                                        <td style="padding-left: 14px;">
-                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-                                                                1-on-1 Live Voice & Video Calls
-                                                            </div>
-                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
-                                                                Connect instantly with mutual campus matches. Crisp HD WebRTC video, smooth audio, and private calling directly in your browser.
-                                                            </div>
-                                                            <a href="{talk_url}" target="_blank" style="display: inline-block; background-color: #be123c; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
-                                                                Start a Call &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- FEATURE 2: GROUP CHATS -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
-                                                            👥
-                                                        </td>
-                                                        <td style="padding-left: 14px;">
-                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-                                                                Campus Group Chats
-                                                            </div>
-                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
-                                                                Jump into lively university interest groups, debate campus topics, share laughs, and find comrades who match your frequency.
-                                                            </div>
-                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
-                                                                Join Group Chats &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- FEATURE 3: GROUP CALLS -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
-                                                            🎙️
-                                                        </td>
-                                                        <td style="padding-left: 14px;">
-                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-                                                                Multi-Peer Group Video & Voice Rooms
-                                                            </div>
-                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
-                                                                Host or join live audio lounges and multi-camera video hangouts with friends and group members in real time.
-                                                            </div>
-                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #8b5cf6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
-                                                                Explore Group Rooms &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- FEATURE 4: SPONSOR MEET -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
-                                                            💼
-                                                        </td>
-                                                        <td style="padding-left: 14px;">
-                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-                                                                Sponsors Room (Sponsor Meet)
-                                                            </div>
-                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
-                                                                Direct, VIP access to verified, established professionals and benefactors offering meaningful support, mentorship, and dates.
-                                                            </div>
-                                                            <a href="{sponsors_room_url}" target="_blank" style="display: inline-block; background-color: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
-                                                                Enter Sponsors Room &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- FEATURE 5: AI MATCH FEED -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 30px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
-                                        <tr>
-                                            <td style="padding: 20px;">
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
-                                                            ⚡
-                                                        </td>
-                                                        <td style="padding-left: 14px;">
-                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
-                                                                AI Smart Match Feed & Instant Swiping
-                                                            </div>
-                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
-                                                                Unlimited likes, personality compatibility matching, and instant connection with verified campus students.
-                                                            </div>
-                                                            <a href="{dashboard_url}" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
-                                                                Open Match Feed &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- BIG CTA BUTTON -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 20px;">
-                                        <tr>
-                                            <td align="center">
-                                                <a href="{dashboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #be123c 0%, #e11d48 50%, #f43f5e 100%); color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-weight: 800; font-size: 16px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(225, 29, 72, 0.4); text-align: center;">
-                                                    🚀 Launch Find Your Match Now &rarr;
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- QUICK LINKS FALLBACK -->
-                                    <div style="background-color: #171d29; border-radius: 14px; padding: 18px 20px; margin-top: 24px; border: 1px solid #232b3e;">
-                                        <div style="font-size: 12px; font-weight: 700; color: #e5e7eb; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
-                                            Direct Quick Links:
-                                        </div>
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="4" border="0" style="font-size: 12px;">
-                                            <tr>
-                                                <td style="color: #9ca3af;" width="40%">Live Calls:</td>
-                                                <td><a href="{talk_url}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{talk_url}</a></td>
-                                            </tr>
-                                            <tr>
-                                                <td style="color: #9ca3af;">Group Chats:</td>
-                                                <td><a href="{groups_url}" style="color: #60a5fa; text-decoration: none; font-weight: 600;">{groups_url}</a></td>
-                                            </tr>
-                                            <tr>
-                                                <td style="color: #9ca3af;">Sponsors Room:</td>
-                                                <td><a href="{sponsors_room_url}" style="color: #fbbf24; text-decoration: none; font-weight: 600;">{sponsors_room_url}</a></td>
-                                            </tr>
-                                            <tr>
-                                                <td style="color: #9ca3af;">Main Dashboard:</td>
-                                                <td><a href="{dashboard_url}" style="color: #34d399; text-decoration: none; font-weight: 600;">{dashboard_url}</a></td>
-                                            </tr>
-                                        </table>
-                                    </div>
-
-                                </td>
-                            </tr>
-
-                            <!-- FOOTER -->
-                            <tr>
-                                <td style="background-color: #0b0f19; padding: 32px 34px; border-top: 1px solid #1f2937; text-align: center;">
-                                    <p style="margin: 0 0 10px; font-size: 13px; color: #9ca3af; font-weight: 500;">
-                                        Have questions or need assistance? We are always here for you.
-                                    </p>
-                                    <p style="margin: 0 0 18px; font-size: 13px;">
-                                        <a href="mailto:{support_email}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{support_email}</a>
-                                        &nbsp;•&nbsp;
-                                        <a href="{base_url}" style="color: #9ca3af; text-decoration: none;">{base_url}</a>
-                                    </p>
-                                    <p style="margin: 0; font-size: 11px; color: #6b7280; line-height: 1.6;">
-                                        &copy; {datetime.now().year} Find Your Match. All rights reserved.<br>
-                                        You received this communication because you are a registered user of Find Your Match.<br>
-                                        Kakamega, Kenya.
-                                    </p>
-                                </td>
-                            </tr>
-
-                        </table>
-                        <!-- END MAIN CONTAINER -->
-
-                    </td>
-                </tr>
-            </table>
-
-        </body>
-        </html>
-    """)
-
-    return subject, text_content, html_content
-
-
-def send_free_trial_announcement_email(recipient_email: str, recipient_name: str, expiry_date_str: str) -> bool:
-    """
-    Sends the 48-Hour Complimentary Diamond Access announcement email.
-    """
-    subject, text_content, html_content = build_free_trial_email_content(recipient_name, expiry_date_str)
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Find Your Match VIP"
-    )
-
-
-def build_kalenjin_takeover_email_content(recipient_name: str = "Comrade", event_url: str = None):
-    """
-    Constructs high-impact responsive HTML & plaintext email for KALENJIN TAKE OVER (MMUST EDITION).
-    """
-    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
-    if not event_url:
-        event_url = f"{base_url}/events/evt_7124cc20ce"
-    
-    first_name = (recipient_name or "Comrade").strip().split()[0].capitalize()
-    if not first_name:
-        first_name = "Comrade"
-    
-    banner_img = "https://storage.googleapis.com/mmust-dating-site.firebasestorage.app/events/evt_7124cc20ce_1792081746.png"
-    maps_url = "https://maps.google.com/?q=VAULT+RETRO+CLUB"
-    discover_url = f"{base_url}/discover"
-
-    subject = "🔥 KALENJIN TAKE OVER (MMUST EDITION) – Oct 31 @ Vault Retro Club! 💃🕺"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {first_name}!
-
-        Get ready for the biggest and most anticipated campus event of the semester!
-
-        🔥 KALENJIN TAKE OVER (MMUST EDITION) 🔥
-        ------------------------------------------------------------
-        🗓️ Date: Saturday, 31st October 2026
-        ⏰ Time: 6:00 PM – DAWN
-        📍 Venue: VAULT RETRO CLUB
-        👗 Dress Code: Casual (Turn up in style!)
-        ------------------------------------------------------------
-
-        🎤 SPECIAL GUEST ARTIST: TOBBY MR ROMANTIC
-        🎧 HYPED BY: MC BK OFFICIAL & MC DENOO
-        ⚡ ITAKUWA MOTO SANA! Non-stop music, Kalenjin vibes, afro-beats, and pure campus turn-up!
-
-        🎟️ TICKET PASSES & ADMISSION:
-        • Per Person (LIMITED) : 250 KES (Standard single entry)
-        • Per Couple (LIMITED) : 450 KES (Pass for 2 comrades)
-        • VIP Entrance (LIMITED) : 600 KES (VIP access & priority service)
-
-        👉 BOOK YOUR TICKETS ONLINE (Instant M-Pesa STK Push):
-        {event_url}
-
-        Your digital ticket with a scannable QR Code pass will be generated instantly 
-        and sent directly to your phone & email for fast entry at the door!
-
-        📍 Open Venue Location in Google Maps:
-        {maps_url}
-
-        ❤️ Looking for a partner or vibe to go with?
-        Meet other verified campus students right now on Find Your Match:
-        {discover_url}
-
-        Host Contact: BK OFFICIAL (0706695719)
-        Powered by Find Your Match Events ({base_url})
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>KALENJIN TAKE OVER (MMUST EDITION)</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #07090e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #ffffff;">
-
-            <!-- PREHEADER TEXT (HIDDEN IN BODY) -->
-            <div style="display: none; font-size: 1px; color: #07090e; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
-                Kalenjin Take Over MMUST Edition! 31st Oct @ Vault Retro Club. Guest Artist Tobby Mr Romantic, Mc BK Official & Mc Denoo. Grab your ticket now!
-            </div>
-
-            <!-- OUTER WRAPPER TABLE -->
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07090e; padding: 20px 10px 40px;">
-                <tr>
-                    <td align="center">
-
-                        <!-- MAIN CONTAINER -->
-                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; background: #0f1523; border-radius: 28px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);">
-                            
-                            <!-- BRAND HEADER -->
-                            <tr>
-                                <td style="padding: 18px 24px; background: #0a0e18; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: center;">
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                        <tr>
-                                            <td align="center">
-                                                <a href="{base_url}" target="_blank" style="text-decoration: none; display: inline-block;">
-                                                    <span style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #ff334b; display: inline-flex; align-items: center;">
-                                                        FIND YOUR MATCH <span style="background: rgba(255,51,75,0.2); color: #ff6b7d; padding: 3px 8px; border-radius: 6px; font-size: 10px; margin-left: 8px; border: 1px solid rgba(255,51,75,0.3);">EVENTS 🎟️</span>
-                                                    </span>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-
-                            <!-- HERO FLYER POSTER IMAGE -->
-                            <tr>
-                                <td style="background: #000000; text-align: center; line-height: 0;">
-                                    <a href="{event_url}" target="_blank" style="display: block; text-decoration: none;">
-                                        <img src="{banner_img}" alt="KALENJIN TAKE OVER (MMUST EDITION)" width="600" style="width: 100%; max-width: 600px; height: auto; display: block; border: 0;" />
-                                    </a>
-                                </td>
-                            </tr>
-
-                            <!-- TITLE & EVENT STATUS HERO -->
-                            <tr>
-                                <td style="background: linear-gradient(135deg, #7a0010 0%, #ba0d23 50%, #e60026 100%); padding: 34px 28px 28px; text-align: center; color: #ffffff;">
-                                    <div style="display: inline-block; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.25); padding: 6px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
-                                        🔥 OFFICIAL CAMPUS MEGA EVENT • TICKETS LIVE
-                                    </div>
-                                    <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.5px; text-transform: uppercase;">
-                                        KALENJIN TAKE OVER
-                                    </h1>
-                                    <div style="font-size: 15px; font-weight: 700; color: #ffe4e6; letter-spacing: 0.5px;">
-                                        (MMUST EDITION) – THE NIGHT OF THE SEMESTER! 🎧💃
-                                    </div>
-                                </td>
-                            </tr>
-
-                            <!-- BODY CONTENT -->
-                            <tr>
-                                <td style="padding: 32px 28px;">
-                                    
-                                    <!-- GREETING -->
-                                    <p style="font-size: 17px; color: #f1f5f9; line-height: 1.6; margin: 0 0 16px;">
-                                        Hello <strong style="color: #ff4d61;">{first_name}</strong>,
-                                    </p>
-                                    <p style="font-size: 15px; color: #cbd5e1; line-height: 1.7; margin: 0 0 24px;">
-                                        The most talked-about campus turn-up is finally happening in Kakamega! Mark your calendar and get your squad ready for an electrifying night packed with live performances, pure energy, and great company.
-                                    </p>
-
-                                    <!-- EVENT ESSENTIALS CARD -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; overflow: hidden; margin-bottom: 26px;">
-                                        <tr>
-                                            <td style="padding: 22px 20px;">
-                                                <div style="font-size: 12px; font-weight: 800; color: #ff6b7d; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 16px;">
-                                                    📌 EVENT DETAILS
-                                                </div>
-
-                                                <!-- DATE & TIME -->
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
-                                                    <tr>
-                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">🗓️</td>
-                                                        <td style="padding-left: 8px;">
-                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Date & Time</div>
-                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">Saturday, 31st October 2026</div>
-                                                            <div style="font-size: 13px; color: #f43f5e; font-weight: 700;">6:00 PM – DAWN 🌅</div>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-
-                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
-
-                                                <!-- VENUE -->
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
-                                                    <tr>
-                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">📍</td>
-                                                        <td style="padding-left: 8px;">
-                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Venue Location</div>
-                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">VAULT RETRO CLUB</div>
-                                                            <a href="{maps_url}" target="_blank" style="font-size: 12px; color: #38bdf8; text-decoration: none; font-weight: 700; display: inline-block; margin-top: 2px;">
-                                                                Open in Google Maps &rarr;
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-
-                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
-
-                                                <!-- DRESS CODE -->
-                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                    <tr>
-                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">👗</td>
-                                                        <td style="padding-left: 8px;">
-                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Dress Code</div>
-                                                            <div style="font-size: 14px; font-weight: 700; color: #f1f5f9;">Casual &amp; Fresh (Come dressed to impress!)</div>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- ARTIST & HYPE HIGHLIGHT -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(135deg, rgba(230,0,38,0.15) 0%, rgba(122,0,16,0.25) 100%); border: 1px solid rgba(230,0,38,0.3); border-radius: 18px; padding: 20px; margin-bottom: 26px;">
-                                        <tr>
-                                            <td>
-                                                <div style="font-size: 12px; font-weight: 900; color: #ff4d61; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px;">
-                                                    ⭐ STAR-STUDDED LINEUP
-                                                </div>
-                                                <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-bottom: 4px;">
-                                                    🎤 Guest Artist: <span style="color: #facc15;">TOBBY MR ROMANTIC</span>
-                                                </div>
-                                                <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px;">
-                                                    🎧 Hyped By: <span style="color: #67e8f9;">MC BK OFFICIAL &amp; MC DENOO</span>
-                                                </div>
-                                                <div style="font-size: 13px; color: #fecdd3; font-style: italic; line-height: 1.5;">
-                                                    "ITAKUWA MOTO SANA! 🔥🔥 Don't just hear stories on Sunday morning, be there live!"
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- TICKET TIERS TABLE -->
-                                    <div style="margin-bottom: 26px;">
-                                        <div style="font-size: 12px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; text-align: center;">
-                                            🎟️ CHOOSE YOUR ENTRY PASS
-                                        </div>
-
-                                        <!-- TIER 1 -->
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
-                                            <tr>
-                                                <td style="padding: 14px 18px;">
-                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                        <tr>
-                                                            <td>
-                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Person (LIMITED)</div>
-                                                                <div style="font-size: 12px; color: #94a3b8;">Standard single admission pass</div>
-                                                            </td>
-                                                            <td align="right" style="white-space: nowrap;">
-                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">250 KES</span>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                        <!-- TIER 2 -->
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
-                                            <tr>
-                                                <td style="padding: 14px 18px;">
-                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                        <tr>
-                                                            <td>
-                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Couple (LIMITED) 👫</div>
-                                                                <div style="font-size: 12px; color: #94a3b8;">Admission pass for 2 comrades (Save 50 KES!)</div>
-                                                            </td>
-                                                            <td align="right" style="white-space: nowrap;">
-                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">450 KES</span>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                        <!-- TIER 3 -->
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(234,179,8,0.3); border-radius: 14px;">
-                                            <tr>
-                                                <td style="padding: 14px 18px;">
-                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                                                        <tr>
-                                                            <td>
-                                                                <div style="font-size: 14px; font-weight: 800; color: #facc15;">VIP Entrance (LIMITED) ⭐</div>
-                                                                <div style="font-size: 12px; color: #cbd5e1;">VIP section access &amp; priority entry</div>
-                                                            </td>
-                                                            <td align="right" style="white-space: nowrap;">
-                                                                <span style="font-size: 16px; font-weight: 900; color: #facc15;">600 KES</span>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </div>
-
-                                    <!-- BIG CTA BUTTON -->
-                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 16px;">
-                                        <tr>
-                                            <td align="center">
-                                                <a href="{event_url}" target="_blank" style="display: block; width: 88%; background: linear-gradient(135deg, #e60026 0%, #ff1f44 100%); color: #ffffff; text-decoration: none; padding: 18px 24px; border-radius: 50px; font-weight: 900; font-size: 17px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(230,0,38,0.45); text-align: center;">
-                                                    🎟️ GET YOUR TICKETS NOW &rarr;
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <div style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 28px;">
-                                        ⚡ Instant M-Pesa STK Push • QR Code Ticket delivered immediately to your email &amp; phone!
-                                    </div>
-
-                                    <!-- DATING & MATCHING ANGLE -->
-                                    <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 16px; padding: 18px 20px; text-align: center; margin-bottom: 24px;">
-                                        <div style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 6px;">
-                                            Looking for someone to attend with? 💘
-                                        </div>
-                                        <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 12px;">
-                                            Don't go solo! Check out students near you on Find Your Match and connect before Saturday night.
-                                        </div>
-                                        <a href="{discover_url}" target="_blank" style="display: inline-block; background: rgba(255,255,255,0.1); color: #ff6b7d; text-decoration: none; padding: 8px 20px; border-radius: 50px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.15);">
-                                            Find Your Party Match &rarr;
-                                        </a>
-                                    </div>
-
-                                    <!-- DIRECT LINK COPY FALLBACK -->
-                                    <div style="background: #080c14; border-radius: 12px; padding: 14px; font-size: 11px; color: #64748b; word-break: break-all; text-align: center;">
-                                        Direct link to view event &amp; book:<br>
-                                        <a href="{event_url}" style="color: #ff4d61; text-decoration: underline;">{event_url}</a>
-                                    </div>
-
-                                </td>
-                            </tr>
-
-                            <!-- FOOTER -->
-                            <tr>
-                                <td style="padding: 24px; background: #07090e; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">
-                                    <div style="margin-bottom: 8px; color: #94a3b8; font-weight: 700;">
-                                        Organized by BK OFFICIAL (0706695719)
-                                    </div>
-                                    <div style="margin-bottom: 12px;">
-                                        Verified campus ticketing powered by <a href="{base_url}" style="color: #ff334b; text-decoration: none; font-weight: 700;">Find Your Match</a>
-                                    </div>
-                                    <div style="font-size: 11px; color: #475569;">
-                                        You received this event invitation because you are a registered member of Find Your Match.<br>
-                                        Kakamega, Kenya.
-                                    </div>
-                                </td>
-                            </tr>
-
-                        </table>
-                        <!-- END MAIN CONTAINER -->
-
-                    </td>
-                </tr>
-            </table>
-
-        </body>
-        </html>
-    """)
-
-    return subject, text_content, html_content
-
-
-def send_kalenjin_takeover_email(recipient_email: str, recipient_name: str, event_url: str = None) -> bool:
-    """
-    Sends the KALENJIN TAKE OVER (MMUST EDITION) event invitation email.
-    """
-    subject, text_content, html_content = build_kalenjin_takeover_email_content(recipient_name, event_url)
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Find Your Match Events"
-    )
-
-
-# ========================================================
-# LADIES CHAT-TO-EARN & NGL LAUNCH ONBOARDING CAMPAIGN
-# ========================================================
-
-def build_ladies_chat_earn_launch_email_content(recipient_name: str):
-    """
-    Constructs the high-converting onboarding email sent to all registered ladies
-    introducing the Chat-to-Earn weekly 10-lady squad and their NGL anonymous link.
-    """
-    first_name = (recipient_name or 'Comrade').split()[0]
-    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
-    year = datetime.now().year
-
-    subject = f"🚂 Exclusive for You, {first_name}: Earn KES 50 Daily to M-Pesa + Your Anonymous WhatsApp Link!"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {first_name}!
-
-        We have an exciting announcement exclusively for the ladies on FindYourMatch:
-        We are officially launching the "Chat-to-Earn" Weekly Train & your own Viral NGL Anonymous Link!
-
-        💰 FEATURE 1: CHAT-TO-EARN (10 LADIES PER WEEK)
-        • Earn KES 50 every day simply by replying to 10 men on the platform.
-        • Funds accumulate in your in-app wallet and are sent directly to your Safaricom M-Pesa every Sunday night!
-        • STRICTLY LIMITED: Only 10 ladies can board the train each week.
-          Spots are first-come, first-served. Once all 10 spots are claimed, you have to wait for next week!
-
-        🤫 FEATURE 2: YOUR VIRAL NGL ANONYMOUS LINK
-        • You now have your own private anonymous confessions link!
-        • Share it to your WhatsApp Status with one tap.
-        • Your contacts can send you secret confessions without downloading the app or logging in.
-        • Generate gorgeous 9:16 story cards to post your replies back to your WhatsApp Status!
-
-        👉 Claim Your Spot on the Train Now:
-        {base_url}/matches
-
-        👉 Get Your Anonymous NGL WhatsApp Link:
-        {base_url}/ngl
-
-        Don't let this week's spots fill up without you. Jump in today!
-
-        With love,
-        The FindYourMatch Team 💖
-        (c) {year} FindYourMatch Kenya
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{subject}</title>
-        </head>
-        <body style="margin:0;padding:0;background-color:#0B0E14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0B0E14;padding:25px 12px;">
-                <tr>
-                    <td align="left" style="text-align:left;">
-                        <!-- MAIN CARD -->
-                        <table role="presentation" width="100%" style="max-width:600px;margin:0;text-align:left;background:#111827;border-radius:28px;overflow:hidden;border:1px solid rgba(255,46,116,0.3);box-shadow:0 25px 60px rgba(0,0,0,0.7);" cellspacing="0" cellpadding="0" border="0">
-                            
-                            <!-- GLOWING HEADER -->
-                            <tr>
-                                <td style="background:linear-gradient(135deg, #720000 0%, #E11D48 60%, #FF8A00 100%);padding:36px 28px;text-align:left;">
-                                    <div style="display:inline-block;background:rgba(0,0,0,0.4);padding:6px 14px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#FFE4E6;margin-bottom:12px;border:1px solid rgba(255,255,255,0.25);text-align:left;">
-                                        👑 LADIES SQUAD (10/WK) &bull; PAYOUT
-                                    </div>
-                                    <h1 style="color:#FFFFFF;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.2;">
-                                        🚀 LAUNCH: 0 / 10 Spots Claimed<br>50 KES/day • Weekly M-Pesa Disbursal
-                                    </h1>
-                                    <p style="color:#FFE4E6;font-size:15px;margin:0;font-weight:600;">
-                                        Get paid weekly to M-Pesa &bull; Only 10 ladies per week
-                                    </p>
-                                </td>
-                            </tr>
-
-                            <!-- GREETING & BODY -->
-                            <tr>
-                                <td style="padding:32px 30px 10px;">
-                                    <p style="font-size:16px;line-height:1.6;color:#F1F5F9;margin:0 0 20px;">
-                                        Hey <strong>{first_name}</strong>! 👋<br><br>
-                                        We have some massive news exclusively for our campus queens! Starting today, you can get rewarded for keeping the community active, plus get your own viral anonymous messaging link for WhatsApp.
-                                    </p>
-
-                                    <!-- FEATURE 1: CHAT TO EARN -->
-                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,46,116,0.25);border-radius:20px;padding:22px;margin-bottom:20px;">
-                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
-                                            <span style="font-size:26px;margin-right:10px;">💰</span>
-                                            <div>
-                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF2E74;">Chat-to-Earn Squad</h3>
-                                                <span style="font-size:12px;color:#34D399;font-weight:800;">50 KES DAILY &bull; WEEKLY M-PESA PAYOUT</span>
-                                            </div>
-                                        </div>
-                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0 0 12px;">
-                                            Reply to <strong>10 men</strong> every day on FindYourMatch and automatically earn <strong>KES 50/day</strong>. That's up to KES 350 every week, disbursed directly to your Safaricom M-Pesa every Sunday night!
-                                        </p>
-                                        <div style="background:rgba(239,68,68,0.15);border-left:4px solid #EF4444;border-radius:8px;padding:10px 14px;font-size:12px;color:#FCA5A5;font-weight:700;">
-                                            ⚠️ STRICT LIMIT: Only 10 ladies can join each week on a first-come, first-served basis! Once the train is full (10/10), you must wait until next week.
-                                        </div>
-                                    </div>
-
-                                    <!-- FEATURE 2: NGL VIRAL LINK -->
-                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,138,0,0.25);border-radius:20px;padding:22px;margin-bottom:26px;">
-                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
-                                            <span style="font-size:26px;margin-right:10px;">🤫</span>
-                                            <div>
-                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF8A00;">Your NGL Anonymous Link</h3>
-                                                <span style="font-size:12px;color:#94A3B8;font-weight:800;">POST ON WHATSAPP STATUS</span>
-                                            </div>
-                                        </div>
-                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0;">
-                                            Get secret confessions, compliments, and crush reveals from your phone contacts! They don't need to download any app or log in. Then generate high-res 9:16 story cards to share your spicy replies back to your status!
-                                        </p>
-                                    </div>
-
-                                    <!-- HOW IT WORKS (3 STEPS) -->
-                                    <div style="background:#0F172A;border-radius:18px;padding:20px;margin-bottom:28px;">
-                                        <h4 style="margin:0 0 14px;color:#F8FAFC;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;">
-                                            ⚡ How to Get Started in 30 Seconds:
-                                        </h4>
-                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:13px;color:#CBD5E1;line-height:1.7;">
-                                            <tr>
-                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">1.</td>
-                                                <td>Click the button below & claim your spot on this week's train before the 10 spots run out.</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">2.</td>
-                                                <td>Chat and reply to 10 men every day.</td>
-                                            </tr>
-                                            <tr>
-                                                <td width="30" valign="top" style="color:#10B981;font-weight:900;font-size:16px;">3.</td>
-                                                <td>Sit back and receive your cash directly to M-Pesa every Sunday at 23:59 EAT!</td>
-                                            </tr>
-                                        </table>
-                                    </div>
-
-                                    <!-- MAIN CTA BUTTON -->
-                                    <div style="text-align:left;margin-bottom:20px;">
-                                        <a href="{base_url}/matches" style="display:inline-block;background:linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);color:#FFFFFF;padding:18px 38px;border-radius:999px;font-size:16px;font-weight:900;text-decoration:none;box-shadow:0 12px 30px rgba(255,46,116,0.45);letter-spacing:0.3px;">
-                                            🚂 Claim My Spot on the Train Now &rarr;
-                                        </a>
-                                    </div>
-
-                                    <!-- SECONDARY LINK -->
-                                    <div style="text-align:left;margin-bottom:24px;">
-                                        <a href="{base_url}/ngl" style="color:#94A3B8;font-size:13px;font-weight:700;text-decoration:underline;">
-                                            Or open your NGL Anonymous Link Hub &rarr;
-                                        </a>
-                                    </div>
-
-                                </td>
-                            </tr>
-
-                            <!-- FOOTER -->
-                            <tr>
-                                <td style="padding:22px 28px;background:#0A0D14;border-top:1px solid rgba(255,255,255,0.06);text-align:left;font-size:12px;color:#64748B;line-height:1.6;">
-                                    <div style="margin-bottom:6px;color:#94A3B8;font-weight:800;">
-                                        FindYourMatch Kenya &bull; Comrades Network
-                                    </div>
-                                    <div>
-                                        You received this invitation because you are a verified female student member.<br>
-                                        Kakamega, Kenya &bull; <a href="{base_url}/privacy" style="color:#94A3B8;text-decoration:none;">Privacy Policy</a>
-                                    </div>
-                                </td>
-                            </tr>
-
-                        </table>
-                        <!-- END MAIN CARD -->
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-    """)
-
-    return subject, text_content, html_content
-
-
-def send_ladies_chat_earn_launch_email(recipient_email: str, recipient_name: str) -> bool:
-    """
-    Dispatches the Chat-to-Earn & NGL onboarding email to a verified lady.
-    """
-    subject, text_content, html_content = build_ladies_chat_earn_launch_email_content(recipient_name)
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="FindYourMatch VIP"
-    )
-
-
-
-
-
-
-
-
-# ========================================================
-# CAMPUS MANAGERS & AMBASSADORS MONTHLY NOTIFICATIONS
-# ========================================================
-
-def send_manager_monthly_forecast_email(
-    recipient_email: str,
-    recipient_name: str,
-    institution: str,
-    month_display: str,
-    total_users: int,
-    active_subscribers: int,
-    will_get_amount: int,
-    supposed_to_get: int,
-    already_paid: int = 0,
-    payout_phone: str = None,
-    role: str = "Manager",
-    commission_rate_pct: int = 30
-) -> bool:
-    """
-    Sends the end-of-month salary forecast & institution statement email to a Campus Manager or Ambassador.
-    Includes:
-      - Total registered users from their institution
-      - Total active subscribers for the month
-      - What they will get (Net payable) & what they are supposed to get (Earned)
-      - Notice to contact 0707605751 on WhatsApp for more information and inquiries
-      - Link to Manager Dashboard
-    """
-    if not recipient_email or "@" not in str(recipient_email):
-        return False
-
-    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
-    clean_name = (recipient_name or "Campus Lead").strip()
-    first_name = clean_name.split()[0].capitalize()
-    role_title = (role or "Manager").title()
-    clean_phone = payout_phone or "Not configured"
-    
-    subject = f"📊 Your {month_display} Payout Statement: KES {will_get_amount:,} | FYM {institution}"
-    
-    whatsapp_url = f"https://wa.me/254707605751?text=Hello%20FYM%20Admin,%20I%20am%20{clean_name}%20({institution}).%20Inquiry%20regarding%20my%20{month_display}%20payout%20of%20KES%20{will_get_amount}"
-    portal_url = f"{base_url}/manager_portal"
-
-    text_content = textwrap.dedent(f"""\
-        Hello {first_name},
-
-        Here is your monthly performance and payout summary for {month_display} as Campus {role_title} for {institution}:
-
-        INSTITUTION BREAKDOWN:
-        • Campus / Institution: {institution}
-        • Total Registered Comrades: {total_users:,} students
-        • Active Paid Subscribers this Month: {active_subscribers:,} subscribers
-        • Commission Cut: {commission_rate_pct}% ({role_title})
-
-        PAYOUT DETAILS:
-        • Supposed to Get (Earned): KES {supposed_to_get:,}
-        • Already Disbursed: KES {already_paid:,}
-        • WHAT YOU WILL GET (Net Payable): KES {will_get_amount:,}
-        • Designated Payout Phone: {clean_phone}
-
-        WHATSAPP INQUIRIES & SUPPORT:
-        For more information, queries, or reconciliation, please contact management directly on WhatsApp at 0707605751:
-        {whatsapp_url}
-
-        Open your Campus Manager Dashboard to check your live roster and update payment details:
-        {portal_url}
-
-        - The {SENDER_NAME_DEFAULT} Management Team
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{subject}</title>
-        </head>
-        <body style="margin: 0; padding: 24px 10px; background-color: #0F172A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 600px; margin: 0; text-align: left; background: #1E293B; border-radius: 20px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-                
-                <!-- HEADER BRANDING -->
-                <div style="background: linear-gradient(135deg, #0B1120 0%, #1E293B 100%); padding: 26px 24px; text-align: left; border-bottom: 1px solid #334155;">
-                    <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 10px; border: 2px solid #38BDF8; display: block;">
-                    <h1 style="color: #F8FAFC; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">FIND YOUR MATCH</h1>
-                    <div style="color: #38BDF8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Campus Leadership & Payouts</div>
-                </div>
-
-                <div style="padding: 28px 24px;">
-                    <!-- SALUTATION -->
-                    <h2 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 8px;">
-                        Hello {first_name} 👋
-                    </h2>
-                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-top: 0; margin-bottom: 24px;">
-                        Here is your verified end-of-month institutional performance summary for <strong>{institution}</strong> ({month_display}).
-                    </p>
-
-                    <!-- WHAT YOU WILL GET HERO CARD -->
-                    <div style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%); border: 2px solid #EAB308; border-radius: 16px; padding: 22px; text-align: left; margin-bottom: 26px;">
-                        <div style="color: #FDE047; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
-                            ⚡ What You Will Get (Net Salary)
-                        </div>
-                        <div style="color: #FFFFFF; font-size: 38px; font-weight: 900; letter-spacing: -1px; margin-bottom: 6px;">
-                            KES {will_get_amount:,}
-                        </div>
-                        <div style="color: #94A3B8; font-size: 12px;">
-                            Total Earned: KES {supposed_to_get:,} &bull; Already Paid: KES {already_paid:,}
-                        </div>
-                    </div>
-
-                    <!-- INSTITUTION STATS GRID -->
-                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 26px;">
-                        <div style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;">
-                            📊 Institutional Growth Metrics
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">🏫 Institution</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #FFFFFF;">{institution}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">👥 Registered Comrades</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #38BDF8;">{total_users:,} Students</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">💎 Active Subscribers (This Month)</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #10B981;">{active_subscribers:,} Paid Comrades</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">📈 Role & Commission Cut</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #F59E0B;">{role_title} ({commission_rate_pct}%)</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px 0; color: #94A3B8;">📱 Designated M-Pesa Line</td>
-                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-weight: 800; color: #FFFFFF;">{clean_phone}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- WHATSAPP CONTACT CALLOUT -->
-                    <div style="background: rgba(37, 211, 102, 0.1); border: 1px solid rgba(37, 211, 102, 0.3); border-radius: 14px; padding: 18px; margin-bottom: 26px; text-align: left;">
-                        <div style="color: #25D366; font-size: 14px; font-weight: 800; margin-bottom: 6px;">
-                            💬 Inquiries & Information
-                        </div>
-                        <p style="color: #E2E8F0; font-size: 13px; line-height: 1.5; margin: 0 0 14px 0;">
-                            Have questions about your earnings, subscriber numbers, or payment reconciliation? Contact management directly on WhatsApp at <strong>0707605751</strong>.
-                        </p>
-                        <a href="{whatsapp_url}" target="_blank" style="display: inline-block; background: #25D366; color: #000000; font-weight: 900; font-size: 13px; padding: 10px 22px; border-radius: 8px; text-decoration: none;">
-                            Chat on WhatsApp (0707605751)
-                        </a>
-                    </div>
-
-                    <!-- DASHBOARD CTA -->
-                    <div style="text-align: left; margin-bottom: 16px;">
-                        <a href="{portal_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%); color: #FFFFFF; font-weight: 800; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
-                            🏢 Open Campus Manager Portal &rarr;
-                        </a>
-                    </div>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 20px 24px; text-align: left; border-top: 1px solid #334155; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0 0 4px 0;">FIND YOUR MATCH &bull; Kakamega, Kenya</p>
-                    <p style="margin: 0;">Automated Institutional Partner Notification &bull; Confidential</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Find Your Match Leadership"
-    )
-
-
-def send_manager_payout_confirmation_email(
-    recipient_email: str,
-    recipient_name: str,
-    institution: str,
-    month_display: str,
-    amount_paid: int,
-    phone_number: str,
-    transaction_ref: str = None,
-    role: str = "Manager"
-) -> bool:
-    """
-    Sends an instant confirmation email whenever a manager/ambassador is paid their salary.
-    Guides them directly to their dashboard to confirm and see they got their salary.
-    Includes WhatsApp support contact: 0707605751.
-    """
-    if not recipient_email or "@" not in str(recipient_email):
-        return False
-
-    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
-    clean_name = (recipient_name or "Campus Lead").strip()
-    first_name = clean_name.split()[0].capitalize()
-    role_title = (role or "Manager").title()
-    clean_phone = phone_number or "M-Pesa"
-    clean_ref = transaction_ref or "Daraja B2C Transfer"
-
-    subject = f"✅ Salary Disbursed: KES {amount_paid:,} Sent to {clean_phone} | {month_display}"
-    
-    portal_url = f"{base_url}/manager_portal"
-    whatsapp_url = f"https://wa.me/254707605751?text=Hello%20FYM%20Admin,%20confirming%20receipt%20of%20my%20{month_display}%20salary%20payout%20of%20KES%20{amount_paid}"
-
-    text_content = textwrap.dedent(f"""\
-        Congratulations {first_name}! 🎉
-
-        Your {month_display} salary of KES {amount_paid:,} has been successfully disbursed to your M-Pesa line ({clean_phone}) via Safaricom B2C!
-
-        TRANSACTION DETAILS:
-        • Amount Disbursed: KES {amount_paid:,}
-        • Destination Phone: {clean_phone}
-        • Transaction / Conversation ID: {clean_ref}
-        • Campus / Role: {institution} ({role_title})
-        • Month: {month_display}
-
-        PLEASE CONFIRM ON YOUR DASHBOARD:
-        Log in to your Campus Manager Portal now to review your live earnings ledger and confirm receipt:
-        {portal_url}
-
-        WHATSAPP INQUIRIES & SUPPORT:
-        If you have any questions or require any assistance, message management directly on WhatsApp at 0707605751:
-        {whatsapp_url}
-
-        Thank you for leading and growing {institution}!
-        - The {SENDER_NAME_DEFAULT} Team
-    """)
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{subject}</title>
-        </head>
-        <body style="margin: 0; padding: 24px 10px; background-color: #0F172A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 600px; margin: 0; text-align: left; background: #1E293B; border-radius: 20px; overflow: hidden; border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-                
-                <!-- HEADER BRANDING -->
-                <div style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); padding: 26px 24px; text-align: left; border-bottom: 1px solid #10B981;">
-                    <div style="font-size: 34px; margin-bottom: 6px;">🎉</div>
-                    <h1 style="color: #FFFFFF; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">SALARY PAYMENT CONFIRMED</h1>
-                    <div style="color: #A7F3D0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Safaricom M-Pesa B2C Disbursal</div>
-                </div>
-
-                <div style="padding: 28px 24px;">
-                    <!-- SALUTATION -->
-                    <h2 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 8px;">
-                        Congratulations, {first_name}! 🚀
-                    </h2>
-                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-top: 0; margin-bottom: 24px;">
-                        Your campus management commission for <strong>{month_display}</strong> has been successfully processed and sent to your M-Pesa account.
-                    </p>
-
-                    <!-- AMOUNT CARD -->
-                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%); border: 2px solid #10B981; border-radius: 16px; padding: 22px; text-align: left; margin-bottom: 26px;">
-                        <div style="color: #6EE7B7; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
-                            Total Disbursed to M-Pesa
-                        </div>
-                        <div style="color: #FFFFFF; font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 6px;">
-                            KES {amount_paid:,}
-                        </div>
-                        <div style="color: #A7F3D0; font-size: 13px; font-weight: 700;">
-                            ✅ Transferred via Safaricom B2C
-                        </div>
-                    </div>
-
-                    <!-- TRANSACTION DETAILS -->
-                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 26px;">
-                        <div style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;">
-                            🧾 Payment Receipt Details
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">📱 Recipient Phone</td>
-                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-weight: 800; color: #FFFFFF;">{clean_phone}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">📑 Reference ID</td>
-                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 11px; color: #38BDF8;">{clean_ref}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 10px 0; color: #94A3B8;">🏫 Campus / Lead</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #FFFFFF;">{institution} ({role_title})</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 10px 0; color: #94A3B8;">📅 Payout Period</td>
-                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #10B981;">{month_display}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- GUIDE TO DASHBOARD CTA -->
-                    <div style="background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 26px; text-align: left;">
-                        <h3 style="color: #38BDF8; font-size: 15px; font-weight: 800; margin: 0 0 8px 0;">
-                            👉 Confirm Receipt on Your Dashboard
-                        </h3>
-                        <p style="color: #E2E8F0; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
-                            Please open your Campus Manager Portal now to verify your updated ledger and confirm that you received your salary.
-                        </p>
-                        <a href="{portal_url}" target="_blank" style="display: inline-block; background: #0284C7; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
-                            Open Dashboard & Confirm &rarr;
-                        </a>
-                    </div>
-
-                    <!-- WHATSAPP INQUIRIES -->
-                    <div style="text-align: left; border-top: 1px solid #334155; padding-top: 20px; margin-top: 20px;">
-                        <p style="color: #94A3B8; font-size: 12px; margin: 0 0 10px 0;">
-                            Questions or inquiries? Message us directly on WhatsApp at <strong>0707605751</strong>:
-                        </p>
-                        <a href="{whatsapp_url}" target="_blank" style="display: inline-block; background: rgba(37, 211, 102, 0.15); color: #25D366; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 6px; text-decoration: none; border: 1px solid rgba(37, 211, 102, 0.4);">
-                            💬 WhatsApp Support (0707605751)
-                        </a>
-                    </div>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 18px 24px; text-align: left; border-top: 1px solid #334155; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0;">FIND YOUR MATCH &bull; Kakamega, Kenya &bull; Official Payment Voucher</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Find Your Match Finance"
-    )
-
-
-def send_voter_otp_email(recipient_email: str, voter_name: str, otp_code: str, contestant_name: str = None) -> bool:
-    """
-    Sends a 6-digit One-Time PIN (OTP) to verify legitimate human voters and prevent bot ballot stuffing.
-    Replaces SMS OTP with zero-cost, high-reliability HostPinnacle SMTP delivery.
-    """
-    clean_voter = (voter_name or "Comrade").strip().title()
-    subject = f"🗳️ Your Voter Verification Code: {otp_code} - Campus Awards"
-
-    contestant_line = f"voting for <strong>{contestant_name}</strong>" if contestant_name else "casting your vote"
-    text_content = f"""
-    Hello {clean_voter},
-
-    Your voter verification code is: {otp_code}
-
-    You requested this code while {contestant_line} on the Campus Awards Platform.
-    This code expires in 10 minutes.
-
-    If you did not request this code, please ignore this email.
-
-    Find Your Match & Campus Awards Platform
-    """
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Voter Verification Code</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #3730A3;">
-                    <div style="font-size: 32px; margin-bottom: 8px;">🗳️</div>
-                    <h1 style="color: #F8FAFC; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
-                        Voter Verification PIN
-                    </h1>
-                    <p style="color: #A5B4FC; font-size: 13px; margin: 6px 0 0 0;">
-                        Official Campus Awards & Talent Platform
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 28px 24px; text-align: left;">
-                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
-                        Hello <strong>{clean_voter}</strong>,
-                    </p>
-                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
-                        To confirm your human voter authenticity and protect the integrity of the vote tally, please enter the one-time verification code below:
-                    </p>
-
-                    <!-- OTP DISPLAY BOX -->
-                    <div style="background: #1E293B; border: 2px dashed #6366F1; border-radius: 14px; padding: 22px; text-align: center; margin-bottom: 24px;">
-                        <div style="font-size: 11px; color: #94A3B8; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">
-                            One-Time Security Code
-                        </div>
-                        <div style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; color: #F59E0B; letter-spacing: 8px; margin: 0;">
-                            {otp_code}
-                        </div>
-                        <div style="color: #A5B4FC; font-size: 11px; margin-top: 8px; font-weight: 600;">
-                            ⏱️ Code expires in 10 minutes
-                        </div>
-                    </div>
-
-                    <div style="background: rgba(99, 102, 241, 0.08); border-radius: 10px; border-left: 4px solid #6366F1; padding: 12px 16px; margin-bottom: 24px;">
-                        <p style="color: #CBD5E1; font-size: 12px; line-height: 1.5; margin: 0;">
-                            🔒 <strong>Anti-Fraud Protection:</strong> Never share this code with anyone. Contestants or agents will never ask for your verification code.
-                        </p>
-                    </div>
-
-                    <p style="color: #64748B; font-size: 11px; line-height: 1.5; margin: 0;">
-                        If you did not initiate this vote, you can safely ignore this email — no votes will be counted without this PIN.
-                    </p>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0;">Campus Awards & Talent Voting Engine &bull; Find Your Match</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Campus Awards Verification"
-    )
-
-
-def send_vote_receipt_email(recipient_email: str, voter_name: str, contestant_name: str, category: str, vote_count: int, amount_paid: int, mpesa_receipt: str, new_total_votes: int = None) -> bool:
-    """
-    Sends an official M-Pesa vote confirmation and financial voucher.
-    Replaces SMS receipts with full digital receipts containing live leaderboard links.
-    """
-    clean_voter = (voter_name or "Comrade").strip().title()
-    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
-    leaderboard_url = f"{base_url}/awards"
-
-    vote_plural = "vote" if vote_count == 1 else "votes"
-    subject = f"✅ Vote Confirmed! {vote_count} {vote_plural} cast for {contestant_name} ({clean_receipt})"
-
-    text_content = f"""
-    OFFICIAL VOTE CONFIRMATION & RECEIPT
-    --------------------------------------------------
-    Voter: {clean_voter}
-    Contestant: {contestant_name}
-    Category: {category}
-    Votes Cast: {vote_count}
-    Amount Paid: KES {amount_paid}
-    M-Pesa Receipt: {clean_receipt}
-    Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-    View Live Leaderboard: {leaderboard_url}
-
-    Thank you for participating in the Campus Awards!
-    """
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Official Vote Confirmation</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #047857;">
-                    <div style="display: inline-block; background: #10B981; color: #064E3B; width: 48px; height: 48px; line-height: 48px; border-radius: 50%; font-size: 24px; font-weight: 900; margin-bottom: 10px;">
-                        ✓
-                    </div>
-                    <h1 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
-                        Vote Cast & Recorded!
-                    </h1>
-                    <p style="color: #A7F3D0; font-size: 13px; margin: 6px 0 0 0;">
-                        Official M-Pesa Payment Receipt & Cryptographic Audit
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 28px 24px; text-align: left;">
-                    <!-- HIGHLIGHT HERO -->
-                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.25) 100%); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
-                        <div style="font-size: 11px; color: #6EE7B7; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;">
-                            Votes Successfully Credited
-                        </div>
-                        <div style="font-size: 38px; font-weight: 900; color: #FFFFFF; letter-spacing: -1px; margin-bottom: 4px;">
-                            +{vote_count} {vote_plural.upper()}
-                        </div>
-                        <div style="color: #FBBF24; font-size: 14px; font-weight: 700;">
-                            Awarded to: {contestant_name}
-                        </div>
-                    </div>
-
-                    <!-- TRANSACTION TABLE -->
-                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
-                        <div style="font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
-                            🧾 Payment Verification Details
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">📱 M-Pesa Receipt</td>
-                                <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: 800; color: #38BDF8;">{clean_receipt}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Category</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{category}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">💵 Amount Paid</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">KES {amount_paid:,}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #94A3B8;">📅 Timestamp</td>
-                                <td style="padding: 8px 0; text-align: right; color: #94A3B8;">{datetime.now().strftime('%d %b %Y, %I:%M %p')}</td>
-                            </tr>
-                        </table>
-                    </div>
-
+import os
+
+import logging
+
+import smtplib
+
+import textwrap
+
+from datetime import datetime
+
+from email.mime.text import MIMEText
+
+from email.mime.multipart import MIMEMultipart
+
+from email.mime.base import MIMEBase
+
+from email import encoders
+
+from email.utils import formataddr, formatdate, make_msgid
+
+import ssl
+
+from dotenv import load_dotenv
+
+
+
+# Ensure environment variables from .env are loaded immediately
+
+load_dotenv()
+
+
+
+logger = logging.getLogger(__name__)
+
+
+
+# Define standard sender name for consistency
+
+SENDER_NAME_DEFAULT = "FIND YOUR MATCH"
+
+
+
+def _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT, attachments=None):
+
+    """
+
+    Private helper function to handle the actual SMTP connection and email dispatch.
+
+    This prevents repeating connection and error-handling code for every email type.
+
+    """
+
+    if not recipient_email or "@" not in str(recipient_email):
+
+        logger.warning(f"Invalid recipient email provided: {recipient_email}")
+
+        return False
+
+
+
+    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('\"\'')
+
+    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('\"\'')
+
+    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('\"\'')
+
+    try:
+
+        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('\"\''))
+
+    except (ValueError, TypeError):
+
+        smtp_port = 465
+
+
+
+    if not sender_email or not sender_password:
+
+        logger.error("Email credentials missing in environment variables!")
+
+        return False
+
+
+
+    # Create the mixed message container for attachments
+
+    msg = MIMEMultipart("mixed")
+
+    msg['Subject'] = subject
+
+    msg['From'] = formataddr((sender_name, sender_email))
+
+    msg['To'] = recipient_email
+
+    msg['Date'] = formatdate(localtime=True)
+
+    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
+
+
+
+    # Create the multipart message container for body
+
+    msg_body = MIMEMultipart("alternative")
+
+    # Attach parts (Attach TEXT first, then HTML so clients prefer HTML)
+
+    # CRITICAL FIX: Explicitly set 'utf-8' so emojis 🚀❤️ don't crash the server
+
+    msg_body.attach(MIMEText(text_content, "plain", "utf-8"))
+
+    msg_body.attach(MIMEText(html_content, "html", "utf-8"))
+
+    msg.attach(msg_body)
+
+
+
+    # Handle Attachments
+
+    if attachments:
+
+        for attachment in attachments:
+
+            try:
+
+                part = MIMEBase('application', "octet-stream")
+
+                part.set_payload(attachment['content'])
+
+                encoders.encode_base64(part)
+
+                part.add_header('Content-Disposition', f'attachment; filename="{attachment["filename"]}"')
+
+                msg.attach(part)
+
+            except Exception as e:
+
+                logger.error(f"Failed to attach file {attachment.get('filename')}: {e}")
+
+
+
+    try:
+
+        # Many shared hosting providers (like cPanel) have self-signed or mismatched certs for mail.domain.com
+
+        context = ssl._create_unverified_context()
+
+        
+
+        if smtp_port == 465:
+
+            # Use context manager (with) to safely close connection even on failure
+
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=12) as server:
+
+                server.login(sender_email, sender_password)
+
+                server.send_message(msg)
+
+        else:
+
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=12) as server:
+
+                server.starttls(context=context)
+
+                server.login(sender_email, sender_password)
+
+                server.send_message(msg)
+
+                
+
+        logger.info(f"✅ Email '{subject}' sent to {recipient_email}")
+
+        return True
+
+    except smtplib.SMTPAuthenticationError:
+
+        logger.error("❌ Email Auth Error: Check your SMTP App Password.")
+
+        return False
+
+    except Exception as e:
+
+        logger.error(f"❌ Failed to send email to {recipient_email}: {e}")
+
+        try:
+
+            from firebase_admin import db
+
+            db.reference('email_dispatch_queue').push({
+
+                'to': recipient_email,
+
+                'subject': subject,
+
+                'text': text_content,
+
+                'html': html_content,
+
+                'sender_name': sender_name,
+
+                'queued_at': datetime.now().isoformat(),
+
+                'status': 'pending',
+
+                'error': str(e)
+
+            })
+
+            logger.info(f"📬 Queued email for {recipient_email} into Firebase email_dispatch_queue")
+
+        except Exception as qe:
+
+            logger.debug(f"Could not queue email: {qe}")
+
+        return False
+
+
+
+
+
+def flush_email_dispatch_queue(batch_size=50):
+
+    """
+
+    Drains pending emails from Firebase 'email_dispatch_queue' and sends them via SMTP.
+
+    Safely connects once, iterates through pending messages, and updates status to 'sent' or 'failed'.
+
+    Returns a summary dict of results.
+
+    """
+
+    import time
+
+    try:
+
+        from firebase_admin import db
+
+    except ImportError:
+
+        logger.warning("firebase_admin not imported, skipping flush_email_dispatch_queue")
+
+        return {"sent": 0, "failed": 0, "pending": 0}
+
+
+
+    sender_email = (os.getenv("MAIL_USERNAME") or "noreply@findyourmatch.co.ke").strip('"\'')
+
+    sender_password = (os.getenv("MAIL_PASSWORD") or "Delstarford123").strip('"\'')
+
+    smtp_server = (os.getenv("MAIL_SERVER") or "mail.findyourmatch.co.ke").strip('"\'')
+
+    try:
+
+        smtp_port = int(str(os.getenv("MAIL_PORT", 465)).strip('"\''))
+
+    except (ValueError, TypeError):
+
+        smtp_port = 465
+
+
+
+    if not sender_email or not sender_password:
+
+        logger.error("Email credentials missing in flush_email_dispatch_queue")
+
+        return {"sent": 0, "failed": 0, "error": "Missing credentials"}
+
+
+
+    try:
+
+        queue_data = db.reference('email_dispatch_queue').get() or {}
+
+    except Exception as qe:
+
+        logger.error(f"Failed to fetch email_dispatch_queue: {qe}")
+
+        return {"sent": 0, "failed": 0, "error": str(qe)}
+
+
+
+    pending_items = [
+
+        (k, v) for k, v in queue_data.items()
+
+        if isinstance(v, dict) and v.get('status') == 'pending'
+
+    ]
+
+
+
+    if not pending_items:
+
+        return {"sent": 0, "failed": 0, "pending": 0}
+
+
+
+    items_to_process = pending_items[:batch_size]
+
+    sent_count = 0
+
+    failed_count = 0
+
+    context = ssl._create_unverified_context()
+
+
+
+    try:
+
+        if smtp_port == 465:
+
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, context=context, timeout=15)
+
+        else:
+
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=15)
+
+            server.starttls(context=context)
+
+
+
+        with server:
+
+            server.login(sender_email, sender_password)
+
+
+
+            for key, item in items_to_process:
+
+                recipient = item.get('to')
+
+                if not recipient or "@" not in str(recipient):
+
+                    try:
+
+                        db.reference(f'email_dispatch_queue/{key}').update({'status': 'invalid_email'})
+
+                    except Exception:
+
+                        pass
+
+                    continue
+
+
+
+                subject = item.get('subject', 'Find Your Match Notification')
+
+                text_content = item.get('text', '')
+
+                html_content = item.get('html', '')
+
+                sender_name = item.get('sender_name', SENDER_NAME_DEFAULT)
+
+
+
+                try:
+
+                    msg = MIMEMultipart("alternative")
+
+                    msg['Subject'] = subject
+
+                    msg['From'] = formataddr((sender_name, sender_email))
+
+                    msg['To'] = recipient
+
+                    msg['Date'] = formatdate(localtime=True)
+
+                    msg['Message-ID'] = make_msgid(domain="findyourmatch.co.ke")
+
+                    msg.attach(MIMEText(text_content, "plain", "utf-8"))
+
+                    msg.attach(MIMEText(html_content, "html", "utf-8"))
+
+
+
+                    server.send_message(msg)
+
+                    db.reference(f'email_dispatch_queue/{key}').update({
+
+                        'status': 'sent',
+
+                        'dispatched_at': datetime.now().isoformat()
+
+                    })
+
+                    sent_count += 1
+
+                    time.sleep(0.3)
+
+                except Exception as send_err:
+
+                    failed_count += 1
+
+                    logger.warning(f"Failed to flush email to {recipient}: {send_err}")
+
+                    try:
+
+                        db.reference(f'email_dispatch_queue/{key}').update({
+
+                            'status': 'failed',
+
+                            'last_error': str(send_err),
+
+                            'retry_count': (item.get('retry_count') or 0) + 1
+
+                        })
+
+                    except Exception:
+
+                        pass
+
+
+
+    except Exception as conn_err:
+
+        logger.error(f"Failed to connect to SMTP server during queue flush: {conn_err}")
+
+        return {"sent": sent_count, "failed": failed_count, "error": str(conn_err)}
+
+
+
+    logger.info(f"Flushed email queue: {sent_count} sent, {failed_count} failed out of {len(items_to_process)}")
+
+    return {"sent": sent_count, "failed": failed_count, "remaining": len(pending_items) - sent_count}
+
+
+
+
+
+def send_mutual_match_email(recipient_email, recipient_name, partner_name, partner_img=None, match_reason=None):
+
+    """
+
+    Sends an instant email notification when two users match so they don't miss chats when offline.
+
+    """
+
+    recipient_first = (recipient_name or 'Comrade').split()[0]
+
+    partner_first = (partner_name or 'Someone').split()[0]
+
+    
+
+    subject = f"❤️ You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hey {recipient_first}!
+
+        
+
+        You have a new mutual match on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
+
+        
+
+        You and {partner_first} just liked each other!
+
+        
+
+        Don't leave them waiting — say hi today before they log off:
+
+        https://findyourmatch.co.ke/matches
+
+        
+
+        — Find Your Match Team
+
+    """)
+
+    
+
+    avatar_html = ""
+
+    if partner_img and "placeholder" not in partner_img:
+
+        avatar_html = f"""
+
+        <div style="text-align: center; margin: 20px 0;">
+
+            <img src="{partner_img}" alt="{partner_first}" style="width: 104px; height: 104px; border-radius: 50%; object-fit: cover; border: 4px solid #E60026; box-shadow: 0 8px 24px rgba(230,0,38,0.25);" />
+
+        </div>
+
+        """
+
+        
+
+    reason_html = ""
+
+    if match_reason:
+
+        reason_html = f"""
+
+        <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 12px; padding: 12px; margin: 15px 0; text-align: center; color: #BE123C; font-weight: 700; font-size: 14px;">
+
+            ✨ {match_reason}
+
+        </div>
+
+        """
+
+        
+
+    html_content = f"""<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>New Mutual Match</title>
+
+</head>
+
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
+
+  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
+
+    
+
+    <!-- Top Banner -->
+
+    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 36px 24px; text-align: center; color: #ffffff;">
+
+      <div style="font-size: 32px; margin-bottom: 8px;">❤️</div>
+
+      <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">It's a Mutual Match!</h1>
+
+      <p style="margin: 8px 0 0; font-size: 15px; opacity: 0.95; font-weight: 500;">You and {partner_first} liked each other!</p>
+
+    </div>
+
+
+
+    <!-- Main Content -->
+
+    <div style="padding: 32px 28px;">
+
+      <!-- Match Notification Alert -->
+
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
+
+        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
+
+          🔥 You have a new mutual match on Find Your Match!<br>
+
+          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
+
+        </p>
+
+      </div>
+
+
+
+      {avatar_html}
+
+      <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 800; color: #0F172A; text-align: center;">
+
+        Hey {recipient_first}! 👋
+
+      </h2>
+
+      <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #475569; text-align: center;">
+
+        Great news! You and <strong>{partner_first}</strong> liked each other on <strong>Find Your Match</strong>. The ice is already broken — now it's time to connect!
+
+      </p>
+
+
+
+      {reason_html}
+
+
+
+      <!-- CTA Button -->
+
+      <div style="text-align: center; margin: 30px 0;">
+
+        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 16px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35); letter-spacing: 0.5px;">
+
+          💬 Tap to Chat on Find Your Match
+
+        </a>
+
+      </div>
+
+
+
+      <!-- Campus Pro Tip -->
+
+      <div style="background: #F8FAFC; border-radius: 14px; padding: 14px 18px; margin-top: 24px; border-left: 4px solid #E60026;">
+
+        <p style="margin: 0; font-size: 13px; color: #64748B; line-height: 1.5;">
+
+          💡 <strong>Pro Tip:</strong> Matches who exchange a message within the first hour are <strong>3x more likely</strong> to meet up on campus. Say hello before they log off!
+
+        </p>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- Footer -->
+
+    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
+
+      <p style="margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #94A3B8;">
+
+        FIND YOUR MATCH • MMUST Student Dating & Connections
+
+      </p>
+
+      <p style="margin: 0; font-size: 11px; color: #CBD5E1;">
+
+        Direct link: https://findyourmatch.co.ke/matches
+
+      </p>
+
+    </div>
+
+
+
+  </div>
+
+</body>
+
+</html>"""
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_offline_chat_email(recipient_email, recipient_name, sender_name, message_preview):
+
+    """
+
+    Sends an email when an offline user receives a new message so they don't miss chats.
+
+    """
+
+    recipient_first = (recipient_name or 'Comrade').split()[0]
+
+    sender_first = (sender_name or 'Someone').split()[0]
+
+    
+
+    subject = f"💬 {sender_first} sent you a message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches"
+
+    
+
+    clean_preview = (message_preview or 'Sent you a message').strip()
+
+    if len(clean_preview) > 80:
+
+        clean_preview = clean_preview[:77] + "..."
+
+        
+
+    text_content = textwrap.dedent(f"""\
+
+        Hey {recipient_first}!
+
+        
+
+        You have a new message on Find Your Match! Tap to chat: findyourmatch.co.ke/matches
+
+        
+
+        {sender_first} sent you:
+
+        "{clean_preview}"
+
+        
+
+        Don't keep them waiting — tap here to reply:
+
+        https://findyourmatch.co.ke/matches
+
+        
+
+        — Find Your Match Team
+
+    """)
+
+    
+
+    html_content = f"""<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>New Message Alert</title>
+
+</head>
+
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F8FAFC; margin: 0; padding: 24px;">
+
+  <div style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.06); border: 1px solid #F1F5F9;">
+
+    
+
+    <!-- Top Banner -->
+
+    <div style="background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+
+      <div style="font-size: 30px; margin-bottom: 6px;">💬</div>
+
+      <h1 style="margin: 0; font-size: 22px; font-weight: 900;">New Message on Campus!</h1>
+
+      <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.95;">{sender_first} is waiting for your reply</p>
+
+    </div>
+
+
+
+    <!-- Main Content -->
+
+    <div style="padding: 30px 26px;">
+
+      <!-- Offline Notice Alert -->
+
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-radius: 14px; padding: 14px 18px; margin-bottom: 22px; text-align: center;">
+
+        <p style="margin: 0; font-size: 14px; font-weight: 800; color: #E60026; line-height: 1.5;">
+
+          💬 You have a new message on Find Your Match!<br>
+
+          Tap to chat: <a href="https://findyourmatch.co.ke/matches" style="color: #E60026; text-decoration: underline;">findyourmatch.co.ke/matches</a>
+
+        </p>
+
+      </div>
+
+
+
+      <h2 style="margin: 0 0 12px; font-size: 18px; font-weight: 800; color: #0F172A;">
+
+        Hey {recipient_first},
+
+      </h2>
+
+      <p style="margin: 0 0 18px; font-size: 15px; line-height: 1.5; color: #475569;">
+
+        <strong>{sender_first}</strong> just sent you a message on Find Your Match:
+
+      </p>
+
+
+
+      <!-- Message Quote Bubble -->
+
+      <div style="background: #FFF1F2; border: 1px solid #FFE4E6; border-left: 4px solid #E60026; border-radius: 14px; padding: 16px 20px; margin: 20px 0; color: #1E293B; font-size: 15px; font-style: italic;">
+
+        "{clean_preview}"
+
+      </div>
+
+
+
+      <!-- CTA Button -->
+
+      <div style="text-align: center; margin: 28px 0;">
+
+        <a href="https://findyourmatch.co.ke/matches" style="display: inline-block; background: linear-gradient(135deg, #FF4B2B 0%, #E60026 100%); color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; padding: 15px 36px; border-radius: 50px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
+
+          💬 Reply to {sender_first} Now
+
+        </a>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- Footer -->
+
+    <div style="background-color: #F8FAFC; padding: 20px 24px; text-align: center; border-top: 1px solid #F1F5F9;">
+
+      <p style="margin: 0; font-size: 12px; color: #94A3B8;">
+
+        FIND YOUR MATCH • https://findyourmatch.co.ke/matches
+
+      </p>
+
+    </div>
+
+
+
+  </div>
+
+</body>
+
+</html>"""
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_verification_email(recipient_email, user_name, otp_code, purpose="signup"):
+
+    """
+
+    Sends a formatted HTML verification email with a context-aware message.
+
+    Purposes: 'signup', 'reset', 'resend'
+
+    """
+
+    if purpose == "reset":
+
+        subject = "Reset Your FIND YOUR MATCH Password"
+
+        headline = "Password Reset Request 🔑"
+
+        message = "We received a request to reset your password. Use the code below to securely update your credentials. This code will expire soon."
+
+    elif purpose == "resend":
+
+        subject = "Your New Verification Code - FIND YOUR MATCH"
+
+        headline = "New Verification Code 📩"
+
+        message = "You requested a new verification code. Please enter the 6-digit code below to activate your account and start matching!"
+
+    else:
+
+        subject = "Welcome to FIND YOUR MATCH - Verify Your Email"
+
+        headline = f"Welcome to FYM, {user_name}! ✨"
+
+        message = "You are one step away from finding your perfect match. Please enter the verification code below to activate your account."
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        {headline}
+
+        
+
+        {message}
+
+        
+
+        Verification Code: {otp_code}
+
+        
+
+        If you did not request this, please ignore this email.
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border: 1px solid #FFD6DD; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 35px rgba(114,0,0,0.08);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 45px 20px; text-align: center;">
+
+                    <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+
+                        <span style="font-size: 30px;">🔥</span>
+
+                    </div>
+
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.2;">
+
+                        {headline}
+
+                    </h1>
+
+                </div>
+
+                
+
+                <div style="padding: 40px 35px; text-align: center;">
+
+                    <p style="font-size: 17px; color: #4A0008; line-height: 1.6; margin-top: 0; font-weight: 500;">
+
+                        {message}
+
+                    </p>
+
+                    
+
+                    <div style="font-size: 42px; font-weight: 900; color: #720000; letter-spacing: 10px; background: #FEF2F4; padding: 25px 30px; border-radius: 16px; border: 2px dashed #E60026; margin: 35px auto; width: fit-content; display: inline-block;">
+
+                        {otp_code}
+
+                    </div>
+
+                    
+
+                    <p style="font-size: 14px; color: #888; margin-top: 30px; line-height: 1.5;">
+
+                        If you did not request this code, you can safely ignore this email. Someone may have entered your email address by mistake.
+
+                    </p>
+
+                </div>
+
+                
+
+                <div style="background: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;">
+
+                    <p style="margin: 0 0 10px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+
+                        FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
+
+                    </p>
+
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name=SENDER_NAME_DEFAULT)
+
+
+
+
+
+def send_manager_otp_email(recipient_email, otp_code):
+
+    """Sends the 2FA OTP code to managers for secure portal access."""
+
+    subject = "Manager Portal 2FA Code"
+
+    body_text = f"Your one-time login code is: {otp_code}\nIt expires in 10 minutes."
+
+    body_html = f"""
+
+    <html>
+
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+            <!-- HEADER -->
+
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
+
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">Security Check</h1>
+
+            </div>
+
+            
+
+            <!-- BODY -->
+
+            <div style="padding: 40px 30px; text-align: center;">
+
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Verify your login</h2>
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+
+                    Please enter the following One-Time Password (OTP) to securely access the Manager Portal.
+
+                </p>
+
+                
+
+                <div style="background: #f8fafc; border-radius: 12px; padding: 25px; margin: 0 auto 25px; border: 1px solid #e2e8f0; max-width: 250px;">
+
+                    <div style="letter-spacing: 8px; font-size: 32px; font-weight: 900; color: #0ea5e9; margin: 0;">
+
+                        {otp_code}
+
+                    </div>
+
+                </div>
+
+                
+
+                <p style="margin: 0; color: #ef4444; font-size: 13px; font-weight: 600;">
+
+                    ⏱️ This code expires in 10 minutes.
+
+                </p>
+
+            </div>
+
+            
+
+            <!-- FOOTER -->
+
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+
+            </div>
+
+        </div>
+
+    </body>
+
+    </html>
+
+    """
+
+    return _send_email(recipient_email, subject, body_text, body_html, sender_name="FIND YOUR MATCH AI")
+
+
+
+def send_group_join_request_email(admin_email, admin_name, user_name, group_name):
+
+    """Notifies a group admin that a user wants to join their group."""
+
+    subject = f"🔔 New Join Request for {group_name}"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hi {admin_name},
+
+        
+
+        {user_name} has requested to join your group "{group_name}".
+
+        Please log in to your account to review and approve their request.
+
+        
+
+        Review Request: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head><meta charset="utf-8"></head>
+
+        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+                <h2 style="color: #0A2540;">New Join Request! 🔔</h2>
+
+                <p style="color: #333; line-height: 1.5;">Hi {admin_name},</p>
+
+                <p style="color: #333; line-height: 1.5;"><strong>{user_name}</strong> has requested to join your group <strong>{group_name}</strong>.</p>
+
+                <div style="text-align: center; margin-top: 30px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">Review Request</a>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    return _send_email(admin_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
+
+
+
+def send_group_notification_email(member_email, member_name, sender_name, group_name, message):
+
+    """Notifies group members of a new message or update."""
+
+    subject = f"💬 New Message in {group_name}"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hi {member_name},
+
+        
+
+        You have a new notification in {group_name} from {sender_name}:
+
+        "{message}"
+
+        
+
+        Check it out: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head><meta charset="utf-8"></head>
+
+        <body style="margin: 0; padding: 20px; font-family: sans-serif; background: #f4f6f8;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+                <h2 style="color: #0A2540;">New Group Notification 💬</h2>
+
+                <p style="color: #333; line-height: 1.5;">Hi {member_name},</p>
+
+                <p style="color: #333; line-height: 1.5;">You have a new message in <strong>{group_name}</strong> from <strong>{sender_name}</strong>:</p>
+
+                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0; color: #555; font-style: italic;">"{message}"</div>
+
+                <div style="text-align: center; margin-top: 30px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="display: inline-block; background-color: #E60026; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">View Group</a>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    return _send_email(member_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH AI")
+
+
+
+def send_group_call_invite_email(to_email, user_name, caller_name, caller_img, group_name, call_type, call_url):
+
+    """
+
+    Sends an urgent email invitation to an offline group member when a live group video/audio call is started.
+
+    """
+
+    call_label = "Group Video Call 📹" if str(call_type).lower() == 'video' else "Group Voice Call 📞"
+
+    subject = f"📞 {caller_name} started a {call_label} in {group_name}!"
+
+    
+
+    caller_photo = caller_img or "https://findyourmatch.co.ke/static/img/placeholder.png"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hi {user_name},
+
+        
+
+        {caller_name} just started a live {call_label} in "{group_name}" on FindYourMatch!
+
+        
+
+        Other group members are joining now. Tap below to join the call immediately:
+
+        {call_url}
+
+        
+
+        (You can join with your camera or voice-only anytime.)
+
+        
+
+        Best regards,
+
+        FindYourMatch Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 24px 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a;">
+
+            <div style="max-width: 560px; margin: 0 auto; background: #1e293b; border-radius: 20px; overflow: hidden; border: 1px solid #334155; box-shadow: 0 20px 40px rgba(0,0,0,0.5); color: #f8fafc;">
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 28px 24px; text-align: center;">
+
+                    <div style="display: inline-block; background: rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; color: white;">
+
+                        LIVE GROUP CALL 🟢
+
+                    </div>
+
+                    <h1 style="margin: 0; font-size: 22px; font-weight: 900; color: white;">{group_name}</h1>
+
+                    <p style="margin: 6px 0 0; font-size: 14px; opacity: 0.9; color: white;">{call_label} is happening right now</p>
+
+                </div>
+
+                
+
+                <div style="padding: 28px 24px; text-align: center;">
+
+                    <div style="position: relative; display: inline-block; margin-bottom: 16px;">
+
+                        <img src="{caller_photo}" alt="{caller_name}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E60026; box-shadow: 0 0 20px rgba(230,0,38,0.5);">
+
+                    </div>
+
+                    
+
+                    <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 800; color: #ffffff;">{caller_name} is calling!</h2>
+
+                    <p style="margin: 0 0 24px; font-size: 14px; color: #cbd5e1; line-height: 1.5;">
+
+                        Hey <strong>{user_name}</strong>, a live group call was initiated in <strong>{group_name}</strong>. The rest of the group is waiting for you to jump in!
+
+                    </p>
+
+                    
+
+                    <div style="margin: 26px 0;">
+
+                        <a href="{call_url}" style="display: inline-block; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color: white; padding: 16px 36px; border-radius: 50px; text-decoration: none; font-weight: 900; font-size: 16px; box-shadow: 0 8px 25px rgba(22, 163, 74, 0.45); letter-spacing: 0.5px;">
+
+                            📞 Answer & Join Group Call
+
+                        </a>
+
+                    </div>
+
+                    
+
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 18px;">
+
+                        💡 <em>Tip: You can join with camera or mute your video/mic anytime.</em>
+
+                    </div>
+
+                </div>
+
+                
+
+                <div style="background: #0f172a; padding: 16px; text-align: center; border-top: 1px solid #334155; font-size: 11px; color: #64748b;">
+
+                    FindYourMatch • Campus Connection & Group Calls • Kakamega, Kenya
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    return _send_email(to_email, subject, text_content, html_content, sender_name="FIND YOUR MATCH GROUP CALL")
+
+
+
+def send_group_invite_email(to_email, user_name, group_name, admin_name):
+
+    """Sends a professional welcome email when added to a group."""
+
+    subject = f"💬 You've been invited to join {group_name}!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Welcome, {user_name}!
+
+        
+
+        You have been invited to join the group {group_name} by {admin_name}. 
+
+        We are wishing you the absolute best in finding your perfect match!
+
+        
+
+        Group Rules:
+
+        - Be respectful and kind to everyone.
+
+        - Shoot your shot, but take 'no' gracefully.
+
+        - Have fun and keep the vibes immaculate!
+
+        
+
+        Enter the Chat: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #0A2540; margin-top: 0; font-size: 22px;">Welcome, {user_name}! 🎉</h2>
+
+                <p style="color: #333; font-size: 16px; line-height: 1.5;">
+
+                    You have been invited to join the group <strong>{group_name}</strong> by {admin_name}. 
+
+                    We are wishing you the absolute best in finding your perfect match!
+
+                </p>
+
+                <div style="background: #FEF2F4; padding: 15px; border-radius: 10px; margin: 20px 0;">
+
+                    <strong style="color: #720000; font-size: 14px; text-transform: uppercase;">📜 Group Rules</strong>
+
+                    <ul style="color: #555; margin: 10px 0 0 0; font-size: 14px;">
+
+                        <li>Be respectful and kind to everyone.</li>
+
+                        <li>Shoot your shot, but take 'no' gracefully.</li>
+
+                        <li>Have fun and keep the vibes immaculate!</li>
+
+                    </ul>
+
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+
+                    <a href="{{ url_for('groups', _external=True) }}" style="background: #38BDF8; color: #0A2540; font-weight: 800; text-decoration: none; padding: 15px 30px; border-radius: 50px; display: inline-block;">Enter the Chat</a>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    
+
+    return _send_email(to_email, subject, text_content, html_content)
+
+
+
+
+
+def send_group_approved_email(to_email, user_name, group_name, group_id):
+
+    """
+
+    Sends an instant notification when a user is granted access to a group chat,
+
+    with a direct link straight into the group chat.
+
+    """
+
+    subject = f"🎉 You're In! Welcome to {group_name}"
+
+    base_url = os.getenv('BASE_URL', 'https://findyourmatch.co.ke').rstrip('/')
+
+    chat_url = f"{base_url}/group/{group_id}"
+
+    user_first = (user_name or 'Comrade').strip().split()[0] if user_name else 'Comrade'
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hi {user_first},
+
+
+
+        Great news! You now have direct access to the group chat: "{group_name}".
+
+
+
+        Jump right in to chat with other students, vibe, and connect:
+
+        {chat_url}
+
+
+
+        Happy matching!
+
+        Find Your Match Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 580px; margin: 0 auto; background: white; padding: 32px 28px; border-radius: 20px; border-top: 6px solid #720000; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+
+                <div style="text-align: center; margin-bottom: 24px;">
+
+                    <span style="display: inline-block; background: #fff1f2; color: #be123c; padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+
+                        👥 Group Chat Access
+
+                    </span>
+
+                    <h2 style="color: #0f172a; margin: 14px 0 6px; font-size: 24px; font-weight: 900;">
+
+                        You're In! Welcome to {group_name} 🎉
+
+                    </h2>
+
+                    <p style="color: #64748b; font-size: 15px; margin: 0;">
+
+                        Hi <strong>{user_first}</strong>, your access has been granted!
+
+                    </p>
+
+                </div>
+
+
+
+                <div style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid #fecdd3; border-radius: 16px; padding: 20px; margin-bottom: 24px; text-align: center;">
+
+                    <div style="font-size: 32px; margin-bottom: 8px;">💬</div>
+
+                    <div style="font-size: 18px; font-weight: 800; color: #881337;">{group_name}</div>
+
+                    <div style="font-size: 13px; color: #9f1239; margin-top: 6px;">
+
+                        Connect, mingle, shoot your shot, and chat with comrades.
+
+                    </div>
+
+                </div>
+
+
+
+                <div style="text-align: center; margin-bottom: 26px;">
+
+                    <a href="{chat_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #720000 0%, #E60026 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 50px; font-weight: 900; font-size: 16px; box-shadow: 0 8px 24px rgba(230,0,38,0.35);">
+
+                        🚀 Enter Group Chat Now &rarr;
+
+                    </a>
+
+                </div>
+
+
+
+                <div style="background: #f8fafc; border-radius: 14px; padding: 16px; font-size: 12px; color: #64748b; line-height: 1.6;">
+
+                    💡 <strong>Quick Reminder:</strong> Be respectful, maintain good vibes, and shoot your shot respectfully!
+
+                </div>
+
+
+
+                <div style="text-align: center; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+
+                    FindYourMatch • Campus Dating & Socials<br>
+
+                    <a href="{base_url}" style="color: #64748b; text-decoration: none;">findyourmatch.co.ke</a>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    return _send_email(to_email, subject, text_content, html_content, sender_name="FindYourMatch Groups")
+
+
+
+
+
+
+
+def send_date_approval_email(to_email, user_name, partner_name, restaurant_name, date_day, date_time, location):
+
+    """Sends a professional confirmation email to a student when a date is approved."""
+
+    subject = f"Your Date at {restaurant_name} is Confirmed!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Great news, {user_name}!
+
+        
+
+        Your upcoming date with {partner_name} has been officially approved by the management at {restaurant_name}.
+
+        
+
+        Reservation Details:
+
+        When: {date_day} at {date_time}
+
+        Where: {restaurant_name} ({location})
+
+        
+
+        A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
+
+        
+
+        Have fun and stay safe!
+
+        - {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #E60026; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #720000; margin-top: 0; font-size: 24px; font-weight: 900;">Great news, {user_name}! 🎉</h2>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+
+                    Your upcoming date with <strong>{partner_name}</strong> has been officially approved by the management at <strong>{restaurant_name}</strong>.
+
+                </p>
+
+                
+
+                <div style="background: #FEF2F4; padding: 25px; border-radius: 12px; border: 1px solid #FFD6DD; margin: 25px 0;">
+
+                    <h3 style="color: #E60026; margin-top: 0; margin-bottom: 15px; font-size: 18px; font-weight: 900;">Your Reservation Details</h3>
+
+                    <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📅 When:</strong> {date_day} at {date_time}</p>
+
+                    <p style="margin: 8px 0; color: #4A0008; font-size: 15px;"><strong>📍 Where:</strong> {restaurant_name} ({location})</p>
+
+                </div>
+
+                
+
+                <p style="color: #555; font-size: 15px; line-height: 1.6;">
+
+                    A special table has been specifically reserved for you. When you arrive, simply open your FIND YOUR MATCH App and scan the merchant's QR code at the counter to verify your status and claim your table!
+
+                </p>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+
+                    Have fun and stay safe! <br>
+
+                    <strong>- The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(to_email, subject, text_content, html_content)
+
+
+
+
+
+def send_date_request_to_merchant_email(merchant_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
+
+    """Sends a notification email to a merchant when a new date is proposed at their venue."""
+
+    subject = f"New Date Proposal: {user_a_name} & {user_b_name}"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {merchant_name},
+
+        
+
+        A new date has been proposed at your venue!
+
+        
+
+        Couple: {user_a_name} & {user_b_name}
+
+        Proposed Time: {date_day} at {date_time}
+
+        
+
+        Please log in to your Merchant Dashboard to approve or decline this reservation.
+
+        
+
+        - FIND YOUR MATCH AI Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #720000; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #720000; margin-top: 0; font-size: 22px; font-weight: 900;">New Date Proposal! 🍽️</h2>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+
+                    Hello <strong>{merchant_name}</strong>, a new couple wants to meet at your venue.
+
+                </p>
+
+                
+
+                <div style="background: #fafafa; padding: 20px; border-radius: 12px; border: 1px solid #eee; margin: 25px 0;">
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Couple:</strong> {user_a_name} & {user_b_name}</p>
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Proposed Time:</strong> {date_day} at {date_time}</p>
+
+                </div>
+
+                
+
+                <div style="text-align: center; margin-top: 30px;">
+
+    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/business/login" style="background: #720000; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+
+        Open Merchant Dashboard
+
+    </a>
+
+</div>
+
+                
+
+                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
+
+                    Manage your bookings and grow your business with FIND YOUR MATCH.
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(merchant_email, subject, text_content, html_content)
+
+
+
+
+
+def send_date_request_to_partner_email(partner_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
+
+    """Sends a notification email to the partner when a new date is proposed to them."""
+
+    subject = f"💌 {user_a_name} invited you on a date!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {user_b_name},
+
+        
+
+        Exciting news! {user_a_name} has just invited you on a date.
+
+        
+
+        Venue: {merchant_name}
+
+        Proposed Time: {date_day} at {date_time}
+
+        
+
+        Please log in to your account and check your messages to accept the date!
+
+        
+
+        - FIND YOUR MATCH AI Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #e11d48; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #e11d48; margin-top: 0; font-size: 22px; font-weight: 900;">You have a Date Invitation! 💌</h2>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+
+                    Hello <strong>{user_b_name}</strong>, big news! <strong>{user_a_name}</strong> wants to take you out on a date!
+
+                </p>
+
+                
+
+                <div style="background: #fff1f2; padding: 20px; border-radius: 12px; border: 1px solid #fecdd3; margin: 25px 0;">
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
+
+                </div>
+
+                
+
+                <div style="text-align: center; margin-top: 30px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #e11d48; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+
+                        Open Chats to Reply
+
+                    </a>
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
+
+                    Don't leave them hanging! Open the app to chat and confirm the date.
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(partner_email, subject, text_content, html_content)
+
+
+
+
+
+def send_date_request_to_sender_email(sender_email, merchant_name, user_a_name, user_b_name, date_day, date_time):
+
+    """Sends a confirmation email to the sender that their date request was dispatched."""
+
+    subject = f"Date Proposal Sent to {user_b_name}!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {user_a_name},
+
+        
+
+        Your date invitation has been sent successfully to {user_b_name} and the venue ({merchant_name})!
+
+        
+
+        Venue: {merchant_name}
+
+        Proposed Time: {date_day} at {date_time}
+
+        
+
+        We'll let you know once they reply.
+
+        
+
+        - FIND YOUR MATCH AI Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #10b981; margin-top: 0; font-size: 22px; font-weight: 900;">Invitation Sent! 🎉</h2>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+
+                    Hello <strong>{user_a_name}</strong>, your date invitation was delivered to <strong>{user_b_name}</strong> and <strong>{merchant_name}</strong>!
+
+                </p>
+
+                
+
+                <div style="background: #ecfdf5; padding: 20px; border-radius: 12px; border: 1px solid #a7f3d0; margin: 25px 0;">
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>Venue:</strong> {merchant_name}</p>
+
+                    <p style="margin: 8px 0; color: #111; font-size: 15px;"><strong>When:</strong> {date_day} at {date_time}</p>
+
+                </div>
+
+                
+
+                <div style="text-align: center; margin-top: 30px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: #10b981; color: white; padding: 14px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+
+                        Check Messages
+
+                    </a>
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 13px; margin-top: 30px; text-align: center;">
+
+                    Fingers crossed! We'll notify you as soon as they reply.
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(sender_email, subject, text_content, html_content)
+
+
+
+def send_broadcast_email(recipient_email, recipient_name, subject, message_body, attachments=None):
+
+    """Sends a generic mass broadcast email to users, generated by the Admin."""
+
+    
+
+    # Format line breaks in HTML so admin paragraphs render perfectly
+
+    html_message_body = message_body.replace('\n', '<br>')
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+        
+
+        {message_body}
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                
+
+                <h3 style="color: #0f172a; margin-top: 0; font-size: 20px; font-weight: 900;">Hello {recipient_name},</h3>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6;">
+
+                    {html_message_body}
+
+                </p>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+
+                    Best regards, <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, attachments=attachments)
+
+
+
+
+
+def send_premium_activation_email(recipient_email, recipient_name):
+
+    """Sends an email when a user successfully pays or activates a Premium promo."""
+
+    subject = "💎 Your Premium Account is Active!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Congratulations {recipient_name},
+
+        
+
+        Your Premium Subscription is now active! You now have full access to:
+
+        - Unlimited Swiping
+
+        - Voice & Video WebRTC Calling
+
+        - The AI Wingman Assistant
+
+        - Date Bookings at Partner Restaurants
+
+        
+
+        Log in now to see your new matches.
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid #10b981; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 40px;">💎</span>
+
+                </div>
+
+                
+
+                <h3 style="color: #0f172a; margin-top: 0; font-size: 24px; font-weight: 900; text-align: center;">Welcome to Premium, {recipient_name}!</h3>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6; text-align: center;">
+
+                    Your account has been successfully upgraded. You now have unrestricted access to all features.
+
+                </p>
+
+                
+
+                <ul style="color: #4A0008; font-size: 15px; line-height: 1.8; background: #f0fdf4; padding: 20px 20px 20px 40px; border-radius: 12px; border: 1px solid #bbf7d0;">
+
+                    <li><strong>Unlimited Swiping</strong> (Find your perfect match)</li>
+
+                    <li><strong>Live Voice & Video Calls</strong> (Connect instantly)</li>
+
+                    <li><strong>AI Wingman</strong> (Never run out of things to say)</li>
+
+                    <li><strong>Book Real Dates</strong> (Exclusive restaurant reservations)</li>
+
+                </ul>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_sos_admin_alert(user_name, user_id, user_phone, latitude, longitude, latest_date_info, alert_id):
+
+    """Sends an high-priority emergency alert email to the super admin."""
+
+    recipient_email = "delstarfordworks@gmail.com"
+
+    subject = f"🚨 URGENT: SOS EMERGENCY ALERT - {user_name}"
+
+    
+
+    # Standalone Alert Page Link
+
+    # Note: Replace with actual domain in production
+
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com")
+
+    alert_page_url = f"{base_url}/emergency/{alert_id}"
+
+    
+
+    map_link = f"https://www.google.com/maps?q={latitude},{longitude}" if latitude else "Location not shared"
+
+    
+
+    date_context = "No recent verified dates found."
+
+    if latest_date_info:
+
+        date_context = f"Latest Verified Date: {latest_date_info['partner_name']} at {latest_date_info['venue_name']} (Scanned at: {latest_date_info['scan_time']})"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        🚨 EMERGENCY SOS ALERT 🚨
+
+        
+
+        User: {user_name} (ID: {user_id})
+
+        Phone: {user_phone}
+
+        
+
+        LIVE MONITORING PAGE: {alert_page_url}
+
+        
+
+        Location: {map_link}
+
+        
+
+        Date Context:
+
+        {date_context}
+
+        
+
+        IMMEDIATE ACTION REQUIRED.
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <body style="margin: 0; padding: 20px; background-color: #720000; font-family: sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; border: 5px solid #E60026;">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="background: #E60026; padding: 30px; text-align: center; color: white;">
+
+                    <h1 style="margin: 0; font-size: 32px; letter-spacing: 2px;">🚨 SOS ALERT 🚨</h1>
+
+                </div>
+
+                <div style="padding: 30px;">
+
+                    <h2 style="color: #111; margin-top: 0;">{user_name} is in danger!</h2>
+
+                    
+
+                    <div style="text-align: center; margin: 20px 0;">
+
+                        <a href="{alert_page_url}" style="background: #E60026; color: white; padding: 18px 30px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 18px; display: inline-block; box-shadow: 0 10px 30px rgba(230,0,38,0.4);">
+
+                            🔍 VIEW LIVE MONITORING PAGE
+
+                        </a>
+
+                    </div>
+
+
+
+                    <p style="font-size: 16px; color: #333;"><strong>Student ID:</strong> {user_id}</p>
+
+                    <p style="font-size: 16px; color: #333;"><strong>Phone:</strong> <a href="tel:{user_phone}">+{user_phone}</a></p>
+
+                    
+
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid #ddd;">
+
+                        <h4 style="margin: 0 0 10px; color: #E60026; text-transform: uppercase;">Real-Time Location</h4>
+
+                        <p style="margin: 0 0 15px; font-weight: bold;">{map_link}</p>
+
+                        <a href="{map_link}" style="background: #111; color: white; padding: 12px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Open in Google Maps</a>
+
+                    </div>
+
+
+
+                    <div style="background: #FFF5F6; padding: 20px; border-radius: 12px; border-left: 5px solid #E60026;">
+
+                        <h4 style="margin: 0 0 10px; color: #720000;">Dating History Context</h4>
+
+                        <p style="margin: 0; color: #4A0008; font-size: 15px; line-height: 1.5;">
+
+                            {date_context}
+
+                        </p>
+
+                    </div>
+
+
+
+                    <p style="color: #888; font-size: 12px; margin-top: 30px; text-align: center; font-weight: bold;">
+
+                        This alert was triggered via the FIND YOUR MATCH Emergency SOS system.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM EMERGENCY BROADCAST")
+
+
+
+
+
+def send_admin_alert_email(recipient_email, recipient_name, action_type, reason):
+
+    """Sends moderation emails (Warnings or Account Bans) from the Admin Dashboard."""
+
+    
+
+    if action_type == 'ban':
+
+        subject = "🚫 Account Terminated: Violation of Terms"
+
+        header_color = "#ef4444" # Red
+
+        title = "Account Terminated"
+
+        message = f"Your account has been permanently removed from the platform for the following reason:<br><br><strong>{reason}</strong>"
+
+    else:
+
+        subject = "⚠️ Official Warning from FYM Moderation"
+
+        header_color = "#f59e0b" # Yellow
+
+        title = "Official Warning"
+
+        message = f"Your account has been flagged by our AI moderation system for the following reason:<br><br><strong>{reason}</strong><br><br>Please ensure your behavior aligns with our community guidelines to avoid a permanent ban."
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+        
+
+        {title}
+
+        Reason: {reason}
+
+        
+
+        - FYM Trust & Safety Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 16px; border-top: 6px solid {header_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                
+
+                <h3 style="color: {header_color}; margin-top: 0; font-size: 20px; font-weight: 900;">{title}</h3>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6; background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid {header_color};">
+
+                    {message}
+
+                </p>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+
+                    This is an automated message. <br>
+
+                    <strong>FYM Trust & Safety Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+     """)
+
+ 
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_monday_matches_email(recipient_email, recipient_name, perfect_matches):
+
+    """
+
+    Sends the weekly Monday Perfect Matches recommendation email containing contact details,
+
+    compatibility, university bio, and direct profile view links of top opposite-sex matches.
+
+    """
+
+    subject = "💌 Monday Love Sheet: Your Perfect Matches & Contact Details!"
+
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+
+    
+
+    # 1. Build Matches HTML blocks with view profile CTA button
+
+    matches_html = ""
+
+    for m in perfect_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_html += f"""
+
+        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
+
+            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
+
+            
+
+            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
+
+                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
+
+                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
+
+                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
+
+            </div>
+
+            
+
+            <div style="text-align: center;">
+
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+
+                    👤 Click to View Profile
+
+                </a>
+
+            </div>
+
+        </div>
+
+        """
+
+
+
+    # 2. Build plain text fallback
+
+    matches_text = ""
+
+    for m in perfect_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+        
+
+        It's Monday! The FYM perfect matchmaking algorithm has compiled your compatibility reports.
+
+        Below are your top perfect matches on campus along with their contact details. Click the links below to view their profiles:
+
+        
+
+        {matches_text}
+
+        
+
+        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
+
+        
+
+        Have fun!
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 45px;">💌</span>
+
+                </div>
+
+                
+
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Monday Love Match Sheet!</h2>
+
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+
+                    Hello <strong>{recipient_name}</strong>, it is Monday! To help you secure a date this week, the FYM algorithm has retrieved your top opposite-sex perfect matches (>80% compatibility) with their contact cards. Click to view their profiles!
+
+                </p>
+
+                
+
+                <!-- === PERFECT MATCHES CARDS === -->
+
+                {matches_html}
+
+                
+
+                <!-- === SAFETY NOTICE === -->
+
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+
+                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    Have an amazing week! <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_friday_matches_email(recipient_email, recipient_name, perfect_matches):
+
+    """
+
+    Sends the weekly Friday Perfect Matches recommendation email containing contact details,
+
+    compatibility, university bio, and direct profile view links of top 50 opposite-sex matches.
+
+    """
+
+    subject = "💌 Friday Perfect Matches: Your Weekend Matchmaking Sheet!"
+
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+
+    
+
+    # 1. Build Matches HTML blocks with view profile CTA button
+
+    matches_html = ""
+
+    for m in perfect_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_html += f"""
+
+        <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(230,0,38,0.02);">
+
+            <h3 style="color: #720000; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+
+            <p style="margin: 0 0 10px 0; font-size: 13px; font-weight: 700; color: #E60026; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #555; font-style: italic; line-height: 1.5;">"{m['bio']}"</p>
+
+            
+
+            <div style="background: white; border-radius: 12px; padding: 15px; border: 1px dashed #FFD6DD; font-size: 13px; color: #333; margin-bottom: 15px;">
+
+                <p style="margin: 4px 0; font-size: 14px;"><strong>📞 Phone Number:</strong> <a href="tel:{m['phone']}" style="color: #E60026; text-decoration: none; font-weight: 900;">+{m['phone']}</a></p>
+
+                <p style="margin: 4px 0; font-size: 14px;"><strong>✉️ Email Address:</strong> <a href="mailto:{m['email']}" style="color: #E60026; text-decoration: none; font-weight: 900;">{m['email']}</a></p>
+
+                <p style="margin: 8px 0 0 0; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">🪐 Zodiac: <strong>{m.get('zodiac', 'Not specified')}</strong> | 🌌 MBTI: <strong>{m.get('mbti', 'Not specified')}</strong></p>
+
+            </div>
+
+            
+
+            <div style="text-align: center;">
+
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: 900; font-size: 13px; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+
+                    👤 Click to View Profile
+
+                </a>
+
+            </div>
+
+        </div>
+
+        """
+
+
+
+    # 2. Build plain text fallback
+
+    matches_text = ""
+
+    for m in perfect_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_text += f"- {m['name']} ({m['compatibility']}%): study {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. Bio: {m['bio']}. View: {profile_url}\n\n"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+        
+
+        It's Friday! The FYM weekend matchmaker has compiled your compatibility reports.
+
+        Below are your top 50 perfect matches (>80% compatibility) on campus with contact details. Make your move before Lights Out!
+
+        
+
+        {matches_text}
+
+        
+
+        Safety Reminder: Always meet your matches in well-lit, public university hotspots (like the library foyer or student union square).
+
+        
+
+        Have fun!
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 45px;">💖</span>
+
+                </div>
+
+                
+
+                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Friday Perfect Match Sheet!</h2>
+
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+
+                    Hello <strong>{recipient_name}</strong>, it is Friday! To prepare you for the weekend, the FYM algorithm has scanned the network and compiled your top 50 opposite-sex perfect matches (>80% compatibility) with contact cards. Make your move before the Friday Lights Out lobby opens!
+
+                </p>
+
+                
+
+                <!-- === PERFECT MATCHES CARDS === -->
+
+                {matches_html}
+
+                
+
+                <!-- === SAFETY NOTICE === -->
+
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+
+                    🛡️ <strong>Safety Coordinator Advisory:</strong> To keep MMUST and partner campus students secure, we strongly advise meeting for dates only in verified public venues (e.g. library courtyards, college cafeterias, or partner cafes listed in Date Spots).
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    Have an amazing weekend! <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_spotify_playlist_email(recipient_email, recipient_name, sender_name, playlist_url):
+
+    """
+
+    Dispatches a flirty retro mixtape cassette email when a user shares their Spotify playlist with a partner.
+
+    """
+
+    subject = f"🎵 {sender_name} sent you a romantic Spotify Playlist Mixtape!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+        
+
+        {sender_name} has shared a flirty dating mixtape playlist with you on Spotify!
+
+        Listen to it here: {playlist_url}
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #1DB954; box-shadow: 0 15px 35px rgba(0,0,0,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 45px;">🎵</span>
+
+                </div>
+
+                
+
+                <h2 style="color: #1DB95Green; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px; color: #1DB954;">Spotify Mixtape Shared!</h2>
+
+                
+
+                <div style="background: #191414; color: white; border-radius: 20px; padding: 30px 20px; text-align: center; position: relative; border: 4px solid #1DB954; margin: 25px 0; box-shadow: 0 8px 25px rgba(29,185,84,0.15);">
+
+                    <div style="width: 120px; height: 10px; background: #333; margin: 0 auto 20px auto; border-radius: 10px;"></div>
+
+                    <div style="font-size: 13px; font-weight: 900; color: #1DB954; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px;">Retro Cassette Mixtape</div>
+
+                    <div style="font-size: 20px; font-weight: 950; color: #fff; margin-bottom: 25px;">⚡ {sender_name}'s Flirty Anthems</div>
+
+                    
+
+                    <a href="{playlist_url}" target="_blank" style="background: #1DB954; color: black; padding: 14px 28px; text-decoration: none; border-radius: 50px; font-weight: 950; font-size: 15px; display: inline-block; box-shadow: 0 4px 15px rgba(29,185,84,0.4);">
+
+                        ▶️ Play Mix on Spotify
+
+                    </a>
+
+                </div>
+
+                
+
+                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
+
+                    Hello <strong>{recipient_name}</strong>, music is the shortcut to connection! Your match <strong>{sender_name}</strong> wants to share their dating anthems with you. Click the green button above to connect and start listening together!
+
+                </p>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    Listen and enjoy! <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_meetup_request_email(recipient_email, recipient_name, sender_name):
+
+    """
+
+    Emails a target student notifying them that an opposite-gender classmate wishes to meet up geographically.
+
+    """
+
+    subject = f"📍 Flirty Alert: {sender_name} wants to meet up with you near campus!"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+        
+
+        Exciting news! {sender_name} is geographically close and wants to meet up with you!
+
+        Log in to your FIND YOUR MATCH dashboard to coordinate your meetup.
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 45px;">📍</span>
+
+                </div>
+
+                
+
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Geographic Meetup Requested!</h2>
+
+                
+
+                <p style="color: #333; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500;">
+
+                    Hello <strong>{recipient_name}</strong>, exciting news! Your match <strong>{sender_name}</strong> is geographically nearby and has sent a premium meetup request!
+
+                </p>
+
+                
+
+                <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin: 25px 0; text-align: center;">
+
+                    <p style="color: #E60026; font-size: 16px; font-weight: 900; margin-top: 0;">📍 {sender_name} is close by!</p>
+
+                    <p style="color: #4A0008; font-size: 14px; margin-bottom: 20px;">Do you want to meetup with them in a verified, public spot?</p>
+
+                    
+
+                    <a href="https://match-ai.onrender.com/dashboard" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block; box-shadow: 0 4px 12px rgba(230,0,38,0.25);">
+
+                        💖 Open Dashboard & Respond
+
+                    </a>
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    Safe dating is happy dating! <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_proximity_meetup_email(recipient_email, recipient_name, nearby_matches):
+
+    """
+
+    Sends the Proximity Proximity Meetup Reveal email containing the profiles and images
+
+    of opposite-sex Diamond users located within a 1 KM radius who agreed to meet.
+
+    """
+
+    subject = "🤝 Proximity Meetup Agreed! Nearby Match Profiles Revealed!"
+
+    base_url = os.getenv("BASE_URL", "https://match-ai.onrender.com").rstrip('/')
+
+    
+
+    # 1. Build Matches HTML blocks with view profile CTA button
+
+    matches_html = ""
+
+    for m in nearby_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_html += f"""
+
+        <div style="background: #FAF5FF; border: 1px solid #E9D5FF; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left; box-shadow: 0 4px 10px rgba(168,85,247,0.02); display: flex; align-items: center; gap: 20px;">
+
+            <img src="{m['img']}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #E9D5FF; flex-shrink: 0;" alt="{m['name']}">
+
+            <div>
+
+                <h3 style="color: #4b0082; margin: 0 0 5px 0; font-size: 18px; font-weight: 900;">🔥 {m['name']} ({m['compatibility']}% Compatibility)</h3>
+
+                <p style="margin: 0 0 5px 0; font-size: 13px; font-weight: 700; color: #a855f7; text-transform: uppercase;">🎓 {m['course']} at {m['institution']}</p>
+
+                <p style="margin: 0 0 10px 0; font-size: 13px; color: #666; font-style: italic;">"{m['bio']}"</p>
+
+                
+
+                <div style="background: white; border-radius: 10px; padding: 10px; border: 1px dashed #E9D5FF; font-size: 12px; color: #333; margin-bottom: 10px;">
+
+                    <p style="margin: 2px 0;"><strong>📞 Phone:</strong> <a href="tel:{m['phone']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">+{m['phone']}</a></p>
+
+                    <p style="margin: 2px 0;"><strong>✉️ Email:</strong> <a href="mailto:{m['email']}" style="color: #a855f7; text-decoration: none; font-weight: bold;">{m['email']}</a></p>
+
+                </div>
+
+                
+
+                <a href="{profile_url}" style="background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%); color: white; padding: 6px 14px; text-decoration: none; border-radius: 6px; font-weight: 900; font-size: 12px; display: inline-block; box-shadow: 0 2px 8px rgba(168,85,247,0.2);">
+
+                    👤 View Profile
+
+                </a>
+
+            </div>
+
+        </div>
+
+        """
+
+
+
+    # 2. Build plain text fallback
+
+    matches_text = ""
+
+    for m in nearby_matches:
+
+        profile_url = f"{base_url}/student/{m['id']}"
+
+        matches_text += f"- {m['name']} ({m['compatibility']}%): {m['course']} at {m['institution']}. Phone: +{m['phone']}, Email: {m['email']}. View: {profile_url}\n\n"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+        
+
+        Fantastic news! You and a nearby student have agreed to meet up and physically talk!
+
+        Below are the profiles and images of opposite-sex premium comrades detected within a 1 KM radius of your location:
+
+        
+
+        {matches_text}
+
+        
+
+        Enjoy your meetup! Meet in a safe, public campus spot.
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #a855f7; box-shadow: 0 15px 35px rgba(138,43,226,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+
+                    <span style="font-size: 45px;">🤝</span>
+
+                </div>
+
+                
+
+                <h2 style="color: #4b0082; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Meetup Confirmed! 📍</h2>
+
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+
+                    Hello <strong>{recipient_name}</strong>! You and a nearby premium comrade have both clicked **Yes** to meet up and physically talk! 
+
+                    As promised, here are the profiles and pictures of active matches detected within a **1 KM radius** of your coordinates:
+
+                </p>
+
+                
+
+                <!-- === MATCHES CARDS === -->
+
+                {matches_html}
+
+                
+
+                <!-- === SAFETY NOTICE === -->
+
+                <div style="background: #FFFbeb; border: 1px solid #fef3c7; border-radius: 16px; padding: 15px; margin-top: 30px; font-size: 13px; color: #b45309; line-height: 1.5;">
+
+                    🛡️ <strong>Safety Advisory:</strong> Meet for physical talks strictly in well-populated campus spots (e.g. Student Union, university Library, CBD Partner Cafes). Stay safe and enjoy your conversation!
+
+                </div>
+
+                
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    Have a wonderful conversation! <br>
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_male_campaign_email(recipient_email, recipient_name):
+
+    """
+
+    Sends the September 2025 online community campaign invitation email to male users.
+
+    Informs them about the Google Meet event and asks them to RSVP by replying.
+
+    """
+
+    subject = "🔥 You're Invited: Find Your Match Online Community Campaign!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+
+
+        Big News from the Find Your Match Community! 🎉
+
+
+
+        We are excited to announce an exclusive online community campaign — a special virtual
+
+        event where members of the Find Your Match family will come together to connect,
+
+        interact, and get to know each other in a whole new way!
+
+
+
+        This is your moment to be part of something truly special. Whether you're looking to
+
+        make new friends, meaningful connections, or find your perfect match — this event was
+
+        made for you.
+
+
+
+        📅 EVENT DETAILS:
+
+        ─────────────────────────────────
+
+        📆 Date    : Sunday, 7th September 2025
+
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+
+        💻 Platform: Google Meet
+
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+        ─────────────────────────────────
+
+
+
+        👉 ACTION REQUIRED:
+
+        Please reply to this email to confirm whether you will be attending.
+
+        Your RSVP helps us prepare adequately and ensures your spot is reserved!
+
+
+
+        We look forward to seeing you online. Let's make great connections together! 💪
+
+
+
+        Warm regards,
+
+        The {SENDER_NAME_DEFAULT} Team 💌
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
+
+                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
+
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+
+                        FYM Online Community Campaign
+
+                    </h1>
+
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
+
+                        You're officially invited! 🎉
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 40px 35px;">
+
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+
+                    </p>
+
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+
+                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
+
+                    </p>
+
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+
+                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
+
+                    </p>
+
+
+
+                    <!-- EVENT DETAILS BOX -->
+
+                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
+
+                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
+
+                        <table style="width: 100%; border-collapse: collapse;">
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
+
+                            </tr>
+
+                        </table>
+
+                        <!-- JOIN BUTTON -->
+
+                        <div style="text-align: center; margin-top: 22px;">
+
+                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
+
+                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
+
+                                🔗 Click to Join Google Meet
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- RSVP NOTICE -->
+
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
+
+                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
+
+                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
+
+                        </p>
+
+                    </div>
+
+
+
+                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
+
+                        We look forward to seeing you online.<br>Let's make great connections together! 💪
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+
+                        FIND YOUR MATCH AI — Powered Dating
+
+                    </p>
+
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_female_promo_campaign_email(recipient_email, recipient_name):
+
+    """
+
+    Sep 2026 Female Free Access Promo campaign email.
+
+    Informs female users of:
+
+      1. 1 month free access (already-registered) / 2 months free (new)
+
+      2. New features: opposite-gender filtering on dashboard & talk
+
+      3. Referral CTA - invite friends to Find Your Match
+
+    """
+
+    first_name = (recipient_name or 'there').split(' ')[0].strip()
+
+    referral_link = f"https://findyourmatch.co.ke/signup"
+
+    dashboard_link = "https://findyourmatch.co.ke/dashboard"
+
+
+
+    subject = f"🎉 {first_name}, You Have FREE Premium Access! + Exciting New Updates!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {first_name},
+
+
+
+        Great news from the Find Your Match community!
+
+
+
+        ─────────────────────────────────────────────────
+
+        🎁 GIFT #1: YOU HAVE FREE PREMIUM ACCESS!
+
+        ─────────────────────────────────────────────────
+
+        As a valued female member of our community, we have
+
+        activated FREE Premium access on your account!
+
+
+
+          ✅ Already registered? You get 1 MONTH FREE (until Oct 23, 2026)
+
+          ✅ Newly joining?     You get 2 MONTHS FREE when you verify your email!
+
+
+
+        This offer is only available until October 23, 2026.
+
+        Log in now and enjoy full premium features for free:
+
+        {dashboard_link}
+
+
+
+        ─────────────────────────────────────────────────
+
+        ✨ NEW UPDATE #2: SEE ONLY YOUR PERFECT MATCHES!
+
+        ─────────────────────────────────────────────────
+
+        We've improved how matches work on our platform:
+
+
+
+          👩‍❤️‍👨 Dashboard  - Now shows ONLY male matches for you
+
+          📞 Live Talk    - Directory now shows ONLY males online
+
+          📱 Scroll Cards - Fixed to scroll smoothly on mobile
+
+
+
+        Your experience just got a major upgrade!
+
+
+
+        ─────────────────────────────────────────────────
+
+        💖 INVITE YOUR FRIENDS & GROW THE COMMUNITY!
+
+        ─────────────────────────────────────────────────
+
+        Do you have friends who are still single and looking?
+
+        Share Find Your Match with them! Any female friend who
+
+        signs up before October 23, 2026 also gets FREE access!
+
+
+
+        Share this link:
+
+        {referral_link}
+
+
+
+        The more, the merrier — let’s build the biggest campus
+
+        dating community in Kenya together! 🇰🇳
+
+
+
+        With love,
+
+        The Find Your Match Team 💌
+
+        findyourmatch.co.ke
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html lang="en">
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>You Have Free Premium Access!</title>
+
+        </head>
+
+        <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+            <div style="max-width:600px;margin:30px auto;background:white;border-radius:24px;overflow:hidden;box-shadow:0 15px 50px rgba(114,0,0,0.12);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+
+
+                <!-- ===== HEADER ===== -->
+
+                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 60%,#ff6b9d 100%);padding:50px 30px 40px;text-align:center;">
+
+                    <div style="font-size:60px;margin-bottom:12px;line-height:1;">&#x1F381;</div>
+
+                    <h1 style="color:white;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.3;">
+
+                        You Have FREE Premium Access!
+
+                    </h1>
+
+                    <p style="color:rgba(255,255,255,0.9);margin:0;font-size:16px;font-weight:500;">
+
+                        Plus exciting new updates just for you &#x1F31F;
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- ===== GREETING ===== -->
+
+                <div style="padding:35px 35px 0;">
+
+                    <p style="font-size:17px;color:#333;line-height:1.7;margin:0 0 6px;">
+
+                        Hello <strong style="color:#720000;">{first_name}</strong>,
+
+                    </p>
+
+                    <p style="font-size:15px;color:#555;line-height:1.7;margin:0 0 30px;">
+
+                        We have some amazing news for you from the <strong>Find Your Match</strong> community!
+
+                        Read everything below &#x2014; there are 3 big updates just for you.
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- ===== SECTION 1: FREE ACCESS ===== -->
+
+                <div style="margin:0 25px 25px;background:linear-gradient(135deg,#FEF2F4,#fff);border:2px solid #E60026;border-radius:20px;padding:28px 28px;">
+
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+
+                        <span style="font-size:36px;">&#x1F381;</span>
+
+                        <h2 style="margin:0;color:#720000;font-size:20px;font-weight:900;">Gift #1: FREE Premium Access!</h2>
+
+                    </div>
+
+                    <p style="margin:0 0 18px;color:#444;font-size:15px;line-height:1.7;">
+
+                        As a valued female member of our community, we've activated
+
+                        <strong>FREE Premium</strong> on your account as a special thank-you gift!
+
+                    </p>
+
+                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #FFD6DD;margin-bottom:20px;">
+
+                        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;">
+
+                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
+
+                            <div>
+
+                                <strong style="color:#720000;font-size:15px;display:block;">Already Registered?</strong>
+
+                                <span style="color:#555;font-size:14px;">1 MONTH FREE &#x2014; valid until <strong>October 23, 2026</strong></span>
+
+                            </div>
+
+                        </div>
+
+                        <div style="display:flex;align-items:flex-start;gap:12px;">
+
+                            <span style="font-size:22px;line-height:1;">&#x2705;</span>
+
+                            <div>
+
+                                <strong style="color:#720000;font-size:15px;display:block;">Friends Joining Now?</strong>
+
+                                <span style="color:#555;font-size:14px;">2 MONTHS FREE when they verify their email before Oct 23!</span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div style="text-align:center;">
+
+                        <a href="{dashboard_link}" style="background:linear-gradient(135deg,#E60026 0%,#720000 100%);color:white;padding:15px 36px;text-decoration:none;border-radius:50px;font-weight:900;font-size:16px;display:inline-block;box-shadow:0 8px 25px rgba(230,0,38,0.35);letter-spacing:0.3px;">
+
+                            &#x1F680; Go to My Dashboard
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ===== SECTION 2: NEW FEATURES ===== -->
+
+                <div style="margin:0 25px 25px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:20px;padding:28px;">
+
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+
+                        <span style="font-size:36px;">&#x2728;</span>
+
+                        <h2 style="margin:0;color:#0369a1;font-size:20px;font-weight:900;">Update #2: New Features!</h2>
+
+                    </div>
+
+                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">We've made big improvements to your experience on <strong>findyourmatch.co.ke</strong>:</p>
+
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F469;&#x200D;&#x2764;&#xFE0F;&#x200D;&#x1F468;</span>
+
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Dashboard &#x2014; Opposite Matches Only</strong><span style="color:#555;font-size:13px;">Your home feed now shows only male profiles &#x2014; no more confusion!</span></div>
+
+                        </div>
+
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4DE;</span>
+
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Live Talk &#x2014; Males Only Visible</strong><span style="color:#555;font-size:13px;">The live directory now shows only males who are online right now.</span></div>
+
+                        </div>
+
+                        <div style="background:white;border-radius:12px;padding:14px 16px;border:1px solid #e0f2fe;display:flex;gap:14px;align-items:flex-start;">
+
+                            <span style="font-size:26px;line-height:1;flex-shrink:0;">&#x1F4F1;</span>
+
+                            <div><strong style="color:#0369a1;display:block;font-size:14px;">Smooth Mobile Scrolling</strong><span style="color:#555;font-size:13px;">Profile cards now scroll perfectly on your phone &#x2014; swipe to discover more!</span></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ===== SECTION 3: REFERRAL ===== -->
+
+                <div style="margin:0 25px 30px;background:linear-gradient(135deg,#fdf4ff,#fce7f3);border:2px solid #e879f9;border-radius:20px;padding:28px;">
+
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+
+                        <span style="font-size:36px;">&#x1F496;</span>
+
+                        <h2 style="margin:0;color:#7e22ce;font-size:20px;font-weight:900;">Update #3: Invite Your Friends!</h2>
+
+                    </div>
+
+                    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.7;">
+
+                        Do you have friends who are single and looking for meaningful connections?
+
+                        <strong>Share Find Your Match with them</strong> today!
+
+                    </p>
+
+                    <div style="background:white;border-radius:14px;padding:18px 20px;border:1px solid #f0abfc;margin-bottom:20px;">
+
+                        <p style="margin:0 0 10px;color:#7e22ce;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;">&#x1F4E3; Share This Link</p>
+
+                        <p style="margin:0;font-size:14px;color:#555;line-height:1.6;">
+
+                            Any female friend who signs up before <strong>October 23, 2026</strong> automatically gets <strong>2 months FREE Premium</strong> &#x2014; no payment needed!
+
+                        </p>
+
+                        <div style="background:#fdf4ff;border-radius:10px;padding:12px 16px;margin-top:14px;word-break:break-all;">
+
+                            <code style="color:#7e22ce;font-size:14px;font-weight:700;">{referral_link}</code>
+
+                        </div>
+
+                    </div>
+
+                    <div style="text-align:center;">
+
+                        <a href="{referral_link}" style="background:linear-gradient(135deg,#a855f7 0%,#7e22ce 100%);color:white;padding:14px 32px;text-decoration:none;border-radius:50px;font-weight:900;font-size:15px;display:inline-block;box-shadow:0 6px 20px rgba(168,85,247,0.4);">
+
+                            &#x1F4F2; Share Find Your Match
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ===== OFFER DEADLINE NOTICE ===== -->
+
+                <div style="margin:0 25px 30px;background:#fffbeb;border:1px solid #fef3c7;border-left:5px solid #f59e0b;border-radius:14px;padding:18px 20px;">
+
+                    <p style="margin:0;color:#92400e;font-size:14px;line-height:1.6;">
+
+                        <strong>&#x23F0; Offer Deadline:</strong> The free access promotion ends on
+
+                        <strong>October 23, 2026</strong>. After that, normal pricing applies.
+
+                        Log in and use your free access before it expires!
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- ===== FOOTER ===== -->
+
+                <div style="background:#fafafa;padding:28px 30px;text-align:center;border-top:1px solid #eee;">
+
+                    <p style="margin:0 0 8px;font-size:13px;font-weight:900;color:#720000;letter-spacing:0.5px;">&#x1F496; FIND YOUR MATCH</p>
+
+                    <p style="margin:0 0 6px;font-size:12px;color:#aaa;">findyourmatch.co.ke &mdash; Kenya's Campus Dating Community</p>
+
+                    <p style="margin:0;font-size:11px;color:#ccc;">&copy; {datetime.now().year} Find Your Match. All rights reserved.</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+
+
+        Exciting Updates from the Find Your Match Team! 🌟
+
+        Please read through carefully — there are 3 important things for you!
+
+
+
+        ─────────────────────────────────────────────────
+
+        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
+
+        ─────────────────────────────────────────────────
+
+        We are hosting an exclusive online community campaign — a special virtual event
+
+        where the entire Find Your Match family will come together to connect, interact,
+
+        and get to know each other like never before!
+
+
+
+        📅 EVENT DETAILS:
+
+        📆 Date    : Sunday, 7th September 2025
+
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+
+        💻 Platform: Google Meet
+
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+
+
+        👉 Please reply to this email to confirm your attendance!
+
+
+
+        ─────────────────────────────────────────────────
+
+        📝 PART 2: UPDATE YOUR PROFILE
+
+        ─────────────────────────────────────────────────
+
+        We are raising the bar on profile quality! Kindly go to your Profile Section
+
+        and make sure the following are updated:
+
+          ✅ Profile Photo  — Upload a clear, recent photo of yourself
+
+          ✅ Phone Number   — Ensure your phone number is correctly added
+
+
+
+        A complete profile puts you front and centre for the best matches!
+
+
+
+        ─────────────────────────────────────────────────
+
+        💼 PART 3: EXCITING WORK OPPORTUNITY!
+
+        ─────────────────────────────────────────────────
+
+        We are looking for confident and enthusiastic ladies in our community who are
+
+        ready to be part of the Find Your Match team in an exciting upcoming role!
+
+
+
+        If you are ready and interested, simply reply to this email with:
+
+                        READY TO WORK
+
+        ...and our team will reach out with all the details.
+
+
+
+        ─────────────────────────────────────────────────
+
+
+
+        Thank you for being a valued part of our community. We can't wait to see you
+
+        at the event and hear from you! 💪
+
+
+
+        With love,
+
+        The {SENDER_NAME_DEFAULT} Team 💌
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
+
+                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
+
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+
+                        Important Updates Just For You!
+
+                    </h1>
+
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
+
+                        3 exciting things inside — please read carefully 🌟
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+        Big News from the Find Your Match Community! 🎉
+
+
+
+        We are excited to announce an exclusive online community campaign — a special virtual
+
+        event where members of the Find Your Match family will come together to connect,
+
+        interact, and get to know each other in a whole new way!
+
+
+
+        This is your moment to be part of something truly special. Whether you're looking to
+
+        make new friends, meaningful connections, or find your perfect match — this event was
+
+        made for you.
+
+
+
+        📅 EVENT DETAILS:
+
+        ─────────────────────────────────
+
+        📆 Date    : Sunday, 7th September 2025
+
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+
+        💻 Platform: Google Meet
+
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+        ─────────────────────────────────
+
+
+
+        👉 ACTION REQUIRED:
+
+        Please reply to this email to confirm whether you will be attending.
+
+        Your RSVP helps us prepare adequately and ensures your spot is reserved!
+
+
+
+        We look forward to seeing you online. Let's make great connections together! 💪
+
+
+
+        Warm regards,
+
+        The {SENDER_NAME_DEFAULT} Team 💌
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 100%); padding: 50px 30px; text-align: center;">
+
+                    <div style="font-size: 52px; margin-bottom: 15px;">🔥</div>
+
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+
+                        FYM Online Community Campaign
+
+                    </h1>
+
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 16px; font-weight: 500;">
+
+                        You're officially invited! 🎉
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 40px 35px;">
+
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+
+                    </p>
+
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+
+                        We are thrilled to announce an exclusive <strong>online community campaign</strong> — a special virtual event where the entire Find Your Match family will come together to <strong>connect, interact, and get to know each other</strong> in a whole new way!
+
+                    </p>
+
+                    <p style="font-size: 16px; color: #555; line-height: 1.7;">
+
+                        Whether you're looking to make new friends, meaningful connections, or find your perfect match — <strong>this event was made for you.</strong>
+
+                    </p>
+
+
+
+                    <!-- EVENT DETAILS BOX -->
+
+                    <div style="background: #FEF2F4; border: 1px solid #FFD6DD; border-radius: 16px; padding: 28px 30px; margin: 30px 0;">
+
+                        <h3 style="color: #720000; margin: 0 0 18px 0; font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;">📅 Event Details</h3>
+
+                        <table style="width: 100%; border-collapse: collapse;">
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700; width: 120px;">📆 Date</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Sunday, 7th September 2025</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">🕘 Time</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">9:00 PM EAT (East Africa Time)</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #4A0008; font-size: 15px; font-weight: 700;">💻 Platform</td>
+
+                                <td style="padding: 8px 0; color: #333; font-size: 15px;">Google Meet</td>
+
+                            </tr>
+
+                        </table>
+
+                        <!-- JOIN BUTTON -->
+
+                        <div style="text-align: center; margin-top: 22px;">
+
+                            <a href="https://meet.google.com/rgc-cjov-jda" target="_blank"
+
+                               style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 50px; font-weight: 900; font-size: 16px; display: inline-block; box-shadow: 0 6px 20px rgba(230,0,38,0.35); letter-spacing: 0.3px;">
+
+                                🔗 Click to Join Google Meet
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- RSVP NOTICE -->
+
+                    <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #f59e0b; border-radius: 12px; padding: 18px 20px; margin: 25px 0;">
+
+                        <p style="margin: 0; color: #92400e; font-size: 15px; line-height: 1.6;">
+
+                            <strong>👉 ACTION REQUIRED:</strong> Please <strong>reply to this email</strong> to confirm whether you will be attending the event. Your RSVP helps us prepare and reserve your spot!
+
+                        </p>
+
+                    </div>
+
+
+
+                    <p style="color: #555; font-size: 15px; line-height: 1.7; text-align: center; margin-top: 30px;">
+
+                        We look forward to seeing you online.<br>Let's make great connections together! 💪
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #fafafa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #aaa; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+
+                        FIND YOUR MATCH AI — Powered Dating
+
+                    </p>
+
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">
+
+                        &copy; {datetime.now().year} Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_female_campaign_email(recipient_email, recipient_name):
+
+    """
+
+    Sends the September 2025 online community campaign email to female users.
+
+    Includes the Google Meet event invite, profile update request, and work opportunity notice.
+
+    """
+
+    subject = "💌 You're Invited: FYM Online Campaign + Important Update & Opportunity!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+
+
+        Exciting Updates from the Find Your Match Team! 🌟
+
+        Please read through carefully — there are 3 important things for you!
+
+
+
+        ─────────────────────────────────────────────────
+
+        🎉 PART 1: JOIN OUR ONLINE COMMUNITY CAMPAIGN!
+
+        ─────────────────────────────────────────────────
+
+        We are hosting an exclusive online community campaign — a special virtual event
+
+        where the entire Find Your Match family will come together to connect, interact,
+
+        and get to know each other like never before!
+
+
+
+        📅 EVENT DETAILS:
+
+        📆 Date    : Sunday, 7th September 2025
+
+        🕘 Time    : 9:00 PM EAT (East Africa Time)
+
+        💻 Platform: Google Meet
+
+        🔗 Link    : https://meet.google.com/rgc-cjov-jda
+
+
+
+        👉 Please reply to this email to confirm your attendance!
+
+
+
+        ─────────────────────────────────────────────────
+
+        📝 PART 2: UPDATE YOUR PROFILE
+
+        ─────────────────────────────────────────────────
+
+        We are raising the bar on profile quality! Kindly go to your Profile Section
+
+        and make sure the following are updated:
+
+          ✅ Profile Photo  — Upload a clear, recent photo of yourself
+
+          ✅ Phone Number   — Ensure your phone number is correctly added
+
+
+
+        A complete profile puts you front and centre for the best matches!
+
+
+
+        ─────────────────────────────────────────────────
+
+        💼 PART 3: EXCITING WORK OPPORTUNITY!
+
+        ─────────────────────────────────────────────────
+
+        We are looking for confident and enthusiastic ladies in our community who are
+
+        ready to be part of the Find Your Match team in an exciting upcoming role!
+
+
+
+        If you are ready and interested, simply reply to this email with:
+
+                        READY TO WORK
+
+        ...and our team will reach out with all the details.
+
+
+
+        ─────────────────────────────────────────────────
+
+
+
+        Thank you for being a valued part of our community. We can't wait to see you
+
+        at the event and hear from you! 💪
+
+
+
+        With love,
+
+        The {SENDER_NAME_DEFAULT} Team 💌
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 15px 40px rgba(114,0,0,0.10);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #720000 0%, #E60026 50%, #ff6b9d 100%); padding: 50px 30px; text-align: center;">
+
+                    <div style="font-size: 52px; margin-bottom: 15px;">💌</div>
+
+                    <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.3;">
+
+                        Important Updates Just For You!
+
+                    </h1>
+
+                    <p style="color: rgba(255,255,255,0.85); margin: 12px 0 0; font-size: 15px; font-weight: 500;">
+
+                        3 exciting things inside — please read carefully 🌟
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 40px 35px;">
+
+                    <p style="font-size: 17px; color: #333; line-height: 1.7; margin-top: 0;">
+
+                        Hello <strong style="color: #720000;">{recipient_name}</strong>,
+
+                    </p>
+
+                    <p style="font-size: 15px; color: #555; line-height: 1.7; margin-bottom: 30px;">
+
+                        We have some amazing news and important requests for you. Please read through all three sections below!
+
+                    </p>
+
+
+
+                    </p>
+
+                </div>
+
+                
+
+                <!-- FOOTER -->
+
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+
+                    <p style="margin: 0; font-size: 11px; color: #cbd5e1;">&copy; {datetime.now().year} Delstarford Works.</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+    
+
+    return _send_email(recipient_email, subject, body_html)
+
+
+
+
+
+def send_manager_welcome_email(recipient_email, recipient_name, institution, password):
+
+    """Sends a welcome email to a newly added Campus Manager."""
+
+    subject = "Welcome to the FIND YOUR MATCH Campus Manager Team! 🚀"
+
+    
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name},
+
+        
+
+        Welcome to the team! You have been added as a Campus Manager for {institution}.
+
+        
+
+        Here are your login credentials:
+
+        Email: {recipient_email}
+
+        Temporary Password: {password}
+
+        
+
+        Please log in to your Manager Dashboard and change your password immediately.
+
+        
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+    
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin: 0; padding: 20px; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 24px; border-top: 8px solid #E60026; box-shadow: 0 15px 35px rgba(114,0,0,0.06);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <h2 style="color: #720000; margin-top: 0; font-size: 26px; font-weight: 950; text-align: center; letter-spacing: -1px;">Welcome to the Team, {recipient_name}! 🚀</h2>
+
+                <p style="color: #555; font-size: 16px; line-height: 1.6; text-align: center; font-weight: 500; margin-bottom: 30px;">
+
+                    You have been officially added as a Campus Manager for <strong>{institution}</strong>!
+
+                </p>
+
+                <div style="background: #FFF5F6; border: 1px solid #FFD6DD; border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left;">
+
+                    <p style="margin: 4px 0; font-size: 15px;"><strong>Email:</strong> {recipient_email}</p>
+
+                    <p style="margin: 4px 0; font-size: 15px;"><strong>Temporary Password:</strong> {password}</p>
+
+                </div>
+
+                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center;">
+
+                    Please log in to your Manager Dashboard and change your password immediately for security.
+
+                </p>
+
+                <div style="text-align: center; margin-top: 20px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://match-ai.onrender.com')}/manager_portal" style="background: linear-gradient(135deg, #E60026 0%, #720000 100%); color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 900; display: inline-block;">
+
+                        Login to Dashboard
+
+                    </a>
+
+                </div>
+
+                <p style="color: #888; font-size: 14px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+
+                    <strong>The {SENDER_NAME_DEFAULT} Team</strong>
+
+                </p>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content)
+
+
+
+
+
+def send_survey_campaign_email(email, name):
+
+    """
+
+    Sends an email inviting users to participate in the feedback survey
+
+    in exchange for 1 week of free Premium access.
+
+    """
+
+    try:
+
+        first_name = name.split(' ')[0] if name else "there"
+
+        subject = "Help Us Improve & Get 1 Week of FREE Premium! 🎁"
+
+        
+
+        text_content = f"""
+
+        Hi {first_name},
+
+
+
+        We want to make Find Your Match better for you! 
+
+        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
+
+
+
+        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
+
+
+
+        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
+
+
+
+        Best,
+
+        The Find Your Match Team
+
+        """
+
+        
+
+        html_content = f"""
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
+
+                    <div style="font-size: 40px; margin-bottom: 10px;">&#x1F381;</div>
+
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
+
+                </div>
+
+                
+
+                <!-- BODY -->
+
+                <div style="padding: 40px 30px;">
+
+                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+
+                        We are constantly working to make Find Your Match better for our campus community, and we need your help!
+
+                    </p>
+
+                    
+
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+
+                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
+
+                    </p>
+
+                    
+
+                    <div style="text-align: center; margin-top: 20px;">
+
+                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+
+                            Take Survey &amp; Claim Reward
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+                
+
+                <!-- FOOTER -->
+
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH</p>
+
+                    <p style="margin: 0; font-size: 11px; color: #ccc;">findyourmatch.co.ke</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+        """
+
+        
+
+        return _send_email(email, subject, text_content, html_content)
+
+    except Exception as e:
+
+        logger.error(f"Failed to send survey campaign email to {email}: {e}")
+
+        return False
+
+
+
+        
+
+        text_content = f"""
+
+        Hi {first_name},
+
+
+
+        We want to make Find Your Match AI better for you! 
+
+        Take our quick 2-minute feedback survey and as a thank you, we'll give you 1 Week of FREE Premium access.
+
+
+
+        Complete the survey here: {os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey
+
+
+
+        Whether you want to suggest new features, report an issue, or just tell us what you love, we are listening.
+
+
+
+        Best,
+
+        The Find Your Match AI Team
+
+        """
+
+        
+
+        html_content = f"""
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+            <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #10b981 0%, #34d399 100%); padding: 30px; text-align: center;">
+
+                    <div style="font-size: 40px; margin-bottom: 10px;">🎁</div>
+
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">1 Week Free Premium!</h1>
+
+                </div>
+
+                
+
+                <!-- BODY -->
+
+                <div style="padding: 40px 30px;">
+
+                    <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+
+                        We are constantly working to make Find Your Match AI better for our campus community, and we need your help!
+
+                    </p>
+
+                    
+
+                    <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+
+                        Take our quick 2-minute feedback survey, and as a thank you, your account will instantly be credited with <strong>1 Week of FREE Premium access</strong> (or a 1-week extension if you're already subscribed).
+
+                    </p>
+
+                    
+
+                    <div style="text-align: center; margin-top: 20px;">
+
+                        <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/survey" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+
+                            Take Survey & Claim Reward
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+                
+
+                <!-- FOOTER -->
+
+                <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                    <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Live through Artificial Intelligence .</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+        """
+
+        
+
+        return _send_email(email, subject, text_content, html_content)
+
+    except Exception as e:
+
+        logger.error(f"Failed to send survey campaign email to {email}: {e}")
+
+        return False
+
+
+
+def send_manager_otp_email(recipient_email, otp_code):
+
+    """
+
+    Sends a formatted HTML verification email for manager login.
+
+    """
+
+    subject = "Campus Manager Portal - Login OTP"
+
+    headline = "Manager Portal Verification 🏢"
+
+    message = "Use the verification code below to access the campus manager portal. This code expires in 10 minutes."
+
+    
+
+    text_content = f"{headline}\n\n{message}\n\nYour code is: {otp_code}\n\nPlease do not share this code."
+
+    html_content = f"""
+
+    <html>
+
+    <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+
+        <div style="max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+            <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0;">
+
+                <h2 style="color: #333333; margin: 0;">{headline}</h2>
+
+            </div>
+
+            <div style="padding: 20px 0; color: #555555; line-height: 1.6; font-size: 16px;">
+
+                <p>{message}</p>
+
+                <div style="text-align: center; margin: 30px 0;">
+
+                    <span style="display: inline-block; padding: 15px 30px; font-size: 24px; font-weight: bold; color: #E60026; background-color: #FEF2F4; border-radius: 8px; letter-spacing: 5px;">
+
+                        {otp_code}
+
+                    </span>
+
+                </div>
+
+                <p style="font-size: 14px; color: #888888; text-align: center;">If you didn't request this code, please ignore this email.</p>
+
+            </div>
+
+        </div>
+
+    </body>
+
+    </html>
+
+    """
+
+    
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FYM Manager System")
+
+
+
+def send_apology_email(email, user_name=""):
+
+    """
+
+    Sends an apology email regarding the recent login system interruption.
+
+    """
+
+    subject = "Important Update: We've Fixed the Login Issue (And We Are Sorry!)"
+
+    
+
+    first_name = user_name.split()[0] if user_name else "there"
+
+    
+
+    text_content = f"""
+
+    Hi {first_name},
+
+
+
+    We are sincerely sorry for the inconvenience caused by the recent system login interruption. 
+
+    You are the boss, and you deserve a flawless experience. We want to assure you that such an interruption will never happen again.
+
+    
+
+    Our engineering team has completely resolved the issue. Please log in to your account and confirm that everything is working perfectly for you.
+
+    
+
+    If you ever experience any inconveniences in the future, please don't hesitate to send a support ticket. You are in control, and we are always here to serve you.
+
+    
+
+    We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you!
+
+    
+
+    Best regards,
+
+    The Find Your Match AI Team
+
+    """
+
+    
+
+    html_content = f"""
+
+    <!DOCTYPE html>
+
+    <html>
+
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+            <!-- HEADER -->
+
+            <div style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); padding: 30px; text-align: center;">
+
+                <div style="font-size: 40px; margin-bottom: 10px;">🙏</div>
+
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 900; letter-spacing: -0.5px;">We Are Sincerely Sorry</h1>
+
+            </div>
+
+            
+
+            <!-- BODY -->
+
+            <div style="padding: 40px 30px;">
+
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+
+                    We are deeply sorry for the inconvenience caused by the recent system login interruption. As a valued member, <strong>you are the boss</strong>, and you deserve a completely flawless experience. 
+
+                </p>
+
+                
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+
+                    We want to personally assure you that our engineering team has completely resolved this issue, and an interruption like this will <strong>never happen again</strong>.
+
+                </p>
+
+                
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+
+                    Please log in at your convenience to confirm that everything is working perfectly. If you ever experience any issues, please don't hesitate to open a support ticket. You are always in control, and we are here to serve you.
+
+                </p>
+
+                
+
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 30px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/login" style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(14, 165, 233, 0.4);">
+
+                        Log In Now
+
+                    </a>
+
+                </div>
+
+                
+
+                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777;">
+
+                    <p style="margin: 0; color: #9d174d; font-size: 15px; line-height: 1.5; font-weight: 600;">
+
+                        We wish you a very happy weekend and a beautiful relationship journey ahead. Your perfect matches are waiting for you! ❤️
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            
+
+            <!-- FOOTER -->
+
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
+
+            </div>
+
+        </div>
+
+    </body>
+
+    </html>
+
+    """
+
+    
+
+    try:
+
+        return _send_email(email, subject, text_content, html_content)
+
+    except Exception as e:
+
+        logger.error(f"Failed to send apology email to {email}: {e}")
+
+        return False
+
+
+
+def send_system_update_email(email, user_name=""):
+
+    """
+
+    Alerts users of the new Group Chat feature and apologizes for web application issues.
+
+    """
+
+    subject = "🚀 New Feature: Group Chats + Important System Update!"
+
+    
+
+    first_name = user_name.split()[0] if user_name else "there"
+
+    
+
+    text_content = f"""
+
+    Hi {first_name},
+
+
+
+    We have some exciting news! We've just added a brand-new Group Chat feature to the platform! 
+
+    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
+
+
+
+    Important Update:
+
+    We are aware of the recent problems with our web application. Please know that our engineering team is working around the clock to solve it, and the system will be fully up and running soon.
+
+
+
+    We sincerely appreciate your patience and promise you an amazing experience once everything is restored.
+
+
+
+    Best regards,
+
+    The Find Your Match AI Team
+
+    """
+
+    
+
+    html_content = f"""
+
+    <!DOCTYPE html>
+
+    <html>
+
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+
+        <div style="max-width: 500px; margin: 40px auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+
+            <!-- LOGO HEADER -->
+
+            <div style="text-align: center; padding: 20px 0; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+
+                <img src="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/static/img/icon-512.png" alt="Find Your Match" style="width: 100%; max-width: 250px; height: auto; display: block; margin: 0 auto;">
+
+            </div>
+
+            <!-- HEADER -->
+
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%); padding: 30px; text-align: center;">
+
+                <div style="font-size: 40px; margin-bottom: 10px;">💬</div>
+
+                <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">New Group Chats & Updates</h1>
+
+            </div>
+
+            
+
+            <!-- BODY -->
+
+            <div style="padding: 40px 30px;">
+
+                <h2 style="margin: 0 0 15px; color: #0F172A; font-size: 20px; font-weight: 800;">Hi {first_name},</h2>
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 20px;">
+
+                    We have some exciting news! We've just added a brand-new <strong>Group Chat</strong> feature to the platform! 
+
+                    You can now join groups, chat with multiple users, shoot your shot, and run vibe checks all in one place.
+
+                </p>
+
+                
+
+                <div style="background-color: #fdf2f8; padding: 20px; border-radius: 12px; border-left: 4px solid #db2777; margin-bottom: 25px;">
+
+                    <strong style="color: #9d174d; font-size: 16px;">System Notice</strong>
+
+                    <p style="margin: 10px 0 0; color: #9d174d; font-size: 14px; line-height: 1.5; font-weight: 500;">
+
+                        We are fully aware of the recent problems with our web application. Please know that our engineering team is <strong>working around the clock</strong> to solve it, and the system will be fully up and running soon.
+
+                    </p>
+
+                </div>
+
+                
+
+                <p style="color: #475569; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">
+
+                    We sincerely appreciate your patience and promise you an amazing experience once everything is fully restored. You are the boss, and we are here to serve you!
+
+                </p>
+
+                
+
+                <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+
+                    <a href="{os.getenv('BASE_URL', 'https://findyourmatch.co.ke')}/groups" style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 12px; font-size: 16px; font-weight: 900; display: inline-block; box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);">
+
+                        Check out Group Chats
+
+                    </a>
+
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+
+            <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                <p style="margin: 0 0 5px; font-size: 12px; color: #94a3b8; font-weight: 800;">FIND YOUR MATCH AI | Powered by DELSTARFORD WORKS , Transforming Lives through Artificial Intelligence .</p>
+
+            </div>
+
+        </div>
+
+    </body>
+
+    </html>
+
+    """
+
+    
+
+    try:
+
+        return _send_email(email, subject, text_content, html_content)
+
+    except Exception as e:
+
+        logger.error(f"Failed to send system update email to {email}: {e}")
+
+        return False
+
+
+
+
+
+# ==========================================
+
+# SPONSOR SYSTEM EMAILS (v2)
+
+# ==========================================
+
+
+
+def send_sponsor_welcome_email(recipient_email: str, recipient_name: str) -> bool:
+
+    """Sent to a new sponsor after their 1000 KSH registration payment is confirmed."""
+
+    subject = "💖 Welcome to FindYourMatch Sponsors — You're In!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Welcome, {recipient_name}!
+
+
+
+        Your sponsor account on FindYourMatch is now active.
+
+        Your profile is under review and will be verified shortly.
+
+
+
+        You can now:
+
+        - Complete your profile and upload a photo
+
+        - Browse student profiles
+
+        - Send connection requests to students
+
+
+
+        Log in at: https://findyourmatch.co.ke/sponsor/login
+
+
+
+        Wishing you all the best,
+
+        — The FindYourMatch Team
+
+    """)
+
+
+
+    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+
+        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+
+            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
+
+                <!-- Logo -->
+
+                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
+
+                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
+
+                </div>
+
+                <!-- Hero -->
+
+                <div style="background:linear-gradient(135deg,#720000,#e60026);padding:40px 30px;text-align:center;color:white;">
+
+                    <div style="font-size:48px;margin-bottom:12px;">🌟</div>
+
+                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">Welcome, {recipient_name}!</h1>
+
+                    <p style="margin:0;font-size:15px;opacity:0.9;">Your sponsor account is now active on FindYourMatch</p>
+
+                </div>
+
+                <!-- Body -->
+
+                <div style="padding:35px 30px;">
+
+                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
+
+                        Congratulations! Your registration is complete and your profile is now live.
+
+                        Our team will verify your account shortly and you'll be discoverable by students across Kenya.
+
+                    </p>
+
+                    <div style="background:#fef2f2;border-radius:12px;padding:20px;border:1px solid #fecaca;margin:25px 0;">
+
+                        <h3 style="color:#720000;margin:0 0 12px;font-size:16px;">✅ What you can do now:</h3>
+
+                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
+
+                            <li>Complete your profile and upload your photo</li>
+
+                            <li>Browse student profiles looking for sponsors</li>
+
+                            <li>Send connection requests and start conversations</li>
+
+                            <li>Receive weekly match suggestions via email</li>
+
+                        </ul>
+
+                    </div>
+
+                    <div style="text-align:center;margin-top:30px;">
+
+                        <a href="{base_url}/sponsor/login"
+
+                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#720000,#e60026);
+
+                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
+
+                                  box-shadow:0 4px 15px rgba(230,0,38,0.3);">
+
+                            💖 Go to My Sponsor Dashboard
+
+                        </a>
+
+                    </div>
+
+                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
+
+                        May you find exactly what you're looking for. 🌹
+
+                    </p>
+
+                </div>
+
+                <!-- Footer -->
+
+                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
+
+                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
+
+
+
+
+
+def send_sponsor_room_welcome_email(recipient_email: str, recipient_name: str, is_free: bool = False) -> bool:
+
+    """Sent to a student after gaining Sponsors Room access (paid or free)."""
+
+    subject = "🏠 You're In — Welcome to the FindYourMatch Sponsors Room!"
+
+    access_note = "as a complimentary benefit" if is_free else "for the next 30 days"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hi {recipient_name}!
+
+
+
+        You now have access to the FindYourMatch Sponsors Room {access_note}.
+
+
+
+        Inside you'll find sponsor profiles — people outside campus who are interested
+
+        in connecting with students like you. Browse their profiles and say hello!
+
+
+
+        Visit: https://findyourmatch.co.ke/sponsors-room
+
+
+
+        Have a blessed day,
+
+        — The FindYourMatch Team
+
+    """)
+
+
+
+    base_url = os.getenv("BASE_URL", "https://findyourmatch.co.ke")
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+
+        <body style="margin:0;padding:20px;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+
+            <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.07);">
+
+                <div style="text-align:center;padding:20px 0;border-bottom:1px solid #f0f0f0;">
+
+                    <img src="{base_url}/static/img/icon-512.png" alt="FindYourMatch" style="max-width:200px;height:auto;">
+
+                </div>
+
+                <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);padding:40px 30px;text-align:center;color:white;">
+
+                    <div style="font-size:48px;margin-bottom:12px;">🏠✨</div>
+
+                    <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;">You're In, {recipient_name}!</h1>
+
+                    <p style="margin:0;font-size:15px;opacity:0.9;">The Sponsors Room is now unlocked for you {access_note}</p>
+
+                </div>
+
+                <div style="padding:35px 30px;">
+
+                    <p style="font-size:16px;color:#334155;line-height:1.7;margin-top:0;">
+
+                        Welcome to the <strong>FindYourMatch Sponsors Room</strong> — an exclusive space where students
+
+                        connect with sponsors who are genuinely interested in meaningful relationships.
+
+                    </p>
+
+                    <div style="background:#f5f3ff;border-radius:12px;padding:20px;border:1px solid #ddd6fe;margin:25px 0;">
+
+                        <h3 style="color:#7c3aed;margin:0 0 12px;font-size:16px;">🎯 Inside the Sponsors Room:</h3>
+
+                        <ul style="margin:0;padding-left:20px;color:#334155;font-size:14px;line-height:2;">
+
+                            <li>Browse verified sponsor profiles</li>
+
+                            <li>See compatibility scores</li>
+
+                            <li>Send connection requests</li>
+
+                            <li>Chat directly with sponsors</li>
+
+                        </ul>
+
+                    </div>
+
+                    <div style="text-align:center;margin-top:30px;">
+
+                        <a href="{base_url}/sponsors-room"
+
+                           style="display:inline-block;padding:15px 35px;background:linear-gradient(135deg,#7c3aed,#a855f7);
+
+                                  color:white;text-decoration:none;border-radius:30px;font-size:15px;font-weight:bold;
+
+                                  box-shadow:0 4px 15px rgba(124,58,237,0.3);">
+
+                            🚀 Enter the Sponsors Room
+
+                        </a>
+
+                    </div>
+
+                    <p style="margin-top:30px;font-size:13px;color:#94a3b8;text-align:center;font-style:italic;">
+
+                        Your perfect match is waiting. Have a blessed day! 💖
+
+                    </p>
+
+                </div>
+
+                <div style="background:#f8fafc;padding:20px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;">
+
+                    &copy; {datetime.now().year} FindYourMatch.co.ke | Powered by DELSTARFORD WORKS
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch")
+
+
+
+
+
+def send_event_ticket_confirmation_email(recipient_email: str, recipient_name: str, event_data: dict, ticket_code: str, lovi_code: str = None, ticket_tier: str = None):
+
+    """
+
+    Sends a rich, digital event ticket confirmation with embedded QR code,
+
+    door backup LOVI code, ticket tier / entry level badge, Google Maps venue pin, dress code, and Made by FindYourMatch onboarding.
+
+    """
+
+    import urllib.parse
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    event_id = event_data.get("id", "")
+
+    event_title = event_data.get("title", "Campus Event")
+
+    category = event_data.get("category", "Event").upper()
+
+    venue = event_data.get("venue_name", "Campus Venue")
+
+    date_str = event_data.get("date_str", event_data.get("date", "Upcoming"))
+
+    time_str = event_data.get("time_str", "Doors Open 7:00 PM")
+
+    dress_code = event_data.get("dress_code", "Smart Casual")
+
+    price_str = event_data.get("price_display", "Free Admission")
+
+    maps_link = event_data.get("location_url") or f"https://maps.google.com/?q={venue}"
+
+    organizer_name = event_data.get("organizer_name", "Event Host")
+
+    organizer_phone = event_data.get("organizer_phone", "")
+
+    banner_img = event_data.get("banner_img") or f"{base_url}/static/img/icon-512.png"
+
+    event_url = f"{base_url}/events/{event_id}"
+
+    
+
+    tier_display = ticket_tier or event_data.get("ticket_tier") or event_data.get("tier_name") or "Standard Admission"
+
+    
+
+    # LOVI Code for door backup verification
+
+    lovi_code = lovi_code or event_data.get("lovi_code") or f"LOVI-{ticket_code.split('-')[1]}"
+
+    
+
+    # Scannable QR code encodes the direct admin verification URL!
+
+    verify_url = f"{base_url}/events/verify-ticket/{ticket_code}"
+
+    download_qr_url = f"{base_url}/events/ticket/{ticket_code}/download-qr"
+
+    encoded_verify_url = urllib.parse.quote(verify_url, safe='')
+
+    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={encoded_verify_url}&color=72-0-0"
+
+
+
+    subject = f"🎟️ Ticket Confirmed: {event_title} ({tier_display}) | Pass #{ticket_code}"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {recipient_name}!
+
+
+
+        Your ticket for {event_title} has been confirmed!
+
+
+
+        ========================================
+
+        DIGITAL TICKET PASS
+
+        Pass Level  : {tier_display}
+
+        Ticket Code : {ticket_code}
+
+        LOVI Code   : {lovi_code} (Backup for door admin)
+
+        Event       : {event_title} ({category})
+
+        Date & Time : {date_str} @ {time_str}
+
+        Venue       : {venue}
+
+        Dress Code  : {dress_code}
+
+        Admission   : {price_str}
+
+        ========================================
+
+
+
+        📥 Download & Save QR Code Pass:
+
+        {download_qr_url}
+
+
+
+        📷 Entrance Verification Link:
+
+        {verify_url}
+
+
+
+        📍 Open Venue in Google Maps:
+
+        {maps_link}
+
+
+
+        View Event Page:
+
+        {event_url}
+
+
+
+        Host Contact: {organizer_name} ({organizer_phone})
+
+
+
+        INSTRUCTIONS FOR ADMISSION:
+
+        1. Show your downloaded QR code or this email to the event admin/manager to scan and confirm your entry.
+
+        2. If the admin does not scan the QR code, tell them your LOVI Code: {lovi_code} to confirm and allow you in.
+
+
+
+        ----------------------------------------
+
+        MADE BY FINDYOURMATCH 💖
+
+        Want to join FindYourMatch?
+
+        Connect with verified students across campus!
+
+        Join free here: {base_url}/signup
+
+        ----------------------------------------
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        </head>
+
+        <body style="margin:0;padding:20px;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.35);">
+
+                
+
+                <!-- TOP BANNER IMAGE -->
+
+                <div style="position:relative;background:#1e1b4b;max-height:220px;overflow:hidden;text-align:center;">
+
+                    <img src="{banner_img}" alt="{event_title}" style="width:100%;max-height:220px;object-fit:cover;display:block;">
+
+                </div>
+
+
+
+                <!-- HEADER -->
+
+                <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);padding:28px 24px;text-align:center;color:white;">
+
+                    <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">
+
+                        ✨ {category} • TICKET CONFIRMED
+
+                    </div>
+
+                    <h1 style="margin:0 0 6px;font-size:24px;font-weight:900;line-height:1.2;">{event_title}</h1>
+
+                    <p style="margin:0;font-size:14px;opacity:0.9;">You're on the guest list, {recipient_name}!</p>
+
+                </div>
+
+
+
+                <!-- TICKET PASS CARD -->
+
+                <div style="padding:30px 25px;">
+
+                    
+
+                    <div style="background:#f8fafc;border:2px dashed #cbd5e1;border-radius:20px;padding:25px;text-align:center;margin-bottom:25px;">
+
+                        <div style="display:inline-block;background:#720000;color:white;padding:6px 18px;border-radius:50px;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;box-shadow:0 4px 12px rgba(114,0,0,0.25);">
+
+                            🎟️ {tier_display} PASS
+
+                        </div>
+
+                        
+
+                        <!-- SCANNABLE QR CODE FOR ADMINS -->
+
+                        <div style="background:white;display:inline-block;padding:12px;border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,0.08);margin-bottom:12px;">
+
+                            <a href="{download_qr_url}" target="_blank" title="Click to download QR code pass">
+
+                                <img src="{qr_url}" alt="Ticket QR Code" width="180" height="180" style="display:block;border-radius:8px;">
+
+                            </a>
+
+                        </div>
+
+                        <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;">
+
+                            📷 SCANNABLE BY EVENT ADMIN AT ENTRANCE
+
+                        </div>
+
+
+
+                        <!-- 📥 DIRECT DOWNLOAD QR CODE PASS BUTTON -->
+
+                        <div style="margin-bottom:16px;">
+
+                            <a href="{download_qr_url}" download="Ticket-{ticket_code}-Pass.png" target="_blank" style="display:inline-block;background:#720000;color:#ffffff;text-decoration:none;padding:11px 24px;border-radius:50px;font-weight:800;font-size:13px;box-shadow:0 4px 14px rgba(114,0,0,0.3);">
+
+                                📥 Save / Download QR Code Pass (PNG)
+
+                            </a>
+
+                        </div>
+
+
+
+                        <div style="font-size:18px;font-weight:900;color:#720000;letter-spacing:2px;font-family:monospace;margin-bottom:14px;">
+
+                            TICKET ID: {ticket_code}
+
+                        </div>
+
+
+
+                        <!-- LOVI BACKUP SECURITY PASSPHRASE -->
+
+                        <div style="background:#fff1f2;border:2px solid #fda4af;border-radius:14px;padding:14px;margin-top:10px;text-align:center;">
+
+                            <div style="font-size:11px;font-weight:800;color:#9f1239;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;">
+
+                                🔑 DOOR BACKUP: LOVI CODE
+
+                            </div>
+
+                            <div style="font-size:26px;font-weight:900;color:#be123c;letter-spacing:3px;font-family:monospace;">
+
+                                {lovi_code}
+
+                            </div>
+
+                            <div style="font-size:12px;color:#881337;margin-top:4px;line-height:1.4;">
+
+                                If the event admin cannot scan your QR code, tell them this <strong>LOVI Code</strong> to verify and allow you in.
+
+                            </div>
+
+                        </div>
+
+
+
+                    </div>
+
+
+
+                    <!-- EVENT SPECS GRID -->
+
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:25px;font-size:14px;">
+
+                        <tr>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🎟️ Pass Level</td>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#720000;font-weight:900;">{tier_display}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:35%;">🗓️ Date & Time</td>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{date_str} @ {time_str}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">📍 Venue</td>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{venue}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">👗 Dress Code</td>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{dress_code}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;">🎟️ Admission</td>
+
+                            <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#0f172a;font-weight:700;">{price_str}</td>
+
+                        </tr>
+
+                        <tr>
+
+                            <td style="padding:10px 0;color:#64748b;">👤 Organizer</td>
+
+                            <td style="padding:10px 0;color:#0f172a;font-weight:700;">{organizer_name} {f'({organizer_phone})' if organizer_phone else ''}</td>
+
+                        </tr>
+
+                    </table>
+
+
+
+                    <!-- BUTTONS -->
+
+                    <div style="text-align:center;margin-bottom:25px;">
+
+                        <a href="{maps_link}" target="_blank" style="display:block;background:#0f172a;color:#ffffff;text-decoration:none;padding:15px;border-radius:14px;font-weight:800;font-size:15px;margin-bottom:10px;">
+
+                            📍 Open Venue Pin in Google Maps
+
+                        </a>
+
+                        <a href="{verify_url}" target="_blank" style="display:block;background:#f1f5f9;color:#334155;text-decoration:none;padding:12px;border-radius:14px;font-weight:700;font-size:13px;margin-bottom:10px;">
+
+                            🔍 View Live Verification Status Page
+
+                        </a>
+
+                    </div>
+
+
+
+                    <!-- MADE BY FINDYOURMATCH & WANT TO JOIN SECTION -->
+
+                    <div style="background:linear-gradient(135deg,#720000 0%,#E60026 100%);border-radius:20px;padding:30px 24px;text-align:center;color:white;margin:30px 0 10px;">
+
+                        <div style="display:inline-block;background:rgba(255,255,255,0.2);padding:4px 14px;border-radius:50px;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
+
+                            ✨ MADE BY FINDYOURMATCH
+
+                        </div>
+
+                        <h2 style="margin:0 0 10px;font-size:22px;font-weight:900;letter-spacing:-0.5px;">
+
+                            Want to Join FindYourMatch? 💖
+
+                        </h2>
+
+                        <p style="margin:0 0 20px;font-size:14px;opacity:0.95;line-height:1.6;max-width:460px;margin-left:auto;margin-right:auto;">
+
+                            Connect with verified students across campus! Experience AI matchmaking, schedule syncing, campus hotspots, and exclusive student events.
+
+                        </p>
+
+                        <a href="{base_url}/signup" target="_blank" style="display:inline-block;background:#ffffff;color:#720000;text-decoration:none;padding:14px 34px;border-radius:50px;font-weight:900;font-size:15px;box-shadow:0 8px 25px rgba(0,0,0,0.3);">
+
+                            🚀 Create Free Profile & Join &rarr;
+
+                        </a>
+
+                    </div>
+
+
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background:#f8fafc;padding:22px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:12px;line-height:1.6;">
+
+                    FindYourMatch Events • Bringing Campus Social Life Together<br>
+
+                    &copy; {datetime.now().year} <a href="{base_url}" style="color:#64748b;text-decoration:none;">findyourmatch.co.ke</a>
+
+                </div>
+
+
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(recipient_email, subject, text_content, html_content, sender_name="FindYourMatch Events")
+
+
+
+
+
+def build_free_trial_email_content(recipient_name: str, expiry_date_str: str):
+
+    """
+
+    Constructs both plain text and executive, responsive HTML email content
+
+    announcing the 48-Hour Complimentary Diamond Access.
+
+    """
+
+    first_name = recipient_name.strip().split()[0].title() if recipient_name else "there"
+
+    full_display_name = recipient_name.strip().title() if recipient_name else "Valued Member"
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    support_email = "support@findyourmatch.co.ke"
+
+
+
+    talk_url = f"{base_url}/talk"
+
+    groups_url = f"{base_url}/groups"
+
+    sponsors_room_url = f"{base_url}/sponsors-room"
+
+    dashboard_url = f"{base_url}/dashboard"
+
+
+
+    subject = f"🎁 {first_name}, enjoy 48 Hours of Free VIP Diamond Access on Find Your Match!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {full_display_name},
+
+
+
+        We have exciting news! We have just upgraded your Find Your Match account with 48 Hours of Complimentary VIP Diamond Access — completely on us (Valid until: {expiry_date_str}).
+
+
+
+        Over the past few weeks, our engineering team has rolled out major real-time communication upgrades. This complimentary gift gives you 100% unrestricted access to experience every single new feature:
+
+
+
+        1. 📹 1-on-1 Live Voice & Video Calls:
+
+           Experience crystal-clear, private face-to-face video and voice calling directly in your browser with mutual campus matches.
+
+           👉 Jump to Live Calling: {talk_url}
+
+
+
+        2. 👥 Interactive Campus Group Chats:
+
+           Join vibrant university group chats, talk campus buzz, share stories, and connect with fellow students.
+
+           👉 Jump to Group Chats: {groups_url}
+
+
+
+        3. 🎙️ Group Voice & Video Hangout Rooms:
+
+           Enter multi-peer live audio and video hangout rooms inside any campus group.
+
+           👉 Join a Group Call: {groups_url}
+
+
+
+        4. 💼 Sponsor Meet (Sponsors Room):
+
+           Unlock exclusive access to connect directly with verified, distinguished sponsors and benefactors for mentorship and companionship.
+
+           👉 Enter Sponsors Room: {sponsors_room_url}
+
+
+
+        5. ⚡ AI Smart Match Feed & Instant Swiping:
+
+           Discover verified students matched to your exact personality and campus interests with unlimited likes.
+
+           👉 Open Match Feed: {dashboard_url}
+
+
+
+        YOUR 48-HOUR PASS DETAILS:
+
+        ---------------------------------------------
+
+        - Status   : ACTIVE (COMPLIMENTARY PASS)
+
+        - Package  : Diamond VIP Tier (All Features Unlocked)
+
+        - Cost     : KSh 0.00 (No payment or card required)
+
+        - Valid To : {expiry_date_str}
+
+        ---------------------------------------------
+
+
+
+        Log in now and explore everything before your complimentary access expires:
+
+        {dashboard_url}
+
+
+
+        Warm regards,
+
+        The {SENDER_NAME_DEFAULT} Team
+
+        Website: {base_url}
+
+        Support: {support_email}
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html lang="en">
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>{subject}</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #f3f4f6;">
+
+            
+
+            <!-- OUTER WRAPPER -->
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #0b0f19; padding: 30px 10px;">
+
+                <tr>
+
+                    <td align="center">
+
+                        
+
+                        <!-- MAIN CONTAINER -->
+
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 620px; background-color: #111827; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid #1f2937;">
+
+                            
+
+                            <!-- LOGO HEADER -->
+
+                            <tr>
+
+                                <td align="center" style="padding: 28px 24px 22px; background-color: #111827; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+
+                                    <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" width="130" style="width: 130px; max-width: 130px; height: auto; display: block; margin: 0 auto; border-radius: 14px;">
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- HERO BANNER -->
+
+                            <tr>
+
+                                <td style="background: linear-gradient(135deg, #4c0519 0%, #881337 40%, #be123c 100%); padding: 46px 36px; text-align: center;">
+
+                                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.18); backdrop-filter: blur(8px); color: #fecdd3; padding: 7px 18px; border-radius: 50px; font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px; border: 1px solid rgba(255, 255, 255, 0.25);">
+
+                                        👑 48-Hour Complimentary VIP Pass
+
+                                    </div>
+
+                                    <h1 style="color: #ffffff; margin: 0; font-size: 27px; font-weight: 900; line-height: 1.25; letter-spacing: -0.6px;">
+
+                                        Full Diamond Access Unlocked!
+
+                                    </h1>
+
+                                    <p style="color: rgba(255, 255, 255, 0.92); margin: 14px auto 0; font-size: 15px; line-height: 1.6; max-width: 500px;">
+
+                                        We're giving you <strong>2 full days of free VIP access</strong> to test-drive all our brand new video, voice, group, and sponsor features.
+
+                                    </p>
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- MAIN BODY -->
+
+                            <tr>
+
+                                <td style="padding: 38px 34px 28px;">
+
+                                    
+
+                                    <p style="font-size: 18px; color: #f9fafb; line-height: 1.5; margin: 0 0 16px; font-weight: 700;">
+
+                                        Hello <span style="color: #fb7185;">{full_display_name}</span>,
+
+                                    </p>
+
+
+
+                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 24px;">
+
+                                        Over the past few weeks, we've rolled out massive upgrades to make <strong>Find Your Match</strong> the most thrilling, real-time campus dating and social platform in Kenya.
+
+                                    </p>
+
+                                    
+
+                                    <p style="font-size: 15px; color: #9ca3af; line-height: 1.7; margin: 0 0 28px;">
+
+                                        To make sure you experience the best of these features firsthand, your account has been automatically upgraded to <strong style="color: #f43f5e;">Diamond VIP Tier</strong> for the next <strong>48 Hours</strong>. No card, no M-Pesa prompt, no commitment — just jump in and enjoy!
+
+                                    </p>
+
+
+
+                                    <!-- VIP SUMMARY CALLOUT TICKET -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(145deg, #18181b 0%, #1f1f23 100%); border: 1px solid #f43f5e; border-radius: 16px; margin-bottom: 34px; box-shadow: 0 10px 25px rgba(244, 63, 94, 0.15);">
+
+                                        <tr>
+
+                                            <td style="padding: 22px 24px;">
+
+                                                <div style="font-size: 11px; font-weight: 800; color: #fb7185; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px;">
+
+                                                    ✦ Your VIP Pass Details
+
+                                                </div>
+
+                                                <div style="font-size: 18px; font-weight: 800; color: #ffffff; margin-bottom: 12px;">
+
+                                                    💎 2-Day Diamond Membership (Free Gift)
+
+                                                </div>
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size: 13px; color: #d1d5db; line-height: 1.8;">
+
+                                                    <tr>
+
+                                                        <td width="35%" style="color: #9ca3af;">Status:</td>
+
+                                                        <td style="color: #34d399; font-weight: 700;">● Active (Complimentary)</td>
+
+                                                    </tr>
+
+                                                    <tr>
+
+                                                        <td style="color: #9ca3af;">Valid Until:</td>
+
+                                                        <td style="color: #fef08a; font-weight: 700;">{expiry_date_str}</td>
+
+                                                    </tr>
+
+                                                    <tr>
+
+                                                        <td style="color: #9ca3af;">Cost:</td>
+
+                                                        <td style="color: #ffffff; font-weight: 700;">KSh 0.00 (Gift from Find Your Match)</td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- SECTION TITLE -->
+
+                                    <h2 style="font-size: 16px; color: #ffffff; margin: 0 0 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; border-left: 3px solid #f43f5e; padding-left: 12px;">
+
+                                        Explore Your New Features (Click to Jump In):
+
+                                    </h2>
+
+
+
+                                    <!-- FEATURE 1: 1-on-1 VIDEO & VOICE -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+
+                                        <tr>
+
+                                            <td style="padding: 20px;">
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+
+                                                            📹
+
+                                                        </td>
+
+                                                        <td style="padding-left: 14px;">
+
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+
+                                                                1-on-1 Live Voice & Video Calls
+
+                                                            </div>
+
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+
+                                                                Connect instantly with mutual campus matches. Crisp HD WebRTC video, smooth audio, and private calling directly in your browser.
+
+                                                            </div>
+
+                                                            <a href="{talk_url}" target="_blank" style="display: inline-block; background-color: #be123c; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+
+                                                                Start a Call &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- FEATURE 2: GROUP CHATS -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+
+                                        <tr>
+
+                                            <td style="padding: 20px;">
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+
+                                                            👥
+
+                                                        </td>
+
+                                                        <td style="padding-left: 14px;">
+
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+
+                                                                Campus Group Chats
+
+                                                            </div>
+
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+
+                                                                Jump into lively university interest groups, debate campus topics, share laughs, and find comrades who match your frequency.
+
+                                                            </div>
+
+                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+
+                                                                Join Group Chats &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- FEATURE 3: GROUP CALLS -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+
+                                        <tr>
+
+                                            <td style="padding: 20px;">
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+
+                                                            🎙️
+
+                                                        </td>
+
+                                                        <td style="padding-left: 14px;">
+
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+
+                                                                Multi-Peer Group Video & Voice Rooms
+
+                                                            </div>
+
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+
+                                                                Host or join live audio lounges and multi-camera video hangouts with friends and group members in real time.
+
+                                                            </div>
+
+                                                            <a href="{groups_url}" target="_blank" style="display: inline-block; background-color: #8b5cf6; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+
+                                                                Explore Group Rooms &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- FEATURE 4: SPONSOR MEET -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 16px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+
+                                        <tr>
+
+                                            <td style="padding: 20px;">
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+
+                                                            💼
+
+                                                        </td>
+
+                                                        <td style="padding-left: 14px;">
+
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+
+                                                                Sponsors Room (Sponsor Meet)
+
+                                                            </div>
+
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+
+                                                                Direct, VIP access to verified, established professionals and benefactors offering meaningful support, mentorship, and dates.
+
+                                                            </div>
+
+                                                            <a href="{sponsors_room_url}" target="_blank" style="display: inline-block; background-color: #d97706; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+
+                                                                Enter Sponsors Room &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- FEATURE 5: AI MATCH FEED -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 30px; background-color: #1a202c; border: 1px solid #2d3748; border-radius: 16px; overflow: hidden;">
+
+                                        <tr>
+
+                                            <td style="padding: 20px;">
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="46" valign="top" style="font-size: 30px; line-height: 1;">
+
+                                                            ⚡
+
+                                                        </td>
+
+                                                        <td style="padding-left: 14px;">
+
+                                                            <div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">
+
+                                                                AI Smart Match Feed & Instant Swiping
+
+                                                            </div>
+
+                                                            <div style="font-size: 13px; color: #a0aec0; line-height: 1.6; margin-bottom: 12px;">
+
+                                                                Unlimited likes, personality compatibility matching, and instant connection with verified campus students.
+
+                                                            </div>
+
+                                                            <a href="{dashboard_url}" target="_blank" style="display: inline-block; background-color: #059669; color: #ffffff; font-size: 12px; font-weight: 700; padding: 8px 18px; border-radius: 50px; text-decoration: none; letter-spacing: 0.3px;">
+
+                                                                Open Match Feed &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- BIG CTA BUTTON -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 20px;">
+
+                                        <tr>
+
+                                            <td align="center">
+
+                                                <a href="{dashboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #be123c 0%, #e11d48 50%, #f43f5e 100%); color: #ffffff; text-decoration: none; padding: 18px 40px; border-radius: 50px; font-weight: 800; font-size: 16px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(225, 29, 72, 0.4); text-align: center;">
+
+                                                    🚀 Launch Find Your Match Now &rarr;
+
+                                                </a>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- QUICK LINKS FALLBACK -->
+
+                                    <div style="background-color: #171d29; border-radius: 14px; padding: 18px 20px; margin-top: 24px; border: 1px solid #232b3e;">
+
+                                        <div style="font-size: 12px; font-weight: 700; color: #e5e7eb; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+
+                                            Direct Quick Links:
+
+                                        </div>
+
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="4" border="0" style="font-size: 12px;">
+
+                                            <tr>
+
+                                                <td style="color: #9ca3af;" width="40%">Live Calls:</td>
+
+                                                <td><a href="{talk_url}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{talk_url}</a></td>
+
+                                            </tr>
+
+                                            <tr>
+
+                                                <td style="color: #9ca3af;">Group Chats:</td>
+
+                                                <td><a href="{groups_url}" style="color: #60a5fa; text-decoration: none; font-weight: 600;">{groups_url}</a></td>
+
+                                            </tr>
+
+                                            <tr>
+
+                                                <td style="color: #9ca3af;">Sponsors Room:</td>
+
+                                                <td><a href="{sponsors_room_url}" style="color: #fbbf24; text-decoration: none; font-weight: 600;">{sponsors_room_url}</a></td>
+
+                                            </tr>
+
+                                            <tr>
+
+                                                <td style="color: #9ca3af;">Main Dashboard:</td>
+
+                                                <td><a href="{dashboard_url}" style="color: #34d399; text-decoration: none; font-weight: 600;">{dashboard_url}</a></td>
+
+                                            </tr>
+
+                                        </table>
+
+                                    </div>
+
+
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- FOOTER -->
+
+                            <tr>
+
+                                <td style="background-color: #0b0f19; padding: 32px 34px; border-top: 1px solid #1f2937; text-align: center;">
+
+                                    <p style="margin: 0 0 10px; font-size: 13px; color: #9ca3af; font-weight: 500;">
+
+                                        Have questions or need assistance? We are always here for you.
+
+                                    </p>
+
+                                    <p style="margin: 0 0 18px; font-size: 13px;">
+
+                                        <a href="mailto:{support_email}" style="color: #fb7185; text-decoration: none; font-weight: 600;">{support_email}</a>
+
+                                        &nbsp;•&nbsp;
+
+                                        <a href="{base_url}" style="color: #9ca3af; text-decoration: none;">{base_url}</a>
+
+                                    </p>
+
+                                    <p style="margin: 0; font-size: 11px; color: #6b7280; line-height: 1.6;">
+
+                                        &copy; {datetime.now().year} Find Your Match. All rights reserved.<br>
+
+                                        You received this communication because you are a registered user of Find Your Match.<br>
+
+                                        Kakamega, Kenya.
+
+                                    </p>
+
+                                </td>
+
+                            </tr>
+
+
+
+                        </table>
+
+                        <!-- END MAIN CONTAINER -->
+
+
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return subject, text_content, html_content
+
+
+
+
+
+def send_free_trial_announcement_email(recipient_email: str, recipient_name: str, expiry_date_str: str) -> bool:
+
+    """
+
+    Sends the 48-Hour Complimentary Diamond Access announcement email.
+
+    """
+
+    subject, text_content, html_content = build_free_trial_email_content(recipient_name, expiry_date_str)
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Find Your Match VIP"
+
+    )
+
+
+
+
+
+def build_kalenjin_takeover_email_content(recipient_name: str = "Comrade", event_url: str = None):
+
+    """
+
+    Constructs high-impact responsive HTML & plaintext email for KALENJIN TAKE OVER (MMUST EDITION).
+
+    """
+
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+
+    if not event_url:
+
+        event_url = f"{base_url}/events/evt_7124cc20ce"
+
+    
+
+    first_name = (recipient_name or "Comrade").strip().split()[0].capitalize()
+
+    if not first_name:
+
+        first_name = "Comrade"
+
+    
+
+    banner_img = "https://storage.googleapis.com/mmust-dating-site.firebasestorage.app/events/evt_7124cc20ce_1792081746.png"
+
+    maps_url = "https://maps.google.com/?q=VAULT+RETRO+CLUB"
+
+    discover_url = f"{base_url}/discover"
+
+
+
+    subject = "🔥 KALENJIN TAKE OVER (MMUST EDITION) – Oct 31 @ Vault Retro Club! 💃🕺"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {first_name}!
+
+
+
+        Get ready for the biggest and most anticipated campus event of the semester!
+
+
+
+        🔥 KALENJIN TAKE OVER (MMUST EDITION) 🔥
+
+        ------------------------------------------------------------
+
+        🗓️ Date: Saturday, 31st October 2026
+
+        ⏰ Time: 6:00 PM – DAWN
+
+        📍 Venue: VAULT RETRO CLUB
+
+        👗 Dress Code: Casual (Turn up in style!)
+
+        ------------------------------------------------------------
+
+
+
+        🎤 SPECIAL GUEST ARTIST: TOBBY MR ROMANTIC
+
+        🎧 HYPED BY: MC BK OFFICIAL & MC DENOO
+
+        ⚡ ITAKUWA MOTO SANA! Non-stop music, Kalenjin vibes, afro-beats, and pure campus turn-up!
+
+
+
+        🎟️ TICKET PASSES & ADMISSION:
+
+        • Per Person (LIMITED) : 250 KES (Standard single entry)
+
+        • Per Couple (LIMITED) : 450 KES (Pass for 2 comrades)
+
+        • VIP Entrance (LIMITED) : 600 KES (VIP access & priority service)
+
+
+
+        👉 BOOK YOUR TICKETS ONLINE (Instant M-Pesa STK Push):
+
+        {event_url}
+
+
+
+        Your digital ticket with a scannable QR Code pass will be generated instantly 
+
+        and sent directly to your phone & email for fast entry at the door!
+
+
+
+        📍 Open Venue Location in Google Maps:
+
+        {maps_url}
+
+
+
+        ❤️ Looking for a partner or vibe to go with?
+
+        Meet other verified campus students right now on Find Your Match:
+
+        {discover_url}
+
+
+
+        Host Contact: BK OFFICIAL (0706695719)
+
+        Powered by Find Your Match Events ({base_url})
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html lang="en">
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>KALENJIN TAKE OVER (MMUST EDITION)</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #07090e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #ffffff;">
+
+
+
+            <!-- PREHEADER TEXT (HIDDEN IN BODY) -->
+
+            <div style="display: none; font-size: 1px; color: #07090e; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+
+                Kalenjin Take Over MMUST Edition! 31st Oct @ Vault Retro Club. Guest Artist Tobby Mr Romantic, Mc BK Official & Mc Denoo. Grab your ticket now!
+
+            </div>
+
+
+
+            <!-- OUTER WRAPPER TABLE -->
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #07090e; padding: 20px 10px 40px;">
+
+                <tr>
+
+                    <td align="center">
+
+
+
+                        <!-- MAIN CONTAINER -->
+
+                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; background: #0f1523; border-radius: 28px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);">
+
+                            
+
+                            <!-- BRAND HEADER -->
+
+                            <tr>
+
+                                <td style="padding: 18px 24px; background: #0a0e18; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: center;">
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                        <tr>
+
+                                            <td align="center">
+
+                                                <a href="{base_url}" target="_blank" style="text-decoration: none; display: inline-block;">
+
+                                                    <span style="font-size: 13px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #ff334b; display: inline-flex; align-items: center;">
+
+                                                        FIND YOUR MATCH <span style="background: rgba(255,51,75,0.2); color: #ff6b7d; padding: 3px 8px; border-radius: 6px; font-size: 10px; margin-left: 8px; border: 1px solid rgba(255,51,75,0.3);">EVENTS 🎟️</span>
+
+                                                    </span>
+
+                                                </a>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- HERO FLYER POSTER IMAGE -->
+
+                            <tr>
+
+                                <td style="background: #000000; text-align: center; line-height: 0;">
+
+                                    <a href="{event_url}" target="_blank" style="display: block; text-decoration: none;">
+
+                                        <img src="{banner_img}" alt="KALENJIN TAKE OVER (MMUST EDITION)" width="600" style="width: 100%; max-width: 600px; height: auto; display: block; border: 0;" />
+
+                                    </a>
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- TITLE & EVENT STATUS HERO -->
+
+                            <tr>
+
+                                <td style="background: linear-gradient(135deg, #7a0010 0%, #ba0d23 50%, #e60026 100%); padding: 34px 28px 28px; text-align: center; color: #ffffff;">
+
+                                    <div style="display: inline-block; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.25); padding: 6px 16px; border-radius: 50px; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;">
+
+                                        🔥 OFFICIAL CAMPUS MEGA EVENT • TICKETS LIVE
+
+                                    </div>
+
+                                    <h1 style="margin: 0 0 8px; font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.5px; text-transform: uppercase;">
+
+                                        KALENJIN TAKE OVER
+
+                                    </h1>
+
+                                    <div style="font-size: 15px; font-weight: 700; color: #ffe4e6; letter-spacing: 0.5px;">
+
+                                        (MMUST EDITION) – THE NIGHT OF THE SEMESTER! 🎧💃
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- BODY CONTENT -->
+
+                            <tr>
+
+                                <td style="padding: 32px 28px;">
+
+                                    
+
+                                    <!-- GREETING -->
+
+                                    <p style="font-size: 17px; color: #f1f5f9; line-height: 1.6; margin: 0 0 16px;">
+
+                                        Hello <strong style="color: #ff4d61;">{first_name}</strong>,
+
+                                    </p>
+
+                                    <p style="font-size: 15px; color: #cbd5e1; line-height: 1.7; margin: 0 0 24px;">
+
+                                        The most talked-about campus turn-up is finally happening in Kakamega! Mark your calendar and get your squad ready for an electrifying night packed with live performances, pure energy, and great company.
+
+                                    </p>
+
+
+
+                                    <!-- EVENT ESSENTIALS CARD -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; overflow: hidden; margin-bottom: 26px;">
+
+                                        <tr>
+
+                                            <td style="padding: 22px 20px;">
+
+                                                <div style="font-size: 12px; font-weight: 800; color: #ff6b7d; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 16px;">
+
+                                                    📌 EVENT DETAILS
+
+                                                </div>
+
+
+
+                                                <!-- DATE & TIME -->
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
+
+                                                    <tr>
+
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">🗓️</td>
+
+                                                        <td style="padding-left: 8px;">
+
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Date & Time</div>
+
+                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">Saturday, 31st October 2026</div>
+
+                                                            <div style="font-size: 13px; color: #f43f5e; font-weight: 700;">6:00 PM – DAWN 🌅</div>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+
+
+                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
+
+
+
+                                                <!-- VENUE -->
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 12px;">
+
+                                                    <tr>
+
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">📍</td>
+
+                                                        <td style="padding-left: 8px;">
+
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Venue Location</div>
+
+                                                            <div style="font-size: 15px; font-weight: 800; color: #ffffff;">VAULT RETRO CLUB</div>
+
+                                                            <a href="{maps_url}" target="_blank" style="font-size: 12px; color: #38bdf8; text-decoration: none; font-weight: 700; display: inline-block; margin-top: 2px;">
+
+                                                                Open in Google Maps &rarr;
+
+                                                            </a>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+
+
+                                                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin: 12px 0;"></div>
+
+
+
+                                                <!-- DRESS CODE -->
+
+                                                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                    <tr>
+
+                                                        <td width="36" valign="top" style="font-size: 20px; line-height: 1;">👗</td>
+
+                                                        <td style="padding-left: 8px;">
+
+                                                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Dress Code</div>
+
+                                                            <div style="font-size: 14px; font-weight: 700; color: #f1f5f9;">Casual &amp; Fresh (Come dressed to impress!)</div>
+
+                                                        </td>
+
+                                                    </tr>
+
+                                                </table>
+
+
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- ARTIST & HYPE HIGHLIGHT -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(135deg, rgba(230,0,38,0.15) 0%, rgba(122,0,16,0.25) 100%); border: 1px solid rgba(230,0,38,0.3); border-radius: 18px; padding: 20px; margin-bottom: 26px;">
+
+                                        <tr>
+
+                                            <td>
+
+                                                <div style="font-size: 12px; font-weight: 900; color: #ff4d61; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 10px;">
+
+                                                    ⭐ STAR-STUDDED LINEUP
+
+                                                </div>
+
+                                                <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-bottom: 4px;">
+
+                                                    🎤 Guest Artist: <span style="color: #facc15;">TOBBY MR ROMANTIC</span>
+
+                                                </div>
+
+                                                <div style="font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px;">
+
+                                                    🎧 Hyped By: <span style="color: #67e8f9;">MC BK OFFICIAL &amp; MC DENOO</span>
+
+                                                </div>
+
+                                                <div style="font-size: 13px; color: #fecdd3; font-style: italic; line-height: 1.5;">
+
+                                                    "ITAKUWA MOTO SANA! 🔥🔥 Don't just hear stories on Sunday morning, be there live!"
+
+                                                </div>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <!-- TICKET TIERS TABLE -->
+
+                                    <div style="margin-bottom: 26px;">
+
+                                        <div style="font-size: 12px; font-weight: 800; color: #94a3b8; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; text-align: center;">
+
+                                            🎟️ CHOOSE YOUR ENTRY PASS
+
+                                        </div>
+
+
+
+                                        <!-- TIER 1 -->
+
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
+
+                                            <tr>
+
+                                                <td style="padding: 14px 18px;">
+
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                        <tr>
+
+                                                            <td>
+
+                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Person (LIMITED)</div>
+
+                                                                <div style="font-size: 12px; color: #94a3b8;">Standard single admission pass</div>
+
+                                                            </td>
+
+                                                            <td align="right" style="white-space: nowrap;">
+
+                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">250 KES</span>
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    </table>
+
+                                                </td>
+
+                                            </tr>
+
+                                        </table>
+
+
+
+                                        <!-- TIER 2 -->
+
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; margin-bottom: 10px;">
+
+                                            <tr>
+
+                                                <td style="padding: 14px 18px;">
+
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                        <tr>
+
+                                                            <td>
+
+                                                                <div style="font-size: 14px; font-weight: 800; color: #ffffff;">Per Couple (LIMITED) 👫</div>
+
+                                                                <div style="font-size: 12px; color: #94a3b8;">Admission pass for 2 comrades (Save 50 KES!)</div>
+
+                                                            </td>
+
+                                                            <td align="right" style="white-space: nowrap;">
+
+                                                                <span style="font-size: 16px; font-weight: 900; color: #22c55e;">450 KES</span>
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    </table>
+
+                                                </td>
+
+                                            </tr>
+
+                                        </table>
+
+
+
+                                        <!-- TIER 3 -->
+
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: #141b2d; border: 1px solid rgba(234,179,8,0.3); border-radius: 14px;">
+
+                                            <tr>
+
+                                                <td style="padding: 14px 18px;">
+
+                                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                                                        <tr>
+
+                                                            <td>
+
+                                                                <div style="font-size: 14px; font-weight: 800; color: #facc15;">VIP Entrance (LIMITED) ⭐</div>
+
+                                                                <div style="font-size: 12px; color: #cbd5e1;">VIP section access &amp; priority entry</div>
+
+                                                            </td>
+
+                                                            <td align="right" style="white-space: nowrap;">
+
+                                                                <span style="font-size: 16px; font-weight: 900; color: #facc15;">600 KES</span>
+
+                                                            </td>
+
+                                                        </tr>
+
+                                                    </table>
+
+                                                </td>
+
+                                            </tr>
+
+                                        </table>
+
+                                    </div>
+
+
+
+                                    <!-- BIG CTA BUTTON -->
+
+                                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0 16px;">
+
+                                        <tr>
+
+                                            <td align="center">
+
+                                                <a href="{event_url}" target="_blank" style="display: block; width: 88%; background: linear-gradient(135deg, #e60026 0%, #ff1f44 100%); color: #ffffff; text-decoration: none; padding: 18px 24px; border-radius: 50px; font-weight: 900; font-size: 17px; letter-spacing: 0.5px; box-shadow: 0 10px 30px rgba(230,0,38,0.45); text-align: center;">
+
+                                                    🎟️ GET YOUR TICKETS NOW &rarr;
+
+                                                </a>
+
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+
+
+                                    <div style="text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 28px;">
+
+                                        ⚡ Instant M-Pesa STK Push • QR Code Ticket delivered immediately to your email &amp; phone!
+
+                                    </div>
+
+
+
+                                    <!-- DATING & MATCHING ANGLE -->
+
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.15); border-radius: 16px; padding: 18px 20px; text-align: center; margin-bottom: 24px;">
+
+                                        <div style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 6px;">
+
+                                            Looking for someone to attend with? 💘
+
+                                        </div>
+
+                                        <div style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 12px;">
+
+                                            Don't go solo! Check out students near you on Find Your Match and connect before Saturday night.
+
+                                        </div>
+
+                                        <a href="{discover_url}" target="_blank" style="display: inline-block; background: rgba(255,255,255,0.1); color: #ff6b7d; text-decoration: none; padding: 8px 20px; border-radius: 50px; font-size: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.15);">
+
+                                            Find Your Party Match &rarr;
+
+                                        </a>
+
+                                    </div>
+
+
+
+                                    <!-- DIRECT LINK COPY FALLBACK -->
+
+                                    <div style="background: #080c14; border-radius: 12px; padding: 14px; font-size: 11px; color: #64748b; word-break: break-all; text-align: center;">
+
+                                        Direct link to view event &amp; book:<br>
+
+                                        <a href="{event_url}" style="color: #ff4d61; text-decoration: underline;">{event_url}</a>
+
+                                    </div>
+
+
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- FOOTER -->
+
+                            <tr>
+
+                                <td style="padding: 24px; background: #07090e; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">
+
+                                    <div style="margin-bottom: 8px; color: #94a3b8; font-weight: 700;">
+
+                                        Organized by BK OFFICIAL (0706695719)
+
+                                    </div>
+
+                                    <div style="margin-bottom: 12px;">
+
+                                        Verified campus ticketing powered by <a href="{base_url}" style="color: #ff334b; text-decoration: none; font-weight: 700;">Find Your Match</a>
+
+                                    </div>
+
+                                    <div style="font-size: 11px; color: #475569;">
+
+                                        You received this event invitation because you are a registered member of Find Your Match.<br>
+
+                                        Kakamega, Kenya.
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+
+
+                        </table>
+
+                        <!-- END MAIN CONTAINER -->
+
+
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return subject, text_content, html_content
+
+
+
+
+
+def send_kalenjin_takeover_email(recipient_email: str, recipient_name: str, event_url: str = None) -> bool:
+
+    """
+
+    Sends the KALENJIN TAKE OVER (MMUST EDITION) event invitation email.
+
+    """
+
+    subject, text_content, html_content = build_kalenjin_takeover_email_content(recipient_name, event_url)
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Find Your Match Events"
+
+    )
+
+
+
+
+
+# ========================================================
+
+# LADIES CHAT-TO-EARN & NGL LAUNCH ONBOARDING CAMPAIGN
+
+# ========================================================
+
+
+
+def build_ladies_chat_earn_launch_email_content(recipient_name: str):
+
+    """
+
+    Constructs the high-converting onboarding email sent to all registered ladies
+
+    introducing the Chat-to-Earn weekly 10-lady squad and their NGL anonymous link.
+
+    """
+
+    first_name = (recipient_name or 'Comrade').split()[0]
+
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+
+    year = datetime.now().year
+
+
+
+    subject = f"🚂 Exclusive for You, {first_name}: Earn KES 50 Daily to M-Pesa + Your Anonymous WhatsApp Link!"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {first_name}!
+
+
+
+        We have an exciting announcement exclusively for the ladies on FindYourMatch:
+
+        We are officially launching the "Chat-to-Earn" Weekly Train & your own Viral NGL Anonymous Link!
+
+
+
+        💰 FEATURE 1: CHAT-TO-EARN (10 LADIES PER WEEK)
+
+        • Earn KES 50 every day simply by replying to 10 men on the platform.
+
+        • Funds accumulate in your in-app wallet and are sent directly to your Safaricom M-Pesa every Sunday night!
+
+        • STRICTLY LIMITED: Only 10 ladies can board the train each week.
+
+          Spots are first-come, first-served. Once all 10 spots are claimed, you have to wait for next week!
+
+
+
+        🤫 FEATURE 2: YOUR VIRAL NGL ANONYMOUS LINK
+
+        • You now have your own private anonymous confessions link!
+
+        • Share it to your WhatsApp Status with one tap.
+
+        • Your contacts can send you secret confessions without downloading the app or logging in.
+
+        • Generate gorgeous 9:16 story cards to post your replies back to your WhatsApp Status!
+
+
+
+        👉 Claim Your Spot on the Train Now:
+
+        {base_url}/matches
+
+
+
+        👉 Get Your Anonymous NGL WhatsApp Link:
+
+        {base_url}/ngl
+
+
+
+        Don't let this week's spots fill up without you. Jump in today!
+
+
+
+        With love,
+
+        The FindYourMatch Team 💖
+
+        (c) {year} FindYourMatch Kenya
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>{subject}</title>
+
+        </head>
+
+        <body style="margin:0;padding:0;background-color:#0B0E14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;">
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0B0E14;padding:25px 12px;">
+
+                <tr>
+
+                    <td align="left" style="text-align:left;">
+
+                        <!-- MAIN CARD -->
+
+                        <table role="presentation" width="100%" style="max-width:600px;margin:0;text-align:left;background:#111827;border-radius:28px;overflow:hidden;border:1px solid rgba(255,46,116,0.3);box-shadow:0 25px 60px rgba(0,0,0,0.7);" cellspacing="0" cellpadding="0" border="0">
+
+                            
+
+                            <!-- GLOWING HEADER -->
+
+                            <tr>
+
+                                <td style="background:linear-gradient(135deg, #720000 0%, #E11D48 60%, #FF8A00 100%);padding:36px 28px;text-align:left;">
+
+                                    <div style="display:inline-block;background:rgba(0,0,0,0.4);padding:6px 14px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;color:#FFE4E6;margin-bottom:12px;border:1px solid rgba(255,255,255,0.25);text-align:left;">
+
+                                        👑 LADIES SQUAD (10/WK) &bull; PAYOUT
+
+                                    </div>
+
+                                    <h1 style="color:#FFFFFF;margin:0 0 10px;font-size:28px;font-weight:900;letter-spacing:-0.5px;line-height:1.2;">
+
+                                        🚀 LAUNCH: 0 / 10 Spots Claimed<br>50 KES/day • Weekly M-Pesa Disbursal
+
+                                    </h1>
+
+                                    <p style="color:#FFE4E6;font-size:15px;margin:0;font-weight:600;">
+
+                                        Get paid weekly to M-Pesa &bull; Only 10 ladies per week
+
+                                    </p>
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- GREETING & BODY -->
+
+                            <tr>
+
+                                <td style="padding:32px 30px 10px;">
+
+                                    <p style="font-size:16px;line-height:1.6;color:#F1F5F9;margin:0 0 20px;">
+
+                                        Hey <strong>{first_name}</strong>! 👋<br><br>
+
+                                        We have some massive news exclusively for our campus queens! Starting today, you can get rewarded for keeping the community active, plus get your own viral anonymous messaging link for WhatsApp.
+
+                                    </p>
+
+
+
+                                    <!-- FEATURE 1: CHAT TO EARN -->
+
+                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,46,116,0.25);border-radius:20px;padding:22px;margin-bottom:20px;">
+
+                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
+
+                                            <span style="font-size:26px;margin-right:10px;">💰</span>
+
+                                            <div>
+
+                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF2E74;">Chat-to-Earn Squad</h3>
+
+                                                <span style="font-size:12px;color:#34D399;font-weight:800;">50 KES DAILY &bull; WEEKLY M-PESA PAYOUT</span>
+
+                                            </div>
+
+                                        </div>
+
+                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0 0 12px;">
+
+                                            Reply to <strong>10 men</strong> every day on FindYourMatch and automatically earn <strong>KES 50/day</strong>. That's up to KES 350 every week, disbursed directly to your Safaricom M-Pesa every Sunday night!
+
+                                        </p>
+
+                                        <div style="background:rgba(239,68,68,0.15);border-left:4px solid #EF4444;border-radius:8px;padding:10px 14px;font-size:12px;color:#FCA5A5;font-weight:700;">
+
+                                            ⚠️ STRICT LIMIT: Only 10 ladies can join each week on a first-come, first-served basis! Once the train is full (10/10), you must wait until next week.
+
+                                        </div>
+
+                                    </div>
+
+
+
+                                    <!-- FEATURE 2: NGL VIRAL LINK -->
+
+                                    <div style="background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,138,0,0.25);border-radius:20px;padding:22px;margin-bottom:26px;">
+
+                                        <div style="display:flex;align-items:center;margin-bottom:8px;">
+
+                                            <span style="font-size:26px;margin-right:10px;">🤫</span>
+
+                                            <div>
+
+                                                <h3 style="margin:0;font-size:18px;font-weight:900;color:#FF8A00;">Your NGL Anonymous Link</h3>
+
+                                                <span style="font-size:12px;color:#94A3B8;font-weight:800;">POST ON WHATSAPP STATUS</span>
+
+                                            </div>
+
+                                        </div>
+
+                                        <p style="font-size:14px;line-height:1.6;color:#CBD5E1;margin:0;">
+
+                                            Get secret confessions, compliments, and crush reveals from your phone contacts! They don't need to download any app or log in. Then generate high-res 9:16 story cards to share your spicy replies back to your status!
+
+                                        </p>
+
+                                    </div>
+
+
+
+                                    <!-- HOW IT WORKS (3 STEPS) -->
+
+                                    <div style="background:#0F172A;border-radius:18px;padding:20px;margin-bottom:28px;">
+
+                                        <h4 style="margin:0 0 14px;color:#F8FAFC;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;">
+
+                                            ⚡ How to Get Started in 30 Seconds:
+
+                                        </h4>
+
+                                        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:13px;color:#CBD5E1;line-height:1.7;">
+
+                                            <tr>
+
+                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">1.</td>
+
+                                                <td>Click the button below & claim your spot on this week's train before the 10 spots run out.</td>
+
+                                            </tr>
+
+                                            <tr>
+
+                                                <td width="30" valign="top" style="color:#FF2E74;font-weight:900;font-size:16px;">2.</td>
+
+                                                <td>Chat and reply to 10 men every day.</td>
+
+                                            </tr>
+
+                                            <tr>
+
+                                                <td width="30" valign="top" style="color:#10B981;font-weight:900;font-size:16px;">3.</td>
+
+                                                <td>Sit back and receive your cash directly to M-Pesa every Sunday at 23:59 EAT!</td>
+
+                                            </tr>
+
+                                        </table>
+
+                                    </div>
+
+
+
+                                    <!-- MAIN CTA BUTTON -->
+
+                                    <div style="text-align:left;margin-bottom:20px;">
+
+                                        <a href="{base_url}/matches" style="display:inline-block;background:linear-gradient(135deg, #FF2E74 0%, #FF8A00 100%);color:#FFFFFF;padding:18px 38px;border-radius:999px;font-size:16px;font-weight:900;text-decoration:none;box-shadow:0 12px 30px rgba(255,46,116,0.45);letter-spacing:0.3px;">
+
+                                            🚂 Claim My Spot on the Train Now &rarr;
+
+                                        </a>
+
+                                    </div>
+
+
+
+                                    <!-- SECONDARY LINK -->
+
+                                    <div style="text-align:left;margin-bottom:24px;">
+
+                                        <a href="{base_url}/ngl" style="color:#94A3B8;font-size:13px;font-weight:700;text-decoration:underline;">
+
+                                            Or open your NGL Anonymous Link Hub &rarr;
+
+                                        </a>
+
+                                    </div>
+
+
+
+                                </td>
+
+                            </tr>
+
+
+
+                            <!-- FOOTER -->
+
+                            <tr>
+
+                                <td style="padding:22px 28px;background:#0A0D14;border-top:1px solid rgba(255,255,255,0.06);text-align:left;font-size:12px;color:#64748B;line-height:1.6;">
+
+                                    <div style="margin-bottom:6px;color:#94A3B8;font-weight:800;">
+
+                                        FindYourMatch Kenya &bull; Comrades Network
+
+                                    </div>
+
+                                    <div>
+
+                                        You received this invitation because you are a verified female student member.<br>
+
+                                        Kakamega, Kenya &bull; <a href="{base_url}/privacy" style="color:#94A3B8;text-decoration:none;">Privacy Policy</a>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+
+
+                        </table>
+
+                        <!-- END MAIN CARD -->
+
+                    </td>
+
+                </tr>
+
+            </table>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return subject, text_content, html_content
+
+
+
+
+
+def send_ladies_chat_earn_launch_email(recipient_email: str, recipient_name: str) -> bool:
+
+    """
+
+    Dispatches the Chat-to-Earn & NGL onboarding email to a verified lady.
+
+    """
+
+    subject, text_content, html_content = build_ladies_chat_earn_launch_email_content(recipient_name)
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="FindYourMatch VIP"
+
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ========================================================
+
+# CAMPUS MANAGERS & AMBASSADORS MONTHLY NOTIFICATIONS
+
+# ========================================================
+
+
+
+def send_manager_monthly_forecast_email(
+
+    recipient_email: str,
+
+    recipient_name: str,
+
+    institution: str,
+
+    month_display: str,
+
+    total_users: int,
+
+    active_subscribers: int,
+
+    will_get_amount: int,
+
+    supposed_to_get: int,
+
+    already_paid: int = 0,
+
+    payout_phone: str = None,
+
+    role: str = "Manager",
+
+    commission_rate_pct: int = 30
+
+) -> bool:
+
+    """
+
+    Sends the end-of-month salary forecast & institution statement email to a Campus Manager or Ambassador.
+
+    Includes:
+
+      - Total registered users from their institution
+
+      - Total active subscribers for the month
+
+      - What they will get (Net payable) & what they are supposed to get (Earned)
+
+      - Notice to contact 0707605751 on WhatsApp for more information and inquiries
+
+      - Link to Manager Dashboard
+
+    """
+
+    if not recipient_email or "@" not in str(recipient_email):
+
+        return False
+
+
+
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+
+    clean_name = (recipient_name or "Campus Lead").strip()
+
+    first_name = clean_name.split()[0].capitalize()
+
+    role_title = (role or "Manager").title()
+
+    clean_phone = payout_phone or "Not configured"
+
+    
+
+    subject = f"📊 Your {month_display} Payout Statement: KES {will_get_amount:,} | FYM {institution}"
+
+    
+
+    whatsapp_url = f"https://wa.me/254707605751?text=Hello%20FYM%20Admin,%20I%20am%20{clean_name}%20({institution}).%20Inquiry%20regarding%20my%20{month_display}%20payout%20of%20KES%20{will_get_amount}"
+
+    portal_url = f"{base_url}/manager_portal"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Hello {first_name},
+
+
+
+        Here is your monthly performance and payout summary for {month_display} as Campus {role_title} for {institution}:
+
+
+
+        INSTITUTION BREAKDOWN:
+
+        • Campus / Institution: {institution}
+
+        • Total Registered Comrades: {total_users:,} students
+
+        • Active Paid Subscribers this Month: {active_subscribers:,} subscribers
+
+        • Commission Cut: {commission_rate_pct}% ({role_title})
+
+
+
+        PAYOUT DETAILS:
+
+        • Supposed to Get (Earned): KES {supposed_to_get:,}
+
+        • Already Disbursed: KES {already_paid:,}
+
+        • WHAT YOU WILL GET (Net Payable): KES {will_get_amount:,}
+
+        • Designated Payout Phone: {clean_phone}
+
+
+
+        WHATSAPP INQUIRIES & SUPPORT:
+
+        For more information, queries, or reconciliation, please contact management directly on WhatsApp at 0707605751:
+
+        {whatsapp_url}
+
+
+
+        Open your Campus Manager Dashboard to check your live roster and update payment details:
+
+        {portal_url}
+
+
+
+        - The {SENDER_NAME_DEFAULT} Management Team
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>{subject}</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 24px 10px; background-color: #0F172A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 600px; margin: 0; text-align: left; background: #1E293B; border-radius: 20px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+
+                
+
+                <!-- HEADER BRANDING -->
+
+                <div style="background: linear-gradient(135deg, #0B1120 0%, #1E293B 100%); padding: 26px 24px; text-align: left; border-bottom: 1px solid #334155;">
+
+                    <img src="{base_url}/static/img/icon-512.png" alt="Find Your Match" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 10px; border: 2px solid #38BDF8; display: block;">
+
+                    <h1 style="color: #F8FAFC; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">FIND YOUR MATCH</h1>
+
+                    <div style="color: #38BDF8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Campus Leadership & Payouts</div>
+
+                </div>
+
+
+
+                <div style="padding: 28px 24px;">
+
+                    <!-- SALUTATION -->
+
+                    <h2 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 8px;">
+
+                        Hello {first_name} 👋
+
+                    </h2>
+
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-top: 0; margin-bottom: 24px;">
+
+                        Here is your verified end-of-month institutional performance summary for <strong>{institution}</strong> ({month_display}).
+
+                    </p>
+
+
+
+                    <!-- WHAT YOU WILL GET HERO CARD -->
+
+                    <div style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%); border: 2px solid #EAB308; border-radius: 16px; padding: 22px; text-align: left; margin-bottom: 26px;">
+
+                        <div style="color: #FDE047; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
+
+                            ⚡ What You Will Get (Net Salary)
+
+                        </div>
+
+                        <div style="color: #FFFFFF; font-size: 38px; font-weight: 900; letter-spacing: -1px; margin-bottom: 6px;">
+
+                            KES {will_get_amount:,}
+
+                        </div>
+
+                        <div style="color: #94A3B8; font-size: 12px;">
+
+                            Total Earned: KES {supposed_to_get:,} &bull; Already Paid: KES {already_paid:,}
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- INSTITUTION STATS GRID -->
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 26px;">
+
+                        <div style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;">
+
+                            📊 Institutional Growth Metrics
+
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">🏫 Institution</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #FFFFFF;">{institution}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">👥 Registered Comrades</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #38BDF8;">{total_users:,} Students</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">💎 Active Subscribers (This Month)</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #10B981;">{active_subscribers:,} Paid Comrades</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">📈 Role & Commission Cut</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #F59E0B;">{role_title} ({commission_rate_pct}%)</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 10px 0; color: #94A3B8;">📱 Designated M-Pesa Line</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-weight: 800; color: #FFFFFF;">{clean_phone}</td>
+
+                            </tr>
+
+                        </table>
+
+                    </div>
+
+
+
+                    <!-- WHATSAPP CONTACT CALLOUT -->
+
+                    <div style="background: rgba(37, 211, 102, 0.1); border: 1px solid rgba(37, 211, 102, 0.3); border-radius: 14px; padding: 18px; margin-bottom: 26px; text-align: left;">
+
+                        <div style="color: #25D366; font-size: 14px; font-weight: 800; margin-bottom: 6px;">
+
+                            💬 Inquiries & Information
+
+                        </div>
+
+                        <p style="color: #E2E8F0; font-size: 13px; line-height: 1.5; margin: 0 0 14px 0;">
+
+                            Have questions about your earnings, subscriber numbers, or payment reconciliation? Contact management directly on WhatsApp at <strong>0707605751</strong>.
+
+                        </p>
+
+                        <a href="{whatsapp_url}" target="_blank" style="display: inline-block; background: #25D366; color: #000000; font-weight: 900; font-size: 13px; padding: 10px 22px; border-radius: 8px; text-decoration: none;">
+
+                            Chat on WhatsApp (0707605751)
+
+                        </a>
+
+                    </div>
+
+
+
+                    <!-- DASHBOARD CTA -->
+
+                    <div style="text-align: left; margin-bottom: 16px;">
+
+                        <a href="{portal_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%); color: #FFFFFF; font-weight: 800; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
+
+                            🏢 Open Campus Manager Portal &rarr;
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 20px 24px; text-align: left; border-top: 1px solid #334155; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0 0 4px 0;">FIND YOUR MATCH &bull; Kakamega, Kenya</p>
+
+                    <p style="margin: 0;">Automated Institutional Partner Notification &bull; Confidential</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Find Your Match Leadership"
+
+    )
+
+
+
+
+
+def send_manager_payout_confirmation_email(
+
+    recipient_email: str,
+
+    recipient_name: str,
+
+    institution: str,
+
+    month_display: str,
+
+    amount_paid: int,
+
+    phone_number: str,
+
+    transaction_ref: str = None,
+
+    role: str = "Manager"
+
+) -> bool:
+
+    """
+
+    Sends an instant confirmation email whenever a manager/ambassador is paid their salary.
+
+    Guides them directly to their dashboard to confirm and see they got their salary.
+
+    Includes WhatsApp support contact: 0707605751.
+
+    """
+
+    if not recipient_email or "@" not in str(recipient_email):
+
+        return False
+
+
+
+    base_url = (os.getenv("BASE_URL") or "https://www.findyourmatch.co.ke").rstrip("/")
+
+    clean_name = (recipient_name or "Campus Lead").strip()
+
+    first_name = clean_name.split()[0].capitalize()
+
+    role_title = (role or "Manager").title()
+
+    clean_phone = phone_number or "M-Pesa"
+
+    clean_ref = transaction_ref or "Daraja B2C Transfer"
+
+
+
+    subject = f"✅ Salary Disbursed: KES {amount_paid:,} Sent to {clean_phone} | {month_display}"
+
+    
+
+    portal_url = f"{base_url}/manager_portal"
+
+    whatsapp_url = f"https://wa.me/254707605751?text=Hello%20FYM%20Admin,%20confirming%20receipt%20of%20my%20{month_display}%20salary%20payout%20of%20KES%20{amount_paid}"
+
+
+
+    text_content = textwrap.dedent(f"""\
+
+        Congratulations {first_name}! 🎉
+
+
+
+        Your {month_display} salary of KES {amount_paid:,} has been successfully disbursed to your M-Pesa line ({clean_phone}) via Safaricom B2C!
+
+
+
+        TRANSACTION DETAILS:
+
+        • Amount Disbursed: KES {amount_paid:,}
+
+        • Destination Phone: {clean_phone}
+
+        • Transaction / Conversation ID: {clean_ref}
+
+        • Campus / Role: {institution} ({role_title})
+
+        • Month: {month_display}
+
+
+
+        PLEASE CONFIRM ON YOUR DASHBOARD:
+
+        Log in to your Campus Manager Portal now to review your live earnings ledger and confirm receipt:
+
+        {portal_url}
+
+
+
+        WHATSAPP INQUIRIES & SUPPORT:
+
+        If you have any questions or require any assistance, message management directly on WhatsApp at 0707605751:
+
+        {whatsapp_url}
+
+
+
+        Thank you for leading and growing {institution}!
+
+        - The {SENDER_NAME_DEFAULT} Team
+
+    """)
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>{subject}</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 24px 10px; background-color: #0F172A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 600px; margin: 0; text-align: left; background: #1E293B; border-radius: 20px; overflow: hidden; border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+
+                
+
+                <!-- HEADER BRANDING -->
+
+                <div style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); padding: 26px 24px; text-align: left; border-bottom: 1px solid #10B981;">
+
+                    <div style="font-size: 34px; margin-bottom: 6px;">🎉</div>
+
+                    <h1 style="color: #FFFFFF; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">SALARY PAYMENT CONFIRMED</h1>
+
+                    <div style="color: #A7F3D0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px;">Safaricom M-Pesa B2C Disbursal</div>
+
+                </div>
+
+
+
+                <div style="padding: 28px 24px;">
+
+                    <!-- SALUTATION -->
+
+                    <h2 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin-top: 0; margin-bottom: 8px;">
+
+                        Congratulations, {first_name}! 🚀
+
+                    </h2>
+
+                    <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-top: 0; margin-bottom: 24px;">
+
+                        Your campus management commission for <strong>{month_display}</strong> has been successfully processed and sent to your M-Pesa account.
+
+                    </p>
+
+
+
+                    <!-- AMOUNT CARD -->
+
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.9) 100%); border: 2px solid #10B981; border-radius: 16px; padding: 22px; text-align: left; margin-bottom: 26px;">
+
+                        <div style="color: #6EE7B7; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
+
+                            Total Disbursed to M-Pesa
+
+                        </div>
+
+                        <div style="color: #FFFFFF; font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 6px;">
+
+                            KES {amount_paid:,}
+
+                        </div>
+
+                        <div style="color: #A7F3D0; font-size: 13px; font-weight: 700;">
+
+                            ✅ Transferred via Safaricom B2C
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- TRANSACTION DETAILS -->
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 26px;">
+
+                        <div style="font-size: 11px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px;">
+
+                            🧾 Payment Receipt Details
+
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">📱 Recipient Phone</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-weight: 800; color: #FFFFFF;">{clean_phone}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">📑 Reference ID</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 11px; color: #38BDF8;">{clean_ref}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 10px 0; color: #94A3B8;">🏫 Campus / Lead</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #FFFFFF;">{institution} ({role_title})</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 10px 0; color: #94A3B8;">📅 Payout Period</td>
+
+                                <td style="padding: 10px 0; text-align: right; font-weight: 800; color: #10B981;">{month_display}</td>
+
+                            </tr>
+
+                        </table>
+
+                    </div>
+
+
+
+                    <!-- GUIDE TO DASHBOARD CTA -->
+
+                    <div style="background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: 14px; padding: 20px; margin-bottom: 26px; text-align: left;">
+
+                        <h3 style="color: #38BDF8; font-size: 15px; font-weight: 800; margin: 0 0 8px 0;">
+
+                            👉 Confirm Receipt on Your Dashboard
+
+                        </h3>
+
+                        <p style="color: #E2E8F0; font-size: 13px; line-height: 1.5; margin: 0 0 16px 0;">
+
+                            Please open your Campus Manager Portal now to verify your updated ledger and confirm that you received your salary.
+
+                        </p>
+
+                        <a href="{portal_url}" target="_blank" style="display: inline-block; background: #0284C7; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);">
+
+                            Open Dashboard & Confirm &rarr;
+
+                        </a>
+
+                    </div>
+
+
+
+                    <!-- WHATSAPP INQUIRIES -->
+
+                    <div style="text-align: left; border-top: 1px solid #334155; padding-top: 20px; margin-top: 20px;">
+
+                        <p style="color: #94A3B8; font-size: 12px; margin: 0 0 10px 0;">
+
+                            Questions or inquiries? Message us directly on WhatsApp at <strong>0707605751</strong>:
+
+                        </p>
+
+                        <a href="{whatsapp_url}" target="_blank" style="display: inline-block; background: rgba(37, 211, 102, 0.15); color: #25D366; font-weight: 800; font-size: 12px; padding: 8px 18px; border-radius: 6px; text-decoration: none; border: 1px solid rgba(37, 211, 102, 0.4);">
+
+                            💬 WhatsApp Support (0707605751)
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 18px 24px; text-align: left; border-top: 1px solid #334155; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0;">FIND YOUR MATCH &bull; Kakamega, Kenya &bull; Official Payment Voucher</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Find Your Match Finance"
+
+    )
+
+
+
+
+
+def send_voter_otp_email(recipient_email: str, voter_name: str, otp_code: str, contestant_name: str = None) -> bool:
+
+    """
+
+    Sends a 6-digit One-Time PIN (OTP) to verify legitimate human voters and prevent bot ballot stuffing.
+
+    Replaces SMS OTP with zero-cost, high-reliability HostPinnacle SMTP delivery.
+
+    """
+
+    clean_voter = (voter_name or "Comrade").strip().title()
+
+    subject = f"🗳️ Your Voter Verification Code: {otp_code} - Campus Awards"
+
+
+
+    contestant_line = f"voting for <strong>{contestant_name}</strong>" if contestant_name else "casting your vote"
+
+    text_content = f"""
+
+    Hello {clean_voter},
+
+
+
+    Your voter verification code is: {otp_code}
+
+
+
+    You requested this code while {contestant_line} on the Campus Awards Platform.
+
+    This code expires in 10 minutes.
+
+
+
+    If you did not request this code, please ignore this email.
+
+
+
+    Find Your Match & Campus Awards Platform
+
+    """
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>Voter Verification Code</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #3730A3;">
+
+                    <div style="font-size: 32px; margin-bottom: 8px;">🗳️</div>
+
+                    <h1 style="color: #F8FAFC; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+
+                        Voter Verification PIN
+
+                    </h1>
+
+                    <p style="color: #A5B4FC; font-size: 13px; margin: 6px 0 0 0;">
+
+                        Official Campus Awards & Talent Platform
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 28px 24px; text-align: left;">
+
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+
+                        Hello <strong>{clean_voter}</strong>,
+
+                    </p>
+
+                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
+
+                        To confirm your human voter authenticity and protect the integrity of the vote tally, please enter the one-time verification code below:
+
+                    </p>
+
+
+
+                    <!-- OTP DISPLAY BOX -->
+
+                    <div style="background: #1E293B; border: 2px dashed #6366F1; border-radius: 14px; padding: 22px; text-align: center; margin-bottom: 24px;">
+
+                        <div style="font-size: 11px; color: #94A3B8; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;">
+
+                            One-Time Security Code
+
+                        </div>
+
+                        <div style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 900; color: #F59E0B; letter-spacing: 8px; margin: 0;">
+
+                            {otp_code}
+
+                        </div>
+
+                        <div style="color: #A5B4FC; font-size: 11px; margin-top: 8px; font-weight: 600;">
+
+                            ⏱️ Code expires in 10 minutes
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div style="background: rgba(99, 102, 241, 0.08); border-radius: 10px; border-left: 4px solid #6366F1; padding: 12px 16px; margin-bottom: 24px;">
+
+                        <p style="color: #CBD5E1; font-size: 12px; line-height: 1.5; margin: 0;">
+
+                            🔒 <strong>Anti-Fraud Protection:</strong> Never share this code with anyone. Contestants or agents will never ask for your verification code.
+
+                        </p>
+
+                    </div>
+
+
+
+                    <p style="color: #64748B; font-size: 11px; line-height: 1.5; margin: 0;">
+
+                        If you did not initiate this vote, you can safely ignore this email — no votes will be counted without this PIN.
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0;">Campus Awards & Talent Voting Engine &bull; Find Your Match</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Campus Awards Verification"
+
+    )
+
+
+
+
+
+def send_vote_receipt_email(recipient_email: str, voter_name: str, contestant_name: str, category: str, vote_count: int, amount_paid: int, mpesa_receipt: str, new_total_votes: int = None) -> bool:
+
+    """
+
+    Sends an official M-Pesa vote confirmation and financial voucher.
+
+    Replaces SMS receipts with full digital receipts containing live leaderboard links.
+
+    """
+
+    clean_voter = (voter_name or "Comrade").strip().title()
+
+    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    leaderboard_url = f"{base_url}/awards"
+
+
+
+    vote_plural = "vote" if vote_count == 1 else "votes"
+
+    subject = f"✅ Vote Confirmed! {vote_count} {vote_plural} cast for {contestant_name} ({clean_receipt})"
+
+
+
+    text_content = f"""
+
+    OFFICIAL VOTE CONFIRMATION & RECEIPT
+
+    --------------------------------------------------
+
+    Voter: {clean_voter}
+
+    Contestant: {contestant_name}
+
+    Category: {category}
+
+    Votes Cast: {vote_count}
+
+    Amount Paid: KES {amount_paid}
+
+    M-Pesa Receipt: {clean_receipt}
+
+    Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+
+
+    View Live Leaderboard: {leaderboard_url}
+
+
+
+    Thank you for participating in the Campus Awards!
+
+    """
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>Official Vote Confirmation</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); padding: 28px 24px; text-align: center; border-bottom: 1px solid #047857;">
+
+                    <div style="display: inline-block; background: #10B981; color: #064E3B; width: 48px; height: 48px; line-height: 48px; border-radius: 50%; font-size: 24px; font-weight: 900; margin-bottom: 10px;">
+
+                        ✓
+
+                    </div>
+
+                    <h1 style="color: #FFFFFF; font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -0.5px;">
+
+                        Vote Cast & Recorded!
+
+                    </h1>
+
+                    <p style="color: #A7F3D0; font-size: 13px; margin: 6px 0 0 0;">
+
+                        Official M-Pesa Payment Receipt & Cryptographic Audit
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 28px 24px; text-align: left;">
+
+                    <!-- HIGHLIGHT HERO -->
+
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 78, 59, 0.25) 100%); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+
+                        <div style="font-size: 11px; color: #6EE7B7; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px;">
+
+                            Votes Successfully Credited
+
+                        </div>
+
+                        <div style="font-size: 38px; font-weight: 900; color: #FFFFFF; letter-spacing: -1px; margin-bottom: 4px;">
+
+                            +{vote_count} {vote_plural.upper()}
+
+                        </div>
+
+                        <div style="color: #FBBF24; font-size: 14px; font-weight: 700;">
+
+                            Awarded to: {contestant_name}
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- TRANSACTION TABLE -->
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
+
+                        <div style="font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;">
+
+                            🧾 Payment Verification Details
+
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">📱 M-Pesa Receipt</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-family: monospace; font-weight: 800; color: #38BDF8;">{clean_receipt}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Category</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{category}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">💵 Amount Paid</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">KES {amount_paid:,}</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #94A3B8;">📅 Timestamp</td>
+
+                                <td style="padding: 8px 0; text-align: right; color: #94A3B8;">{datetime.now().strftime('%d %b %Y, %I:%M %p')}</td>
+
+                            </tr>
+
+                        </table>
+
+                    </div>
+
+
+
                     <!-- SPECIAL VOTER REWARD: 3-DAY VIP DATING PASS -->
                     <div style="background: linear-gradient(135deg, rgba(230, 0, 38, 0.12) 0%, rgba(114, 0, 0, 0.25) 100%); border: 1.5px dashed #E60026; border-radius: 14px; padding: 18px; text-align: center; margin-bottom: 22px;">
                         <div style="font-size: 11px; color: #FDA4AF; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
@@ -4520,217 +9026,447 @@ def send_vote_receipt_email(recipient_email: str, voter_name: str, contestant_na
                         </a>
                     </div>
 
-                    <!-- LEADERBOARD CTA -->
-                    <div style="text-align: center; margin-bottom: 16px;">
-                        <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
-                            📊 View Live Leaderboard &rarr;
-                        </a>
-                    </div>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0;">Campus Awards Platform &bull; Powered by Safaricom Daraja M-Pesa Integration</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Campus Awards Tally"
-    )
-
-
-def send_contestant_registration_email(recipient_email: str, contestant_name: str, category: str, institution: str, referral_link: str, mpesa_receipt: str) -> bool:
-    """
-    Sends contestant registration confirmation and custom WhatsApp campaign link upon 50 KES payment verification.
-    """
+                    <!-- LEADERBOARD CTA -->
+
+                    <div style="text-align: center; margin-bottom: 16px;">
+
+                        <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+
+                            📊 View Live Leaderboard &rarr;
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0;">Campus Awards Platform &bull; Powered by Safaricom Daraja M-Pesa Integration</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Campus Awards Tally"
+
+    )
+
+
+
+
+
+def send_contestant_registration_email(recipient_email: str, contestant_name: str, category: str, institution: str, referral_link: str, mpesa_receipt: str) -> bool:
+
+    """
+
+    Sends contestant registration confirmation and custom WhatsApp campaign link upon 50 KES payment verification.
+
+    """
+
     import urllib.parse
-    clean_name = (contestant_name or "Nominee").strip().title()
-    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
-    whatsapp_share_text = urllib.parse.quote(f"Hey fam! I have been nominated for {category} at {institution}! 🏆 Please vote for me here: {referral_link}")
-    whatsapp_share_url = f"https://api.whatsapp.com/send?text={whatsapp_share_text}"
-
-    subject = f"🌟 You're Official! Contestant Registration Verified - {category}"
-
-    text_content = f"""
-    CONGRATULATIONS {clean_name}!
-    --------------------------------------------------
-    Your nomination for {category} at {institution} is now active and verified!
-    M-Pesa Registration Fee (50 KES): Confirmed ({clean_receipt})
-
-    Your Unique Voting & Campaign Link:
-    {referral_link}
-
-    Share this link on your WhatsApp Status and Instagram stories to start collecting votes!
-    """
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Contestant Registration Verified</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid #7C3AED;">
-                    <div style="font-size: 38px; margin-bottom: 6px;">🌟</div>
-                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
-                        You're In The Race!
-                    </h1>
-                    <p style="color: #DDD6FE; font-size: 13px; margin: 6px 0 0 0;">
-                        Contestant Registration & 50 KES Payment Verified
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 28px 24px; text-align: left;">
-                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
-                        Congratulations <strong>{clean_name}</strong>!
-                    </p>
-                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
-                        Your contestant profile is now live on the official awards directory. Comrades and fans across campus can now discover your bio and cast their votes for you!
-                    </p>
-
-                    <!-- DETAILS CARD -->
-                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Nominated Category</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #F59E0B;">{category}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">🏫 Campus / Institution</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{institution}</td>
-                            </tr>
-                            <tr style="border-bottom: 1px solid #1E293B;">
-                                <td style="padding: 8px 0; color: #94A3B8;">💳 Registration Fee</td>
-                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">KES 50 (PAID)</td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 8px 0; color: #94A3B8;">🧾 Safaricom M-Pesa ID</td>
-                                <td style="padding: 8px 0; text-align: right; font-family: monospace; color: #38BDF8;">{clean_receipt}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- CAMPAIGN SHARE CALLOUT -->
-                    <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(76, 29, 149, 0.25) 100%); border: 1px solid #7C3AED; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
-                        <div style="font-size: 11px; color: #C4B5FD; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
-                            🚀 Your Official Campaign Link
-                        </div>
-                        <div style="background: #0B1120; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; color: #38BDF8; word-break: break-all; margin-bottom: 16px;">
-                            {referral_link}
-                        </div>
-                        <a href="{whatsapp_share_url}" target="_blank" style="display: inline-block; background: #25D366; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
-                            💬 Share to WhatsApp Status &rarr;
-                        </a>
-                    </div>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0;">Campus Awards & Talent Voting Platform &bull; Find Your Match</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Campus Awards Team"
-    )
-
-
-def send_contestant_milestone_email(recipient_email: str, contestant_name: str, milestone_votes: int, current_rank: int, category: str, live_leaderboard_url: str = None) -> bool:
-    """
-    Sends high-engagement rank climb & milestone alert to keep contestants actively campaigning.
-    """
-    clean_name = (contestant_name or "Nominee").strip().title()
-    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
-    leaderboard_url = live_leaderboard_url or f"{base_url}/awards"
-
-    subject = f"🔥 Milestone Alert! You reached {milestone_votes} votes in {category} (Rank #{current_rank})"
-
-    text_content = f"""
-    MILESTONE REACHED!
-    --------------------------------------------------
-    Congratulations {clean_name}!
-    You just hit {milestone_votes} votes in {category}!
-    Current Standing: Rank #{current_rank}
-
-    Keep pushing! View the live leaderboard here: {leaderboard_url}
-    """
-
-    html_content = textwrap.dedent(f"""\
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Milestone Alert</title>
-        </head>
-        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
-            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <!-- HEADER -->
-                <div style="background: linear-gradient(135deg, #B45309 0%, #D97706 100%); padding: 30px 24px; text-align: center; border-bottom: 1px solid #F59E0B;">
-                    <div style="font-size: 38px; margin-bottom: 6px;">🏆</div>
-                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
-                        Milestone Unlocked!
-                    </h1>
-                    <p style="color: #FEF3C7; font-size: 13px; margin: 6px 0 0 0;">
-                        {milestone_votes} Votes Reached &bull; Rank #{current_rank} in {category}
-                    </p>
-                </div>
-
-                <!-- BODY -->
-                <div style="padding: 28px 24px; text-align: center;">
-                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
-                        Way to go <strong>{clean_name}</strong>! Your campaign is gaining massive momentum!
-                    </p>
-
-                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 22px; margin-bottom: 24px;">
-                        <div style="font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
-                            Current Standing
-                        </div>
-                        <div style="font-size: 42px; font-weight: 900; color: #F59E0B; margin-bottom: 6px;">
-                            Rank #{current_rank}
-                        </div>
-                        <div style="color: #10B981; font-weight: 700; font-size: 14px;">
-                            ⭐ {milestone_votes:,} Total Verified Votes
-                        </div>
-                    </div>
-
-                    <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
-                        Check Live Leaderboard &rarr;
-                    </a>
-                </div>
-
-                <!-- FOOTER -->
-                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
-                    <p style="margin: 0;">Campus Awards Platform &bull; Find Your Match</p>
-                </div>
-            </div>
-        </body>
-        </html>
-    """)
-
-    return _send_email(
-        recipient_email=recipient_email,
-        subject=subject,
-        text_content=text_content,
-        html_content=html_content,
-        sender_name="Campus Awards Alerts"
-    )
+    clean_name = (contestant_name or "Nominee").strip().title()
+
+    clean_receipt = (mpesa_receipt or "MPESA_VERIFIED").strip().upper()
+
+    whatsapp_share_text = urllib.parse.quote(f"Hey fam! I have been nominated for {category} at {institution}! 🏆 Please vote for me here: {referral_link}")
+
+    whatsapp_share_url = f"https://api.whatsapp.com/send?text={whatsapp_share_text}"
+
+
+
+    subject = f"🌟 You're Official! Contestant Registration Verified - {category}"
+
+
+
+    text_content = f"""
+
+    CONGRATULATIONS {clean_name}!
+
+    --------------------------------------------------
+
+    Your nomination for {category} at {institution} is now active and verified!
+
+    Contestant Registration: 100% FREE (Confirmed)
+
+    Official Nominees WhatsApp Group (Join to connect with comrades):
+    https://chat.whatsapp.com/FjwDtFiwbQYFbL0qI6Vgy7
+
+    Your Unique Voting & Campaign Link:
+
+    {referral_link}
+
+
+
+    Share this link on your WhatsApp Status and Instagram stories to start collecting votes!
+
+    """
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>Contestant Registration Verified</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #4C1D95 0%, #6D28D9 100%); padding: 32px 24px; text-align: center; border-bottom: 1px solid #7C3AED;">
+
+                    <div style="font-size: 38px; margin-bottom: 6px;">🌟</div>
+
+                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
+
+                        You're In The Race!
+
+                    </h1>
+
+                    <p style="color: #DDD6FE; font-size: 13px; margin: 6px 0 0 0;">
+
+                        Contestant Registration & 50 KES Payment Verified
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 28px 24px; text-align: left;">
+
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 16px 0;">
+
+                        Congratulations <strong>{clean_name}</strong>!
+
+                    </p>
+
+                    <p style="color: #94A3B8; font-size: 13px; line-height: 1.6; margin: 0 0 24px 0;">
+
+                        Your contestant profile is now live on the official awards directory. Comrades and fans across campus can now discover your bio and cast their votes for you!
+
+                    </p>
+
+
+
+                    <!-- DETAILS CARD -->
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 18px; margin-bottom: 24px;">
+
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">🏆 Nominated Category</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #F59E0B;">{category}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">🏫 Campus / Institution</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #FFFFFF;">{institution}</td>
+
+                            </tr>
+
+                            <tr style="border-bottom: 1px solid #1E293B;">
+
+                                <td style="padding: 8px 0; color: #94A3B8;">💳 Registration Fee</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-weight: 800; color: #10B981;">100% FREE (KES 0)</td>
+
+                            </tr>
+
+                            <tr>
+
+                                <td style="padding: 8px 0; color: #94A3B8;">🧾 Safaricom M-Pesa ID</td>
+
+                                <td style="padding: 8px 0; text-align: right; font-family: monospace; color: #38BDF8;">{clean_receipt}</td>
+
+                            </tr>
+
+                        </table>
+
+                    </div>
+
+
+
+                    <!-- OFFICIAL WHATSAPP NOMINEES GROUP INVITATION -->
+                    <div style="background: linear-gradient(135deg, rgba(37, 211, 102, 0.15) 0%, rgba(16, 185, 129, 0.25) 100%); border: 2px solid #25D366; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                        <div style="font-size: 11px; color: #6EE7B7; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                            👥 Official Nominees Community
+                        </div>
+                        <h3 style="color: #FFFFFF; font-size: 16px; font-weight: 900; margin: 0 0 8px 0;">
+                            Join the Contestants WhatsApp Group
+                        </h3>
+                        <p style="color: #D1FAE5; font-size: 12px; line-height: 1.5; margin: 0 0 16px 0;">
+                            Connect with fellow comrades, get instant leaderboard alerts, campaign strategy guidance, and grand finale schedule.
+                        </p>
+                        <a href="https://chat.whatsapp.com/FjwDtFiwbQYFbL0qI6Vgy7" target="_blank" style="display: inline-block; background: #25D366; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
+                            💬 Join WhatsApp Group Now &rarr;
+                        </a>
+                    </div>
+
+                    <!-- CAMPAIGN SHARE CALLOUT -->
+
+                    <div style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(76, 29, 149, 0.25) 100%); border: 1px solid #7C3AED; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px;">
+
+                        <div style="font-size: 11px; color: #C4B5FD; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+
+                            🚀 Your Official Campaign Link
+
+                        </div>
+
+                        <div style="background: #0B1120; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; color: #38BDF8; word-break: break-all; margin-bottom: 16px;">
+
+                            {referral_link}
+
+                        </div>
+
+                        <a href="{whatsapp_share_url}" target="_blank" style="display: inline-block; background: #25D366; color: #FFFFFF; font-weight: 900; font-size: 14px; padding: 12px 28px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);">
+
+                            💬 Share to WhatsApp Status &rarr;
+
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0;">Campus Awards & Talent Voting Platform &bull; Find Your Match</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Campus Awards Team"
+
+    )
+
+
+
+
+
+def send_contestant_milestone_email(recipient_email: str, contestant_name: str, milestone_votes: int, current_rank: int, category: str, live_leaderboard_url: str = None) -> bool:
+
+    """
+
+    Sends high-engagement rank climb & milestone alert to keep contestants actively campaigning.
+
+    """
+
+    clean_name = (contestant_name or "Nominee").strip().title()
+
+    base_url = (os.getenv("BASE_URL") or "https://findyourmatch.co.ke").rstrip("/")
+
+    leaderboard_url = live_leaderboard_url or f"{base_url}/awards"
+
+
+
+    subject = f"🔥 Milestone Alert! You reached {milestone_votes} votes in {category} (Rank #{current_rank})"
+
+
+
+    text_content = f"""
+
+    MILESTONE REACHED!
+
+    --------------------------------------------------
+
+    Congratulations {clean_name}!
+
+    You just hit {milestone_votes} votes in {category}!
+
+    Current Standing: Rank #{current_rank}
+
+
+
+    Keep pushing! View the live leaderboard here: {leaderboard_url}
+
+    """
+
+
+
+    html_content = textwrap.dedent(f"""\
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <head>
+
+            <meta charset="utf-8">
+
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+            <title>Milestone Alert</title>
+
+        </head>
+
+        <body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #E2E8F0;">
+
+            <div style="max-width: 580px; margin: 30px auto; background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+
+                <!-- HEADER -->
+
+                <div style="background: linear-gradient(135deg, #B45309 0%, #D97706 100%); padding: 30px 24px; text-align: center; border-bottom: 1px solid #F59E0B;">
+
+                    <div style="font-size: 38px; margin-bottom: 6px;">🏆</div>
+
+                    <h1 style="color: #FFFFFF; font-size: 22px; font-weight: 900; margin: 0; letter-spacing: -0.5px;">
+
+                        Milestone Unlocked!
+
+                    </h1>
+
+                    <p style="color: #FEF3C7; font-size: 13px; margin: 6px 0 0 0;">
+
+                        {milestone_votes} Votes Reached &bull; Rank #{current_rank} in {category}
+
+                    </p>
+
+                </div>
+
+
+
+                <!-- BODY -->
+
+                <div style="padding: 28px 24px; text-align: center;">
+
+                    <p style="color: #F1F5F9; font-size: 15px; line-height: 1.6; margin: 0 0 20px 0;">
+
+                        Way to go <strong>{clean_name}</strong>! Your campaign is gaining massive momentum!
+
+                    </p>
+
+
+
+                    <div style="background: #0B1120; border-radius: 14px; border: 1px solid #334155; padding: 22px; margin-bottom: 24px;">
+
+                        <div style="font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+
+                            Current Standing
+
+                        </div>
+
+                        <div style="font-size: 42px; font-weight: 900; color: #F59E0B; margin-bottom: 6px;">
+
+                            Rank #{current_rank}
+
+                        </div>
+
+                        <div style="color: #10B981; font-weight: 700; font-size: 14px;">
+
+                            ⭐ {milestone_votes:,} Total Verified Votes
+
+                        </div>
+
+                    </div>
+
+
+
+                    <a href="{leaderboard_url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); color: #000000; font-weight: 900; font-size: 14px; padding: 14px 32px; border-radius: 10px; text-decoration: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+
+                        Check Live Leaderboard &rarr;
+
+                    </a>
+
+                </div>
+
+
+
+                <!-- FOOTER -->
+
+                <div style="background: #0B1120; padding: 16px 24px; text-align: left; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+
+                    <p style="margin: 0;">Campus Awards Platform &bull; Find Your Match</p>
+
+                </div>
+
+            </div>
+
+        </body>
+
+        </html>
+
+    """)
+
+
+
+    return _send_email(
+
+        recipient_email=recipient_email,
+
+        subject=subject,
+
+        text_content=text_content,
+
+        html_content=html_content,
+
+        sender_name="Campus Awards Alerts"
+
+    )
+

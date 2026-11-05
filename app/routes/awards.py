@@ -714,8 +714,8 @@ def api_awards_vote_stk_push():
     except (ValueError, TypeError):
         vote_count = 1
 
-    if vote_count < 1 or vote_count > 500:
-        return jsonify({"success": False, "error": "Invalid vote quantity (allowed 1 - 500 votes)."}), 400
+    if vote_count < 1 or vote_count > 10000:
+        return jsonify({"success": False, "error": "Invalid vote quantity (allowed 1 - 10,000 votes)."}), 400
 
     if not contestant_id:
         return jsonify({"success": False, "error": "Contestant ID is required."}), 400
