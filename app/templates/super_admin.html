@@ -7529,7 +7529,7 @@ function toggleAmbassador(id) {
 
 
 
-            Full institutional breakdown: monitor active comrades, paid student subscribers, earned commission (Supposed to Get), and net payable (Will Get). Click "⚡ Disburse (B2C)" to instantly send funds via Safaricom M-Pesa B2C.
+            Campus Lead Direct Stipends & Anytime Disbursals: Managers and ambassadors do not earn on percentage. Assign each lead their specific compensation amount below, and disburse payments directly via Safaricom M-Pesa B2C at ANY time (even before month end).
 
 
 
@@ -7785,7 +7785,7 @@ function toggleAmbassador(id) {
 
 
 
-                        <div style="color: #64748b; font-size: 12px; margin-top: 2px;">Commission Rates: <strong>Managers 30%</strong> (KES 15 / sub) | <strong>Ambassadors 5%</strong> (KES 2.50 / sub)</div>
+                        <div style="color: #64748b; font-size: 12px; margin-top: 2px;">Compensation Model: <strong>Fixed Allowance / Stipend assigned by Super Admin</strong> | Disbursable <strong>anytime</strong> via Safaricom M-Pesa B2C</div>
 
 
 
@@ -7897,7 +7897,8 @@ function toggleAmbassador(id) {
 
 
 
-                    <input type="email" id="manager_email" placeholder="Manager Email" style="width: 25%;">
+                    <input type="email" id="manager_email" placeholder="Manager Email" style="width: 22%;">
+                    <input type="number" id="manager_salary" placeholder="Stipend (KES)" style="width: 14%;" min="0" step="100">
 
 
 
@@ -8049,7 +8050,7 @@ function toggleAmbassador(id) {
 
 
 
-                                <th style="padding: 12px 14px;">Role & Cut</th>
+                                <th style="padding: 12px 14px;">Role & Stipend</th>
 
 
 
@@ -8073,7 +8074,7 @@ function toggleAmbassador(id) {
 
 
 
-                                <th style="padding: 12px 14px; color: #38bdf8;">Supposed to Get</th>
+                                <th style="padding: 12px 14px; color: #38bdf8;">Assigned Stipend</th>
 
 
 
@@ -8233,39 +8234,16 @@ function toggleAmbassador(id) {
 
 
 
-                                    {% if mgr.role == 'ambassador' %}
-
-
-
-
-
-
-
-                                        <span id="role-badge-{{ mgr.id }}" class="badge" style="background: rgba(234, 179, 8, 0.1); color: #eab308; font-size: 11px;">Ambassador (5%)</span>
-
-
-
-
-
-
-
+                                                                        {% if mgr.role == 'ambassador' %}
+                                        <span id="role-badge-{{ mgr.id }}" class="badge" style="background: rgba(234, 179, 8, 0.1); color: #eab308; font-size: 11px;">Ambassador</span>
                                     {% else %}
-
-
-
-
-
-
-
-                                        <span id="role-badge-{{ mgr.id }}" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 11px;">Manager (30%)</span>
-
-
-
-
-
-
-
+                                        <span id="role-badge-{{ mgr.id }}" class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 11px;">Manager</span>
                                     {% endif %}
+                                    <div style="display: flex; align-items: center; gap: 4px; margin-top: 6px;">
+                                        <span style="font-size: 10px; color: #94a3b8; font-weight: 700;">KES</span>
+                                        <input type="number" id="salary-input-{{ mgr.id }}" value="{{ mgr.assigned_salary|default(0) }}" min="0" step="100" style="width: 75px; padding: 3px 6px; font-size: 11px; font-weight: 800; background: #0f172a; border: 1px solid #334155; color: #38bdf8; border-radius: 6px; text-align: right;" title="Set Stipend">
+                                        <button onclick="saveManagerSalary('{{ mgr.id }}', '{{ mgr.name }}')" class="btn btn-outline" style="padding: 3px 6px; font-size: 10px; font-weight: 700; border-color: #38bdf8; color: #38bdf8; border-radius: 6px;" title="Save Stipend">💾</button>
+                                    </div>
 
 
 
@@ -8458,85 +8436,22 @@ function toggleAmbassador(id) {
 
 
                                 <td style="padding: 12px 14px; text-align: center;">
-
-
-
-
-
-
-
-                                    {% if mgr.will_get and mgr.will_get > 0 %}
-
-
-
-
-
-
-
-                                        <button onclick="disburseManagerSalary(this.dataset.id, this.dataset.name, this.dataset.amount)" data-id="{{ mgr.id }}" data-name="{{ mgr.name }}" data-amount="{{ mgr.will_get }}" class="btn btn-primary" style="background: #10b981; color: white; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 6px; white-space: nowrap;">
-
-
-
-
-
-
-
-                                            ⚡ Disburse KES {{ mgr.will_get }} (B2C)
-
-
-
-
-
-
-
+                                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                                        {% if mgr.will_get and mgr.will_get > 0 %}
+                                            <button onclick="disburseManagerSalary('{{ mgr.id }}', '{{ mgr.name }}', {{ mgr.will_get }})" class="btn btn-primary" style="background: #10b981; color: white; padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 6px; white-space: nowrap;">
+                                                ⚡ Pay KES {{ mgr.will_get }} Now
+                                            </button>
+                                        {% elif mgr.supposed_to_get and mgr.supposed_to_get > 0 and mgr.already_paid >= mgr.supposed_to_get %}
+                                            <span class="badge badge-green" style="font-size: 11px;">✅ Settled (KES {{ mgr.already_paid }})</span>
+                                        {% else %}
+                                            <button onclick="disburseCustomManagerSalary('{{ mgr.id }}', '{{ mgr.name }}', '{{ mgr.payout_phone }}')" class="btn btn-outline" style="border-color: #10b981; color: #10b981; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; white-space: nowrap;">
+                                                ⚡ Disburse Payout
+                                            </button>
+                                        {% endif %}
+                                        <button onclick="disburseCustomManagerSalary('{{ mgr.id }}', '{{ mgr.name }}', '{{ mgr.payout_phone }}')" style="background: none; border: none; color: #38bdf8; font-size: 10px; cursor: pointer; text-decoration: underline; padding: 2px;">
+                                            ✏️ Pay Custom (Anytime)
                                         </button>
-
-
-
-
-
-
-
-                                    {% elif mgr.supposed_to_get and mgr.supposed_to_get > 0 and mgr.already_paid >= mgr.supposed_to_get %}
-
-
-
-
-
-
-
-                                        <span class="badge badge-green" style="font-size: 11px;">✅ Settled</span>
-
-
-
-
-
-
-
-                                    {% else %}
-
-
-
-
-
-
-
-                                        <span class="badge" style="background: rgba(148, 163, 184, 0.1); color: #64748b; font-size: 11px;">Zero Balance</span>
-
-
-
-
-
-
-
-                                    {% endif %}
-
-
-
-
-
-
-
+                                    </div>
                                 </td>
 
 
@@ -26738,7 +26653,7 @@ function toggleAmbassador(id) {
 
 
 
-                body: JSON.stringify({ action: 'add_campus_manager', name: name, email: email, institution: inst, role: role })
+                body: JSON.stringify({ action: 'add_campus_manager', name: name, email: email, institution: inst, role: role, assigned_salary: (document.getElementById('manager_salary') ? document.getElementById('manager_salary').value : 0) })
 
 
 
@@ -28170,503 +28085,83 @@ Tickets Settled: ${data.disbursed_count}`);
 
 
 
+        
+        function saveManagerSalary(managerId, name) {
+            const input = document.getElementById(`salary-input-${managerId}`);
+            const amount = parseFloat(input ? input.value : 0) || 0;
+            showToast(`Saving stipend of KES ${amount} for ${name}...`);
+            fetch('/api/admin/action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (typeof CSRF_TOKEN !== 'undefined' ? CSRF_TOKEN : (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : ''))
+                },
+                body: JSON.stringify({
+                    action: 'set_manager_salary',
+                    target_id: managerId,
+                    amount: amount
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    showToast(`✅ Saved KES ${amount} stipend for ${name}!`);
+                    setTimeout(() => { window.location.reload(); }, 900);
+                } else {
+                    alert("❌ Failed to save salary: " + (data.message || data.error));
+                }
+            })
+            .catch(err => {
+                alert("❌ Network error saving stipend.");
+            });
+        }
+
+        function disburseCustomManagerSalary(managerId, name, phone) {
+            const customStr = prompt(`Enter custom amount in KES to pay ${name} (${phone || 'No phone registered'}) right now via Safaricom M-Pesa B2C:`, "1000");
+            if (!customStr) return;
+            const amount = parseInt(customStr);
+            if (!amount || amount <= 0) {
+                alert("Please enter a valid amount greater than 0.");
+                return;
+            }
+            disburseManagerSalaryWithAmount(managerId, name, amount);
+        }
+
         function disburseManagerSalary(managerId, name, amount) {
+            if (!amount || amount <= 0) {
+                disburseCustomManagerSalary(managerId, name);
+                return;
+            }
+            if(!confirm(`Disburse KES ${amount} to ${name} via Safaricom M-Pesa B2C right now (anytime)?`)) return;
+            disburseManagerSalaryWithAmount(managerId, name, amount);
+        }
 
-
-
-
-
-
-
-            if(!confirm(`Disburse monthly salary of KES ${amount} to ${name} via Safaricom M-Pesa B2C right now?`)) return;
-
-
-
-
-
-
-
+        function disburseManagerSalaryWithAmount(managerId, name, amount) {
             showToast(`Disbursing KES ${amount} to ${name}...`);
-
-
-
-
-
-
-
             fetch(`/api/admin/managers/${managerId}/disburse-salary`, {
-
-
-
-
-
-
-
                 method: 'POST',
-
-
-
-
-
-
-
-                headers: { 'Content-Type': 'application/json' },
-
-
-
-
-
-
-
-                body: JSON.stringify({})
-
-
-
-
-
-
-
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (typeof CSRF_TOKEN !== 'undefined' ? CSRF_TOKEN : (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : ''))
+                },
+                body: JSON.stringify({ amount: amount })
             })
-
-
-
-
-
-
-
             .then(res => res.json())
-
-
-
-
-
-
-
             .then(data => {
-
-
-
-
-
-
-
                 if (data.success) {
-
-
-
-
-
-
-
                     showToast(`Salary disbursed to ${name}!`);
-
-
-
-
-
-
-
                     let r = data.results && data.results[0] ? data.results[0] : {};
-
-
-
-
-
-
-
-                    alert(`✅ Salary Disbursal Complete!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Manager: ${name}
-
-
-
-
-
-
-
-Amount: KES ${r.amount || amount}
-
-
-
-
-
-
-
-Phone: ${r.phone}
-
-
-
-
-
-
-
-Status: ${r.status}`);
-
-
-
-
-
-
-
-                    location.reload();
-
-
-
-
-
-
-
+                    alert(`✅ Salary Disbursed Anytime!\n\nManager: ${name}\nAmount: KES ${r.amount || amount}\nPhone: ${r.phone || 'M-Pesa'}\nStatus: ${r.status || 'Paid'}\nRef: ${r.conversation_id || 'B2C Success'}`);
+                    setTimeout(() => { window.location.reload(); }, 1200);
                 } else {
-
-
-
-
-
-
-
-                    showToast(`Disbursal failed: ${data.error || 'Error'}`, true);
-
-
-
-
-
-
-
-                    alert(`⚠️ Salary Disbursal Issue: ${data.error || 'Could not complete B2C payout.'}`);
-
-
-
-
-
-
-
+                    alert("❌ Payout Failed: " + (data.message || data.error || 'Daraja error'));
                 }
-
-
-
-
-
-
-
             })
-
-
-
-
-
-
-
-            .catch(err => showToast("Network error: " + err, true));
-
-
-
-
-
-
-
+            .catch(err => {
+                alert("❌ Network error executing payout.");
+            });
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        function sendManagerMonthEndStatements() {
-
-
-
-
-
-
-
-            if(!confirm("Send end-of-month salary forecast & growth statements to ALL Campus Managers now?\n\nEach email contains:\n• Total registered comrades from their campus\n• Total active subscribers\n• What they will get\n• Notice to contact 0707605751 on WhatsApp for inquiries")) return;
-
-
-
-
-
-
-
-            showToast("Broadcasting monthly statements to Campus Leads...");
-
-
-
-
-
-
-
-            fetch('/api/admin/managers/send-monthly-statements', {
-
-
-
-
-
-
-
-                method: 'POST',
-
-
-
-
-
-
-
-                headers: { 'Content-Type': 'application/json' },
-
-
-
-
-
-
-
-                body: JSON.stringify({})
-
-
-
-
-
-
-
-            })
-
-
-
-
-
-
-
-            .then(res => res.json())
-
-
-
-
-
-
-
-            .then(data => {
-
-
-
-
-
-
-
-                if (data.success) {
-
-
-
-
-
-
-
-                    showToast(`Statements sent to ${data.dispatched_count || 0} leads!`);
-
-
-
-
-
-
-
-                    alert(`✅ Month-End Statements Dispatched!\n\nMonth: ${data.month}\nSent to: ${data.dispatched_count} managers\n\nEach manager was emailed their total comrades, active subscribers, expected salary, and the WhatsApp contact 0707605751.`);
-
-
-
-
-
-
-
-                } else {
-
-
-
-
-
-
-
-                    showToast("Error sending statements: " + (data.error || 'Failed'), true);
-
-
-
-
-
-
-
-                    alert("⚠️ Error: " + (data.error || 'Failed to dispatch statements.'));
-
-
-
-
-
-
-
-                }
-
-
-
-
-
-
-
-            })
-
-
-
-
-
-
-
-            .catch(err => showToast("Network error: " + err, true));
-
-
-
-
-
-
-
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        function triggerOctoberSalaryPayout(monthDisplay) {
-
-
-
-
-
-
-
-            const targetMonth = monthDisplay || "October 2026";
-
-
-
-
-
-
-
-            if(!confirm(`Are you sure you want to disburse ${targetMonth} salaries via Safaricom M-Pesa B2C to ALL Managers & Ambassadors right now?`)) return;
-
-
-
-
-
-
-
-            showToast(`Disbursing ${targetMonth} salaries via Safaricom M-Pesa B2C...`);
-
-
-
-
-
-
-
-            fetch('/api/cron/monthly-payouts?force=true')
-
-
-
-
-
-
-
-            .then(res => res.json())
-
-
-
-
-
-
-
-            .then(data => {
-
-
-
-
-
-
-
-                showToast("Salary payout operation completed!");
-
-
-
-
-
-
-
-                let summary = "Processed: " + (data.results ? data.results.length : 0) + " staff.\n\n";
-
-
-
-
-
-
-
-                if (data.results) {
-
-
-
-
-
-
-
-                    data.results.forEach(r => {
-
-
-
-
-
-
-
-                        summary += `• ${r.name} (${r.role}): KES ${r.amount} -> ${r.phone || 'No Phone'} [${r.status}]\n`;
-
-
-
-
-
-
-
-                    });
-
-
-
-
-
-
-
-                }
 
 
 

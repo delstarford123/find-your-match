@@ -538,13 +538,14 @@ def get_campus_managers() -> list:
         logger.error(f"Error fetching campus managers: {e}")
         return []
 
-def add_campus_manager(name: str, email: str, institution: str, password_hash: str) -> bool:
+def add_campus_manager(name: str, email: str, institution: str, password_hash: str, assigned_salary: int = 0) -> bool:
     try:
         db.reference('campus_managers').push({
             'name': name,
             'email': email,
             'institution': institution,
             'password_hash': password_hash,
+            'assigned_salary': int(assigned_salary or 0),
             'referral_code': name.replace(" ", "").upper()[:5] + str(int(datetime.now().timestamp()))[-4:],
             'created_at': datetime.now(EAT).isoformat()
         })

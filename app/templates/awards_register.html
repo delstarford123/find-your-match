@@ -27,8 +27,18 @@
         --awards-emerald: #10B981;
     }
 
-    .love-orb { display: none !important; }
-    h1, h2, h3, h4, h5, h6 { color: #ffffff !important; }
+    .love-orb {
+        display: none !important;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        color: #ffffff !important;
+    }
 
     body {
         background-color: var(--awards-bg) !important;
@@ -36,19 +46,35 @@
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
     }
 
-    
-    html, body {
+
+    html,
+    body {
         max-width: 100vw !important;
         overflow-x: hidden !important;
         position: relative !important;
     }
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
         box-sizing: border-box !important;
     }
-    .text-slate-950 { color: #020617 !important; }
-    .text-slate-900 { color: #0f172a !important; }
-    .text-black { color: #000000 !important; }
-    button.bg-amber-500, a.bg-amber-500, .btn-amber {
+
+    .text-slate-950 {
+        color: #020617 !important;
+    }
+
+    .text-slate-900 {
+        color: #0f172a !important;
+    }
+
+    .text-black {
+        color: #000000 !important;
+    }
+
+    button.bg-amber-500,
+    a.bg-amber-500,
+    .btn-amber {
         color: #020617 !important;
         font-weight: 900 !important;
     }
@@ -64,72 +90,217 @@
         overflow-x: hidden !important;
     }
 
-    .hidden { display: none !important; }
+    .hidden {
+        display: none !important;
+    }
 
     /* Core Layout Flex & Grid */
-    .flex { display: flex; }
-    .inline-flex { display: inline-flex; }
-    .flex-col { flex-direction: column; }
-    .flex-row { flex-direction: row; }
-    .flex-wrap { flex-wrap: wrap; }
-    .flex-1 { flex: 1 1 0%; }
-    .items-center { align-items: center; }
-    .items-start { align-items: flex-start; }
-    .justify-center { justify-content: center; }
-    .justify-between { justify-content: space-between; }
-    .justify-end { justify-content: flex-end; }
-    .grid { display: grid; }
+    .flex {
+        display: flex;
+    }
+
+    .inline-flex {
+        display: inline-flex;
+    }
+
+    .flex-col {
+        flex-direction: column;
+    }
+
+    .flex-row {
+        flex-direction: row;
+    }
+
+    .flex-wrap {
+        flex-wrap: wrap;
+    }
+
+    .flex-1 {
+        flex: 1 1 0%;
+    }
+
+    .items-center {
+        align-items: center;
+    }
+
+    .items-start {
+        align-items: flex-start;
+    }
+
+    .justify-center {
+        justify-content: center;
+    }
+
+    .justify-between {
+        justify-content: space-between;
+    }
+
+    .justify-end {
+        justify-content: flex-end;
+    }
+
+    .grid {
+        display: grid;
+    }
 
     /* Gap Utilities */
-    .gap-1 { gap: 0.25rem !important; }
-    .gap-1\.5 { gap: 0.375rem !important; }
-    .gap-2 { gap: 0.5rem !important; }
-    .gap-3 { gap: 0.75rem !important; }
-    .gap-4 { gap: 1rem !important; }
-    .gap-6 { gap: 1.5rem !important; }
-    .gap-8 { gap: 2rem !important; }
+    .gap-1 {
+        gap: 0.25rem !important;
+    }
+
+    .gap-1\.5 {
+        gap: 0.375rem !important;
+    }
+
+    .gap-2 {
+        gap: 0.5rem !important;
+    }
+
+    .gap-3 {
+        gap: 0.75rem !important;
+    }
+
+    .gap-4 {
+        gap: 1rem !important;
+    }
+
+    .gap-6 {
+        gap: 1.5rem !important;
+    }
+
+    .gap-8 {
+        gap: 2rem !important;
+    }
 
     /* Radii */
-    .rounded-md { border-radius: 0.375rem !important; }
-    .rounded-lg { border-radius: 0.5rem !important; }
-    .rounded-xl { border-radius: 0.75rem !important; }
-    .rounded-2xl { border-radius: 1rem !important; }
-    .rounded-full { border-radius: 9999px !important; }
+    .rounded-md {
+        border-radius: 0.375rem !important;
+    }
+
+    .rounded-lg {
+        border-radius: 0.5rem !important;
+    }
+
+    .rounded-xl {
+        border-radius: 0.75rem !important;
+    }
+
+    .rounded-2xl {
+        border-radius: 1rem !important;
+    }
+
+    .rounded-full {
+        border-radius: 9999px !important;
+    }
 
     /* Colors & Backgrounds */
-    .bg-slate-900 { background-color: #0f172a !important; }
-    .bg-slate-950 { background-color: #020617 !important; }
-    .border-slate-800 { border-color: #1e293b !important; }
-    .border-slate-700 { border-color: #334155 !important; }
-    .text-white { color: #ffffff !important; }
-    .text-amber-400 { color: #fbbf24 !important; }
-    .text-amber-300 { color: #fcd34d !important; }
-    .text-amber-200 { color: #fde68a !important; }
-    .text-emerald-400 { color: #34d399 !important; }
-    .text-purple-400 { color: #c084fc !important; }
-    .text-purple-300 { color: #d8b4fe !important; }
-    .text-purple-200 { color: #e9d5ff !important; }
-    .text-slate-300 { color: #cbd5e1 !important; }
-    .text-slate-400 { color: #94a3b8 !important; }
-    .text-slate-500 { color: #64748b !important; }
+    .bg-slate-900 {
+        background-color: #0f172a !important;
+    }
 
-    .font-black { font-weight: 900 !important; }
-    .font-bold { font-weight: 700 !important; }
-    .font-semibold { font-weight: 600 !important; }
-    .font-medium { font-weight: 500 !important; }
-    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
-    .uppercase { text-transform: uppercase !important; }
-    .tracking-wide { letter-spacing: 0.025em !important; }
-    .tracking-tight { letter-spacing: -0.025em !important; }
-    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap !important; }
+    .bg-slate-950 {
+        background-color: #020617 !important;
+    }
+
+    .border-slate-800 {
+        border-color: #1e293b !important;
+    }
+
+    .border-slate-700 {
+        border-color: #334155 !important;
+    }
+
+    .text-white {
+        color: #ffffff !important;
+    }
+
+    .text-amber-400 {
+        color: #fbbf24 !important;
+    }
+
+    .text-amber-300 {
+        color: #fcd34d !important;
+    }
+
+    .text-amber-200 {
+        color: #fde68a !important;
+    }
+
+    .text-emerald-400 {
+        color: #34d399 !important;
+    }
+
+    .text-purple-400 {
+        color: #c084fc !important;
+    }
+
+    .text-purple-300 {
+        color: #d8b4fe !important;
+    }
+
+    .text-purple-200 {
+        color: #e9d5ff !important;
+    }
+
+    .text-slate-300 {
+        color: #cbd5e1 !important;
+    }
+
+    .text-slate-400 {
+        color: #94a3b8 !important;
+    }
+
+    .text-slate-500 {
+        color: #64748b !important;
+    }
+
+    .font-black {
+        font-weight: 900 !important;
+    }
+
+    .font-bold {
+        font-weight: 700 !important;
+    }
+
+    .font-semibold {
+        font-weight: 600 !important;
+    }
+
+    .font-medium {
+        font-weight: 500 !important;
+    }
+
+    .font-mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    }
+
+    .uppercase {
+        text-transform: uppercase !important;
+    }
+
+    .tracking-wide {
+        letter-spacing: 0.025em !important;
+    }
+
+    .tracking-tight {
+        letter-spacing: -0.025em !important;
+    }
+
+    .truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap !important;
+    }
 
     /* Glows & Cards */
     .awards-glow {
         box-shadow: 0 0 25px rgba(245, 158, 11, 0.25) !important;
     }
+
     .awards-glow-lg {
         box-shadow: 0 0 40px rgba(245, 158, 11, 0.35) !important;
     }
+
     .glass-card {
         background: rgba(15, 23, 42, 0.85) !important;
         backdrop-filter: blur(14px) !important;
@@ -143,25 +314,35 @@
         -webkit-text-fill-color: transparent !important;
     }
 
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
-    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
 </style>
 
 <div class="min-h-screen pb-28 pt-4 sm:pt-6 px-2 sm:px-6 max-w-3xl mx-auto w-full">
     <!-- BACK BUTTON -->
-    <a href="{{ url_for('awards_bp.awards_index') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 mb-6 transition">
+    <a href="{{ url_for('awards_bp.awards_index') }}"
+        class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-400 hover:text-amber-300 mb-6 transition">
         &larr; Back to Live Leaderboard
     </a>
 
     <!-- REGISTRATION CARD -->
     <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
         <!-- HEADER -->
-        <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-4 sm:p-8 border-b border-purple-800/40">
+        <div
+            class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 p-4 sm:p-8 border-b border-purple-800/40">
             <div class="flex flex-wrap items-center gap-2 mb-2">
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold uppercase">
+                <div
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold uppercase">
                     <span>⭐</span> Official Entry Portal
                 </div>
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black uppercase">
+                <div
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black uppercase">
                     <span>👻</span> Ghost Entry: No Account Required
                 </div>
             </div>
@@ -169,7 +350,8 @@
                 Nominate Yourself or a Candidate
             </h1>
             <p class="text-xs sm:text-sm text-purple-200 mt-1 max-w-xl">
-                Enter the race for campus recognition! Verified contestants receive an official campaign profile, real-time leaderboard stats, and a custom WhatsApp shareable card.
+                Enter the race for campus recognition! Verified contestants receive an official campaign profile,
+                real-time leaderboard stats, and a custom WhatsApp shareable card.
             </p>
         </div>
 
@@ -181,7 +363,7 @@
                     Full Name / Stage Name <span class="text-rose-500">*</span>
                 </label>
                 <input type="text" id="regName" required placeholder="e.g. MC Bright, DJ Vortex, Janet Mwangi"
-                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
             </div>
 
             <!-- EMAIL & PHONE -->
@@ -191,8 +373,9 @@
                         Your Email <span class="text-rose-500">*</span>
                     </label>
                     <input type="email" id="regEmail" required placeholder="name@gmail.com"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
-                    <span class="text-[11px] text-slate-400 mt-1 block">Your campaign link and milestone alerts will be sent here.</span>
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                    <span class="text-[11px] text-slate-400 mt-1 block">Your campaign link and milestone alerts will be
+                        sent here.</span>
                 </div>
 
                 <div>
@@ -200,8 +383,9 @@
                         M-Pesa Phone Number <span class="text-rose-500">*</span>
                     </label>
                     <input type="tel" id="regPhone" required placeholder="07XXXXXXXX or 254XXXXXXXX"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
-                    <span class="text-[11px] text-emerald-400 mt-1 block">Official contact number for your campaign profile & winner notifications.</span>
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono">
+                    <span class="text-[11px] text-emerald-400 mt-1 block">Official contact number for your campaign
+                        profile & winner notifications.</span>
                 </div>
             </div>
 
@@ -212,7 +396,7 @@
                         Award Category <span class="text-rose-500">*</span>
                     </label>
                     <select id="regCategory" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
                         <option value="" disabled selected>Select Category...</option>
                         {% for cid, cat in categories.items() %}
                         <option value="{{ cid }}">{{ cat.icon }} {{ cat.name }}</option>
@@ -225,9 +409,9 @@
                         University / Campus <span class="text-rose-500">*</span>
                     </label>
                     <select id="regInstitution" required
-                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-base sm:text-sm text-white focus:outline-none focus:border-purple-500">
                         {% for inst in institutions %}
-                        <option value="{{ inst }}" {% if inst == 'MMUST' %}selected{% endif %}>{{ inst }}</option>
+                        <option value="{{ inst }}" {% if inst=='MMUST' %}selected{% endif %}>{{ inst }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -235,53 +419,61 @@
 
             <!-- CONTESTANT PROFILE PHOTO UPLOAD (FIREBASE STORAGE) -->
             <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <label class="block text-xs font-bold text-amber-400 uppercase tracking-wide mb-2.5 flex items-center justify-between">
+                <label
+                    class="block text-xs font-bold text-amber-400 uppercase tracking-wide mb-2.5 flex items-center justify-between">
                     <span>📸 Nominee Profile Photo / Selfie</span>
-                    <span class="text-[10px] text-emerald-400 font-normal bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">Firebase Storage</span>
+                    <span
+                        class="text-[10px] text-emerald-400 font-normal bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">Firebase
+                        Storage</span>
                 </label>
-                
+
                 <div class="flex flex-col sm:flex-row items-center gap-4">
                     <!-- Circular Live Image Preview -->
-                    <div class="relative flex-shrink-0 cursor-pointer group" onclick="document.getElementById('regPhotoFile').click()" title="Click to choose a photo">
-                        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-amber-400 ring-4 ring-amber-500/20 bg-slate-950 flex items-center justify-center shadow-xl transition transform group-hover:scale-105">
-                            <img id="photoPreviewImg" 
-                                 src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%230f172a' width='100' height='100'/%3E%3Ctext fill='%23f59e0b' font-family='sans-serif' font-size='36' font-weight='bold' x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E" 
-                                 class="w-full h-full object-cover">
+                    <div class="relative flex-shrink-0 cursor-pointer group"
+                        onclick="document.getElementById('regPhotoFile').click()" title="Click to choose a photo">
+                        <div
+                            class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-amber-400 ring-4 ring-amber-500/20 bg-slate-950 flex items-center justify-center shadow-xl transition transform group-hover:scale-105">
+                            <img id="photoPreviewImg"
+                                src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect fill='%230f172a' width='100' height='100'/%3E%3Ctext fill='%23f59e0b' font-family='sans-serif' font-size='36' font-weight='bold' x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle'%3E📷%3C/text%3E%3C/svg%3E"
+                                class="w-full h-full object-cover">
                         </div>
-                        <div class="absolute bottom-0 right-0 bg-amber-500 text-slate-950 p-1.5 rounded-full shadow-lg border-2 border-slate-950 text-xs font-black" title="Click to choose photo">
+                        <div class="absolute bottom-0 right-0 bg-amber-500 text-slate-950 p-1.5 rounded-full shadow-lg border-2 border-slate-950 text-xs font-black"
+                            title="Click to choose photo">
                             ✏️
                         </div>
                     </div>
 
                     <!-- Upload Controls & File Input -->
                     <div class="flex-1 w-full text-center sm:text-left">
-                        <input type="file" id="regPhotoFile" accept="image/png, image/jpeg, image/jpg, image/webp" class="hidden" onchange="previewContestantPhoto(this)">
-                        
+                        <input type="file" id="regPhotoFile" accept="image/png, image/jpeg, image/jpg, image/webp"
+                            class="hidden" onchange="previewContestantPhoto(this)">
+
                         <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
                             <button type="button" onclick="document.getElementById('regPhotoFile').click()"
-                                    class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer active:scale-95">
+                                class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/20 flex items-center gap-2 cursor-pointer active:scale-95">
                                 <span>📁</span> Upload From Gallery / Camera
                             </button>
                             <button type="button" id="removePhotoBtn" onclick="removeSelectedPhoto()"
-                                    class="hidden bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-3 py-2.5 rounded-xl text-xs transition cursor-pointer">
+                                class="hidden bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-3 py-2.5 rounded-xl text-xs transition cursor-pointer">
                                 ✕ Clear
                             </button>
                         </div>
-                        
+
                         <p id="photoFileName" class="text-xs text-slate-400 mt-2">
-                            Tap above to choose your best portrait. Uploads directly to Firebase Storage bucket. Max 10MB.
+                            Tap above to choose your best portrait. Uploads directly to Firebase Storage bucket. Max
+                            10MB.
                         </p>
 
                         <!-- Optional URL fallback -->
                         <div class="mt-2 text-center sm:text-left">
                             <button type="button" onclick="toggleUrlInput()"
-                                    class="text-[11px] text-slate-500 hover:text-amber-400 underline transition cursor-pointer">
+                                class="text-[11px] text-slate-500 hover:text-amber-400 underline transition cursor-pointer">
                                 Or use an image URL link instead
                             </button>
                             <div id="urlInputContainer" class="hidden mt-2">
                                 <input type="url" id="regPhotoUrl" placeholder="https://example.com/your-photo.jpg"
-                                       oninput="previewUrlPhoto(this.value)"
-                                       class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500">
+                                    oninput="previewUrlPhoto(this.value)"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
                     </div>
@@ -293,8 +485,9 @@
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
                     Manifesto / Pitch <span class="text-slate-400 font-normal">(Why comrades should vote for you)</span>
                 </label>
-                <textarea id="regBio" rows="3" placeholder="Tell your story, your achievements on campus, and why you represent this category best..."
-                          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"></textarea>
+                <textarea id="regBio" rows="3"
+                    placeholder="Tell your story, your achievements on campus, and why you represent this category best..."
+                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"></textarea>
             </div>
 
             <!-- SOCIAL MEDIA LINKS -->
@@ -304,24 +497,26 @@
                         Instagram Username
                     </label>
                     <input type="text" id="regInstagram" placeholder="@yourhandle"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide mb-1.5">
                         TikTok Username
                     </label>
                     <input type="text" id="regTiktok" placeholder="@yourhandle"
-                           class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
+                        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500">
                 </div>
             </div>
 
             <!-- 100% FREE REGISTRATION CALLOUT -->
-            <div class="bg-gradient-to-r from-emerald-500/20 via-slate-900 to-amber-500/15 border border-emerald-500/40 rounded-xl p-4 flex items-center justify-between">
+            <div
+                class="bg-gradient-to-r from-emerald-500/20 via-slate-900 to-amber-500/15 border border-emerald-500/40 rounded-xl p-4 flex items-center justify-between">
                 <div>
                     <div class="text-xs font-black text-emerald-400 uppercase tracking-wide flex items-center gap-1.5">
                         <span>🎁</span> 100% Free Nominee Registration (Limited Time)
                     </div>
-                    <div class="text-[11px] text-slate-300 mt-0.5">Instant activation: Claim your classroom seat, profile link, and voting poster for KES 0!</div>
+                    <div class="text-[11px] text-slate-300 mt-0.5">Instant activation: Claim your classroom seat,
+                        profile link, and voting poster for KES 0!</div>
                 </div>
                 <div class="text-xl font-black text-emerald-400 font-mono">
                     FREE
@@ -329,27 +524,32 @@
             </div>
 
             <!-- ERROR MSG -->
-            <div id="regErrorBox" class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3"></div>
+            <div id="regErrorBox"
+                class="hidden text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg p-3"></div>
 
             <!-- SUBMIT BUTTON -->
             <button type="submit" id="regSubmitBtn"
-                    class="w-full bg-gradient-to-r from-emerald-500 via-amber-500 to-amber-600 hover:opacity-95 text-slate-950 font-black py-4 rounded-xl text-sm transition shadow-xl awards-glow flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                    style="color: #020617 !important; font-weight: 900 !important;">
+                class="w-full bg-gradient-to-r from-emerald-500 via-amber-500 to-amber-600 hover:opacity-95 text-slate-950 font-black py-4 rounded-xl text-sm transition shadow-xl awards-glow flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                style="color: #020617 !important; font-weight: 900 !important;">
                 <span>🎉 Register Free & Claim My Classroom Seat</span>
             </button>
 
             <!-- WAITING STATE -->
-            <div id="regWaitBox" class="hidden text-center py-6 space-y-3 bg-slate-950 rounded-xl border border-slate-800 p-6">
+            <div id="regWaitBox"
+                class="hidden text-center py-6 space-y-3 bg-slate-950 rounded-xl border border-slate-800 p-6">
                 <div class="animate-spin text-3xl">⏳</div>
                 <h4 class="text-base font-bold text-amber-400">Check Your Phone!</h4>
                 <p class="text-xs text-slate-300 max-w-sm mx-auto">
-                    A Safaricom STK prompt for <strong>KES 50</strong> has been sent to your phone. Enter your PIN to finalize your nomination.
+                    A Safaricom STK prompt for <strong>KES 50</strong> has been sent to your phone. Enter your PIN to
+                    finalize your nomination.
                 </p>
-                <div class="text-xs font-mono text-emerald-400" id="regCountdown">Waiting for confirmation (60s)...</div>
+                <div class="text-xs font-mono text-emerald-400" id="regCountdown">Waiting for confirmation (60s)...
+                </div>
             </div>
 
             <!-- SUCCESS STATE -->
-            <div id="regSuccessBox" class="hidden text-center py-6 space-y-4 bg-emerald-950/30 border border-emerald-500/50 rounded-2xl p-6 sm:p-8 shadow-2xl">
+            <div id="regSuccessBox"
+                class="hidden text-center py-6 space-y-4 bg-emerald-950/30 border border-emerald-500/50 rounded-2xl p-6 sm:p-8 shadow-2xl">
                 <div class="text-5xl animate-bounce">🎉</div>
                 <h4 class="text-xl sm:text-2xl font-black text-emerald-400">Nomination Confirmed & Active!</h4>
                 <p class="text-xs sm:text-sm text-slate-200" id="regSuccessMsg">
@@ -357,33 +557,36 @@
                 </p>
 
                 <!-- OFFICIAL WHATSAPP GROUP CALLOUT BANNER -->
-                <div class="my-4 bg-gradient-to-r from-emerald-600/25 via-slate-900 to-emerald-950/40 border-2 border-[#25D366] rounded-2xl p-5 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div
+                    class="my-4 bg-gradient-to-r from-emerald-600/25 via-slate-900 to-emerald-950/40 border-2 border-[#25D366] rounded-2xl p-5 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
                     <div class="flex items-center gap-3.5">
-                        <div class="w-14 h-14 rounded-2xl bg-[#25D366]/20 border border-[#25D366]/60 flex items-center justify-center text-3xl flex-shrink-0">
+                        <div
+                            class="w-14 h-14 rounded-2xl bg-[#25D366]/20 border border-[#25D366]/60 flex items-center justify-center text-3xl flex-shrink-0">
                             <span>💬</span>
                         </div>
                         <div>
-                            <div class="inline-block text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-950 border border-emerald-500/40 px-2.5 py-0.5 rounded-full mb-1">
+                            <div
+                                class="inline-block text-[10px] font-black uppercase tracking-wider text-emerald-300 bg-emerald-950 border border-emerald-500/40 px-2.5 py-0.5 rounded-full mb-1">
                                 Critical Next Step: Contestants Community
                             </div>
                             <h5 class="text-base font-black text-white m-0">
                                 Join the Official Nominees WhatsApp Group
                             </h5>
                             <p class="text-xs text-slate-300 mt-1 mb-0 leading-relaxed">
-                                Connect with other campus contestants, get official strategy tips, campaign rules, and grand finale schedule.
+                                Connect with other campus contestants, get official strategy tips, campaign rules, and
+                                grand finale schedule.
                             </p>
                         </div>
                     </div>
-                    <a href="https://chat.whatsapp.com/FjwDtFiwbQYFbL0qI6Vgy7"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="w-full sm:w-auto bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-sm px-6 py-3.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95 whitespace-nowrap">
+                    <a href="https://chat.whatsapp.com/FjwDtFiwbQYFbL0qI6Vgy7" target="_blank" rel="noopener noreferrer"
+                        class="w-full sm:w-auto bg-[#25D366] hover:bg-[#20ba59] text-white font-black text-sm px-6 py-3.5 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95 whitespace-nowrap">
                         <span>💬</span> Join WhatsApp Group Now &rarr;
                     </a>
                 </div>
 
                 <div class="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                    <a id="viewCampaignBtn" href="#" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-7 py-3.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/25">
+                    <a id="viewCampaignBtn" href="#"
+                        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-7 py-3.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-amber-500/25">
                         <span>🚀</span> View Your Campaign Profile &rarr;
                     </a>
                     <span id="autoRedirectNotice" class="text-xs text-slate-400 font-medium"></span>
@@ -446,15 +649,15 @@
                 const successBox = document.getElementById('regSuccessBox');
                 const viewBtn = document.getElementById('viewCampaignBtn');
                 const successMsg = document.getElementById('regSuccessMsg');
-                
+
                 successBox.classList.remove('hidden');
                 if (data.message && successMsg) successMsg.innerText = data.message;
                 if (viewBtn) viewBtn.href = data.redirect_url || `/awards/contestant/${data.contestant_id}`;
-                
+
                 if (typeof confetti === 'function') {
                     confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
                 }
-                
+
                 // Give the contestant comfortable time to join WhatsApp before redirect
                 let redirectSecs = 15;
                 const redirectNotice = document.getElementById('autoRedirectNotice');
@@ -523,14 +726,14 @@
                         document.getElementById('regSubmitBtn').disabled = false;
                     }
                 }
-            } catch (e) {}
+            } catch (e) { }
         }, 2500);
     }
 
-function previewContestantPhoto(input) {
+    function previewContestantPhoto(input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
-        
+
         if (file.size > 10 * 1024 * 1024) {
             alert('Selected image exceeds 10MB. Please choose a smaller picture.');
             input.value = '';
@@ -538,10 +741,10 @@ function previewContestantPhoto(input) {
         }
 
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
             document.getElementById('photoPreviewImg').src = e.target.result;
             document.getElementById('removePhotoBtn').classList.remove('hidden');
-            document.getElementById('photoFileName').innerHTML = `Selected: <span class="text-amber-400 font-bold">${file.name}</span> (${(file.size / (1024*1024)).toFixed(2)} MB)`;
+            document.getElementById('photoFileName').innerHTML = `Selected: <span class="text-amber-400 font-bold">${file.name}</span> (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
         };
         reader.readAsDataURL(file);
     }
@@ -588,4 +791,3 @@ function previewContestantPhoto(input) {
     });
 </script>
 {% endblock %}
-

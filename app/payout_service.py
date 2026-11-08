@@ -545,8 +545,8 @@ def save_manager_payout_phone(manager_id: str, phone_number: str, month_key: str
 def calculate_active_month_commission(manager_id: str, month_key: str = None):
     """
     Calculates active subscriptions and salary payout strictly for that specific month.
-    Managers get 30% commission (KES 15 per active 50 KES sub in their institution).
-    Ambassadors get 5% commission (or base referral fee per active sub).
+    Manager salary is set directly by the Super Admin (assigned stipend in KES).
+    Percentage-based commissions (30%/5%) are removed per Super Admin directive.
     """
     if not month_key:
         month_key, month_name = get_current_month_keys()
@@ -559,7 +559,7 @@ def calculate_active_month_commission(manager_id: str, month_key: str = None):
 
     mgr = db.reference(f'campus_managers/{manager_id}').get() or {}
     if not mgr:
-        return 0, 0, 0, None
+        return 0, 0.0, 0, None
 
     role = (mgr.get('role') or 'manager').lower()
     inst = mgr.get('institution') or mgr.get('institution_name', '')
@@ -583,18 +583,13 @@ def calculate_active_month_commission(manager_id: str, month_key: str = None):
                 if not is_paid:
                     continue
 
-                # Check if subscription was active in this specific month
-                # Check created_at or payment_date
                 created_at = str(p.get('created_at', ''))
                 pay_date = str(p.get('payment_date', ''))
                 
-                # Active if created_at or payment_date matches YYYY-MM
                 is_month_active = created_at.startswith(month_key) or pay_date.startswith(month_key)
                 if not is_month_active:
                     continue
 
-                # For manager: matches institution
-                # For ambassador: matches referral code
                 p_inst = str(p.get('institution') or p.get('institution_name', '')).strip().lower()
                 p_ref = str(p.get('referred_by', '')).strip()
 
@@ -605,17 +600,26 @@ def calculate_active_month_commission(manager_id: str, month_key: str = None):
                     if ref_code and p_ref == ref_code:
                         active_paid_subs += 1
 
-    commission_rate = 0.30 if role == 'manager' else 0.05
-    amount = int(round(active_paid_subs * 50 * commission_rate))
+    # Super Admin determines the exact compensation/stipend amount in KES
+    if 'assigned_salary' in mgr and mgr.get('assigned_salary') is not None:
+        amount = int(mgr.get('assigned_salary') or 0)
+    elif 'assigned_amount' in mgr and mgr.get('assigned_amount') is not None:
+        amount = int(mgr.get('assigned_amount') or 0)
+    elif 'salary' in mgr and mgr.get('salary') is not None:
+        amount = int(mgr.get('salary') or 0)
+    else:
+        amount = 0
+
+    commission_rate = 0.0 # Percentage commissions removed
 
     return active_paid_subs, commission_rate, amount, payout_phone
 
 
-def disburse_monthly_salaries(month_key: str = None, force: bool = False, target_manager_id: str = None):
+def disburse_monthly_salaries(month_key: str = None, force: bool = False, target_manager_id: str = None, custom_amount: int = None):
     """
-    Disburses monthly salaries automatically via M-Pesa B2C to all active Campus Managers
-    and Ambassadors on the 31st of every month (or if force=True for testing/admin trigger).
-    Only disburses to managers who have set their payout phone number for that specific month.
+    Disburses salaries via M-Pesa B2C to Campus Managers & Ambassadors.
+    Super Admin can disburse payments ANYTIME (even before the 31st of the month).
+    Supports paying a custom amount on-demand or the Super Admin assigned salary.
     """
     now = datetime.now(EAT)
     if not month_key:
@@ -627,13 +631,13 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
         except:
             month_name = month_key
 
-    # Check date condition: Must be 31st of the month (or last day of month), unless forced
+    # Date check: If force=True, target_manager_id is specified, or custom_amount is given, allow anytime!
     is_31st = (now.day == 31 or (now.month == 2 and now.day in [28, 29]))
-    if not is_31st and not force:
-        logger.info(f"ℹ️ Today is day {now.day}, monthly payouts only run automatically on the 31st.")
+    if not is_31st and not force and not target_manager_id and custom_amount is None:
+        logger.info("ℹ️ Automated schedule runs on the 31st; Admin can disburse anytime via Super Admin panel.")
         return {
             "success": False,
-            "message": f"Monthly salary payouts run on the 31st of every month. (Today is {now.strftime('%Y-%m-%d')})"
+            "message": "Automated monthly cron waits for the 31st. (To pay anytime on-demand, trigger via Super Admin panel)."
         }
 
     if target_manager_id:
@@ -652,18 +656,29 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
 
             mgr_name = mgr.get('name', 'Campus Lead')
             role = (mgr.get('role') or 'manager').title()
-            subs, rate, amount, payout_phone = calculate_active_month_commission(mid, month_key)
+            subs, rate, default_amount, payout_phone = calculate_active_month_commission(mid, month_key)
 
             # Check existing ledger status
             ledger_entry = db.reference(f'campus_manager_ledgers/{mid}/{month_name}').get() or {}
+            already_paid = 0
             if ledger_entry.get('status') == 'Paid':
+                already_paid = int(ledger_entry.get('amount', 0) or 0)
+
+            # Determine payout amount for this run
+            if custom_amount is not None and (target_manager_id == mid or len(managers) == 1):
+                amount_to_pay = int(custom_amount)
+            else:
+                amount_to_pay = max(0, default_amount - already_paid)
+
+            # If already settled and no positive balance to pay
+            if amount_to_pay <= 0 and already_paid > 0:
                 results.append({
                     "manager_id": mid,
                     "name": mgr_name,
                     "role": role,
-                    "status": "Already Paid",
-                    "amount": ledger_entry.get('amount', amount),
-                    "phone": ledger_entry.get('payout_phone', payout_phone)
+                    "status": "Already Settled",
+                    "amount": already_paid,
+                    "phone": payout_phone
                 })
                 continue
 
@@ -672,7 +687,7 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                 db.reference(f'campus_manager_ledgers/{mid}/{month_name}').update({
                     "month": month_name,
                     "subscribers": subs,
-                    "amount": amount,
+                    "amount": default_amount,
                     "status": "Action Required: Missing Payout Phone",
                     "updated_at": now.strftime("%Y-%m-%d %H:%M:%S")
                 })
@@ -681,13 +696,13 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                     "name": mgr_name,
                     "role": role,
                     "status": "Skipped: Missing Payout Phone",
-                    "amount": amount,
+                    "amount": amount_to_pay,
                     "phone": None
                 })
                 continue
 
-            # If amount is 0, record in ledger as No Earnings
-            if amount <= 0:
+            # If amount is 0, record in ledger as Zero Balance
+            if amount_to_pay <= 0:
                 db.reference(f'campus_manager_ledgers/{mid}/{month_name}').update({
                     "month": month_name,
                     "subscribers": subs,
@@ -706,33 +721,36 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                 continue
 
             # Disburse via M-Pesa B2C!
-            logger.info(f"🚀 Disbursing {month_name} salary: KES {amount} to {mgr_name} ({payout_phone})...")
+            logger.info(f"🚀 Disbursing {month_name} salary: KES {amount_to_pay} to {mgr_name} ({payout_phone}) anytime...")
             remarks = f"FYM {month_name[:7]} Salary"
             b2c_res = initiate_b2c_payout(
                 phone_number=payout_phone,
-                amount=amount,
+                amount=amount_to_pay,
                 command_id="SalaryPayment",
                 remarks=remarks,
-                occasion="Monthly Salary"
+                occasion="Campus Manager Salary"
             )
 
             if b2c_res.get('success'):
+                new_total_paid = already_paid + amount_to_pay
                 db.reference(f'campus_manager_ledgers/{mid}/{month_name}').update({
                     "month": month_name,
                     "subscribers": subs,
-                    "amount": amount,
+                    "amount": new_total_paid,
+                    "last_disbursed_amount": amount_to_pay,
                     "status": "Paid",
                     "paid_date": now.strftime("%Y-%m-%d %H:%M EAT"),
                     "payout_phone": payout_phone,
                     "b2c_conversation_id": b2c_res.get('ConversationID'),
-                    "disbursed_automatically": True
+                    "disbursed_anytime": True
                 })
                 results.append({
                     "manager_id": mid,
                     "name": mgr_name,
                     "role": role,
                     "status": "Paid Successfully",
-                    "amount": amount,
+                    "amount": amount_to_pay,
+                    "total_paid": new_total_paid,
                     "phone": payout_phone,
                     "conversation_id": b2c_res.get('ConversationID')
                 })
@@ -747,7 +765,7 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                             recipient_name=mgr_name,
                             institution=mgr.get('institution', 'Campus'),
                             month_display=month_name,
-                            amount_paid=amount,
+                            amount_paid=amount_to_pay,
                             phone_number=payout_phone,
                             transaction_ref=b2c_res.get('ConversationID'),
                             role=role
@@ -760,7 +778,7 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                 db.reference(f'campus_manager_ledgers/{mid}/{month_name}').update({
                     "month": month_name,
                     "subscribers": subs,
-                    "amount": amount,
+                    "amount": default_amount,
                     "status": f"Failed: {err_msg}",
                     "failed_date": now.strftime("%Y-%m-%d %H:%M EAT")
                 })
@@ -769,15 +787,14 @@ def disburse_monthly_salaries(month_key: str = None, force: bool = False, target
                     "name": mgr_name,
                     "role": role,
                     "status": f"Failed: {err_msg}",
-                    "amount": amount,
+                    "amount": amount_to_pay,
                     "phone": payout_phone
                 })
 
     return {
         "success": True,
-        "month": month_name,
-        "processed_at": now.strftime("%Y-%m-%d %H:%M:%S EAT"),
-        "results": results
+        "results": results,
+        "month": month_name
     }
 
 

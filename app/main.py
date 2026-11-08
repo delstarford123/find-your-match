@@ -3597,6 +3597,8 @@ def super_admin():
             )
             active_subs, comm_rate, supposed_amount, payout_phone = calculate_active_month_commission(m_id, curr_month_key)
             gross_sub_rev = active_subs * 50
+            assigned_salary = int(mgr.get('assigned_salary') if mgr.get('assigned_salary') is not None else (supposed_amount or 0))
+            supposed_amount = assigned_salary
             already_paid = 0
             m_ledger = manager_ledgers.get(m_id, {}) if isinstance(manager_ledgers, dict) else {}
             if isinstance(m_ledger, dict) and curr_month_key in m_ledger:
@@ -3612,9 +3614,10 @@ def super_admin():
             payout_status = 'Paid' if (already_paid >= supposed_amount and supposed_amount > 0) else 'Pending'
 
             enriched = dict(mgr)
+            enriched['assigned_salary'] = assigned_salary
             enriched['total_students'] = m_total_students
             enriched['active_paid_subs'] = active_subs
-            enriched['commission_rate_pct'] = int(round(comm_rate * 100))
+            enriched['commission_rate_pct'] = 0
             enriched['gross_sub_rev'] = gross_sub_rev
             enriched['supposed_to_get'] = supposed_amount
             enriched['already_paid'] = already_paid
@@ -3802,6 +3805,7 @@ def super_admin():
     
     
 @app.route('/api/admin/action', methods=['POST'])
+@csrf.exempt
 def admin_action():
     if not session.get('is_super_admin'):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
@@ -3831,17 +3835,46 @@ def admin_action():
                 return jsonify({'success': True, 'new_role': new_role})
             return jsonify({'success': False})
             
+        elif action == 'set_manager_salary':
+            target_id = data.get('target_id')
+            raw_amount = data.get('amount', 0)
+            try:
+                salary_amount = int(float(raw_amount))
+            except:
+                salary_amount = 0
+            db.reference(f'campus_managers/{target_id}').update({
+                'assigned_salary': salary_amount
+            })
+            from app.payout_service import get_current_month_keys
+            _, month_name = get_current_month_keys()
+            curr_ledger = db.reference(f'campus_manager_ledgers/{target_id}/{month_name}').get() or {}
+            if curr_ledger.get('status') != 'Paid':
+                db.reference(f'campus_manager_ledgers/{target_id}/{month_name}').update({
+                    'amount': salary_amount
+                })
+            db.reference('admin_audit_logs').push({
+                'action': f"Set salary for campus manager {target_id} to KES {salary_amount}",
+                'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
+                'admin_ip': request.remote_addr
+            })
+            return jsonify({'success': True, 'amount': salary_amount})
+
         elif action == 'add_campus_manager':
             from app.database import add_campus_manager
             name = data.get('name')
             email = data.get('email')
             institution = data.get('institution')
+            assigned_salary = data.get('assigned_salary', 0)
+            try:
+                assigned_salary = int(float(assigned_salary))
+            except:
+                assigned_salary = 0
             
             # Generate random password
             raw_password = secrets.token_urlsafe(8)
             hashed_password = generate_password_hash(raw_password)
             
-            if add_campus_manager(name, email, institution, hashed_password):
+            if add_campus_manager(name, email, institution, hashed_password, assigned_salary):
                 db.reference('admin_audit_logs').push({
                     'action': f"Added campus manager {name} for {institution}",
                     'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
@@ -4296,9 +4329,15 @@ def admin_action():
         elif action == 'disburse_manager_salary':
             from app.payout_service import disburse_monthly_salaries
             month_key = data.get('month')
-            res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=target_id)
+            custom_amount = data.get('amount')
+            if custom_amount is not None:
+                try:
+                    custom_amount = int(float(custom_amount))
+                except:
+                    custom_amount = None
+            res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=target_id, custom_amount=custom_amount)
             db.reference('admin_audit_logs').push({
-                'action': f"Admin manually disbursed monthly salary for manager {target_id}",
+                'action': f"Admin disbursed salary for manager {target_id} anytime (amount: {custom_amount or 'assigned'})",
                 'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
                 'admin_ip': request.remote_addr
             })
@@ -4393,10 +4432,17 @@ def admin_disburse_manager_salary(manager_id):
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
     try:
         from app.payout_service import disburse_monthly_salaries
-        month_key = request.json.get('month') if request.is_json else request.form.get('month')
-        res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=manager_id)
+        req_data = request.json if request.is_json else request.form
+        month_key = req_data.get('month') if req_data else None
+        custom_amount = req_data.get('amount') if req_data else None
+        if custom_amount is not None:
+            try:
+                custom_amount = int(float(custom_amount))
+            except:
+                custom_amount = None
+        res = disburse_monthly_salaries(month_key=month_key, force=True, target_manager_id=manager_id, custom_amount=custom_amount)
         db.reference('admin_audit_logs').push({
-            'action': f"Verified & disbursed salary for manager {manager_id}",
+            'action': f"Verified & disbursed salary for manager {manager_id} anytime",
             'timestamp': datetime.now(EAT).strftime("%Y-%m-%d %H:%M:%S EAT"),
             'admin_ip': request.remote_addr
         })
@@ -9470,12 +9516,13 @@ def manager_dashboard():
         running_total += monthly_subs.get(m, 0)
         if m in monthly_subs_keys:
             cumulative_subs.append(running_total)
+    mid = session.get('manager_id')
+    mgr = db.reference(f'campus_managers/{mid}').get() or {}
+    assigned_salary = int(mgr.get('assigned_salary') or 0)
     role = session.get('manager_role', 'manager')
-    commission_rate = 0.30 if role == 'manager' else 0.05
-    payout = paid_users * 50 * commission_rate
+    payout = assigned_salary
     
     # Fetch ledger
-    mid = session.get('manager_id')
     ledger_data = db.reference(f'campus_manager_ledgers/{mid}').get() or {}
     
     # Generate current month if not in ledger
@@ -9526,8 +9573,9 @@ def manager_dashboard():
                 'is_paid': prof.get('is_paid', False)
             })
             
-    # Sort the dict keys MMUST first, then alphabetically
-    sorted_inst_keys = sorted(users_by_inst_data.keys(), key=lambda x: (0 if 'mmust' in str(x).lower() or 'masinde' in str(x).lower() else 1, str(x).lower()))
+    # Sort the dict keys: logged-in manager's institution first, then alphabetically
+    mgr_inst_clean = str(inst).strip().lower() if inst else ''
+    sorted_inst_keys = sorted(users_by_inst_data.keys(), key=lambda x: (0 if mgr_inst_clean and mgr_inst_clean in str(x).lower() else 1, str(x).lower()))
     
     sorted_users_by_inst = []
     for k in sorted_inst_keys:
