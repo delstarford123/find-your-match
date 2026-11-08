@@ -2898,6 +2898,16 @@
 
 
 
+    .metric-card[onclick] {
+        cursor: pointer !important;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease !important;
+    }
+    .metric-card[onclick]:hover {
+        transform: translateY(-3px) scale(1.01) !important;
+        box-shadow: 0 10px 25px rgba(56, 189, 248, 0.22) !important;
+        border-color: rgba(56, 189, 248, 0.5) !important;
+    }
+
     .module-btn:hover {
 
         color: #ffffff;
@@ -4757,7 +4767,7 @@ function toggleAmbassador(id) {
 
             <div class="nav-group-title">MAIN DASHBOARD</div>
 
-            <button type="button" class="module-btn active" onclick="switchModule(this,'module-dashboard')">
+            <button type="button" class="module-btn active" onclick="switchModule(this,'module-dashboard')" title="Dashboard Overview & KPIs">
 
                 <span class="btn-icon">📊</span>
 
@@ -4765,7 +4775,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-survey')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-survey')" title="Analytics, Traffic & Growth">
 
                 <span class="btn-icon">📈</span>
 
@@ -4780,13 +4790,13 @@ function toggleAmbassador(id) {
             <div class="nav-group-title">CAMPUS & EVENTS</div>
 
             <!-- AWARDS & TALENT VOTING SYSTEM (GOD MODE INTEGRATED) -->
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-awards')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-awards')" title="Kenya Talent Awards & Voting Console">
                 <span class="btn-icon">🏆</span>
                 <span class="btn-text" style="color:#fcd34d; font-weight:900;">Awards & Voting</span>
                 <span class="nav-count-badge" style="background:#f59e0b; color:#000; font-weight:900; font-size:10px;">LIVE</span>
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-institutions')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-institutions')" title="Campus Institutions & Universities">
 
                 <span class="btn-icon">🏫</span>
 
@@ -4794,7 +4804,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-managers')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-managers')" title="Campus Managers & M-Pesa Stipends">
 
                 <span class="btn-icon">🧑‍💼</span>
 
@@ -4802,7 +4812,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-events')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-events')" title="Events & Ticket Escrow Payouts">
 
                 <span class="btn-icon">🎉</span>
 
@@ -4818,7 +4828,7 @@ function toggleAmbassador(id) {
 
             <div class="nav-group-title">USERS & COMMUNITY</div>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-users')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-users')" title="All Comrades Directory">
 
                 <span class="btn-icon">👥</span>
 
@@ -4826,7 +4836,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-users','tab-premium')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-users','tab-premium')" title="Premium Comrades">
 
                 <span class="btn-icon">💎</span>
 
@@ -4834,7 +4844,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-support')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-support')" title="Support & User Inquiries">
 
                 <span class="btn-icon">💬</span>
 
@@ -4842,7 +4852,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-safety')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-safety')" title="Safety & User Moderation">
 
                 <span class="btn-icon">🛡️</span>
 
@@ -4856,7 +4866,7 @@ function toggleAmbassador(id) {
 
             <div class="nav-group-title">PLATFORM MANAGEMENT</div>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-business')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-business')" title="Business & Merchant Partners">
 
                 <span class="btn-icon">🏪</span>
 
@@ -4864,7 +4874,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-content')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-content')" title="Content & Campus Promos">
 
                 <span class="btn-icon">🎬</span>
 
@@ -4872,7 +4882,7 @@ function toggleAmbassador(id) {
 
             </button>
 
-            <button type="button" class="module-btn" onclick="switchModule(this,'module-system')">
+            <button type="button" class="module-btn" onclick="switchModule(this,'module-system')" title="System Settings & Escrow Commission">
 
                 <span class="btn-icon">⚙️</span>
 
@@ -5313,7 +5323,7 @@ function toggleAmbassador(id) {
 
 
 
-            <div class="metric-card green-card animate-up delay-1">
+            <div class="metric-card green-card animate-up delay-1" onclick="switchModule(null, 'module-users')" style="cursor: pointer;" title="Click to view and manage all comrades">
 
 
 
@@ -5521,7 +5531,7 @@ function toggleAmbassador(id) {
 
 
 
-            <div class="metric-card animate-up delay-2">
+            <div class="metric-card animate-up delay-2" onclick="switchModule(null, 'module-survey')" style="cursor: pointer;" title="Click to view analytics and user traffic">
 
 
 
@@ -5577,7 +5587,7 @@ function toggleAmbassador(id) {
 
 
 
-            <div class="metric-card animate-up delay-2">
+            <div class="metric-card animate-up delay-2" onclick="switchModule(null, 'module-survey')" style="cursor: pointer;" title="Click to view chat engagement analytics">
 
 
 
@@ -5633,7 +5643,7 @@ function toggleAmbassador(id) {
 
 
 
-            <div class="metric-card animate-up delay-3">
+            <div class="metric-card animate-up delay-3" onclick="switchModule(null, 'module-survey')" style="cursor: pointer;" title="Click to view date proposals analytics">
 
 
 
@@ -5689,7 +5699,7 @@ function toggleAmbassador(id) {
 
 
 
-            <div class="metric-card purple-card animate-up delay-3">
+            <div class="metric-card purple-card animate-up delay-3" onclick="switchModule(null, 'module-business')" style="cursor: pointer;" title="Click to view popular venues and merchant accounts">
 
 
 
@@ -9068,7 +9078,7 @@ function toggleAmbassador(id) {
 
 
 
-            <button class="tab-btn active" onclick="switchTab('tab-unpaid')">Verified (Unpaid)</button>
+            <button class="tab-btn active" onclick="switchTab(this, 'tab-unpaid')">Verified (Unpaid)</button>
 
 
 
@@ -9076,7 +9086,7 @@ function toggleAmbassador(id) {
 
 
 
-            <button class="tab-btn" onclick="switchTab('tab-premium')">Premium Users</button>
+            <button class="tab-btn" onclick="switchTab(this, 'tab-premium')">Premium Users</button>
 
 
 
@@ -9084,7 +9094,7 @@ function toggleAmbassador(id) {
 
 
 
-            <button class="tab-btn" onclick="switchTab('tab-unverified')">Unverified Users</button>
+            <button class="tab-btn" onclick="switchTab(this, 'tab-unverified')">Unverified Users</button>
 
 
 
@@ -20924,101 +20934,72 @@ function toggleAmbassador(id) {
 
 
         function switchModule(srcBtn, moduleId, targetTabId = null) {
+            // Flexible signature: support both switchModule('module-users') and switchModule(this, 'module-users', 'tab-premium')
+            if (typeof srcBtn === 'string') {
+                if (moduleId && typeof moduleId === 'string' && !moduleId.startsWith('module-')) {
+                    targetTabId = moduleId;
+                }
+                moduleId = srcBtn;
+                srcBtn = null;
+            }
+
+            if (!moduleId) return;
 
             // Remove active from all sidebar nav buttons and module panels
-
             document.querySelectorAll('.module-btn').forEach(btn => btn.classList.remove('active'));
-
             document.querySelectorAll('.module-content').forEach(m => m.classList.remove('active'));
 
-
-
-            // Mark the clicked button active
-
+            // Mark the clicked button active or locate matching button
             let activeBtn = null;
-
             if (srcBtn && srcBtn.classList) {
-
                 srcBtn.classList.add('active');
-
                 activeBtn = srcBtn;
-
             } else {
-
-                // Fallback: find by onclick attribute text
-
-                const fallbackBtn = document.querySelector(`.module-btn[onclick*="'${moduleId}'"]`);
-
+                const fallbackBtn = document.querySelector(`.module-btn[onclick*="'${moduleId}'"]`) ||
+                                    document.querySelector(`.module-btn[onclick*='"${moduleId}"']`);
                 if (fallbackBtn) {
-
                     fallbackBtn.classList.add('active');
-
                     activeBtn = fallbackBtn;
-
                 }
-
             }
-
-
 
             const panel = document.getElementById(moduleId);
-
-            if (panel) panel.classList.add('active');
-
-
+            if (panel) {
+                panel.classList.add('active');
+            } else {
+                console.warn('Module panel not found for id:', moduleId);
+            }
 
             // Update topbar breadcrumb
-
             const breadcrumbEl = document.getElementById('active-module-breadcrumb');
-
             if (breadcrumbEl && activeBtn) {
-
                 const textSpan = activeBtn.querySelector('.btn-text');
-
                 const titleText = textSpan ? textSpan.innerText.trim() : activeBtn.innerText.trim();
-
                 breadcrumbEl.innerText = `/ ${titleText}`;
-
             }
-
-
 
             if (targetTabId) {
-
                 // Activate the specific tab within the module
-
                 setTimeout(() => {
-
                     const tabBtn = document.querySelector(`.tab-btn[onclick*="${targetTabId}"]`);
-
-                    if (tabBtn) tabBtn.click();
-
+                    if (tabBtn) {
+                        tabBtn.click();
+                    } else if (typeof switchTab === 'function') {
+                        switchTab(targetTabId);
+                    }
                 }, 50);
-
             }
-
-
 
             // On mobile devices, smoothly close the drawer after selection
-
             if (window.innerWidth < 1024) {
-
                 toggleSidebarNavigation(false);
-
             }
-
-
 
             // CRITICAL: Scroll ONLY the main content area to top - sidebar remains 100% frozen & stable!
-
             const mainCanvas = document.querySelector('.admin-main-area');
-
             if (mainCanvas) {
-
                 mainCanvas.scrollTo({ top: 0, behavior: 'smooth' });
-
             }
-
         }
 
 
@@ -21126,53 +21107,29 @@ function toggleAmbassador(id) {
 
 
         function switchTab(srcBtn, tabId) {
-
-
-
-
-
-
+            // Flexible signature: switchTab('tab-premium') vs switchTab(this, 'tab-premium')
+            if (typeof srcBtn === 'string' && !tabId) {
+                tabId = srcBtn;
+                srcBtn = null;
+            }
+            if (!tabId) return;
 
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-
-
-
-
-
-
-
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
+            if (!srcBtn || !srcBtn.classList) {
+                srcBtn = document.querySelector(`.tab-btn[onclick*="'${tabId}'"]`) ||
+                         document.querySelector(`.tab-btn[onclick*='"${tabId}"']`);
+            }
 
-
-
-
-
-
-            if (srcBtn) srcBtn.classList.add('active');
-
-
-
-
-
-
+            if (srcBtn && srcBtn.classList) {
+                srcBtn.classList.add('active');
+            }
 
             const panel = document.getElementById(tabId);
-
-
-
-
-
-
-
-            if (panel) panel.classList.add('active');
-
-
-
-
-
-
-
+            if (panel) {
+                panel.classList.add('active');
+            }
         }
 
 
@@ -28169,54 +28126,25 @@ Tickets Settled: ${data.disbursed_count}`);
 
 
 
+        function triggerOctoberSalaryPayout(monthDisplay) {
+            const targetMonth = monthDisplay || "Current Month";
+            if(!confirm(`Are you sure you want to disburse ${targetMonth} stipends via Safaricom M-Pesa B2C to ALL Campus Managers right now?`)) return;
+            showToast(`Disbursing ${targetMonth} stipends via Safaricom M-Pesa B2C...`);
+            fetch('/api/cron/monthly-payouts?force=true')
+            .then(res => res.json())
+            .then(data => {
+                let summary = "";
+                if (data.results && data.results.length > 0) {
+                    summary = data.results.map(r => `${r.name} (${r.phone || 'No phone'}): ${r.status} - KES ${r.amount || 0}`).join('\n');
+                } else {
+                    summary = data.message || "Disbursal processed.";
+                }
                 alert(targetMonth + " Salary Disbursal Report:\n\n" + summary);
-
-
-
-
-
-
-
                 location.reload();
-
-
-
-
-
-
-
             })
-
-
-
-
-
-
-
             .catch(err => {
-
-
-
-
-
-
-
                 showToast("Error executing salary disbursal: " + err, true);
-
-
-
-
-
-
-
             });
-
-
-
-
-
-
-
         }
 
 
@@ -29617,6 +29545,11 @@ Tickets Settled: ${data.disbursed_count}`);
 
 
 
+        }
+
+        // Alias for Campus Managers header button
+        function sendManagerMonthEndStatements(btn) {
+            sendAllManagerForecasts(btn || window.event?.target);
         }
 
 
